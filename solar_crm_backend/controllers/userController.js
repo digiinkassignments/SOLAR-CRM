@@ -1,0 +1,389 @@
+const bcrypt = require("bcrypt");
+
+const {
+    checkUsernameExists,
+    checkEmailExists,
+    checkPhoneExists,
+    createUser,
+    getAllUsers,
+    getTotalUsersCount,
+    getUserById,
+    checkUsernameExistsForUpdate,
+    checkEmailExistsForUpdate,
+    checkPhoneExistsForUpdate,
+    updateUser,
+    updateUserStatus,
+    softDeleteUser,
+    getTeamMembersByManager
+} = require("../models/userModel");
+
+// ======================================
+// Create User
+// ======================================
+const createUserController = async (req, res) => {
+    try {
+        const { role_id, manager_id, full_name, username, email, phone, password } = req.body;
+
+        if (!role_id || !full_name || !username || !email || !phone || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required."
+            });
+        }
+
+        if (role_id == 3 && !manager_id) {
+            return res.status(400).json({
+                success: false,
+                message: "Manager is required for Sales Person."
+            });
+        }
+
+        const db = req.db;
+
+        if ((await checkUsernameExists(username, db)).length > 0) {
+            return res.status(400).json({ success: false, message: "Username already exists." });
+        }
+
+        if ((await checkEmailExists(email, db)).length > 0) {
+            return res.status(400).json({ success: false, message: "Email already exists." });
+        }
+
+        if ((await checkPhoneExists(phone, db)).length > 0) {
+            return res.status(400).json({ success: false, message: "Phone number already exists." });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        await createUser({
+            role_id,
+            manager_id: manager_id || null,
+            full_name,
+            username,
+            email,
+            phone,
+            password: hashedPassword,
+            created_by: req.user.id
+        }, db);
+
+        return res.status(201).json({
+            success: true,
+            message: "User created successfully."
+        });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error."
+        });
+    }
+};
+
+// ======================================
+// Get All Users
+// ======================================
+const getUsersController = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const search = req.query.search || "";
+        const role = req.query.role || "";
+        const status = req.query.status || "";
+
+        const offset = (page - 1) * limit;
+
+        const db = req.db;
+
+        const [users, totalRecords] = await Promise.all([
+            getAllUsers(offset, limit, search, role, status, db),
+            getTotalUsersCount(search, role, status, db)
+        ]);
+
+        const totalPages = Math.ceil(totalRecords / limit);
+
+        return res.status(200).json({
+            success: true,
+            message: "Users fetched successfully.",
+            data: users,
+            pagination: {
+                page,
+                limit,
+                totalRecords,
+                totalPages
+            }
+        });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error."
+        });
+    }
+};
+
+// ======================================
+// Get User By ID
+// ======================================
+const getUserByIdController = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const db = req.db;
+
+        const user = await getUserById(id, db);
+
+        if (user.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found."
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "User fetched successfully.",
+            data: user[0]
+        });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error."
+        });
+    }
+};
+
+// ======================================
+// Get Team Members (Manager Only)
+// ======================================
+const getTeamMembersController = async (req, res) => {
+    try {
+        const managerId = req.user ? req.user.id : null;
+
+        if (!managerId) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized request."
+            });
+        }
+
+        const db = req.db;
+
+        const teamMembers = await getTeamMembersByManager(managerId, db);
+
+        return res.status(200).json({
+            success: true,
+            message: "Team members fetched successfully.",
+            data: teamMembers
+        });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error."
+        });
+    }
+};
+
+// ======================================
+// Update User
+// ======================================
+const updateUserController = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { role_id, manager_id, full_name, username, email, phone } = req.body;
+
+        if (!role_id || !full_name || !username || !email || !phone) {
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required."
+            });
+        }
+
+        if (role_id == 3 && !manager_id) {
+            return res.status(400).json({
+                success: false,
+                message: "Manager is required for Sales Person."
+            });
+        }
+
+        const db = req.db;
+
+        if ((await checkUsernameExistsForUpdate(username, id, db)).length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Username already exists."
+            });
+        }
+
+        if ((await checkEmailExistsForUpdate(email, id, db)).length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Email already exists."
+            });
+        }
+
+        if ((await checkPhoneExistsForUpdate(phone, id, db)).length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Phone number already exists."
+            });
+        }
+
+        const result = await updateUser({
+            id,
+            role_id,
+            manager_id: manager_id || null,
+            full_name,
+            username,
+            email,
+            phone
+        }, db);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found."
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "User updated successfully."
+        });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error."
+        });
+    }
+};
+
+// ======================================
+// Update User Status
+// ======================================
+const updateUserStatusController = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        if (Number(req.user.id) === Number(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "You cannot change your own account status."
+            });
+        }
+
+        if (!status) {
+            return res.status(400).json({
+                success: false,
+                message: "Status is required."
+            });
+        }
+
+        if (status !== "Active" && status !== "Inactive") {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid status."
+            });
+        }
+
+        const db = req.db;
+
+        const result = await updateUserStatus(id, status, db);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found."
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "User status updated successfully."
+        });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error."
+        });
+    }
+};
+
+// ======================================
+// Soft Delete User
+// ======================================
+const deleteUserController = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (Number(req.user.id) === Number(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "You cannot delete your own account."
+            });
+        }
+
+        const db = req.db;
+
+        const result = await softDeleteUser(id, db);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found."
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "User deleted successfully."
+        });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error."
+        });
+    }
+};
+
+// ======================================
+// Update FCM Token
+// ======================================
+const updateFcmTokenController = async (req, res) => {
+    try {
+        const { fcm_token } = req.body;
+        const userId = req.user.id;
+
+        if (!fcm_token) {
+            return res.status(400).json({ success: false, message: "FCM token required." });
+        }
+
+        const db = req.db;
+        await db.query("UPDATE users SET fcm_token = ? WHERE id = ?", [fcm_token, userId]);
+        return res.status(200).json({ success: true, message: "FCM token updated." });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ success: false, message: "Internal Server Error." });
+    }
+};
+
+module.exports = {
+    createUser: createUserController,
+    getUsers: getUsersController,
+    getUserById: getUserByIdController,
+    getTeamMembers: getTeamMembersController,
+    updateUser: updateUserController,
+    updateUserStatus: updateUserStatusController,
+    deleteUser: deleteUserController,
+    updateFcmToken: updateFcmTokenController
+};
