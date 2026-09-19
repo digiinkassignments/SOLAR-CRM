@@ -22,18 +22,24 @@ import QrCodeRoundedIcon from "@mui/icons-material/QrCodeRounded";
 
 import api from "../api/axios";
 
-const COLORS = {
-  primary: "#005BAC",
-  primaryDark: "#0B3A63",
-  primarySoft: "#E0F2FE",
-  bg: "#F5F7FA",
+const GOOGLE_COLORS = {
+  blue: "#1A73E8",
+  blueDark: "#0B57D0",
+  blueSoft: "#E8F0FE",
+  green: "#1E8E3E",
+  greenSoft: "#E6F4EA",
+  red: "#D93025",
+  redSoft: "#FCE8E6",
+  yellow: "#F9AB00",
+  yellowSoft: "#FEF7E0",
+  orange: "#E37400",
+  orangeSoft: "#FEF3D6",
+  bg: "#F8F9FA",
   card: "#FFFFFF",
-  border: "#E2E8F0",
-  success: "#16A34A",
-  successSoft: "#DCFCE7",
-  textPrimary: "#0F172A",
-  textSecondary: "#64748B",
-  textMuted: "#94A3B8",
+  border: "#E0E3E7",
+  textPrimary: "#202124",
+  textSecondary: "#5F6368",
+  textMuted: "#70757A",
 };
 
 const Settings = () => {
@@ -84,41 +90,58 @@ const Settings = () => {
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress size={36} sx={{ color: COLORS.primary }} />
+        <CircularProgress size={36} sx={{ color: GOOGLE_COLORS.blue }} />
       </Box>
     );
   }
 
   return (
-    <Box>
+    <Box sx={{ width: "100%", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       {/* Top Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={800} color={COLORS.primaryDark}>
-            Master SaaS Settings
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 700,
+              color: GOOGLE_COLORS.textPrimary,
+              fontSize: "1.35rem",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+            }}
+          >
+            System Console Configuration
           </Typography>
-          <Typography variant="body2" color={COLORS.textSecondary} sx={{ mt: 0.3 }}>
-            Configure bank transfer details, UPI QR information, and tenant customer support channels
+          <Typography
+            variant="body2"
+            sx={{
+              color: GOOGLE_COLORS.textSecondary,
+              mt: 0.4,
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+            }}
+          >
+            Configure master organization metadata, bank wire parameters, and tenant support channels
           </Typography>
         </Box>
 
         <Button
           variant="contained"
-          startIcon={<SaveRoundedIcon />}
+          disableElevation
+          startIcon={<SaveRoundedIcon sx={{ fontSize: 18 }} />}
           onClick={handleSave}
           disabled={saving}
           sx={{
-            borderRadius: "10px",
+            borderRadius: "100px",
             textTransform: "none",
-            fontWeight: 700,
+            fontWeight: 600,
             px: 3,
             py: 1,
-            backgroundColor: COLORS.primary,
-            "&:hover": { backgroundColor: "#0A6FD8" },
-            boxShadow: "0 4px 12px rgba(0,91,172,0.25)",
+            backgroundColor: GOOGLE_COLORS.blue,
+            color: "#FFFFFF",
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            "&:hover": { backgroundColor: GOOGLE_COLORS.blueDark },
           }}
         >
-          {saving ? <CircularProgress size={20} color="inherit" /> : "Save Settings"}
+          {saving ? <CircularProgress size={20} color="inherit" /> : "Save Configuration"}
         </Button>
       </Box>
 
@@ -128,21 +151,21 @@ const Settings = () => {
           <Paper
             elevation={0}
             sx={{
-              borderRadius: "14px",
-              border: `1px solid ${COLORS.border}`,
+              borderRadius: "20px",
+              border: `1px solid ${GOOGLE_COLORS.border}`,
               p: 3,
-              backgroundColor: COLORS.card,
+              backgroundColor: GOOGLE_COLORS.card,
               height: "100%",
             }}
           >
             <Stack direction="row" alignItems="center" spacing={1.2} mb={2}>
-              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: COLORS.primary }} />
-              <BusinessRoundedIcon sx={{ color: COLORS.primary, fontSize: 20 }} />
-              <Typography sx={{ fontWeight: 800, color: COLORS.textPrimary, fontSize: "0.95rem" }}>
-                Company Information
+              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.blue }} />
+              <BusinessRoundedIcon sx={{ color: GOOGLE_COLORS.blue, fontSize: 22 }} />
+              <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
+                Master Organization Profile
               </Typography>
             </Stack>
-            <Divider sx={{ mb: 2.5, borderColor: COLORS.border }} />
+            <Divider sx={{ mb: 2.5, borderColor: GOOGLE_COLORS.border }} />
 
             <Grid container spacing={2}>
               <Grid item xs={12}>
@@ -153,7 +176,13 @@ const Settings = () => {
                   onChange={handleChange}
                   fullWidth
                   size="small"
-                  InputProps={{ sx: { borderRadius: "8px" } }}
+                  InputProps={{
+                    sx: {
+                      borderRadius: "12px",
+                      backgroundColor: GOOGLE_COLORS.bg,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    },
+                  }}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -165,7 +194,13 @@ const Settings = () => {
                   onChange={handleChange}
                   fullWidth
                   size="small"
-                  InputProps={{ sx: { borderRadius: "8px" } }}
+                  InputProps={{
+                    sx: {
+                      borderRadius: "12px",
+                      backgroundColor: GOOGLE_COLORS.bg,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    },
+                  }}
                 />
               </Grid>
             </Grid>
@@ -177,21 +212,21 @@ const Settings = () => {
           <Paper
             elevation={0}
             sx={{
-              borderRadius: "14px",
-              border: `1px solid ${COLORS.border}`,
+              borderRadius: "20px",
+              border: `1px solid ${GOOGLE_COLORS.border}`,
               p: 3,
-              backgroundColor: COLORS.card,
+              backgroundColor: GOOGLE_COLORS.card,
               height: "100%",
             }}
           >
             <Stack direction="row" alignItems="center" spacing={1.2} mb={2}>
-              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: COLORS.success }} />
-              <SupportAgentRoundedIcon sx={{ color: COLORS.success, fontSize: 20 }} />
-              <Typography sx={{ fontWeight: 800, color: COLORS.textPrimary, fontSize: "0.95rem" }}>
+              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.green }} />
+              <SupportAgentRoundedIcon sx={{ color: GOOGLE_COLORS.green, fontSize: 22 }} />
+              <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
                 Tenant Support Channels
               </Typography>
             </Stack>
-            <Divider sx={{ mb: 2.5, borderColor: COLORS.border }} />
+            <Divider sx={{ mb: 2.5, borderColor: GOOGLE_COLORS.border }} />
 
             <Grid container spacing={2}>
               <Grid item xs={12}>
@@ -203,7 +238,13 @@ const Settings = () => {
                   onChange={handleChange}
                   fullWidth
                   size="small"
-                  InputProps={{ sx: { borderRadius: "8px" } }}
+                  InputProps={{
+                    sx: {
+                      borderRadius: "12px",
+                      backgroundColor: GOOGLE_COLORS.bg,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    },
+                  }}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -215,7 +256,13 @@ const Settings = () => {
                   onChange={handleChange}
                   fullWidth
                   size="small"
-                  InputProps={{ sx: { borderRadius: "8px" } }}
+                  InputProps={{
+                    sx: {
+                      borderRadius: "12px",
+                      backgroundColor: GOOGLE_COLORS.bg,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    },
+                  }}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -227,37 +274,43 @@ const Settings = () => {
                   onChange={handleChange}
                   fullWidth
                   size="small"
-                  InputProps={{ sx: { borderRadius: "8px" } }}
+                  InputProps={{
+                    sx: {
+                      borderRadius: "12px",
+                      backgroundColor: GOOGLE_COLORS.bg,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    },
+                  }}
                 />
               </Grid>
             </Grid>
           </Paper>
         </Grid>
 
-        {/* Bank & UPI Information (Shown on Locked Payment Screen) */}
+        {/* Bank & UPI Information */}
         <Grid item xs={12}>
           <Paper
             elevation={0}
             sx={{
-              borderRadius: "14px",
-              border: `1px solid ${COLORS.border}`,
+              borderRadius: "20px",
+              border: `1px solid ${GOOGLE_COLORS.border}`,
               p: 3,
-              backgroundColor: COLORS.card,
+              backgroundColor: GOOGLE_COLORS.card,
             }}
           >
             <Stack direction="row" alignItems="center" spacing={1.2} mb={2}>
-              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: COLORS.primaryDark }} />
-              <AccountBalanceRoundedIcon sx={{ color: COLORS.primaryDark, fontSize: 20 }} />
+              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.blueDark }} />
+              <AccountBalanceRoundedIcon sx={{ color: GOOGLE_COLORS.blueDark, fontSize: 22 }} />
               <Box>
-                <Typography sx={{ fontWeight: 800, color: COLORS.textPrimary, fontSize: "0.95rem" }}>
-                  Bank Transfer & NEFT / RTGS Details
+                <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
+                  Bank Wire & NEFT / RTGS Billing Info
                 </Typography>
-                <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
-                  These details will be displayed to tenant admins on their locked payment & renewal screen
+                <Typography variant="caption" sx={{ color: GOOGLE_COLORS.textSecondary, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                  Displayed to tenant administrators when settling invoice payments & renewals
                 </Typography>
               </Box>
             </Stack>
-            <Divider sx={{ mb: 2.5, borderColor: COLORS.border }} />
+            <Divider sx={{ mb: 2.5, borderColor: GOOGLE_COLORS.border }} />
 
             <Grid container spacing={2.5}>
               <Grid item xs={12} sm={6} md={4}>
@@ -268,7 +321,13 @@ const Settings = () => {
                   onChange={handleChange}
                   fullWidth
                   size="small"
-                  InputProps={{ sx: { borderRadius: "8px" } }}
+                  InputProps={{
+                    sx: {
+                      borderRadius: "12px",
+                      backgroundColor: GOOGLE_COLORS.bg,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    },
+                  }}
                 />
               </Grid>
 
@@ -280,7 +339,13 @@ const Settings = () => {
                   onChange={handleChange}
                   fullWidth
                   size="small"
-                  InputProps={{ sx: { borderRadius: "8px" } }}
+                  InputProps={{
+                    sx: {
+                      borderRadius: "12px",
+                      backgroundColor: GOOGLE_COLORS.bg,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    },
+                  }}
                 />
               </Grid>
 
@@ -292,7 +357,13 @@ const Settings = () => {
                   onChange={handleChange}
                   fullWidth
                   size="small"
-                  InputProps={{ sx: { borderRadius: "8px" } }}
+                  InputProps={{
+                    sx: {
+                      borderRadius: "12px",
+                      backgroundColor: GOOGLE_COLORS.bg,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    },
+                  }}
                 />
               </Grid>
 
@@ -304,7 +375,13 @@ const Settings = () => {
                   onChange={handleChange}
                   fullWidth
                   size="small"
-                  InputProps={{ sx: { borderRadius: "8px" } }}
+                  InputProps={{
+                    sx: {
+                      borderRadius: "12px",
+                      backgroundColor: GOOGLE_COLORS.bg,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    },
+                  }}
                 />
               </Grid>
 
@@ -316,15 +393,21 @@ const Settings = () => {
                   onChange={handleChange}
                   fullWidth
                   size="small"
-                  InputProps={{ sx: { borderRadius: "8px" } }}
+                  InputProps={{
+                    sx: {
+                      borderRadius: "12px",
+                      backgroundColor: GOOGLE_COLORS.bg,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    },
+                  }}
                 />
               </Grid>
 
               <Grid item xs={12}>
-                <Divider sx={{ my: 1.5, borderColor: COLORS.border }} />
+                <Divider sx={{ my: 1.5, borderColor: GOOGLE_COLORS.border }} />
                 <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                  <QrCodeRoundedIcon sx={{ color: COLORS.primary, fontSize: 18 }} />
-                  <Typography variant="subtitle2" fontWeight={700} color={COLORS.primaryDark}>
+                  <QrCodeRoundedIcon sx={{ color: GOOGLE_COLORS.blue, fontSize: 20 }} />
+                  <Typography variant="subtitle2" fontWeight={700} color={GOOGLE_COLORS.textPrimary}>
                     UPI VPA Identifier
                   </Typography>
                 </Stack>
@@ -339,7 +422,13 @@ const Settings = () => {
                   onChange={handleChange}
                   fullWidth
                   size="small"
-                  InputProps={{ sx: { borderRadius: "8px" } }}
+                  InputProps={{
+                    sx: {
+                      borderRadius: "12px",
+                      backgroundColor: GOOGLE_COLORS.bg,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    },
+                  }}
                 />
               </Grid>
             </Grid>
@@ -353,7 +442,7 @@ const Settings = () => {
         onClose={() => setSnack({ ...snack, open: false })}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert severity={snack.severity} sx={{ borderRadius: "10px" }}>
+        <Alert severity={snack.severity} sx={{ borderRadius: "12px" }}>
           {snack.msg}
         </Alert>
       </Snackbar>

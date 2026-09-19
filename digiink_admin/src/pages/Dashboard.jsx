@@ -9,6 +9,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   Avatar,
@@ -47,7 +48,7 @@ import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
 import AccessTimeRoundedIcon from "@mui/icons-material/AccessTimeRounded";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
-import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import ShowChartRoundedIcon from "@mui/icons-material/ShowChartRounded";
 import PieChartOutlineRoundedIcon from "@mui/icons-material/PieChartOutlineRounded";
 import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
@@ -56,61 +57,95 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
-const COLORS = {
-  primary: "#005BAC",
-  primaryDark: "#0B3A63",
-  primarySoft: "#E0F2FE",
-  bg: "#F5F7FA",
+const GOOGLE_COLORS = {
+  blue: "#1A73E8",
+  blueDark: "#0B57D0",
+  blueSoft: "#E8F0FE",
+  green: "#1E8E3E",
+  greenSoft: "#E6F4EA",
+  red: "#D93025",
+  redSoft: "#FCE8E6",
+  yellow: "#F9AB00",
+  yellowSoft: "#FEF7E0",
+  orange: "#E37400",
+  orangeSoft: "#FEF3D6",
+  bg: "#F8F9FA",
   card: "#FFFFFF",
-  border: "#E2E8F0",
-  success: "#16A34A",
-  successSoft: "#DCFCE7",
-  danger: "#DC2626",
-  dangerSoft: "#FEE2E2",
-  warning: "#D97706",
-  warningSoft: "#FEF3C7",
-  orange: "#EA580C",
-  orangeSoft: "#FFEDD5",
-  textPrimary: "#0F172A",
-  textSecondary: "#64748B",
-  textMuted: "#94A3B8",
+  border: "#E0E3E7",
+  textPrimary: "#202124",
+  textSecondary: "#5F6368",
+  textMuted: "#70757A",
 };
 
-const PIE_COLORS = ["#16A34A", "#D97706", "#EA580C", "#DC2626"];
+const PIE_COLORS = ["#1E8E3E", "#F9AB00", "#E37400", "#D93025"];
 
-// ── Reusable Stat Card ──────────────────────────────────────────
+// ── Reusable Google Stat Card ──────────────────────────────────────────
 const StatCard = ({ label, value, caption, icon, color, softColor, loading }) => (
   <Card
     elevation={0}
     sx={{
       height: "100%",
-      borderRadius: "14px",
-      border: `1px solid ${COLORS.border}`,
-      backgroundColor: COLORS.card,
-      transition: "box-shadow 0.2s ease, transform 0.2s ease",
+      borderRadius: "16px",
+      border: `1px solid ${GOOGLE_COLORS.border}`,
+      backgroundColor: GOOGLE_COLORS.card,
+      transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
       "&:hover": {
-        boxShadow: "0 8px 20px rgba(15, 23, 42, 0.06)",
-        transform: "translateY(-2px)",
+        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+        borderColor: "#BDC1C6",
       },
     }}
   >
     <CardContent sx={{ p: 2.2 }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.2 }}>
-        <Typography sx={{ color: COLORS.textSecondary, fontWeight: 800, fontSize: "0.68rem", letterSpacing: "0.04em" }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
+        <Typography
+          sx={{
+            color: GOOGLE_COLORS.textSecondary,
+            fontWeight: 700,
+            fontSize: "0.7rem",
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+          }}
+        >
           {label}
         </Typography>
-        <Avatar sx={{ width: 34, height: 34, borderRadius: "10px", bgcolor: softColor, color }}>
+        <Avatar
+          sx={{
+            width: 36,
+            height: 36,
+            borderRadius: "100px",
+            bgcolor: softColor,
+            color: color,
+          }}
+        >
           {icon}
         </Avatar>
       </Box>
       {loading ? (
-        <Skeleton width={80} height={30} />
+        <Skeleton width={80} height={32} />
       ) : (
-        <Typography sx={{ fontWeight: 800, color: COLORS.textPrimary, fontSize: "1.35rem", lineHeight: 1.2 }}>
+        <Typography
+          sx={{
+            fontWeight: 700,
+            color: GOOGLE_COLORS.textPrimary,
+            fontSize: "1.45rem",
+            lineHeight: 1.1,
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+          }}
+        >
           {value}
         </Typography>
       )}
-      <Typography sx={{ color: COLORS.textSecondary, mt: 0.5, display: "block", fontWeight: 600, fontSize: "0.72rem" }}>
+      <Typography
+        sx={{
+          color: GOOGLE_COLORS.textMuted,
+          mt: 0.6,
+          display: "block",
+          fontWeight: 500,
+          fontSize: "0.75rem",
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
+        }}
+      >
         {loading ? <Skeleton width={110} height={14} /> : caption}
       </Typography>
     </CardContent>
@@ -122,22 +157,22 @@ const CustomAreaTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
       <Paper
-        elevation={3}
+        elevation={2}
         sx={{
           p: 1.5,
-          borderRadius: "10px",
-          border: `1px solid ${COLORS.border}`,
+          borderRadius: "12px",
+          border: `1px solid ${GOOGLE_COLORS.border}`,
           backgroundColor: "#FFFFFF",
         }}
       >
-        <Typography sx={{ fontWeight: 800, fontSize: "0.8rem", color: COLORS.primaryDark, mb: 0.5 }}>
+        <Typography sx={{ fontWeight: 700, fontSize: "0.8rem", color: GOOGLE_COLORS.textPrimary, mb: 0.4 }}>
           {label}
         </Typography>
-        <Typography sx={{ fontSize: "0.75rem", color: COLORS.primary, fontWeight: 700 }}>
+        <Typography sx={{ fontSize: "0.78rem", color: GOOGLE_COLORS.blue, fontWeight: 700 }}>
           Revenue: ₹{Number(payload[0]?.value || 0).toLocaleString("en-IN")}
         </Typography>
         {payload[1] && (
-          <Typography sx={{ fontSize: "0.75rem", color: COLORS.success, fontWeight: 600 }}>
+          <Typography sx={{ fontSize: "0.75rem", color: GOOGLE_COLORS.green, fontWeight: 600 }}>
             Renewals: {payload[1]?.value}
           </Typography>
         )}
@@ -198,70 +233,87 @@ const Dashboard = () => {
   ];
 
   const statusPieData = [
-    { name: "Active", value: activeCount || 1, color: COLORS.success },
-    { name: "Expiring Soon", value: expiringCount || 0, color: COLORS.warning },
-    { name: "Grace Period", value: graceCount || 0, color: COLORS.orange },
-    { name: "Locked", value: lockedCount || 0, color: COLORS.danger },
+    { name: "Active", value: activeCount || 1, color: GOOGLE_COLORS.green },
+    { name: "Expiring Soon", value: expiringCount || 0, color: GOOGLE_COLORS.yellow },
+    { name: "Grace Period", value: graceCount || 0, color: GOOGLE_COLORS.orange },
+    { name: "Locked", value: lockedCount || 0, color: GOOGLE_COLORS.red },
   ].filter((item) => item.value > 0);
 
   return (
-    <Box sx={{ width: "100%" }}>
-      {/* Top Welcome Control Center Banner */}
+    <Box sx={{ width: "100%", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      {/* Google Cloud Header & Control Banner */}
       <Paper
         elevation={0}
         sx={{
-          p: 2.8,
+          p: { xs: 2.5, sm: 3 },
           mb: 3,
-          borderRadius: "16px",
-          background: `linear-gradient(135deg, ${COLORS.primaryDark} 0%, ${COLORS.primary} 100%)`,
+          borderRadius: "20px",
+          backgroundColor: "#FFFFFF",
+          border: `1px solid ${GOOGLE_COLORS.border}`,
           display: "flex",
           flexDirection: { xs: "column", sm: "row" },
           justifyContent: "space-between",
           alignItems: { xs: "flex-start", sm: "center" },
           gap: 2,
-          boxShadow: "0 8px 24px rgba(11, 58, 99, 0.15)",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
           width: "100%",
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.8 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Avatar
             sx={{
-              width: 48,
-              height: 48,
-              borderRadius: "12px",
-              backgroundColor: "rgba(255,255,255,0.15)",
-              color: "#FFFFFF",
+              width: 46,
+              height: 46,
+              borderRadius: "14px",
+              backgroundColor: GOOGLE_COLORS.blueSoft,
+              color: GOOGLE_COLORS.blue,
             }}
           >
-            <ShieldOutlinedIcon sx={{ fontSize: 28 }} />
+            <ShieldOutlinedIcon sx={{ fontSize: 26 }} />
           </Avatar>
           <Box>
-            <Typography sx={{ fontWeight: 800, color: "#FFFFFF", fontSize: "1.15rem" }}>
-              Super Admin Control Center
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                color: GOOGLE_COLORS.textPrimary,
+                fontSize: "1.2rem",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                lineHeight: 1.2,
+              }}
+            >
+              Super Admin Infrastructure Console
             </Typography>
-            <Typography sx={{ color: "rgba(255,255,255,0.8)", fontSize: "0.82rem", mt: 0.3 }}>
-              Welcome back, <strong style={{ color: "#FFFFFF" }}>{admin?.full_name || "Digiink Admin"}</strong> — Multi-Tenant SaaS Overview & Subscriptions
+            <Typography
+              sx={{
+                color: GOOGLE_COLORS.textSecondary,
+                fontSize: "0.82rem",
+                mt: 0.3,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}
+            >
+              Logged in as <strong style={{ color: GOOGLE_COLORS.textPrimary }}>{admin?.full_name || "Digiink Admin"}</strong> • Monitoring all tenant instances & subscriptions
             </Typography>
           </Box>
         </Box>
 
-        <Stack direction="row" alignItems="center" spacing={1.5}>
-          <Tooltip title="Refresh data">
+        <Stack direction="row" alignItems="center" spacing={1.2}>
+          <Tooltip title="Refresh console data">
             <IconButton
               onClick={() => fetchDashboard(true)}
               disabled={refreshing || loading}
               sx={{
-                backgroundColor: "rgba(255,255,255,0.12)",
-                color: "#FFFFFF",
-                borderRadius: "10px",
-                width: 40,
-                height: 40,
-                "&:hover": { backgroundColor: "rgba(255,255,255,0.2)" },
+                border: `1px solid ${GOOGLE_COLORS.border}`,
+                color: GOOGLE_COLORS.textSecondary,
+                borderRadius: "100px",
+                width: 38,
+                height: 38,
+                "&:hover": { backgroundColor: GOOGLE_COLORS.bg },
               }}
             >
               <RefreshRoundedIcon
                 sx={{
-                  fontSize: 20,
+                  fontSize: 19,
                   animation: refreshing ? "spin 0.9s linear infinite" : "none",
                   "@keyframes spin": { from: { transform: "rotate(0deg)" }, to: { transform: "rotate(360deg)" } },
                 }}
@@ -271,27 +323,28 @@ const Dashboard = () => {
 
           <Button
             variant="contained"
-            size="small"
-            startIcon={<PeopleAltOutlinedIcon sx={{ fontSize: 16 }} />}
+            disableElevation
+            startIcon={<AddRoundedIcon sx={{ fontSize: 18 }} />}
             onClick={() => navigate("/clients/new")}
             sx={{
               textTransform: "none",
-              fontWeight: 700,
-              borderRadius: "10px",
-              px: 2.2,
-              py: 1,
-              fontSize: "0.82rem",
-              backgroundColor: "rgba(255,255,255,0.95)",
-              color: COLORS.primaryDark,
-              "&:hover": { backgroundColor: "#FFFFFF" },
+              fontWeight: 600,
+              borderRadius: "100px",
+              px: 2.6,
+              py: 0.95,
+              fontSize: "0.85rem",
+              backgroundColor: GOOGLE_COLORS.blue,
+              color: "#FFFFFF",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              "&:hover": { backgroundColor: GOOGLE_COLORS.blueDark },
             }}
           >
-            + New Client
+            + Add New Client
           </Button>
         </Stack>
       </Paper>
 
-      {/* 5 KPI Stat Cards (100% Full Width 5-Column Grid on Desktop) */}
+      {/* 5 KPI Stat Cards (Google Cloud Metric Tile Grid) */}
       <Box
         sx={{
           display: "grid",
@@ -300,48 +353,48 @@ const Dashboard = () => {
             sm: "repeat(2, 1fr)",
             md: "repeat(5, 1fr)",
           },
-          gap: 2.5,
+          gap: 2,
           mb: 3,
           width: "100%",
         }}
       >
         <StatCard
-          label="ACTIVE CLIENTS"
+          label="ACTIVE INSTANCES"
           value={activeCount}
-          caption={`Out of ${totalClients} total clients`}
-          icon={<CheckCircleOutlineRoundedIcon sx={{ fontSize: 18 }} />}
-          color={COLORS.success}
-          softColor={COLORS.successSoft}
+          caption={`Out of ${totalClients} total tenants`}
+          icon={<CheckCircleOutlineRoundedIcon sx={{ fontSize: 20 }} />}
+          color={GOOGLE_COLORS.green}
+          softColor={GOOGLE_COLORS.greenSoft}
           loading={loading}
         />
 
         <StatCard
           label="EXPIRING SOON"
           value={expiringCount}
-          caption="Next 7 days renewal"
-          icon={<WarningAmberRoundedIcon sx={{ fontSize: 18 }} />}
-          color={COLORS.warning}
-          softColor={COLORS.warningSoft}
+          caption="Renewal within 7 days"
+          icon={<WarningAmberRoundedIcon sx={{ fontSize: 20 }} />}
+          color={GOOGLE_COLORS.yellow}
+          softColor={GOOGLE_COLORS.yellowSoft}
           loading={loading}
         />
 
         <StatCard
           label="GRACE PERIOD"
           value={graceCount}
-          caption="Pending renewal grace"
-          icon={<HourglassEmptyRoundedIcon sx={{ fontSize: 18 }} />}
-          color={COLORS.orange}
-          softColor={COLORS.orangeSoft}
+          caption="Overdue renewal window"
+          icon={<HourglassEmptyRoundedIcon sx={{ fontSize: 20 }} />}
+          color={GOOGLE_COLORS.orange}
+          softColor={GOOGLE_COLORS.orangeSoft}
           loading={loading}
         />
 
         <StatCard
           label="LOCKED ACCOUNTS"
           value={lockedCount}
-          caption="Access suspended"
-          icon={<LockOutlinedIcon sx={{ fontSize: 18 }} />}
-          color={COLORS.danger}
-          softColor={COLORS.dangerSoft}
+          caption="Access restricted"
+          icon={<LockOutlinedIcon sx={{ fontSize: 20 }} />}
+          color={GOOGLE_COLORS.red}
+          softColor={GOOGLE_COLORS.redSoft}
           loading={loading}
         />
 
@@ -349,14 +402,14 @@ const Dashboard = () => {
           label="MONTHLY REVENUE"
           value={`₹${revenueThisMonth.toLocaleString("en-IN")}`}
           caption="Collections this month"
-          icon={<CurrencyRupeeRoundedIcon sx={{ fontSize: 18 }} />}
-          color={COLORS.primary}
-          softColor={COLORS.primarySoft}
+          icon={<CurrencyRupeeRoundedIcon sx={{ fontSize: 20 }} />}
+          color={GOOGLE_COLORS.blue}
+          softColor={GOOGLE_COLORS.blueSoft}
           loading={loading}
         />
       </Box>
 
-      {/* Analytics & Graphs Section (Full Width 100% 2-Column CSS Grid) */}
+      {/* Analytics & Graphs Section (Google Material Charts) */}
       <Box
         sx={{
           display: "grid",
@@ -373,10 +426,10 @@ const Dashboard = () => {
         <Paper
           elevation={0}
           sx={{
-            borderRadius: "14px",
-            border: `1px solid ${COLORS.border}`,
-            backgroundColor: COLORS.card,
-            p: 2.5,
+            borderRadius: "20px",
+            border: `1px solid ${GOOGLE_COLORS.border}`,
+            backgroundColor: GOOGLE_COLORS.card,
+            p: 2.8,
             height: "100%",
             display: "flex",
             flexDirection: "column",
@@ -385,21 +438,22 @@ const Dashboard = () => {
         >
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
             <Stack direction="row" alignItems="center" spacing={1.2}>
-              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: COLORS.primary }} />
-              <ShowChartRoundedIcon sx={{ color: COLORS.primary, fontSize: 20 }} />
-              <Typography sx={{ fontWeight: 800, color: COLORS.textPrimary, fontSize: "0.95rem" }}>
+              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.blue }} />
+              <ShowChartRoundedIcon sx={{ color: GOOGLE_COLORS.blue, fontSize: 22 }} />
+              <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
                 Revenue & Collections Trend
               </Typography>
             </Stack>
             <Chip
-              label="Monthly Inflow"
+              label="Monthly Metrics"
               size="small"
-              icon={<TrendingUpRoundedIcon sx={{ fontSize: "14px !important", color: COLORS.success }} />}
+              icon={<TrendingUpRoundedIcon sx={{ fontSize: "14px !important", color: GOOGLE_COLORS.green }} />}
               sx={{
-                fontWeight: 700,
-                fontSize: "0.7rem",
-                bgcolor: COLORS.successSoft,
-                color: COLORS.success,
+                fontWeight: 600,
+                fontSize: "0.72rem",
+                bgcolor: GOOGLE_COLORS.greenSoft,
+                color: GOOGLE_COLORS.green,
+                borderRadius: "100px",
               }}
             />
           </Box>
@@ -409,19 +463,19 @@ const Dashboard = () => {
               <AreaChart data={chartTrendData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <defs>
                   <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={COLORS.primary} stopOpacity={0.0} />
+                    <stop offset="5%" stopColor={GOOGLE_COLORS.blue} stopOpacity={0.25} />
+                    <stop offset="95%" stopColor={GOOGLE_COLORS.blue} stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F3F4" />
                 <XAxis
                   dataKey="month_label"
-                  stroke={COLORS.textMuted}
+                  stroke={GOOGLE_COLORS.textMuted}
                   fontSize={12}
                   tickLine={false}
                 />
                 <YAxis
-                  stroke={COLORS.textMuted}
+                  stroke={GOOGLE_COLORS.textMuted}
                   fontSize={12}
                   tickLine={false}
                   tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
@@ -430,7 +484,7 @@ const Dashboard = () => {
                 <Area
                   type="monotone"
                   dataKey="revenue"
-                  stroke={COLORS.primary}
+                  stroke={GOOGLE_COLORS.blue}
                   strokeWidth={2.5}
                   fillOpacity={1}
                   fill="url(#revenueGradient)"
@@ -441,14 +495,14 @@ const Dashboard = () => {
           </Box>
         </Paper>
 
-        {/* Right: Client Status Breakdown Donut Chart */}
+        {/* Right: Tenant Status Donut Chart */}
         <Paper
           elevation={0}
           sx={{
-            borderRadius: "14px",
-            border: `1px solid ${COLORS.border}`,
-            backgroundColor: COLORS.card,
-            p: 2.5,
+            borderRadius: "20px",
+            border: `1px solid ${GOOGLE_COLORS.border}`,
+            backgroundColor: GOOGLE_COLORS.card,
+            p: 2.8,
             height: "100%",
             display: "flex",
             flexDirection: "column",
@@ -456,10 +510,10 @@ const Dashboard = () => {
           }}
         >
           <Stack direction="row" alignItems="center" spacing={1.2} mb={2}>
-            <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: COLORS.success }} />
-            <PieChartOutlineRoundedIcon sx={{ color: COLORS.success, fontSize: 20 }} />
-            <Typography sx={{ fontWeight: 800, color: COLORS.textPrimary, fontSize: "0.95rem" }}>
-              Client Subscription Health
+            <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.green }} />
+            <PieChartOutlineRoundedIcon sx={{ color: GOOGLE_COLORS.green, fontSize: 22 }} />
+            <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
+              Subscription Status Health
             </Typography>
           </Stack>
 
@@ -470,8 +524,8 @@ const Dashboard = () => {
                   data={statusPieData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={52}
-                  outerRadius={78}
+                  innerRadius={54}
+                  outerRadius={80}
                   paddingAngle={4}
                   dataKey="value"
                 >
@@ -480,14 +534,14 @@ const Dashboard = () => {
                   ))}
                 </Pie>
                 <ChartTooltip
-                  formatter={(value, name) => [`${value} Clients`, name]}
-                  contentStyle={{ borderRadius: "10px", border: `1px solid ${COLORS.border}`, fontSize: "0.75rem", fontWeight: 700 }}
+                  formatter={(value, name) => [`${value} Tenants`, name]}
+                  contentStyle={{ borderRadius: "12px", border: `1px solid ${GOOGLE_COLORS.border}`, fontSize: "0.78rem", fontWeight: 600 }}
                 />
                 <Legend
                   verticalAlign="bottom"
                   iconType="circle"
                   formatter={(value) => (
-                    <span style={{ color: COLORS.textPrimary, fontSize: "0.75rem", fontWeight: 600 }}>
+                    <span style={{ color: GOOGLE_COLORS.textPrimary, fontSize: "0.75rem", fontWeight: 600, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                       {value}
                     </span>
                   )}
@@ -498,7 +552,7 @@ const Dashboard = () => {
         </Paper>
       </Box>
 
-      {/* Bottom Section: Expiring Soon Table & Pending Payments (Full Width 100% 2-Column CSS Grid) */}
+      {/* Bottom Section: Expiring Soon Table & Pending Payments */}
       <Box
         sx={{
           display: "grid",
@@ -514,9 +568,9 @@ const Dashboard = () => {
         <Paper
           elevation={0}
           sx={{
-            borderRadius: "14px",
-            border: `1px solid ${COLORS.border}`,
-            backgroundColor: COLORS.card,
+            borderRadius: "20px",
+            border: `1px solid ${GOOGLE_COLORS.border}`,
+            backgroundColor: GOOGLE_COLORS.card,
             overflow: "hidden",
             width: "100%",
             display: "flex",
@@ -525,28 +579,29 @@ const Dashboard = () => {
         >
           <Box
             sx={{
-              p: 2.2,
-              borderBottom: `1px solid ${COLORS.border}`,
+              p: 2.5,
+              borderBottom: `1px solid ${GOOGLE_COLORS.border}`,
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
             }}
           >
             <Stack direction="row" alignItems="center" spacing={1.2}>
-              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: COLORS.warning }} />
-              <AccessTimeRoundedIcon sx={{ color: COLORS.warning, fontSize: 20 }} />
-              <Typography sx={{ fontWeight: 800, color: COLORS.textPrimary, fontSize: "0.95rem" }}>
-                Clients Expiring Soon (Next 7 Days)
+              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.yellow }} />
+              <AccessTimeRoundedIcon sx={{ color: GOOGLE_COLORS.yellow, fontSize: 22 }} />
+              <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
+                Tenants Expiring Soon (Next 7 Days)
               </Typography>
             </Stack>
             <Chip
-              label={`${data?.expiring_soon?.length || 0} Clients`}
+              label={`${data?.expiring_soon?.length || 0} Tenants`}
               size="small"
               sx={{
-                fontWeight: 700,
-                fontSize: "0.7rem",
-                bgcolor: COLORS.warningSoft,
-                color: COLORS.warning,
+                fontWeight: 600,
+                fontSize: "0.72rem",
+                bgcolor: GOOGLE_COLORS.yellowSoft,
+                color: GOOGLE_COLORS.yellow,
+                borderRadius: "100px",
               }}
             />
           </Box>
@@ -554,112 +609,123 @@ const Dashboard = () => {
           <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
             {loading ? (
               <Box sx={{ p: 4, textAlign: "center", m: "auto" }}>
-                <CircularProgress size={28} sx={{ color: COLORS.primary }} />
+                <CircularProgress size={28} sx={{ color: GOOGLE_COLORS.blue }} />
               </Box>
             ) : !data?.expiring_soon || data?.expiring_soon.length === 0 ? (
               <Box sx={{ p: 5, textAlign: "center", m: "auto" }}>
-                <CheckCircleRoundedIcon sx={{ fontSize: 38, color: COLORS.success, mb: 1 }} />
-                <Typography sx={{ color: COLORS.textPrimary, fontWeight: 700, fontSize: "0.9rem" }}>
-                  All Subscriptions in Good Standing
+                <CheckCircleRoundedIcon sx={{ fontSize: 40, color: GOOGLE_COLORS.green, mb: 1 }} />
+                <Typography sx={{ color: GOOGLE_COLORS.textPrimary, fontWeight: 700, fontSize: "0.92rem" }}>
+                  All Subscriptions Healthy
                 </Typography>
-                <Typography sx={{ color: COLORS.textSecondary, fontSize: "0.78rem", mt: 0.3 }}>
-                  No client accounts expiring in the next 7 days.
+                <Typography sx={{ color: GOOGLE_COLORS.textSecondary, fontSize: "0.8rem", mt: 0.3 }}>
+                  No tenant instances expiring in the next 7 days.
                 </Typography>
               </Box>
             ) : (
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#F8FAFC" }}>
-                    <TableCell sx={{ fontWeight: 700, color: COLORS.textPrimary, py: 1.4 }}>Client</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: COLORS.textPrimary }}>Plan</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: COLORS.textPrimary }}>Expiry Date</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: COLORS.textPrimary }}>Days Left</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: COLORS.textPrimary, textAlign: "right" }}>Action</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {data.expiring_soon.map((c) => (
-                    <TableRow
-                      key={c.id}
-                      hover
-                      sx={{ "&:hover": { backgroundColor: "#F8FAFC" }, cursor: "pointer" }}
-                      onClick={() => navigate(`/clients/${c.id}`)}
-                    >
-                      <TableCell sx={{ py: 1.4 }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
-                          <Avatar
+              <TableContainer sx={{ width: "100%", overflowX: "auto" }}>
+                <Table size="small" sx={{ minWidth: 550 }}>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: "#F8F9FA" }}>
+                      <TableCell sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, py: 1.5, px: 1.8, fontSize: "0.78rem" }}>Tenant Name</TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, px: 1.8, fontSize: "0.78rem" }}>Plan Tier</TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, px: 1.8, fontSize: "0.78rem" }}>Expiry Date</TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, px: 1.8, fontSize: "0.78rem" }}>Time Remaining</TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, px: 1.8, textAlign: "right", fontSize: "0.78rem" }}>Action</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {data.expiring_soon.map((c) => (
+                      <TableRow
+                        key={c.id}
+                        hover
+                        sx={{ "&:hover": { backgroundColor: "#F8F9FA" }, cursor: "pointer" }}
+                        onClick={() => navigate(`/clients/${c.id}`)}
+                      >
+                        <TableCell sx={{ py: 1.5, px: 1.8 }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                            <Avatar
+                              sx={{
+                                width: 32,
+                                height: 32,
+                                backgroundColor: GOOGLE_COLORS.blueSoft,
+                                color: GOOGLE_COLORS.blue,
+                                fontSize: "0.75rem",
+                                fontWeight: 700,
+                                borderRadius: "100px",
+                              }}
+                            >
+                              {c.business_name?.[0]?.toUpperCase() || "C"}
+                            </Avatar>
+                            <Box>
+                              <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: GOOGLE_COLORS.textPrimary }}>
+                                {c.business_name}
+                              </Typography>
+                              <Typography sx={{ color: GOOGLE_COLORS.textMuted, fontSize: "0.72rem" }}>
+                                {c.subdomain}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ px: 1.8 }}>
+                          <Chip
+                            label={c.plan_name || "Plan"}
+                            size="small"
                             sx={{
-                              width: 30,
-                              height: 30,
-                              backgroundColor: COLORS.primarySoft,
-                              color: COLORS.primary,
+                              fontWeight: 600,
                               fontSize: "0.72rem",
+                              bgcolor: GOOGLE_COLORS.blueSoft,
+                              color: GOOGLE_COLORS.blue,
+                              borderRadius: "100px",
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ px: 1.8 }}>
+                          <Typography sx={{ fontSize: "0.82rem", color: GOOGLE_COLORS.textPrimary }}>
+                            {new Date(c.subscription_end).toLocaleDateString("en-IN", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ px: 1.8 }}>
+                          <Chip
+                            label={`${c.days_left}d left`}
+                            size="small"
+                            sx={{
                               fontWeight: 700,
+                              fontSize: "0.72rem",
+                              bgcolor: c.days_left <= 2 ? GOOGLE_COLORS.redSoft : GOOGLE_COLORS.yellowSoft,
+                              color: c.days_left <= 2 ? GOOGLE_COLORS.red : GOOGLE_COLORS.yellow,
+                              borderRadius: "100px",
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ textAlign: "right", px: 1.8 }}>
+                          <Button
+                            size="small"
+                            variant="text"
+                            endIcon={<ArrowForwardRoundedIcon sx={{ fontSize: 14 }} />}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/clients/${c.id}`);
+                            }}
+                            sx={{
+                              textTransform: "none",
+                              fontWeight: 600,
+                              fontSize: "0.78rem",
+                              color: GOOGLE_COLORS.blue,
+                              borderRadius: "100px",
                             }}
                           >
-                            {c.business_name?.[0]?.toUpperCase() || "C"}
-                          </Avatar>
-                          <Box>
-                            <Typography sx={{ fontWeight: 700, fontSize: "0.82rem", color: COLORS.textPrimary }}>
-                              {c.business_name}
-                            </Typography>
-                            <Typography sx={{ color: COLORS.textSecondary, fontSize: "0.7rem" }}>
-                              {c.subdomain}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={c.plan_name || "Plan"}
-                          size="small"
-                          sx={{
-                            fontWeight: 600,
-                            fontSize: "0.7rem",
-                            bgcolor: "rgba(0,91,172,0.06)",
-                            color: COLORS.primary,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography sx={{ fontSize: "0.8rem", color: COLORS.textPrimary }}>
-                          {new Date(c.subscription_end).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={`${c.days_left}d left`}
-                          size="small"
-                          sx={{
-                            fontWeight: 700,
-                            fontSize: "0.7rem",
-                            bgcolor: c.days_left <= 2 ? COLORS.dangerSoft : COLORS.warningSoft,
-                            color: c.days_left <= 2 ? COLORS.danger : COLORS.warning,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ textAlign: "right" }}>
-                        <Button
-                          size="small"
-                          variant="text"
-                          endIcon={<ArrowForwardRoundedIcon sx={{ fontSize: 13 }} />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/clients/${c.id}`);
-                          }}
-                          sx={{ textTransform: "none", fontWeight: 700, fontSize: "0.75rem", color: COLORS.primary }}
-                        >
-                          Manage
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                            Details
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             )}
           </Box>
         </Paper>
@@ -668,9 +734,9 @@ const Dashboard = () => {
         <Paper
           elevation={0}
           sx={{
-            borderRadius: "14px",
-            border: `1px solid ${COLORS.border}`,
-            backgroundColor: COLORS.card,
+            borderRadius: "20px",
+            border: `1px solid ${GOOGLE_COLORS.border}`,
+            backgroundColor: GOOGLE_COLORS.card,
             overflow: "hidden",
             width: "100%",
             display: "flex",
@@ -679,35 +745,36 @@ const Dashboard = () => {
         >
           <Box
             sx={{
-              p: 2.2,
-              borderBottom: `1px solid ${COLORS.border}`,
+              p: 2.5,
+              borderBottom: `1px solid ${GOOGLE_COLORS.border}`,
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
             }}
           >
             <Stack direction="row" alignItems="center" spacing={1.2}>
-              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: COLORS.danger }} />
-              <AccountBalanceWalletOutlinedIcon sx={{ color: COLORS.danger, fontSize: 20 }} />
-              <Typography sx={{ fontWeight: 800, color: COLORS.textPrimary, fontSize: "0.95rem" }}>
-                Pending Payments
+              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.red }} />
+              <AccountBalanceWalletOutlinedIcon sx={{ color: GOOGLE_COLORS.red, fontSize: 22 }} />
+              <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
+                Pending Verification
               </Typography>
             </Stack>
             <Chip
               label={pendingPayments}
               size="small"
               sx={{
-                bgcolor: pendingPayments > 0 ? COLORS.dangerSoft : "#F1F5F9",
-                color: pendingPayments > 0 ? COLORS.danger : COLORS.textSecondary,
-                fontWeight: 800,
+                bgcolor: pendingPayments > 0 ? GOOGLE_COLORS.redSoft : GOOGLE_COLORS.bg,
+                color: pendingPayments > 0 ? GOOGLE_COLORS.red : GOOGLE_COLORS.textMuted,
+                fontWeight: 700,
                 fontSize: "0.75rem",
+                borderRadius: "100px",
               }}
             />
           </Box>
 
           <Box
             sx={{
-              p: 3,
+              p: 3.5,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -718,45 +785,49 @@ const Dashboard = () => {
           >
             <Avatar
               sx={{
-                width: 52,
-                height: 52,
-                backgroundColor: pendingPayments > 0 ? COLORS.warningSoft : COLORS.successSoft,
-                color: pendingPayments > 0 ? COLORS.warning : COLORS.success,
-                mb: 1.5,
+                width: 56,
+                height: 56,
+                backgroundColor: pendingPayments > 0 ? GOOGLE_COLORS.yellowSoft : GOOGLE_COLORS.greenSoft,
+                color: pendingPayments > 0 ? GOOGLE_COLORS.yellow : GOOGLE_COLORS.green,
+                mb: 2,
+                borderRadius: "100px",
               }}
             >
               {pendingPayments > 0 ? (
-                <AccountBalanceWalletOutlinedIcon sx={{ fontSize: 26 }} />
+                <AccountBalanceWalletOutlinedIcon sx={{ fontSize: 28 }} />
               ) : (
-                <CheckCircleOutlineRoundedIcon sx={{ fontSize: 26 }} />
+                <CheckCircleOutlineRoundedIcon sx={{ fontSize: 28 }} />
               )}
             </Avatar>
 
-            <Typography sx={{ fontWeight: 800, fontSize: "1.05rem", color: COLORS.textPrimary, mb: 0.5 }}>
-              {pendingPayments > 0 ? `${pendingPayments} Unverified Request(s)` : "All Payments Cleared"}
+            <Typography sx={{ fontWeight: 700, fontSize: "1.1rem", color: GOOGLE_COLORS.textPrimary, mb: 0.6 }}>
+              {pendingPayments > 0 ? `${pendingPayments} Pending Request(s)` : "All Payments Cleared"}
             </Typography>
 
-            <Typography sx={{ color: COLORS.textSecondary, fontSize: "0.78rem", maxWidth: 280, mb: 2.5 }}>
+            <Typography sx={{ color: GOOGLE_COLORS.textSecondary, fontSize: "0.82rem", maxWidth: 290, mb: 3 }}>
               {pendingPayments > 0
-                ? "Clients have submitted UTR payment details requiring verification & renewal."
+                ? "Tenants have submitted UTR payment proofs requiring administrative review and license renewal."
                 : "No pending payment verification requests from any tenant at the moment."}
             </Typography>
 
             <Button
               variant="contained"
+              disableElevation
               fullWidth
               onClick={() => navigate("/payments")}
               endIcon={<ArrowForwardRoundedIcon sx={{ fontSize: 16 }} />}
               sx={{
                 textTransform: "none",
-                fontWeight: 700,
-                borderRadius: "10px",
-                py: 1,
-                backgroundColor: COLORS.primary,
-                "&:hover": { backgroundColor: "#0A6FD8" },
+                fontWeight: 600,
+                borderRadius: "100px",
+                py: 1.1,
+                backgroundColor: GOOGLE_COLORS.blue,
+                color: "#FFFFFF",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                "&:hover": { backgroundColor: GOOGLE_COLORS.blueDark },
               }}
             >
-              Review Payments
+              Manage Payments
             </Button>
           </Box>
         </Paper>

@@ -88,6 +88,7 @@ async function createClientDatabase(dbName) {
       \`password\`      VARCHAR(255) NOT NULL,
       \`profile_image\` VARCHAR(255) DEFAULT NULL,
       \`status\`        ENUM('Active','Inactive') DEFAULT 'Active',
+      \`is_password_changed\` TINYINT(1) NOT NULL DEFAULT 0,
       \`is_deleted\`    TINYINT(1) DEFAULT 0,
       \`last_login\`    DATETIME DEFAULT NULL,
       \`created_by\`    INT(11) DEFAULT NULL,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   Box,
@@ -25,32 +25,53 @@ import {
   DialogActions,
   Button,
   Breadcrumbs,
+  InputBase,
+  Paper,
 } from "@mui/material";
 
 // Icons
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
+import DashboardIcon from "@mui/icons-material/Dashboard";
 import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
+import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
+import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import SettingsIcon from "@mui/icons-material/Settings";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import MenuIcon from "@mui/icons-material/Menu";
 import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
 import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
-import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
+import SearchIcon from "@mui/icons-material/Search";
+import CloudQueueIcon from "@mui/icons-material/CloudQueue";
 
 import { useAuth } from "../context/AuthContext";
 
-const SIDEBAR_WIDTH = 280;
-const NAVBAR_HEIGHT = 72;
+const SIDEBAR_WIDTH = 264;
+const NAVBAR_HEIGHT = 64;
+
+const GOOGLE_COLORS = {
+  blue: "#1A73E8",
+  blueDark: "#0B57D0",
+  blueSoft: "#E8F0FE",
+  bgSidebar: "#0F172A", // Google Cloud Console dark slate
+  bgSidebarItemHover: "rgba(255, 255, 255, 0.08)",
+  textSidebar: "#94A3B8",
+  textSidebarActive: "#FFFFFF",
+  bgMain: "#F8F9FA",
+  cardBorder: "#E0E0E0",
+  headerBg: "#FFFFFF",
+};
 
 const navItems = [
-  { label: "Dashboard", path: "/dashboard", icon: <DashboardOutlinedIcon /> },
-  { label: "Clients", path: "/clients", icon: <PeopleAltOutlinedIcon /> },
-  { label: "Payments", path: "/payments", icon: <AccountBalanceWalletOutlinedIcon /> },
-  { label: "Plans", path: "/plans", icon: <AutoAwesomeOutlinedIcon /> },
-  { label: "Settings", path: "/settings", icon: <SettingsOutlinedIcon /> },
+  { label: "Dashboard", path: "/dashboard", icon: <DashboardOutlinedIcon />, activeIcon: <DashboardIcon /> },
+  { label: "Clients", path: "/clients", icon: <PeopleAltOutlinedIcon />, activeIcon: <PeopleAltIcon /> },
+  { label: "Payments", path: "/payments", icon: <AccountBalanceWalletOutlinedIcon />, activeIcon: <AccountBalanceWalletIcon /> },
+  { label: "Plans", path: "/plans", icon: <AutoAwesomeOutlinedIcon />, activeIcon: <AutoAwesomeIcon /> },
+  { label: "Settings", path: "/settings", icon: <SettingsOutlinedIcon />, activeIcon: <SettingsIcon /> },
 ];
 
 const getInitials = (name) => {
@@ -61,13 +82,13 @@ const getInitials = (name) => {
 };
 
 const getPageMetadata = (pathname) => {
-  if (pathname.startsWith("/clients/new")) return { title: "Create Client", breadcrumb: "New Client" };
+  if (pathname.startsWith("/clients/new")) return { title: "Create New Client", breadcrumb: "New Client" };
   if (pathname.startsWith("/clients/")) return { title: "Client Details", breadcrumb: "Client Info" };
   if (pathname.startsWith("/clients")) return { title: "Client Management", breadcrumb: "Clients" };
-  if (pathname.startsWith("/payments")) return { title: "Payment Requests", breadcrumb: "Payments" };
-  if (pathname.startsWith("/plans")) return { title: "Subscription Plans", breadcrumb: "Plans" };
+  if (pathname.startsWith("/payments")) return { title: "Payments & Audits", breadcrumb: "Payments" };
+  if (pathname.startsWith("/plans")) return { title: "Subscription Tiers", breadcrumb: "Plans" };
   if (pathname.startsWith("/settings")) return { title: "Master Settings", breadcrumb: "Settings" };
-  return { title: "Dashboard Overview", breadcrumb: "Dashboard" };
+  return { title: "Console Dashboard", breadcrumb: "Dashboard" };
 };
 
 const AdminLayout = () => {
@@ -78,6 +99,7 @@ const AdminLayout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -108,6 +130,13 @@ const AdminLayout = () => {
     navigate("/login");
   };
 
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/clients?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
   const drawerContent = (
     <Box
       sx={{
@@ -115,7 +144,7 @@ const AdminLayout = () => {
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        backgroundColor: "#0B3A63",
+        backgroundColor: GOOGLE_COLORS.bgSidebar,
         color: "#FFFFFF",
       }}
     >
@@ -126,8 +155,8 @@ const AdminLayout = () => {
             p: 2.5,
             display: "flex",
             alignItems: "center",
-            gap: 1.8,
-            borderBottom: "1px solid rgba(255,255,255,0.08)",
+            gap: 1.5,
+            borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
             minHeight: NAVBAR_HEIGHT,
           }}
         >
@@ -136,90 +165,81 @@ const AdminLayout = () => {
             src="/logo.png"
             alt="Digiink"
             sx={{
-              height: 44,
-              width: 44,
+              height: 36,
+              width: "auto",
               objectFit: "contain",
-              borderRadius: "8px",
-              flexShrink: 0,
+              maxHeight: 36,
             }}
           />
           <Box>
             <Typography
               variant="subtitle1"
-              sx={{ fontWeight: 700, lineHeight: 1.1, color: "#FFFFFF", fontSize: "1.05rem" }}
+              sx={{ fontWeight: 800, lineHeight: 1.1, color: "#FFFFFF", fontSize: "0.98rem", letterSpacing: "-0.01em" }}
             >
               Digiink Console
             </Typography>
-            <Typography variant="caption" sx={{ color: "#93C5FD", fontSize: "0.7rem", fontWeight: 500 }}>
-              SaaS Master Admin
+            <Typography variant="caption" sx={{ color: "#38BDF8", fontSize: "0.7rem", fontWeight: 600 }}>
+              Google Cloud SaaS Platform
             </Typography>
           </Box>
         </Box>
 
-        {/* Master Badge */}
-        <Box sx={{ px: 2, pt: 1.5, pb: 0.5 }}>
+        {/* Console Pill Badge */}
+        <Box sx={{ px: 2.5, pt: 2, pb: 0.5 }}>
           <Chip
-            label="Super Admin Panel"
+            icon={<ShieldOutlinedIcon sx={{ fontSize: "14px !important", color: "#38BDF8" }} />}
+            label="Super Admin Mode"
             size="small"
             sx={{
-              bgcolor: "rgba(56,189,248,0.15)",
+              bgcolor: "rgba(56, 189, 248, 0.12)",
               color: "#38BDF8",
               fontWeight: 700,
               fontSize: "0.7rem",
-              border: "1px solid rgba(56,189,248,0.3)",
+              border: "1px solid rgba(56, 189, 248, 0.25)",
+              borderRadius: "16px",
             }}
           />
         </Box>
 
         {/* Nav Items List */}
-        <Box
-          sx={{
-            py: 1.5,
-            px: 1.8,
-            overflowY: "auto",
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-            "&::-webkit-scrollbar": { display: "none", width: 0 },
-          }}
-        >
+        <Box sx={{ py: 2, px: 1.5 }}>
           <List disablePadding>
             {navItems.map((item) => {
-              const isActive = location.pathname.startsWith(item.path);
+              const isActive = location.pathname === item.path || (item.path !== "/dashboard" && location.pathname.startsWith(item.path));
 
               return (
-                <ListItem disablePadding key={item.label} sx={{ mb: 1 }}>
+                <ListItem disablePadding key={item.label} sx={{ mb: 0.8 }}>
                   <ListItemButton
                     onClick={() => {
                       navigate(item.path);
                       if (mobileOpen) setMobileOpen(false);
                     }}
                     sx={{
-                      minHeight: 48,
-                      borderRadius: "8px",
-                      px: 2,
-                      backgroundColor: isActive ? "#005BAC" : "transparent",
-                      color: isActive ? "#FFFFFF" : "#CBD5E1",
-                      borderLeft: isActive ? "4px solid #38BDF8" : "4px solid transparent",
+                      minHeight: 46,
+                      borderRadius: "24px", // Google Material 3 rounded pill style
+                      px: 2.2,
+                      backgroundColor: isActive ? GOOGLE_COLORS.blue : "transparent",
+                      color: isActive ? "#FFFFFF" : GOOGLE_COLORS.textSidebar,
                       "&:hover": {
-                        backgroundColor: isActive ? "#0A6FD8" : "rgba(255,255,255,0.06)",
+                        backgroundColor: isActive ? GOOGLE_COLORS.blueDark : GOOGLE_COLORS.bgSidebarItemHover,
                         color: "#FFFFFF",
                       },
-                      transition: "all 0.2s ease-in-out",
+                      transition: "all 0.15s ease-in-out",
                     }}
                   >
                     <ListItemIcon
                       sx={{
-                        minWidth: 38,
-                        color: isActive ? "#FFFFFF" : "#94A3B8",
+                        minWidth: 36,
+                        color: isActive ? "#FFFFFF" : GOOGLE_COLORS.textSidebar,
                       }}
                     >
-                      {item.icon}
+                      {isActive ? item.activeIcon : item.icon}
                     </ListItemIcon>
                     <ListItemText
                       primary={item.label}
                       primaryTypographyProps={{
-                        fontSize: "0.88rem",
-                        fontWeight: isActive ? 600 : 500,
+                        fontSize: "0.875rem",
+                        fontWeight: isActive ? 700 : 500,
                         whiteSpace: "nowrap",
                       }}
                     />
@@ -231,8 +251,8 @@ const AdminLayout = () => {
         </Box>
       </Box>
 
-      {/* Bottom — User Card + Logout */}
-      <Box sx={{ p: 2, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+      {/* Bottom User Card & Logout */}
+      <Box sx={{ p: 2, borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
         <Box
           sx={{
             p: 1.2,
@@ -240,9 +260,9 @@ const AdminLayout = () => {
             display: "flex",
             alignItems: "center",
             gap: 1.5,
-            borderRadius: "10px",
-            backgroundColor: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(255,255,255,0.05)",
+            borderRadius: "12px",
+            backgroundColor: "rgba(255, 255, 255, 0.05)",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
           }}
         >
           <Badge
@@ -253,7 +273,7 @@ const AdminLayout = () => {
               "& .MuiBadge-badge": {
                 backgroundColor: "#22C55E",
                 color: "#22C55E",
-                boxShadow: "0 0 0 2px #0B3A63",
+                boxShadow: `0 0 0 2px ${GOOGLE_COLORS.bgSidebar}`,
                 width: 10,
                 height: 10,
                 borderRadius: "50%",
@@ -264,8 +284,8 @@ const AdminLayout = () => {
               sx={{
                 width: 38,
                 height: 38,
-                backgroundColor: "#005BAC",
-                fontSize: "0.875rem",
+                backgroundColor: GOOGLE_COLORS.blue,
+                fontSize: "0.85rem",
                 fontWeight: 700,
                 color: "#FFFFFF",
               }}
@@ -274,41 +294,38 @@ const AdminLayout = () => {
             </Avatar>
           </Badge>
           <Box sx={{ overflow: "hidden" }}>
-            <Typography variant="subtitle2" noWrap sx={{ fontWeight: 600, fontSize: "0.85rem", color: "#FFFFFF" }}>
+            <Typography variant="subtitle2" noWrap sx={{ fontWeight: 700, fontSize: "0.82rem", color: "#FFFFFF" }}>
               {adminName}
             </Typography>
-            <Typography variant="caption" sx={{ color: "#38BDF8", fontSize: "0.72rem", display: "block", fontWeight: 500 }}>
-              Super Admin
+            <Typography variant="caption" sx={{ color: "#38BDF8", fontSize: "0.7rem", display: "block", fontWeight: 600 }}>
+              Master Admin
             </Typography>
           </Box>
         </Box>
 
-        <Divider sx={{ mb: 1.5, borderColor: "rgba(255,255,255,0.08)" }} />
-
         <ListItemButton
           onClick={() => setLogoutDialogOpen(true)}
           sx={{
-            minHeight: 44,
-            borderRadius: "8px",
+            minHeight: 42,
+            borderRadius: "20px",
             color: "#F87171",
-            "&:hover": { backgroundColor: "rgba(239,68,68,0.12)" },
+            "&:hover": { backgroundColor: "rgba(239, 68, 68, 0.12)" },
             px: 2,
           }}
         >
-          <ListItemIcon sx={{ minWidth: 38, color: "#F87171" }}>
-            <LogoutOutlinedIcon />
+          <ListItemIcon sx={{ minWidth: 36, color: "#F87171" }}>
+            <LogoutOutlinedIcon sx={{ fontSize: 20 }} />
           </ListItemIcon>
-          <ListItemText primary="Logout" primaryTypographyProps={{ fontSize: "0.875rem", fontWeight: 600 }} />
+          <ListItemText primary="Sign Out" primaryTypographyProps={{ fontSize: "0.85rem", fontWeight: 600 }} />
         </ListItemButton>
       </Box>
     </Box>
   );
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: "#F5F7FA" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: GOOGLE_COLORS.bgMain }}>
       {/* Sidebar Navigation */}
       <Box component="nav" sx={{ width: { md: SIDEBAR_WIDTH }, flexShrink: { md: 0 } }}>
-        {/* Mobile Drawer */}
         <Drawer
           variant="temporary"
           open={mobileOpen}
@@ -320,17 +337,12 @@ const AdminLayout = () => {
               boxSizing: "border-box",
               width: SIDEBAR_WIDTH,
               borderRight: "none",
-              overflow: "hidden",
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
-              "&::-webkit-scrollbar": { display: "none", width: 0 },
             },
           }}
         >
           {drawerContent}
         </Drawer>
 
-        {/* Desktop Drawer */}
         <Drawer
           variant="permanent"
           open
@@ -340,10 +352,6 @@ const AdminLayout = () => {
               boxSizing: "border-box",
               width: SIDEBAR_WIDTH,
               borderRight: "none",
-              overflow: "hidden",
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
-              "&::-webkit-scrollbar": { display: "none", width: 0 },
             },
           }}
         >
@@ -360,17 +368,17 @@ const AdminLayout = () => {
           minHeight: "100vh",
           display: "flex",
           flexDirection: "column",
-          backgroundColor: "#F5F7FA",
+          backgroundColor: GOOGLE_COLORS.bgMain,
         }}
       >
-        {/* Top Navbar */}
+        {/* Google Top App Bar */}
         <AppBar
           position="sticky"
           elevation={0}
           sx={{
-            backgroundColor: "#FFFFFF",
-            borderBottom: "1px solid #E2E8F0",
-            color: "#0F172A",
+            backgroundColor: GOOGLE_COLORS.headerBg,
+            borderBottom: `1px solid ${GOOGLE_COLORS.cardBorder}`,
+            color: "#202124",
             zIndex: 1100,
           }}
         >
@@ -381,36 +389,38 @@ const AdminLayout = () => {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              gap: 2,
             }}
           >
-            {/* Left: Mobile Toggle & Breadcrumbs */}
+            {/* Left: Mobile Toggle & Page Title / Breadcrumb */}
             <Stack direction="row" alignItems="center" spacing={1.5}>
               <IconButton
-                sx={{ display: { md: "none" }, color: "#0F172A" }}
+                sx={{ display: { md: "none" }, color: "#202124" }}
                 onClick={() => setMobileOpen(true)}
               >
                 <MenuIcon />
               </IconButton>
               <Box>
                 <Breadcrumbs
-                  separator={<KeyboardArrowRightIcon sx={{ fontSize: 14, color: "#94A3B8" }} />}
+                  separator={<KeyboardArrowRightIcon sx={{ fontSize: 14, color: "#5F6368" }} />}
                   aria-label="breadcrumb"
-                  sx={{ mb: 0.2 }}
+                  sx={{ mb: 0.1 }}
                 >
-                  <Typography variant="caption" sx={{ color: "#64748B", fontWeight: 500, fontSize: "0.75rem" }}>
-                    Digiink
+                  <Typography variant="caption" sx={{ color: "#5F6368", fontWeight: 500, fontSize: "0.75rem" }}>
+                    Digiink Console
                   </Typography>
-                  <Typography variant="caption" sx={{ color: "#0B3A63", fontWeight: 700, fontSize: "0.75rem" }}>
+                  <Typography variant="caption" sx={{ color: GOOGLE_COLORS.blue, fontWeight: 700, fontSize: "0.75rem" }}>
                     {pageMeta.breadcrumb}
                   </Typography>
                 </Breadcrumbs>
                 <Typography
                   variant="h6"
                   sx={{
-                    fontWeight: 700,
-                    color: "#0B3A63",
+                    fontWeight: 800,
+                    color: "#202124",
                     fontSize: "1.05rem",
                     lineHeight: 1.2,
+                    letterSpacing: "-0.01em",
                   }}
                 >
                   {pageMeta.title}
@@ -418,46 +428,84 @@ const AdminLayout = () => {
               </Box>
             </Stack>
 
-            {/* Right: Clock & Access Badge */}
+            {/* Middle: Google Style Rounded Search Bar */}
+            <Box
+              component="form"
+              onSubmit={handleSearchSubmit}
+              sx={{
+                display: { xs: "none", md: "flex" },
+                alignItems: "center",
+                backgroundColor: "#F1F3F4",
+                borderRadius: "28px",
+                px: 2,
+                py: 0.6,
+                width: 320,
+                transition: "all 0.2s ease",
+                "&:focus-within": {
+                  backgroundColor: "#FFFFFF",
+                  boxShadow: "0 1px 6px rgba(32, 33, 36, 0.28)",
+                  width: 380,
+                },
+              }}
+            >
+              <SearchIcon sx={{ color: "#5F6368", fontSize: 20, mr: 1 }} />
+              <InputBase
+                placeholder="Search clients, code, email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                sx={{
+                  fontSize: "0.85rem",
+                  color: "#202124",
+                  width: "100%",
+                }}
+              />
+            </Box>
+
+            {/* Right: Clock, Master Access Badge & Google Profile Avatar */}
             <Stack direction="row" alignItems="center" spacing={2}>
-              <Box sx={{ display: { xs: "none", sm: "flex" }, alignItems: "center", gap: 1 }}>
-                <AccessTimeOutlinedIcon sx={{ fontSize: 16, color: "#64748B" }} />
-                <Typography variant="caption" sx={{ color: "#64748B", fontWeight: 500, fontSize: "0.78rem" }}>
+              <Box sx={{ display: { xs: "none", lg: "flex" }, alignItems: "center", gap: 1 }}>
+                <AccessTimeOutlinedIcon sx={{ fontSize: 16, color: "#5F6368" }} />
+                <Typography variant="caption" sx={{ color: "#5F6368", fontWeight: 600, fontSize: "0.78rem" }}>
                   {formattedDate} • {formattedTime}
                 </Typography>
               </Box>
 
               <Chip
-                icon={<ShieldOutlinedIcon sx={{ fontSize: "14px !important", color: "#005BAC" }} />}
-                label="Master Access"
+                icon={<ShieldOutlinedIcon sx={{ fontSize: "14px !important", color: GOOGLE_COLORS.blue }} />}
+                label="Master Console"
                 size="small"
                 sx={{
                   fontWeight: 700,
                   fontSize: "0.72rem",
-                  bgcolor: "rgba(0,91,172,0.08)",
-                  color: "#005BAC",
-                  border: "1px solid rgba(0,91,172,0.2)",
-                  height: 26,
+                  bgcolor: GOOGLE_COLORS.blueSoft,
+                  color: GOOGLE_COLORS.blue,
+                  border: `1px solid rgba(26, 115, 232, 0.25)`,
+                  height: 28,
+                  borderRadius: "16px",
                 }}
               />
 
-              <Avatar
-                sx={{
-                  width: 36,
-                  height: 36,
-                  backgroundColor: "#005BAC",
-                  color: "#FFFFFF",
-                  fontSize: "0.85rem",
-                  fontWeight: 700,
-                }}
-              >
-                {avatarInitials}
-              </Avatar>
+              <Tooltip title={`Signed in as ${adminName}`}>
+                <Avatar
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    backgroundColor: GOOGLE_COLORS.blue,
+                    color: "#FFFFFF",
+                    fontSize: "0.85rem",
+                    fontWeight: 700,
+                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.12)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {avatarInitials}
+                </Avatar>
+              </Tooltip>
             </Stack>
           </Toolbar>
         </AppBar>
 
-        {/* Scrollable Page Content Container */}
+        {/* Scrollable Main Content */}
         <Box
           sx={{
             flexGrow: 1,
@@ -473,16 +521,16 @@ const AdminLayout = () => {
       <Dialog
         open={logoutDialogOpen}
         onClose={() => setLogoutDialogOpen(false)}
-        PaperProps={{ sx: { borderRadius: "14px", p: 1, minWidth: 330 } }}
+        PaperProps={{ sx: { borderRadius: "16px", p: 1, minWidth: 330 } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, color: "#0B3A63", pb: 1 }}>Confirm Logout</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800, color: "#202124", pb: 1 }}>Sign Out of Console?</DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ fontSize: "0.9rem", color: "#64748B" }}>
-            Are you sure you want to end your Super Admin session?
+          <DialogContentText sx={{ fontSize: "0.88rem", color: "#5F6368" }}>
+            Are you sure you want to end your current Super Admin session?
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setLogoutDialogOpen(false)} sx={{ color: "#64748B", fontWeight: 600, textTransform: "none" }}>
+          <Button onClick={() => setLogoutDialogOpen(false)} sx={{ color: "#5F6368", fontWeight: 600, textTransform: "none" }}>
             Cancel
           </Button>
           <Button
@@ -490,14 +538,14 @@ const AdminLayout = () => {
             variant="contained"
             disableElevation
             sx={{
-              backgroundColor: "#EF4444",
-              "&:hover": { backgroundColor: "#DC2626" },
-              fontWeight: 600,
+              backgroundColor: "#D93025",
+              "&:hover": { backgroundColor: "#B3261E" },
+              fontWeight: 700,
               textTransform: "none",
               borderRadius: "8px",
             }}
           >
-            Logout
+            Sign Out
           </Button>
         </DialogActions>
       </Dialog>

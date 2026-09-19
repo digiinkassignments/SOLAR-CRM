@@ -7,6 +7,7 @@ import Login          from "../pages/Auth/Login";
 import ForgotPassword from "../pages/Auth/ForgotPassword";
 import ResetPassword  from "../pages/Auth/ResetPassword";
 import PaymentPage from "../pages/Subscription/PaymentPage";
+import ChangePassword from "../pages/Auth/ChangePassword";
 import PrivateRoute from "./PrivateRoute";
 import AdminLayout   from "../layouts/AdminLayout";
 import ManagerLayout from "../layouts/ManagerLayout";
@@ -70,7 +71,11 @@ const HomeOrLogin = () => {
   useEffect(() => {
     if (loading) return;
     if (token && user) {
-      const role = (user?.role_name || user?.role || "").toLowerCase();
+      if (user?.is_password_changed === 0) {
+      navigate("/change-password", { replace: true });
+      return;
+    }
+    const role = (user?.role_name || user?.role || "").toLowerCase();
       if (role.includes("manager")) {
         navigate("/manager/dashboard", { replace: true });
       } else if (role.includes("sales")) {
@@ -93,7 +98,8 @@ const AppRoutes = () => {
         <Route path="/"                element={<HomeOrLogin />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password"  element={<ResetPassword />} />
-        <Route path="/payment"         element={<PaymentPage />} />
+        <Route path="/payment" element={<PaymentPage />} />
+        <Route path="/change-password" element={<ChangePassword />} />
 
         <Route element={<PrivateRoute allowedRoles={["Admin", "Super Admin"]} />}>
           <Route element={<SubscriptionGuard><AdminLayout /></SubscriptionGuard>}>

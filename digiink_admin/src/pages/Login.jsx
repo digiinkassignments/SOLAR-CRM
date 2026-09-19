@@ -20,9 +20,8 @@ import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
-import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
-
-import loginBanner from "../assets/login-banner.jpg";
+import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
+import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
@@ -75,85 +74,94 @@ const Login = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundImage: `linear-gradient(135deg, rgba(11, 58, 99, 0.84) 0%, rgba(15, 23, 42, 0.92) 100%), url(${loginBanner})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+        backgroundColor: "#F8F9FA",
+        fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif",
         p: 2,
-        overflow: "hidden",
+        overflow: "auto",
         boxSizing: "border-box",
       }}
     >
       <Paper
-        elevation={8}
+        elevation={0}
         sx={{
           width: "100%",
-          maxWidth: "385px",
+          maxWidth: "420px",
           backgroundColor: "#FFFFFF",
-          borderRadius: "14px",
-          p: { xs: 2.5, sm: 3 },
-          boxShadow: "0 20px 40px -10px rgba(0, 0, 0, 0.45)",
-          border: "1px solid rgba(255, 255, 255, 0.15)",
+          borderRadius: "24px",
+          p: { xs: 3.5, sm: 4.5 },
+          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04)",
+          border: "1px solid #E0E3E7",
+          position: "relative",
+          overflow: "hidden",
         }}
       >
-        {/* LOGO */}
-        <Box sx={{ display: "flex", justifyContent: "center", mb: 1.5 }}>
+        {/* GOOGLE ACCENT TOP BAR */}
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: "4px",
+            background: "linear-gradient(90deg, #1A73E8 0%, #34A853 33%, #FBBC05 66%, #EA4335 100%)",
+          }}
+        />
+
+        {/* LOGO & BRANDING */}
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", mb: 3 }}>
           <Box
             component="img"
             src="/logo.png"
             alt="Digiink"
             sx={{
-              height: 52,
+              height: 48,
               width: "auto",
               objectFit: "contain",
+              mb: 2,
+            }}
+          />
+          <Chip
+            icon={<AdminPanelSettingsOutlinedIcon sx={{ fontSize: "14px !important", color: "#1A73E8" }} />}
+            label="Super Admin Portal"
+            size="small"
+            sx={{
+              fontWeight: 600,
+              fontSize: "0.72rem",
+              bgcolor: "#E8F0FE",
+              color: "#1A73E8",
+              border: "1px solid #D2E3FC",
+              borderRadius: "100px",
+              height: "26px",
+              px: 0.5,
             }}
           />
         </Box>
 
         {/* HEADER */}
-        <Box sx={{ mb: 2, textAlign: "center" }}>
+        <Box sx={{ mb: 3, textAlign: "center" }}>
           <Typography
-            variant="h6"
+            variant="h5"
             sx={{
               fontWeight: 700,
-              color: "#0F172A",
-              letterSpacing: "-0.01em",
-              fontSize: "1.15rem",
-              lineHeight: 1.2,
-              fontFamily: "'Inter', sans-serif",
+              color: "#202124",
+              letterSpacing: "-0.02em",
+              fontSize: "1.35rem",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
             }}
           >
-            Super Admin Console
+            Sign in to Console
           </Typography>
           <Typography
             variant="body2"
             sx={{
-              color: "#64748B",
-              fontSize: "0.78rem",
-              mt: 0.4,
-              fontFamily: "'Inter', sans-serif",
+              color: "#5F6368",
+              fontSize: "0.85rem",
+              mt: 0.6,
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
             }}
           >
-            Enter your credentials to access management console.
+            Manage tenants, infrastructure, plans and system billing
           </Typography>
-
-          <Box sx={{ mt: 1.2, display: "flex", justifyContent: "center" }}>
-            <Chip
-              icon={<ShieldOutlinedIcon sx={{ fontSize: "13px !important", color: "#005BAC" }} />}
-              label="Master System Access"
-              size="small"
-              sx={{
-                fontWeight: 600,
-                fontSize: "0.68rem",
-                bgcolor: "rgba(0, 91, 172, 0.08)",
-                color: "#005BAC",
-                border: "1px solid rgba(0, 91, 172, 0.2)",
-                height: "22px",
-                fontFamily: "'Inter', sans-serif",
-              }}
-            />
-          </Box>
         </Box>
 
         {error && (
@@ -161,12 +169,15 @@ const Login = () => {
             <Alert
               severity="error"
               sx={{
-                mb: 1.8,
-                py: 0.2,
-                px: 1.2,
-                borderRadius: "8px",
-                fontSize: "0.78rem",
-                fontFamily: "'Inter', sans-serif",
+                mb: 2.5,
+                py: 0.5,
+                px: 1.5,
+                borderRadius: "12px",
+                fontSize: "0.82rem",
+                bgcolor: "#FCE8E6",
+                color: "#C5221F",
+                border: "1px solid #FAD2CF",
+                "& .MuiAlert-icon": { color: "#C5221F" },
               }}
             >
               {error}
@@ -177,20 +188,20 @@ const Login = () => {
         {/* LOGIN FORM */}
         <Box component="form" onSubmit={handleSubmit} noValidate>
           {/* EMAIL */}
-          <Box sx={{ mb: 1.5 }}>
+          <Box sx={{ mb: 2 }}>
             <Typography
               component="label"
               htmlFor="email-input"
               sx={{
                 display: "block",
-                fontSize: "0.74rem",
+                fontSize: "0.78rem",
                 fontWeight: 600,
-                color: "#334155",
-                mb: 0.4,
-                fontFamily: "'Inter', sans-serif",
+                color: "#3C4043",
+                mb: 0.6,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
               }}
             >
-              Super Admin Email
+              Admin Identity / Email
             </Typography>
             <OutlinedInput
               id="email-input"
@@ -202,40 +213,40 @@ const Login = () => {
               disabled={loading}
               startAdornment={
                 <InputAdornment position="start">
-                  <EmailOutlinedIcon sx={{ color: "#94A3B8", fontSize: 18 }} />
+                  <EmailOutlinedIcon sx={{ color: "#70757A", fontSize: 19 }} />
                 </InputAdornment>
               }
               sx={{
-                borderRadius: "8px",
-                backgroundColor: "#F8FAFC",
-                fontSize: "0.82rem",
-                height: "40px",
-                fontFamily: "'Inter', sans-serif",
-                "& fieldset": { borderColor: "#E2E8F0" },
-                "&:hover fieldset": { borderColor: "#CBD5E1" },
+                borderRadius: "12px",
+                backgroundColor: "#F8F9FA",
+                fontSize: "0.88rem",
+                height: "44px",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                "& fieldset": { borderColor: "#DADCE0" },
+                "&:hover fieldset": { borderColor: "#BDC1C6" },
                 "&.Mui-focused": {
                   backgroundColor: "#FFFFFF",
-                  "& fieldset": { borderColor: "#005BAC", borderWidth: "1.5px" },
+                  "& fieldset": { borderColor: "#1A73E8", borderWidth: "2px" },
                 },
               }}
             />
           </Box>
 
           {/* PASSWORD */}
-          <Box sx={{ mb: 2.2 }}>
+          <Box sx={{ mb: 3 }}>
             <Typography
               component="label"
               htmlFor="password-input"
               sx={{
                 display: "block",
-                fontSize: "0.74rem",
+                fontSize: "0.78rem",
                 fontWeight: 600,
-                color: "#334155",
-                mb: 0.4,
-                fontFamily: "'Inter', sans-serif",
+                color: "#3C4043",
+                mb: 0.6,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
               }}
             >
-              Password
+              Master Key / Password
             </Typography>
             <OutlinedInput
               id="password-input"
@@ -247,7 +258,7 @@ const Login = () => {
               disabled={loading}
               startAdornment={
                 <InputAdornment position="start">
-                  <LockOutlinedIcon sx={{ color: "#94A3B8", fontSize: 18 }} />
+                  <LockOutlinedIcon sx={{ color: "#70757A", fontSize: 19 }} />
                 </InputAdornment>
               }
               endAdornment={
@@ -259,27 +270,27 @@ const Login = () => {
                     onMouseDown={(e) => e.preventDefault()}
                     edge="end"
                     size="small"
-                    sx={{ color: "#64748B", mr: 0.2 }}
+                    sx={{ color: "#5F6368", mr: 0.2 }}
                   >
                     {showPassword ? (
-                      <VisibilityOff sx={{ fontSize: 18, color: "#005BAC" }} />
+                      <VisibilityOff sx={{ fontSize: 19, color: "#1A73E8" }} />
                     ) : (
-                      <Visibility sx={{ fontSize: 18, color: "#94A3B8" }} />
+                      <Visibility sx={{ fontSize: 19, color: "#70757A" }} />
                     )}
                   </IconButton>
                 </InputAdornment>
               }
               sx={{
-                borderRadius: "8px",
-                backgroundColor: "#F8FAFC",
-                fontSize: "0.82rem",
-                height: "40px",
-                fontFamily: "'Inter', sans-serif",
-                "& fieldset": { borderColor: "#E2E8F0" },
-                "&:hover fieldset": { borderColor: "#CBD5E1" },
+                borderRadius: "12px",
+                backgroundColor: "#F8F9FA",
+                fontSize: "0.88rem",
+                height: "44px",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                "& fieldset": { borderColor: "#DADCE0" },
+                "&:hover fieldset": { borderColor: "#BDC1C6" },
                 "&.Mui-focused": {
                   backgroundColor: "#FFFFFF",
-                  "& fieldset": { borderColor: "#005BAC", borderWidth: "1.5px" },
+                  "& fieldset": { borderColor: "#1A73E8", borderWidth: "2px" },
                 },
               }}
             />
@@ -292,26 +303,26 @@ const Login = () => {
             variant="contained"
             disabled={loading}
             sx={{
-              height: "42px",
-              borderRadius: "10px",
-              fontWeight: 700,
+              height: "46px",
+              borderRadius: "100px",
+              fontWeight: 600,
               textTransform: "none",
-              fontSize: "0.85rem",
-              backgroundColor: "#005BAC",
+              fontSize: "0.92rem",
+              backgroundColor: "#1A73E8",
               color: "#FFFFFF",
-              boxShadow: "0 4px 10px rgba(0, 91, 172, 0.2)",
-              fontFamily: "'Inter', sans-serif",
-              transition: "all 0.15s ease-in-out",
+              boxShadow: "none",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
               "&:hover": {
-                backgroundColor: "#0B3A63",
-                boxShadow: "0 6px 14px rgba(0, 91, 172, 0.3)",
+                backgroundColor: "#0B57D0",
+                boxShadow: "0 2px 6px rgba(26, 115, 232, 0.3)",
               },
             }}
           >
             {loading ? (
-              <CircularProgress size={20} color="inherit" />
+              <CircularProgress size={22} color="inherit" />
             ) : (
-              "Sign In to Console"
+              "Sign in to Admin Console"
             )}
           </Button>
         </Box>
@@ -321,20 +332,20 @@ const Login = () => {
           direction="row"
           alignItems="center"
           justifyContent="center"
-          spacing={0.6}
-          sx={{ mt: 2.5, pt: 1.5, borderTop: "1px solid #F1F5F9" }}
+          spacing={0.8}
+          sx={{ mt: 3.5, pt: 2, borderTop: "1px solid #F1F3F4" }}
         >
-          <ShieldOutlinedIcon sx={{ fontSize: 13, color: "#94A3B8" }} />
+          <SecurityOutlinedIcon sx={{ fontSize: 14, color: "#70757A" }} />
           <Typography
             variant="caption"
             sx={{
-              color: "#94A3B8",
+              color: "#70757A",
               fontWeight: 500,
-              fontSize: "0.7rem",
-              fontFamily: "'Inter', sans-serif",
+              fontSize: "0.75rem",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
             }}
           >
-            Secured by Digiink Solutions • 256-Bit SSL Encrypted
+            Protected by Enterprise Auth & 256-bit TLS Encryption
           </Typography>
         </Stack>
       </Paper>

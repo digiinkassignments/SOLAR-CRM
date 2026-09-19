@@ -86,7 +86,12 @@ const userData = response.data.user;
 const authToken = response.data.token;
 const subscription = response.data.subscription; // NEW
 
-login(userData, authToken, subscription); // NEW — subscription add kiya
+login(userData, authToken, subscription);
+
+    // Password change check
+    if (userData.is_password_changed === 0) {
+      navigate("/change-password", { replace: true });
+    }
     } catch (error) {
       if (error.response) {
         setError(error.response.data.message || "Invalid credentials.");

@@ -18,6 +18,7 @@ const getUserByLogin = async (login, db = defaultDb) => {
             u.profile_image,
             u.status,
             u.last_login,
+            u.is_password_changed,
             r.role_name
 
         FROM users u
