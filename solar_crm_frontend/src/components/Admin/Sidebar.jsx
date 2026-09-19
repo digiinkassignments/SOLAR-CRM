@@ -160,6 +160,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, sidebarWidth = 280 }) => {
 
               const btn = (
                 <ListItemButton
+                  data-tour={`sidebar-${item.path.replace("/", "")}`}
                   onClick={() => {
                     if (isLocked) return;
                     navigate(item.path);

@@ -3,7 +3,8 @@ import { Outlet } from "react-router-dom";
 import { Box, Toolbar } from "@mui/material";
 import Sidebar from "../components/Admin/Sidebar";
 import Navbar from "../components/Admin/Navbar";
-import SubscriptionBanner from "../components/SubscriptionBanner"; // NEW
+import SubscriptionBanner from "../components/SubscriptionBanner";
+import OnboardingTour from "../components/OnboardingTour";
 
 const SIDEBAR_WIDTH = 280;
 const NAVBAR_HEIGHT = 72;
@@ -17,6 +18,7 @@ const AdminLayout = () => {
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: "#F5F7FA" }}>
+      <OnboardingTour role="admin" />
       {/* Fixed Navbar */}
       <Navbar
         handleDrawerToggle={handleDrawerToggle}
