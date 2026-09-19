@@ -43,6 +43,7 @@ app.use("/api/profile",       profileRoutes);
 app.use("/api/settings",      settingsRoutes);
 app.use("/api/leads",         leadRoutes);
 app.use("/api/dashboard",     dashboardRoutes);
+app.use("/api/custom-fields",  require("./routes/customFieldRoutes"));
 app.use("/api/notifications", notificationRoutes);
 
 // ── NEW: API Routes ──────────────────────────────────────────

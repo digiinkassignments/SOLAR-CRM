@@ -248,6 +248,32 @@ async function createClientDatabase(dbName) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
+  // Custom Fields table
+  await clientPool.query(`
+    CREATE TABLE IF NOT EXISTS \`custom_fields\` (
+      \`id\`          INT AUTO_INCREMENT PRIMARY KEY,
+      \`field_name\`  VARCHAR(100) NOT NULL,
+      \`field_type\`  ENUM("text","number","dropdown","date") DEFAULT "text",
+      \`is_required\` TINYINT(1) DEFAULT 0,
+      \`options\`     TEXT DEFAULT NULL,
+      \`is_active\`   TINYINT(1) DEFAULT 1,
+      \`sort_order\`  INT DEFAULT 0,
+      \`created_at\`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  // Lead Custom Values table
+  await clientPool.query(`
+    CREATE TABLE IF NOT EXISTS \`lead_custom_values\` (
+      \`id\`         INT AUTO_INCREMENT PRIMARY KEY,
+      \`lead_id\`    INT NOT NULL,
+      \`field_id\`   INT NOT NULL,
+      \`value\`      TEXT DEFAULT NULL,
+      \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY \`unique_lead_field\` (\`lead_id\`, \`field_id\`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
   console.log(`✅ Schema installed in ${dbName}`);
   return clientPool;
 }

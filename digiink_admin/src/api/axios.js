@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://solar-crm.digiinksolutions.com/api/superadmin",
+  baseURL: "/api/superadmin",
 });
 
 // Har request mein token auto attach
