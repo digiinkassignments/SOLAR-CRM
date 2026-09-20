@@ -343,6 +343,18 @@ const KpiCard = ({ icon, label, value, accent, loading, index = 0 }) => (
 );
 
 export default function ManagerLeads() {
+  // Custom Fields
+  const [customFields, setCustomFields] = useState([]);
+  const [customValues, setCustomValues] = useState({});
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    fetch("/api/custom-fields", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setCustomFields(d.data); })
+      .catch(() => {});
+  }, []);
+
   const [leads, setLeads] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -2083,6 +2095,19 @@ export default function ManagerLeads() {
                     sx={controlSx}
                   />
                 </Grid>
+
+                {customFields.length > 0 && customFields.map((field) => (
+                  <Grid item xs={12} sm={6} key={field.id}>
+                    <FieldLabel>{field.field_name}{field.is_required ? " *" : ""}</FieldLabel>
+                    <TextField
+                      fullWidth size="small"
+                      type={field.field_type === "number" ? "number" : field.field_type === "date" ? "date" : "text"}
+                      value={customValues[field.id] || ""}
+                      onChange={(e) => setCustomValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                      sx={controlSx}
+                    />
+                  </Grid>
+                ))}
               </Grid>
             </Box>
           </DialogContent>

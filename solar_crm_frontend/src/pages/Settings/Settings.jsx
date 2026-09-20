@@ -19,6 +19,15 @@ import {
   IconButton,
   Avatar,
   Badge,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Chip,
+  Select,
+  InputLabel,
+  FormControl,
+  Tooltip,
 } from "@mui/material";
 
 // Icons
@@ -34,8 +43,13 @@ import ErrorOutlineOutlinedIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
 import CloseIcon from "@mui/icons-material/Close";
+import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
+import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
+import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 
 // Import Settings Service APIs
+import { useAuth } from "../../context/AuthContext";
 import {
   getSettings,
   updateSettings,
@@ -93,6 +107,75 @@ const sectionTitleSx = {
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState(0);
+
+  // Custom Fields State
+  const [customFields, setCustomFields] = useState([]);
+  const [cfLoading, setCfLoading] = useState(false);
+  const [cfForm, setCfForm] = useState({ field_name: "", field_type: "text", is_required: 0, options: "" });
+  const [cfDialog, setCfDialog] = useState(false);
+  const [cfEditId, setCfEditId] = useState(null);
+
+  const { token } = useAuth();
+
+  const fetchCustomFields = async () => {
+    try {
+      setCfLoading(true);
+      const res = await fetch("/api/custom-fields", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) setCustomFields(data.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCfLoading(false);
+    }
+  };
+
+  const saveCustomField = async () => {
+    try {
+      const payload = {
+        field_name: cfForm.field_name,
+        field_type: cfForm.field_type,
+        is_required: cfForm.is_required,
+        options: cfForm.field_type === "dropdown" && cfForm.options
+          ? cfForm.options.split(",").map(o => o.trim())
+          : null,
+      };
+      const url = cfEditId ? `/api/custom-fields/${cfEditId}` : "/api/custom-fields";
+      const method = cfEditId ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchCustomFields();
+        setCfDialog(false);
+        setCfForm({ field_name: "", field_type: "text", is_required: 0, options: "" });
+        setCfEditId(null);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const deleteCustomField = async (id) => {
+    try {
+      await fetch(`/api/custom-fields/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchCustomFields();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 5) fetchCustomFields();
+  }, [activeTab]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -274,7 +357,7 @@ const Settings = () => {
                 "& .MuiTab-root": {
                   textTransform: "none",
                   fontWeight: 600,
-                  fontSize: "0.875rem",
+                  fontSize: "0.75rem",
                   minHeight: 48,
                   color: COLORS.textSecondary,
                   "&.Mui-selected": { color: COLORS.primary },
@@ -282,11 +365,12 @@ const Settings = () => {
                 "& .MuiTabs-indicator": { backgroundColor: COLORS.primary, height: 3 },
               }}
             >
-              <Tab icon={<BusinessOutlinedIcon sx={{ fontSize: "1.1rem" }} />} iconPosition="start" label="General & Company" />
-              <Tab icon={<EmailOutlinedIcon sx={{ fontSize: "1.1rem" }} />} iconPosition="start" label="SMTP & Email" />
-              <Tab icon={<SecurityOutlinedIcon sx={{ fontSize: "1.1rem" }} />} iconPosition="start" label="Security & Auth" />
-              <Tab icon={<NotificationsNoneOutlinedIcon sx={{ fontSize: "1.1rem" }} />} iconPosition="start" label="Notifications" />
-              <Tab icon={<StorageOutlinedIcon sx={{ fontSize: "1.1rem" }} />} iconPosition="start" label="Backup & Storage" />
+              <Tab icon={<BusinessOutlinedIcon sx={{ fontSize: "0.85rem" }} />} iconPosition="start" label="General & Company" />
+              <Tab icon={<EmailOutlinedIcon sx={{ fontSize: "0.85rem" }} />} iconPosition="start" label="SMTP & Email" />
+              <Tab icon={<SecurityOutlinedIcon sx={{ fontSize: "0.85rem" }} />} iconPosition="start" label="Security & Auth" />
+              <Tab icon={<NotificationsNoneOutlinedIcon sx={{ fontSize: "0.85rem" }} />} iconPosition="start" label="Notifications" />
+              <Tab icon={<StorageOutlinedIcon sx={{ fontSize: "0.85rem" }} />} iconPosition="start" label="Backup & Storage" />
+              <Tab icon={<TuneOutlinedIcon sx={{ fontSize: "0.85rem" }} />} iconPosition="start" label="Custom" />
             </Tabs>
           </Box>
         </Paper>
@@ -884,6 +968,129 @@ const Settings = () => {
             </Grid>
           </Paper>
         )}
+
+        {/* CUSTOM FIELDS TAB */}
+        {activeTab === 5 && (
+          <Paper elevation={0} sx={{ p: 3, borderRadius: "14px", border: "1px solid #E2E8F0", mb: 3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+              <Box>
+                <Typography variant="subtitle1" fontWeight={700} color="#0F172A">
+                  Custom Fields
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Add custom fields to your lead form
+                </Typography>
+              </Box>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<AddOutlinedIcon />}
+                onClick={() => { setCfDialog(true); setCfEditId(null); setCfForm({ field_name: "", field_type: "text", is_required: 0, options: "" }); }}
+                sx={{ borderRadius: "10px", textTransform: "none", fontWeight: 700, backgroundColor: COLORS.primary }}
+              >
+                Add Field
+              </Button>
+            </Box>
+            <Divider sx={{ mb: 2 }} />
+
+            {cfLoading ? (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                <CircularProgress size={28} />
+              </Box>
+            ) : customFields.length === 0 ? (
+              <Box sx={{ textAlign: "center", py: 4 }}>
+                <TuneOutlinedIcon sx={{ fontSize: 40, color: "#CBD5E1", mb: 1 }} />
+                <Typography variant="body2" color="text.secondary">No custom fields yet. Add your first field!</Typography>
+              </Box>
+            ) : (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                {customFields.map((field) => (
+                  <Box key={field.id} sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", p: 1.5, borderRadius: "10px", border: "1px solid #E2E8F0", backgroundColor: "#F8FAFC" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                      <Box>
+                        <Typography variant="body2" fontWeight={600} color="#0F172A">{field.field_name}</Typography>
+                        <Box sx={{ display: "flex", gap: 0.8, mt: 0.4 }}>
+                          <Chip label={field.field_type} size="small" sx={{ fontSize: "0.7rem", height: 20, backgroundColor: "#EFF6FF", color: COLORS.primary }} />
+                          {field.is_required ? <Chip label="Required" size="small" sx={{ fontSize: "0.7rem", height: 20, backgroundColor: "#FEF2F2", color: "#DC2626" }} /> : null}
+                        </Box>
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: "flex", gap: 0.5 }}>
+                      <Tooltip title="Edit">
+                        <IconButton size="small" onClick={() => {
+                          setCfEditId(field.id);
+                          setCfForm({ field_name: field.field_name, field_type: field.field_type, is_required: field.is_required, options: field.options ? JSON.parse(field.options).join(", ") : "" });
+                          setCfDialog(true);
+                        }}>
+                          <EditOutlinedIcon sx={{ fontSize: 16, color: COLORS.primary }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton size="small" onClick={() => deleteCustomField(field.id)}>
+                          <DeleteOutlineOutlinedIcon sx={{ fontSize: 16, color: "#DC2626" }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Paper>
+        )}
+
+        {/* ADD/EDIT CUSTOM FIELD DIALOG */}
+        <Dialog open={cfDialog} onClose={() => setCfDialog(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: "14px" } }}>
+          <DialogTitle sx={{ fontWeight: 700, fontSize: "1rem", pb: 1 }}>
+            {cfEditId ? "Edit Custom Field" : "Add Custom Field"}
+          </DialogTitle>
+          <DialogContent sx={{ pt: 1 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+              <TextField
+                label="Field Name"
+                value={cfForm.field_name}
+                onChange={(e) => setCfForm({ ...cfForm, field_name: e.target.value })}
+                fullWidth size="small"
+                placeholder="e.g. Panel Brand"
+                sx={fieldSx}
+              />
+              <FormControl fullWidth size="small">
+                <InputLabel>Field Type</InputLabel>
+                <Select
+                  value={cfForm.field_type}
+                  label="Field Type"
+                  onChange={(e) => setCfForm({ ...cfForm, field_type: e.target.value })}
+                  sx={{ borderRadius: "8px" }}
+                >
+                  <MenuItem value="text">Text</MenuItem>
+                  <MenuItem value="number">Number</MenuItem>
+                  <MenuItem value="dropdown">Dropdown</MenuItem>
+                  <MenuItem value="date">Date</MenuItem>
+                </Select>
+              </FormControl>
+              {cfForm.field_type === "dropdown" && (
+                <TextField
+                  label="Options (comma separated)"
+                  value={cfForm.options}
+                  onChange={(e) => setCfForm({ ...cfForm, options: e.target.value })}
+                  fullWidth size="small"
+                  placeholder="e.g. Waaree, Adani, Tata"
+                  sx={fieldSx}
+                />
+              )}
+              <FormControlLabel
+                control={<Switch checked={!!cfForm.is_required} onChange={(e) => setCfForm({ ...cfForm, is_required: e.target.checked ? 1 : 0 })} />}
+                label="Required Field"
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+            <Button onClick={() => setCfDialog(false)} sx={{ borderRadius: "8px", textTransform: "none" }}>Cancel</Button>
+            <Button variant="contained" onClick={saveCustomField} disabled={!cfForm.field_name}
+              sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 700, backgroundColor: COLORS.primary }}>
+              {cfEditId ? "Update" : "Add Field"}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* TOAST SYSTEM */}
         <Snackbar

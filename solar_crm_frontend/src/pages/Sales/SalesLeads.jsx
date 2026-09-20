@@ -401,6 +401,18 @@ const TimelineEntry = ({ dotColor, isLast, children }) => (
 // MAIN COMPONENT
 // ======================================================
 const SalesLeads = () => {
+  // Custom Fields
+  const [customFields, setCustomFields] = useState([]);
+  const [customValues, setCustomValues] = useState({});
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    fetch("/api/custom-fields", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((d) => { if (d.success) setCustomFields(d.data); })
+      .catch(() => {});
+  }, []);
+
   const [leadsList, setLeadsList] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -1476,6 +1488,19 @@ const SalesLeads = () => {
                     sx={controlSx}
                   />
                 </Grid>
+
+                {customFields.length > 0 && customFields.map((field) => (
+                  <Grid item xs={12} sm={6} key={field.id}>
+                    <Box sx={{ mb: 0.5 }}><Typography variant="caption" sx={{ fontWeight: 600, color: "#475569", textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "0.5px" }}>{field.field_name}{field.is_required ? " *" : ""}</Typography></Box>
+                    <TextField
+                      fullWidth size="small"
+                      type={field.field_type === "number" ? "number" : field.field_type === "date" ? "date" : "text"}
+                      value={customValues[field.id] || ""}
+                      onChange={(e) => setCustomValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                      sx={controlSx}
+                    />
+                  </Grid>
+                ))}
               </Grid>
             </Box>
           </DialogContent>
