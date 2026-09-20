@@ -29,7 +29,7 @@ const updateCustomField = async (req, res) => {
     const { field_name, field_type, is_required, options, is_active, sort_order } = req.body;
     await req.db.query(
       `UPDATE custom_fields SET field_name=?, field_type=?, is_required=?, options=?, is_active=?, sort_order=? WHERE id=?`,
-      [field_name, field_type, is_required, options ? JSON.stringify(options) : null, is_active, sort_order || 0, id]
+      [field_name, field_type, is_required, options ? JSON.stringify(options) : null, is_active ?? 1, sort_order || 0, id]
     );
     return res.status(200).json({ success: true, message: "Custom field updated." });
   } catch (err) {

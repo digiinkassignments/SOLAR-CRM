@@ -2250,13 +2250,13 @@ export default function Leads() {
                 {customFields.length > 0 && customFields.map((field) => (
                   <Grid item xs={12} sm={6} key={field.id}>
                     <FieldLabel>{field.field_name}{field.is_required ? " *" : ""}</FieldLabel>
-                    <TextField
-                      fullWidth size="small"
-                      type={field.field_type === "number" ? "number" : field.field_type === "date" ? "date" : "text"}
-                      value={customValues[field.id] || ""}
-                      onChange={(e) => setCustomValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                      sx={controlSx}
-                    />
+                    {field.field_type === "dropdown" ? (
+                      <TextField select fullWidth size="small" value={customValues[field.id] || ""} onChange={(e) => setCustomValues((prev) => ({ ...prev, [field.id]: e.target.value }))} sx={controlSx}>
+                        {(field.options ? JSON.parse(field.options) : []).map((opt) => (<MenuItem key={opt} value={opt}>{opt}</MenuItem>))}
+                      </TextField>
+                    ) : (
+                      <TextField fullWidth size="small" type={field.field_type === "number" ? "number" : field.field_type === "date" ? "date" : "text"} value={customValues[field.id] || ""} onChange={(e) => setCustomValues((prev) => ({ ...prev, [field.id]: e.target.value }))} sx={controlSx} />
+                    )}
                   </Grid>
                 ))}
               </Grid>
