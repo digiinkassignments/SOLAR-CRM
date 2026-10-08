@@ -52,8 +52,8 @@ const API_BASE_URL =
   "http://localhost:5000";
 
 const COLORS = {
-  primary: "#005BAC",
-  primaryDark: "#0B3A63",
+  primary: "#0F172A",
+  primaryDark: "#020617",
   bg: "#F5F7FA",
   card: "#FFFFFF",
   border: "#E5E7EB",

@@ -211,7 +211,7 @@ login(userData, authToken, subscription);
                 "&:hover fieldset": { borderColor: "#CBD5E1" },
                 "&.Mui-focused": {
                   backgroundColor: "#FFFFFF",
-                  "& fieldset": { borderColor: "#2563EB" },
+                  "& fieldset": { borderColor: "#F59E0B" },
                 },
               }}
             />
@@ -258,7 +258,7 @@ login(userData, authToken, subscription);
                     sx={{ color: "#64748B", mr: 0.2 }}
                   >
                     {showPassword ? (
-                      <VisibilityOff sx={{ fontSize: 20, color: "#2563EB" }} />
+                      <VisibilityOff sx={{ fontSize: 20, color: "#D97706" }} />
                     ) : (
                       <Visibility sx={{ fontSize: 20, color: "#94A3B8" }} />
                     )}
@@ -274,7 +274,7 @@ login(userData, authToken, subscription);
                 "&:hover fieldset": { borderColor: "#CBD5E1" },
                 "&.Mui-focused": {
                   backgroundColor: "#FFFFFF",
-                  "& fieldset": { borderColor: "#2563EB" },
+                  "& fieldset": { borderColor: "#F59E0B" },
                 },
               }}
             />
@@ -288,7 +288,7 @@ login(userData, authToken, subscription);
                 sx={{
                   fontSize: "0.78rem",
                   fontWeight: 600,
-                  color: "#2563EB",
+                  color: "#D97706",
                   cursor: "pointer",
                 }}
               >
@@ -307,7 +307,7 @@ login(userData, authToken, subscription);
                   sx={{
                     p: 0.5,
                     color: "#CBD5E1",
-                    "&.Mui-checked": { color: "#2563EB" },
+                    "&.Mui-checked": { color: "#F59E0B" },
                   }}
                 />
               }
@@ -327,14 +327,14 @@ login(userData, authToken, subscription);
             disableElevation
             sx={{
               py: 1.1,
-              backgroundColor: "#2563EB",
+              background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)",
               color: "#FFFFFF",
               fontSize: "0.88rem",
               fontWeight: 600,
               textTransform: "none",
               borderRadius: "7px",
               "&:hover": {
-                backgroundColor: "#1D4ED8",
+                background: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
               },
             }}
           >

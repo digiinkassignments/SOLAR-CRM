@@ -1,49 +1,67 @@
 import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
-import { Box } from "@mui/material";
+import { Box, Toolbar } from "@mui/material";
 import ManagerSidebar from "./ManagerSidebar";
 import ManagerNavbar from "./ManagerNavbar";
-import SubscriptionBanner from "../components/SubscriptionBanner"; // NEW
+import SubscriptionBanner from "../components/SubscriptionBanner";
+
+const EXPANDED_SIDEBAR_WIDTH = 260;
+const COLLAPSED_SIDEBAR_WIDTH = 76;
+const NAVBAR_HEIGHT = 64;
 
 export default function ManagerLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const sidebarWidth = 240;
-  const navbarHeight = 64;
+  const [collapsed, setCollapsed] = useState(false);
 
   const handleDrawerToggle = () => {
     setMobileOpen((prev) => !prev);
   };
 
+  const handleToggleCollapse = () => {
+    setCollapsed((prev) => !prev);
+  };
+
+  const currentSidebarWidth = collapsed ? COLLAPSED_SIDEBAR_WIDTH : EXPANDED_SIDEBAR_WIDTH;
+
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "#F8FAFC" }}>
-      {/* Top Navbar */}
+    <Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: "#F8FAFC" }}>
       <ManagerNavbar
         handleDrawerToggle={handleDrawerToggle}
-        sidebarWidth={sidebarWidth}
-        navbarHeight={navbarHeight}
+        handleToggleCollapse={handleToggleCollapse}
+        collapsed={collapsed}
+        sidebarWidth={currentSidebarWidth}
+        navbarHeight={NAVBAR_HEIGHT}
       />
-
-      {/* Left Sidebar */}
       <ManagerSidebar
         mobileOpen={mobileOpen}
         handleDrawerToggle={handleDrawerToggle}
-        sidebarWidth={sidebarWidth}
+        handleToggleCollapse={handleToggleCollapse}
+        collapsed={collapsed}
+        sidebarWidth={currentSidebarWidth}
       />
-
-      {/* Main Page Area */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
-          pt: `${navbarHeight + 24}px`,
-          width: { md: `calc(100% - ${sidebarWidth}px)` },
+          width: { md: `calc(100% - ${currentSidebarWidth}px)` },
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: "#F8FAFC",
+          transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
       >
-        {/* NEW — Subscription warning banner */}
+        <Toolbar sx={{ minHeight: `${NAVBAR_HEIGHT}px !important` }} />
         <SubscriptionBanner />
-
-        <Outlet />
+        <Box
+          sx={{
+            flexGrow: 1,
+            p: { xs: 2, sm: 3 },
+            overflowY: "auto",
+          }}
+        >
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   );

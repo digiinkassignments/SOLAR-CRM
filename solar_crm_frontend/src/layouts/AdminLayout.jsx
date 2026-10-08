@@ -6,56 +6,64 @@ import Navbar from "../components/Admin/Navbar";
 import SubscriptionBanner from "../components/SubscriptionBanner";
 import OnboardingTour from "../components/OnboardingTour";
 
-const SIDEBAR_WIDTH = 280;
-const NAVBAR_HEIGHT = 72;
+const EXPANDED_SIDEBAR_WIDTH = 260;
+const COLLAPSED_SIDEBAR_WIDTH = 76;
+const NAVBAR_HEIGHT = 64;
 
 const AdminLayout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   const handleDrawerToggle = () => {
     setMobileOpen((prev) => !prev);
   };
 
+  const handleToggleCollapse = () => {
+    setCollapsed((prev) => !prev);
+  };
+
+  const currentSidebarWidth = collapsed ? COLLAPSED_SIDEBAR_WIDTH : EXPANDED_SIDEBAR_WIDTH;
+
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: "#F5F7FA" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: "#F8FAFC" }}>
       <OnboardingTour role="admin" />
       {/* Fixed Navbar */}
       <Navbar
         handleDrawerToggle={handleDrawerToggle}
-        sidebarWidth={SIDEBAR_WIDTH}
+        handleToggleCollapse={handleToggleCollapse}
+        collapsed={collapsed}
+        sidebarWidth={currentSidebarWidth}
         navbarHeight={NAVBAR_HEIGHT}
       />
 
-      {/* Fixed Sidebar (Permanent Desktop / Temporary Mobile Drawer) */}
+      {/* Fixed Sidebar */}
       <Sidebar
         mobileOpen={mobileOpen}
         handleDrawerToggle={handleDrawerToggle}
-        sidebarWidth={SIDEBAR_WIDTH}
+        handleToggleCollapse={handleToggleCollapse}
+        collapsed={collapsed}
+        sidebarWidth={currentSidebarWidth}
       />
 
-      {/* Main Content Area (Only Content Scrolls) */}
+      {/* Main Content Area */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          width: { md: `calc(100% - ${SIDEBAR_WIDTH}px)` },
+          width: { md: `calc(100% - ${currentSidebarWidth}px)` },
           minHeight: "100vh",
           display: "flex",
           flexDirection: "column",
-          backgroundColor: "#F5F7FA",
+          backgroundColor: "#F8FAFC",
+          transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
       >
-        {/* Toolbar Spacer to prevent content from hiding under fixed Navbar */}
         <Toolbar sx={{ minHeight: `${NAVBAR_HEIGHT}px !important` }} />
-
-        {/* NEW — Subscription warning banner (Grace / Expiring Soon) */}
         <SubscriptionBanner />
-
-        {/* Scrollable Page Content Container */}
         <Box
           sx={{
             flexGrow: 1,
-            p: { xs: 2.5, sm: 3.5, md: 4 },
+            p: { xs: 2, sm: 3 },
             overflowY: "auto",
           }}
         >

@@ -5,14 +5,36 @@ const ROLE_MANAGER = 2;
 const ROLE_SALES = 3;
 
 // ======================================
+// Helper: Ensure Lead Birthday & Anniversary Columns Exist
+// ======================================
+let columnsChecked = false;
+const ensureLeadEventColumns = async (db = defaultDb) => {
+  if (columnsChecked) return;
+  try {
+    const [cols] = await db.query("SHOW COLUMNS FROM leads LIKE 'dob'");
+    if (cols.length === 0) {
+      await db.query("ALTER TABLE leads ADD COLUMN dob DATE DEFAULT NULL AFTER email");
+      await db.query("ALTER TABLE leads ADD COLUMN anniversary_date DATE DEFAULT NULL AFTER dob");
+      await db.query("ALTER TABLE leads ADD KEY idx_leads_dob (dob)");
+    }
+    columnsChecked = true;
+  } catch (err) {
+    // Ignore if table doesn't exist yet
+  }
+};
+
+// ======================================
 // 1. Create Lead
 // ======================================
 const createLead = async (data, createdBy, db = defaultDb) => {
+  await ensureLeadEventColumns(db);
   const {
     customer_name,
     mobile_number,
     alternate_number,
     email,
+    dob,
+    anniversary_date,
     address,
     city,
     state,
@@ -35,10 +57,11 @@ const createLead = async (data, createdBy, db = defaultDb) => {
     `
     INSERT INTO leads (
       lead_code, customer_name, mobile_number, alternate_number, email,
-      address, city, state, pincode, solar_requirement, interest_status,
-      required_kw, remark, lead_source, priority, status, assigned_to,
-      assigned_by, created_by, next_follow_up_date, site_visit_date, quotation_amount
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      dob, anniversary_date, address, city, state, pincode,
+      solar_requirement, interest_status, required_kw, remark,
+      lead_source, priority, status, assigned_to, assigned_by,
+      created_by, next_follow_up_date, site_visit_date, quotation_amount
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       "",
@@ -46,6 +69,8 @@ const createLead = async (data, createdBy, db = defaultDb) => {
       mobile_number,
       alternate_number || null,
       email || null,
+      dob || null,
+      anniversary_date || null,
       address || null,
       city || null,
       state || null,
@@ -138,12 +163,37 @@ const getLeads = async (params, roleId, userId, db = defaultDb) => {
 
   const [rows] = await db.query(
     `
-    SELECT l.*, u_assignee.full_name AS assigned_to_name,
-      u_assigner.full_name AS assigned_by_name, u_creator.full_name AS created_by_name
+    SELECT 
+      l.*,
+      COALESCE(latest_lf.note, l.remark) AS remark,
+      l.remark AS initial_remark,
+      latest_lf.note AS latest_followup_note,
+      latest_lf.created_at AS latest_followup_at,
+      latest_lf.followup_type AS latest_followup_type,
+      u_lf.full_name AS latest_followup_by_name,
+      COALESCE(lf_count.total_followups, 0) AS total_followups,
+      u_assignee.full_name AS assigned_to_name,
+      u_assigner.full_name AS assigned_by_name,
+      u_creator.full_name AS created_by_name
     FROM leads l
     LEFT JOIN users u_assignee ON l.assigned_to = u_assignee.id
     LEFT JOIN users u_assigner ON l.assigned_by = u_assigner.id
     LEFT JOIN users u_creator ON l.created_by = u_creator.id
+    LEFT JOIN (
+      SELECT lf1.lead_id, lf1.note, lf1.created_at, lf1.followup_type, lf1.created_by
+      FROM lead_followups lf1
+      INNER JOIN (
+        SELECT lead_id, MAX(id) AS max_id
+        FROM lead_followups
+        GROUP BY lead_id
+      ) lf2 ON lf1.id = lf2.max_id
+    ) latest_lf ON latest_lf.lead_id = l.id
+    LEFT JOIN users u_lf ON latest_lf.created_by = u_lf.id
+    LEFT JOIN (
+      SELECT lead_id, COUNT(*) AS total_followups
+      FROM lead_followups
+      GROUP BY lead_id
+    ) lf_count ON lf_count.lead_id = l.id
     ${whereClause}
     ORDER BY l.created_at DESC
     LIMIT ? OFFSET ?
@@ -160,12 +210,37 @@ const getLeads = async (params, roleId, userId, db = defaultDb) => {
 const getLeadById = async (id, db = defaultDb) => {
   const [rows] = await db.query(
     `
-    SELECT l.*, u_assignee.full_name AS assigned_to_name,
-      u_assigner.full_name AS assigned_by_name, u_creator.full_name AS created_by_name
+    SELECT 
+      l.*,
+      COALESCE(latest_lf.note, l.remark) AS remark,
+      l.remark AS initial_remark,
+      latest_lf.note AS latest_followup_note,
+      latest_lf.created_at AS latest_followup_at,
+      latest_lf.followup_type AS latest_followup_type,
+      u_lf.full_name AS latest_followup_by_name,
+      COALESCE(lf_count.total_followups, 0) AS total_followups,
+      u_assignee.full_name AS assigned_to_name,
+      u_assigner.full_name AS assigned_by_name,
+      u_creator.full_name AS created_by_name
     FROM leads l
     LEFT JOIN users u_assignee ON l.assigned_to = u_assignee.id
     LEFT JOIN users u_assigner ON l.assigned_by = u_assigner.id
     LEFT JOIN users u_creator ON l.created_by = u_creator.id
+    LEFT JOIN (
+      SELECT lf1.lead_id, lf1.note, lf1.created_at, lf1.followup_type, lf1.created_by
+      FROM lead_followups lf1
+      INNER JOIN (
+        SELECT lead_id, MAX(id) AS max_id
+        FROM lead_followups
+        GROUP BY lead_id
+      ) lf2 ON lf1.id = lf2.max_id
+    ) latest_lf ON latest_lf.lead_id = l.id
+    LEFT JOIN users u_lf ON latest_lf.created_by = u_lf.id
+    LEFT JOIN (
+      SELECT lead_id, COUNT(*) AS total_followups
+      FROM lead_followups
+      GROUP BY lead_id
+    ) lf_count ON lf_count.lead_id = l.id
     WHERE l.id = ? AND l.is_deleted = 0
     `,
     [id]
@@ -274,8 +349,9 @@ const getTeamFollowupsList = async (managerId, db = defaultDb) => {
 // form -> submit ALL fields back, even unchanged ones.
 // ======================================
 const updateLead = async (id, data, updatedBy, db = defaultDb) => {
+  await ensureLeadEventColumns(db);
   const {
-    customer_name, mobile_number, alternate_number, email, address, city,
+    customer_name, mobile_number, alternate_number, email, dob, anniversary_date, address, city,
     state, pincode, solar_requirement, interest_status, required_kw,
     remark, lead_source, priority, next_follow_up_date, site_visit_date,
     quotation_amount, assigned_to,
@@ -295,7 +371,7 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
   const [result] = await db.query(
     `
     UPDATE leads SET
-      customer_name=?, mobile_number=?, alternate_number=?, email=?, address=?,
+      customer_name=?, mobile_number=?, alternate_number=?, email=?, dob=?, anniversary_date=?, address=?,
       city=?, state=?, pincode=?, solar_requirement=?, interest_status=?,
       required_kw=?, remark=?, lead_source=?, priority=?, next_follow_up_date=?,
       site_visit_date=?, quotation_amount=?, assigned_to=?, assigned_by=?
@@ -303,6 +379,7 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
     `,
     [
       customer_name, mobile_number, alternate_number || null, email || null,
+      dob || null, anniversary_date || null,
       address || null, city || null, state || null, pincode || null,
       solar_requirement, interest_status, required_kw || null, remark || null,
       lead_source, priority, next_follow_up_date || null, site_visit_date || null,
@@ -419,22 +496,21 @@ const assignLead = async (id, assignedTo, assignedBy, db = defaultDb) => {
 // 7. Add Follow-up Note
 // ======================================
 const addFollowup = async (leadId, data, createdBy, db = defaultDb) => {
-  const { note, followup_type, status_after_followup, follow_up_date } = data;
+  const { note, followup_type, status_after_followup, follow_up_date, next_follow_up_date } = data;
+  const effectiveFollowupDate = follow_up_date || next_follow_up_date || null;
 
   const [result] = await db.query(
     `INSERT INTO lead_followups (lead_id, note, followup_type, status_after_followup, follow_up_date, created_by)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [leadId, note, followup_type || "Call", status_after_followup || null, follow_up_date || null, createdBy]
+    [leadId, note, followup_type || "Call", status_after_followup || null, effectiveFollowupDate, createdBy]
   );
 
-  if (status_after_followup || follow_up_date) {
-    let updates = [];
-    let queryParams = [];
-    if (status_after_followup) { updates.push("status=?"); queryParams.push(status_after_followup); }
-    if (follow_up_date) { updates.push("next_follow_up_date=?"); queryParams.push(follow_up_date); }
-    queryParams.push(leadId);
-    await db.query(`UPDATE leads SET ${updates.join(", ")} WHERE id=?`, queryParams);
-  }
+  let updates = ["remark=?"];
+  let queryParams = [note];
+  if (status_after_followup) { updates.push("status=?"); queryParams.push(status_after_followup); }
+  if (effectiveFollowupDate) { updates.push("next_follow_up_date=?"); queryParams.push(effectiveFollowupDate); }
+  queryParams.push(leadId);
+  await db.query(`UPDATE leads SET ${updates.join(", ")} WHERE id=?`, queryParams);
 
   await db.query(
     `INSERT INTO lead_activity_logs (lead_id, action_type, remark, performed_by)
@@ -452,7 +528,7 @@ const getFollowups = async (leadId, db = defaultDb) => {
   const [rows] = await db.query(
     `SELECT f.*, u.full_name AS created_by_name
      FROM lead_followups f LEFT JOIN users u ON f.created_by = u.id
-     WHERE f.lead_id = ? ORDER BY f.created_at DESC`,
+     WHERE f.lead_id = ? ORDER BY f.id DESC, f.created_at DESC`,
     [leadId]
   );
   return rows;
@@ -481,6 +557,24 @@ const deleteLead = async (id, deletedBy, db = defaultDb) => {
      VALUES (?, 'Lead Closed', 'Lead soft deleted', ?)`,
     [id, deletedBy]
   );
+  return result;
+};
+
+// ======================================
+// 10.1 Bulk Soft Delete Leads
+// ======================================
+const bulkDeleteLeads = async (ids, deletedBy, db = defaultDb) => {
+  if (!Array.isArray(ids) || ids.length === 0) return { affectedRows: 0 };
+  const [result] = await db.query(`UPDATE leads SET is_deleted=1 WHERE id IN (?)`, [ids]);
+  for (const id of ids) {
+    try {
+      await db.query(
+        `INSERT INTO lead_activity_logs (lead_id, action_type, remark, performed_by)
+         VALUES (?, 'Lead Closed', 'Lead bulk soft deleted', ?)`,
+        [id, deletedBy]
+      );
+    } catch (e) {}
+  }
   return result;
 };
 
@@ -600,8 +694,237 @@ const bulkImportLeads = async (rows, createdBy, db = defaultDb) => {
   return results;
 };
 
+// ======================================
+// 12. Date-Wise Follow-ups (Today, Overdue, Upcoming, Specific Date)
+// ======================================
+const getDateWiseFollowups = async (params, roleId, userId, db = defaultDb) => {
+  await ensureLeadEventColumns(db);
+  const { filter = "today", date, search, status, priority, assigned_to, lead_source, page = 1, limit = 50 } = params;
+  const offset = (Number(page) - 1) * Number(limit);
+
+  let whereConditions = ["l.is_deleted = 0"];
+  let queryParams = [];
+
+  const role = Number(roleId);
+  if (role === ROLE_SALES) {
+    whereConditions.push("l.assigned_to = ?");
+    queryParams.push(userId);
+  } else if (role === ROLE_MANAGER) {
+    whereConditions.push(
+      `(l.assigned_to IN (SELECT id FROM users WHERE manager_id = ?) OR l.assigned_to = ? OR l.created_by = ?)`
+    );
+    queryParams.push(userId, userId, userId);
+  } else if (role !== ROLE_SUPER_ADMIN) {
+    whereConditions.push("1 = 0");
+  }
+
+  const targetDate = date || new Date().toISOString().slice(0, 10);
+
+  if (filter === "today") {
+    whereConditions.push(
+      `(DATE(l.next_follow_up_date) = ? OR DATE(l.next_follow_up_date) = CURDATE())`
+    );
+    queryParams.push(targetDate);
+  } else if (filter === "overdue") {
+    whereConditions.push(
+      `l.next_follow_up_date IS NOT NULL AND DATE(l.next_follow_up_date) < ? AND l.status NOT IN ('Won', 'Lost', 'Not Interested')`
+    );
+    queryParams.push(targetDate);
+  } else if (filter === "upcoming") {
+    whereConditions.push(
+      `l.next_follow_up_date IS NOT NULL AND DATE(l.next_follow_up_date) > ?`
+    );
+    queryParams.push(targetDate);
+  } else if (filter === "date" && date) {
+    whereConditions.push(`DATE(l.next_follow_up_date) = ?`);
+    queryParams.push(date);
+  } else if (filter === "not_set") {
+    whereConditions.push(`l.next_follow_up_date IS NULL AND l.status NOT IN ('Won', 'Lost', 'Not Interested')`);
+  } else if (filter === "all") {
+    whereConditions.push("l.status NOT IN ('Won', 'Lost', 'Not Interested')");
+  }
+
+  if (status) {
+    whereConditions.push("l.status = ?");
+    queryParams.push(status);
+  }
+  if (priority) {
+    whereConditions.push("l.priority = ?");
+    queryParams.push(priority);
+  }
+  if (assigned_to) {
+    whereConditions.push("l.assigned_to = ?");
+    queryParams.push(assigned_to);
+  }
+  if (lead_source) {
+    whereConditions.push("l.lead_source = ?");
+    queryParams.push(lead_source);
+  }
+
+  if (search && search.trim()) {
+    whereConditions.push("(l.customer_name LIKE ? OR l.mobile_number LIKE ? OR l.email LIKE ? OR l.lead_code LIKE ? OR l.city LIKE ?)");
+    const searchTerm = `%${search.trim()}%`;
+    queryParams.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+  }
+
+  const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
+
+  const [countRows] = await db.query(
+    `SELECT COUNT(*) AS total
+     FROM leads l
+     LEFT JOIN users u_assignee ON l.assigned_to = u_assignee.id
+     ${whereClause}`,
+    queryParams
+  );
+  const total = countRows[0]?.total || 0;
+
+  const [rows] = await db.query(
+    `
+    SELECT 
+      l.*,
+      COALESCE(latest_lf.note, l.remark) AS remark,
+      l.remark AS initial_remark,
+      latest_lf.note AS latest_followup_note,
+      latest_lf.created_at AS latest_followup_at,
+      latest_lf.followup_type AS latest_followup_type,
+      u_lf.full_name AS latest_followup_by_name,
+      COALESCE(lf_count.total_followups, 0) AS total_followups,
+      u_assignee.full_name AS assigned_to_name,
+      u_assigner.full_name AS assigned_by_name,
+      u_creator.full_name AS created_by_name,
+      CASE
+        WHEN DATE(l.next_follow_up_date) < CURDATE() THEN 'OVERDUE'
+        WHEN DATE(l.next_follow_up_date) = CURDATE() THEN 'TODAY'
+        ELSE 'UPCOMING'
+      END AS follow_up_status
+    FROM leads l
+    LEFT JOIN users u_assignee ON l.assigned_to = u_assignee.id
+    LEFT JOIN users u_assigner ON l.assigned_by = u_assigner.id
+    LEFT JOIN users u_creator ON l.created_by = u_creator.id
+    LEFT JOIN (
+      SELECT lf1.lead_id, lf1.note, lf1.created_at, lf1.followup_type, lf1.created_by, lf1.follow_up_date
+      FROM lead_followups lf1
+      INNER JOIN (
+        SELECT lead_id, MAX(id) AS max_id
+        FROM lead_followups
+        GROUP BY lead_id
+      ) lf2 ON lf1.id = lf2.max_id
+    ) latest_lf ON latest_lf.lead_id = l.id
+    LEFT JOIN users u_lf ON latest_lf.created_by = u_lf.id
+    LEFT JOIN (
+      SELECT lead_id, COUNT(*) AS total_followups
+      FROM lead_followups
+      GROUP BY lead_id
+    ) lf_count ON lf_count.lead_id = l.id
+    ${whereClause}
+    ORDER BY 
+      CASE 
+        WHEN DATE(l.next_follow_up_date) = CURDATE() THEN 0 
+        WHEN DATE(l.created_at) = CURDATE() THEN 1 
+        ELSE 2 
+      END,
+      l.next_follow_up_date ASC,
+      l.priority = 'High' DESC,
+      l.id DESC
+    LIMIT ? OFFSET ?
+    `,
+    [...queryParams, Number(limit), Number(offset)]
+  );
+
+  return { total, page: Number(page), limit: Number(limit), data: rows };
+};
+
+// ======================================
+// 13. Birthdays & Anniversary Events
+// ======================================
+const getBirthdayEvents = async (params, roleId, userId, db = defaultDb) => {
+  await ensureLeadEventColumns(db);
+  const { filter = "today", month, search, page = 1, limit = 50 } = params;
+  const offset = (Number(page) - 1) * Number(limit);
+
+  let whereConditions = ["l.is_deleted = 0", "(l.dob IS NOT NULL OR l.anniversary_date IS NOT NULL)"];
+  let queryParams = [];
+
+  const role = Number(roleId);
+  if (role === ROLE_SALES) {
+    whereConditions.push("l.assigned_to = ?");
+    queryParams.push(userId);
+  } else if (role === ROLE_MANAGER) {
+    whereConditions.push("(u_assignee.manager_id = ? OR l.assigned_to = ? OR l.created_by = ?)");
+    queryParams.push(userId, userId, userId);
+  }
+
+  if (filter === "today") {
+    whereConditions.push(`(
+      (MONTH(l.dob) = MONTH(CURDATE()) AND DAY(l.dob) = DAY(CURDATE()))
+      OR
+      (MONTH(l.anniversary_date) = MONTH(CURDATE()) AND DAY(l.anniversary_date) = DAY(CURDATE()))
+    )`);
+  } else if (filter === "this_week") {
+    whereConditions.push(`(
+      (WEEK(l.dob, 1) = WEEK(CURDATE(), 1))
+      OR
+      (WEEK(l.anniversary_date, 1) = WEEK(CURDATE(), 1))
+    )`);
+  } else if (filter === "this_month") {
+    whereConditions.push(`(
+      (MONTH(l.dob) = MONTH(CURDATE()))
+      OR
+      (MONTH(l.anniversary_date) = MONTH(CURDATE()))
+    )`);
+  } else if (filter === "month" && month) {
+    whereConditions.push(`(
+      (MONTH(l.dob) = ?) OR (MONTH(l.anniversary_date) = ?)
+    )`);
+    queryParams.push(Number(month), Number(month));
+  }
+
+  if (search && search.trim()) {
+    whereConditions.push("(l.customer_name LIKE ? OR l.mobile_number LIKE ? OR l.email LIKE ? OR l.lead_code LIKE ?)");
+    const searchTerm = `%${search.trim()}%`;
+    queryParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
+  }
+
+  const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
+
+  const [countRows] = await db.query(
+    `SELECT COUNT(*) AS total
+     FROM leads l
+     LEFT JOIN users u_assignee ON l.assigned_to = u_assignee.id
+     ${whereClause}`,
+    queryParams
+  );
+  const total = countRows[0]?.total || 0;
+
+  const [rows] = await db.query(
+    `
+    SELECT 
+      l.id, l.lead_code, l.customer_name, l.mobile_number, l.email, l.city, l.state,
+      l.dob, l.anniversary_date, l.status, l.solar_requirement, l.assigned_to,
+      u_assignee.full_name AS assigned_to_name,
+      CASE 
+        WHEN MONTH(l.dob) = MONTH(CURDATE()) AND DAY(l.dob) = DAY(CURDATE()) THEN 1 
+        ELSE 0 
+      END AS is_birthday_today,
+      CASE 
+        WHEN MONTH(l.anniversary_date) = MONTH(CURDATE()) AND DAY(l.anniversary_date) = DAY(CURDATE()) THEN 1 
+        ELSE 0 
+      END AS is_anniversary_today
+    FROM leads l
+    LEFT JOIN users u_assignee ON l.assigned_to = u_assignee.id
+    ${whereClause}
+    ORDER BY is_birthday_today DESC, is_anniversary_today DESC, DAY(l.dob) ASC
+    LIMIT ? OFFSET ?
+    `,
+    [...queryParams, Number(limit), Number(offset)]
+  );
+
+  return { total, page: Number(page), limit: Number(limit), data: rows };
+};
+
 module.exports = {
   createLead, getLeads, getLeadById, isLeadAccessibleByUser, getTeamFollowupsList,
   updateLead, updateLeadStatus, assignLead, addFollowup, getFollowups, getActivityLogs,
-  deleteLead, bulkReassignLeads, bulkImportLeads,
+  deleteLead, bulkDeleteLeads, bulkReassignLeads, bulkImportLeads, getDateWiseFollowups, getBirthdayEvents,
+  ensureLeadEventColumns,
 };

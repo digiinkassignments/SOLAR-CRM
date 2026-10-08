@@ -61,8 +61,8 @@ const API_BASE_URL =
   "http://localhost:5000";
 
 const COLORS = {
-  primary: "#005BAC",
-  primaryDark: "#0B3A63",
+  primary: "#0F172A",
+  primaryDark: "#020617",
   bg: "#F5F7FA",
   card: "#FFFFFF",
   border: "#E5E7EB",
@@ -74,7 +74,9 @@ const COLORS = {
   info: "#0284C7",
 };
 
-const SlideTransition = (props) => <Slide {...props} direction="left" />;
+const SlideTransition = React.forwardRef(function SlideTransition(props, ref) {
+  return <Slide ref={ref} {...props} direction="left" />;
+});
 
 const fieldSx = {
   "& .MuiOutlinedInput-root": {
@@ -184,6 +186,7 @@ const Settings = () => {
   const [settings, setSettings] = useState({
     company_name: "",
     company_logo: "",
+    quotation_template: "template1",
     company_email: "",
     company_phone: "",
     website: "",
@@ -196,6 +199,13 @@ const Settings = () => {
     state: "",
     country: "",
     pincode: "",
+
+    bank_name: "",
+    account_name: "",
+    account_number: "",
+    ifsc_code: "",
+    branch_name: "",
+    upi_id: "",
 
     currency: "INR",
     timezone: "Asia/Kolkata",
@@ -625,12 +635,222 @@ const Settings = () => {
                 </TextField>
               </Grid>
             </Grid>
-          </Paper>
-        )}
+            {/* OFFICIAL BANK WIRE & SETTLEMENT DETAILS (FOR INVOICES & BILLING) */}
+            <Divider sx={{ my: 3, borderColor: "#E2E8F0" }} />
+            <Typography sx={{ ...sectionTitleSx, mb: 0.5 }}>Official Bank Wire & Settlement Details</Typography>
+            <Typography variant="caption" sx={{ color: COLORS.textSecondary, display: "block", mb: 2 }}>
+              These banking credentials appear on the Tax Invoice, commercial quotations, and wire payment instructions.
+            </Typography>
 
-        {/* TAB 1: SMTP & EMAIL CONFIGURATION */}
-        {activeTab === 1 && (
-          <Paper elevation={0} sx={cardSx}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Bank Name"
+                  name="bank_name"
+                  placeholder="e.g. HDFC Bank Ltd / State Bank of India"
+                  value={settings.bank_name || ""}
+                  onChange={handleChange}
+                  size="small"
+                  sx={fieldSx}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Account Holder / Beneficiary Name"
+                  name="account_name"
+                  placeholder="e.g. Solar EPC Solutions Pvt Ltd"
+                  value={settings.account_name || ""}
+                  onChange={handleChange}
+                  size="small"
+                  sx={fieldSx}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Bank Account Number"
+                  name="account_number"
+                  placeholder="e.g. 50200012345678"
+                  value={settings.account_number || ""}
+                  onChange={handleChange}
+                  size="small"
+                  sx={fieldSx}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="IFSC Code"
+                  name="ifsc_code"
+                  placeholder="e.g. HDFC0001234"
+                  value={settings.ifsc_code || ""}
+                  onChange={handleChange}
+                  size="small"
+                  sx={fieldSx}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Branch Name"
+                  name="branch_name"
+                  placeholder="e.g. Connaught Place, New Delhi"
+                  value={settings.branch_name || ""}
+                  onChange={handleChange}
+                  size="small"
+                  sx={fieldSx}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="UPI ID / VPA (Optional)"
+                  name="upi_id"
+                  placeholder="e.g. solarpower@hdfcbank"
+                  value={settings.upi_id || ""}
+                  onChange={handleChange}
+                  size="small"
+                  sx={fieldSx}
+                />
+              </Grid>
+            </Grid>
+
+            {/* QUOTATION & PDF PROPOSAL TEMPLATE SELECTOR */}
+            <Divider sx={{ my: 3, borderColor: "#E2E8F0" }} />
+            <Typography sx={{ ...sectionTitleSx, mb: 1 }}>Quotation & PDF Proposal Template</Typography>
+            <Typography variant="caption" sx={{ color: COLORS.textSecondary, display: "block", mb: 2 }}>
+              Select the active template format for customer quotations, web proposals, and downloadable PDF documents.
+            </Typography>
+
+            <Grid container spacing={2.5}>
+              {/* TEMPLATE 1 CARD */}
+              <Grid item xs={12} md={4}>
+                <Paper
+                  onClick={() => setSettings(prev => ({ ...prev, quotation_template: "template1" }))}
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    cursor: "pointer",
+                    borderRadius: "12px",
+                    border: (settings.quotation_template === "template1" || !settings.quotation_template)
+                      ? `2px solid ${COLORS.primary}`
+                      : `1px solid ${COLORS.border}`,
+                    bgcolor: (settings.quotation_template === "template1" || !settings.quotation_template)
+                      ? "#EFF6FF"
+                      : "#FFFFFF",
+                    position: "relative",
+                    transition: "all 0.2s ease",
+                    "&:hover": { borderColor: COLORS.primary, transform: "translateY(-2px)" },
+                  }}
+                >
+                  {(settings.quotation_template === "template1" || !settings.quotation_template) && (
+                    <Chip label="Active Default" size="small" color="primary" sx={{ position: "absolute", top: 12, right: 12, fontWeight: 700, fontSize: "0.68rem" }} />
+                  )}
+                  <Typography variant="subtitle2" fontWeight={800} color="#0F172A">
+                    1. Minimalist Corporate (User Sample)
+                  </Typography>
+                  <Typography variant="caption" color="#64748B" display="block" sx={{ mt: 0.5, mb: 1.5, minHeight: 36 }}>
+                    Clean 3-column top header, left vertical border section titles, black table header & grand total rows, clear approval box.
+                  </Typography>
+                  <Box sx={{ p: 1.5, border: "1px dashed #CBD5E1", borderRadius: "8px", bgcolor: "#FAFAFA", fontSize: "0.7rem" }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5, pb: 0.5, borderBottom: "1px solid #0F172A" }}>
+                      <span style={{ fontWeight: 800 }}>Company Logo</span>
+                      <span style={{ fontSize: "0.65rem", color: "#64748B" }}>QUOTATION NO.</span>
+                    </Box>
+                    <Box sx={{ bgcolor: "#F1F5F9", borderLeft: "3px solid #0F172A", px: 0.8, py: 0.3, my: 0.5, fontWeight: 700 }}>
+                      1. System Overview
+                    </Box>
+                    <Box sx={{ bgcolor: "#0F172A", color: "#FFF", p: 0.4, borderRadius: "2px", textAlign: "center", fontSize: "0.65rem" }}>
+                      Service Breakdown (Black Header)
+                    </Box>
+                  </Box>
+                </Paper>
+              </Grid>
+
+              {/* TEMPLATE 2 CARD */}
+              <Grid item xs={12} md={4}>
+                <Paper
+                  onClick={() => setSettings(prev => ({ ...prev, quotation_template: "template2" }))}
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    cursor: "pointer",
+                    borderRadius: "12px",
+                    border: settings.quotation_template === "template2"
+                      ? `2px solid ${COLORS.primary}`
+                      : `1px solid ${COLORS.border}`,
+                    bgcolor: settings.quotation_template === "template2"
+                      ? "#EFF6FF"
+                      : "#FFFFFF",
+                    position: "relative",
+                    transition: "all 0.2s ease",
+                    "&:hover": { borderColor: COLORS.primary, transform: "translateY(-2px)" },
+                  }}
+                >
+                  {settings.quotation_template === "template2" && (
+                    <Chip label="Active" size="small" color="primary" sx={{ position: "absolute", top: 12, right: 12, fontWeight: 700, fontSize: "0.68rem" }} />
+                  )}
+                  <Typography variant="subtitle2" fontWeight={800} color="#0F172A">
+                    2. Executive Solar Navy
+                  </Typography>
+                  <Typography variant="caption" color="#64748B" display="block" sx={{ mt: 0.5, mb: 1.5, minHeight: 36 }}>
+                    Full navy banner header, dual column customer details, vibrant blue accents, highlighted financial metrics.
+                  </Typography>
+                  <Box sx={{ p: 1.5, border: "1px dashed #CBD5E1", borderRadius: "8px", bgcolor: "#FAFAFA", fontSize: "0.7rem" }}>
+                    <Box sx={{ bgcolor: "#0B3A63", color: "#FFF", p: 0.8, borderRadius: "4px", mb: 0.5, display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ fontWeight: 800 }}>SOLAR CRM</span>
+                      <span>#Q-2026</span>
+                    </Box>
+                    <Box sx={{ bgcolor: "#E0F2FE", px: 0.8, py: 0.3, my: 0.5, color: "#0369A1", fontWeight: 700, borderRadius: "4px" }}>
+                      Executive Proposal Summary
+                    </Box>
+                  </Box>
+                </Paper>
+              </Grid>
+
+              {/* TEMPLATE 3 CARD */}
+              <Grid item xs={12} md={4}>
+                <Paper
+                  onClick={() => setSettings(prev => ({ ...prev, quotation_template: "template3" }))}
+                  elevation={0}
+                  sx={{
+                    p: 2,
+                    cursor: "pointer",
+                    borderRadius: "12px",
+                    border: settings.quotation_template === "template3"
+                      ? `2px solid ${COLORS.primary}`
+                      : `1px solid ${COLORS.border}`,
+                    bgcolor: settings.quotation_template === "template3"
+                      ? "#EFF6FF"
+                      : "#FFFFFF",
+                    position: "relative",
+                    transition: "all 0.2s ease",
+                    "&:hover": { borderColor: COLORS.primary, transform: "translateY(-2px)" },
+                  }}
+                >
+                  {settings.quotation_template === "template3" && (
+                    <Chip label="Active" size="small" color="primary" sx={{ position: "absolute", top: 12, right: 12, fontWeight: 700, fontSize: "0.68rem" }} />
+                  )}
+                  <Typography variant="subtitle2" fontWeight={800} color="#0F172A">
+                    3. Modern Compact Invoice
+                  </Typography>
+                  <Typography variant="caption" color="#64748B" display="block" sx={{ mt: 0.5, mb: 1.5, minHeight: 36 }}>
+                    Sleek streamlined layout, light gray headers, compact line items, space-efficient signature block.
+                  </Typography>
+                  <Box sx={{ p: 1.5, border: "1px dashed #CBD5E1", borderRadius: "8px", bgcolor: "#FAFAFA", fontSize: "0.7rem" }}>
+                    <Box sx={{ borderBottom: "2px solid #005BAC", pb: 0.5, mb: 0.5, display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ fontWeight: 800, color: "#005BAC" }}>QUOTATION</span>
+                      <span style={{ fontSize: "0.65rem", color: "#64748B" }}>Date: 31 Jul 2026</span>
+                    </Box>
+                    <Box sx={{ bgcolor: "#F8FAFC", border: "1px solid #E2E8F0", p: 0.4, borderRadius: "4px", textAlign: "center", fontSize: "0.65rem" }}>
+                      Compact Grid Layout
+                    </Box>
+                  </Box>
+                </Paper>
+              </Grid>
+            </Grid>
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
               <Typography sx={sectionTitleSx}>SMTP Email Gateway Setup</Typography>
               <Button

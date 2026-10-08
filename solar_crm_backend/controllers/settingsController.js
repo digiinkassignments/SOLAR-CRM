@@ -39,10 +39,10 @@ const updateSettingsController = async (req, res) => {
             message: "Settings updated successfully."
         });
     } catch (error) {
-        console.log(error);
+        console.error("Error in updateSettingsController:", error);
         return res.status(500).json({
             success: false,
-            message: "Internal Server Error."
+            message: error.message || "Internal Server Error."
         });
     }
 };

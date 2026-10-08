@@ -73,11 +73,18 @@ import { getTeamMembers } from "../../services/userServices";
 import LeadDetailModal from "../../pages/Manager/LeadDetailModal";
 import ImportLeadsDialog from "../../components/ImportLeadsDialog";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import { useAuth } from "../../context/AuthContext";
+import WhatsAppDrawer from "../../components/WhatsAppDrawer";
+import ScheduleSurveyModal from "../../components/ScheduleSurveyModal";
+import SurveyExecutionModal from "../../components/SurveyExecutionModal";
+import DealOrderModal from "../../components/DealOrderModal";
+import SubsidyTrackerDrawer from "../../components/SubsidyTrackerDrawer";
+import { getSurveyByLead } from "../../services/surveyService";
 
 const COLORS = {
-  primary: "#00B5EF",
-  primaryDark: "#292075",
-  primarySoft: "#E0F7FF",
+  primary: "#0F172A",
+  primaryDark: "#020617",
+  primarySoft: "#FEF3C7",
   bg: "#F4F6FA",
   card: "#FFFFFF",
   border: "#E2E8F0",
@@ -217,7 +224,7 @@ const getInitials = (n = "") =>
 
 const STATUS_STYLES = {
   "New Lead": { color: "#0284C7", bg: "#E0F2FE" },
-  Contacted: { color: "#00B5EF", bg: "#E0F7FF" },
+  Contacted: { color: "#D97706", bg: "#FEF3C7" },
   "Follow-up Pending": { color: COLORS.warning, bg: COLORS.warningSoft },
   "Site Visit Scheduled": { color: COLORS.purple, bg: COLORS.purpleSoft },
   "Quotation Sent": { color: "#9333EA", bg: "#F3E8FF" },
@@ -343,6 +350,59 @@ const KpiCard = ({ icon, label, value, accent, loading, index = 0 }) => (
 );
 
 export default function ManagerLeads() {
+  const { user } = useAuth();
+  const [whatsappDrawerOpen, setWhatsappDrawerOpen] = useState(false);
+  const [whatsappLead, setWhatsappLead] = useState(null);
+
+  const openWhatsAppDrawer = useCallback((lead) => {
+    setWhatsappLead(lead);
+    setWhatsappDrawerOpen(true);
+    setAnchorEl(null);
+  }, []);
+
+  const [scheduleSurveyOpen, setScheduleSurveyOpen] = useState(false);
+  const [surveyExecutionOpen, setSurveyExecutionOpen] = useState(false);
+  const [surveyLead, setSurveyLead] = useState(null);
+  const [activeSurvey, setActiveSurvey] = useState(null);
+
+  const openScheduleSurvey = useCallback((lead) => {
+    setSurveyLead(lead);
+    setScheduleSurveyOpen(true);
+    setAnchorEl(null);
+  }, []);
+
+  const openExecuteSurvey = useCallback(async (lead) => {
+    setSurveyLead(lead);
+    try {
+      const res = await getSurveyByLead(lead.id);
+      if (res?.success && res.data) {
+        setActiveSurvey(res.data);
+      } else {
+        setActiveSurvey({ lead_id: lead.id, status: "scheduled" });
+      }
+    } catch (err) {
+      setActiveSurvey({ lead_id: lead.id, status: "scheduled" });
+    }
+    setSurveyExecutionOpen(true);
+    setAnchorEl(null);
+  }, []);
+
+  const [dealModalOpen, setDealModalOpen] = useState(false);
+  const [dealLead, setDealLead] = useState(null);
+  const [subsidyDrawerOpen, setSubsidyDrawerOpen] = useState(false);
+  const [subsidyLead, setSubsidyLead] = useState(null);
+
+  const openDealOrderModal = useCallback((lead) => {
+    setDealLead(lead);
+    setDealModalOpen(true);
+    setAnchorEl(null);
+  }, []);
+
+  const openSubsidyTracker = useCallback((lead) => {
+    setSubsidyLead(lead);
+    setSubsidyDrawerOpen(true);
+    setAnchorEl(null);
+  }, []);
   // Custom Fields
   const [customFields, setCustomFields] = useState([]);
   const [customValues, setCustomValues] = useState({});
@@ -1259,7 +1319,7 @@ export default function ManagerLeads() {
                                 <IconButton
                                   size="small"
                                   onClick={() =>
-                                    handleWhatsApp(row.mobile_number)
+                                    openWhatsAppDrawer(row)
                                   }
                                   sx={{
                                     width: 26,
@@ -2205,6 +2265,46 @@ export default function ManagerLeads() {
             {snackbar.message}
           </MuiAlert>
         </Snackbar>
+        <WhatsAppDrawer
+          open={whatsappDrawerOpen}
+          onClose={() => setWhatsappDrawerOpen(false)}
+          lead={whatsappLead}
+          currentUser={user}
+        />
+        <ScheduleSurveyModal
+          open={scheduleSurveyOpen}
+          onClose={() => setScheduleSurveyOpen(false)}
+          lead={surveyLead}
+          onScheduled={() => {
+            fetchLeadsList();
+          }}
+          showSnackbar={showSnackbar}
+        />
+        <SurveyExecutionModal
+          open={surveyExecutionOpen}
+          onClose={() => setSurveyExecutionOpen(false)}
+          survey={activeSurvey}
+          lead={surveyLead}
+          onCompleted={() => {
+            fetchLeadsList();
+          }}
+          showSnackbar={showSnackbar}
+        />
+        <DealOrderModal
+          open={dealModalOpen}
+          onClose={() => setDealModalOpen(false)}
+          lead={dealLead}
+          onOrderBooked={() => {
+            fetchLeadsList();
+          }}
+          showSnackbar={showSnackbar}
+        />
+        <SubsidyTrackerDrawer
+          open={subsidyDrawerOpen}
+          onClose={() => setSubsidyDrawerOpen(false)}
+          lead={subsidyLead}
+          showSnackbar={showSnackbar}
+        />
       </Box>
     </Box>
   );

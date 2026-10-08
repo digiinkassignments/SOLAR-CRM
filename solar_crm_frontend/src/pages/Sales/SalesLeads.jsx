@@ -78,6 +78,15 @@ import AddIcon from "@mui/icons-material/Add";
 import WarningIcon from "@mui/icons-material/Warning";
 
 import { State, City } from "country-state-city";
+import { useAuth } from "../../context/AuthContext";
+import WhatsAppDrawer from "../../components/WhatsAppDrawer";
+import ScheduleSurveyModal from "../../components/ScheduleSurveyModal";
+import SurveyExecutionModal from "../../components/SurveyExecutionModal";
+import DealOrderModal from "../../components/DealOrderModal";
+import SubsidyTrackerDrawer from "../../components/SubsidyTrackerDrawer";
+import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
+import VerifiedUserIcon from "@mui/icons-material/VerifiedUser";
+import { getSurveyByLead } from "../../services/surveyService";
 
 import {
   getLeads,
@@ -94,9 +103,10 @@ import {
 // CONSTANTS & DESIGN SYSTEM
 // ======================================================
 const COLORS = {
-  primary: "#00B5EF",
-  primaryDark: "#292075",
-  primarySoft: "#E0F7FF",
+  primary: "#0F172A",
+  primaryDark: "#020617",
+  primarySoft: "#FEF3C7",
+  accent: "#F59E0B",
   bg: "#F8FAFC",
   card: "#FFFFFF",
   surfaceMuted: "#F8FAFC",
@@ -168,7 +178,7 @@ const SALES_CREATE_INITIAL_FORM = {
 
 const STATUS_STYLES = {
   "New Lead": { bg: "#E0F2FE", color: "#0284C7" },
-  Contacted: { bg: "#E0F7FF", color: "#00B5EF" },
+  Contacted: { bg: "#FEF3C7", color: "#D97706" },
   "Follow-up Pending": { bg: "#FEF3C7", color: "#D97706" },
   "Site Visit Scheduled": { bg: "#F3E8FF", color: "#9333EA" },
   "Quotation Sent": { bg: "#EDE9FE", color: "#7C3AED" },
@@ -470,6 +480,55 @@ const SalesLeads = () => {
   const [createSaving, setCreateSaving] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState(null);
   const [duplicateChecking, setDuplicateChecking] = useState(false);
+
+  const { user } = useAuth();
+  const [whatsappDrawerOpen, setWhatsappDrawerOpen] = useState(false);
+  const [whatsappLead, setWhatsappLead] = useState(null);
+
+  const openWhatsAppDrawer = useCallback((lead) => {
+    setWhatsappLead(lead);
+    setWhatsappDrawerOpen(true);
+  }, []);
+
+  const [scheduleSurveyOpen, setScheduleSurveyOpen] = useState(false);
+  const [surveyExecutionOpen, setSurveyExecutionOpen] = useState(false);
+  const [surveyLead, setSurveyLead] = useState(null);
+  const [activeSurvey, setActiveSurvey] = useState(null);
+
+  const openScheduleSurvey = useCallback((lead) => {
+    setSurveyLead(lead);
+    setScheduleSurveyOpen(true);
+  }, []);
+
+  const openExecuteSurvey = useCallback(async (lead) => {
+    setSurveyLead(lead);
+    try {
+      const res = await getSurveyByLead(lead.id);
+      if (res?.success && res.data) {
+        setActiveSurvey(res.data);
+      } else {
+        setActiveSurvey({ lead_id: lead.id, status: "scheduled" });
+      }
+    } catch (err) {
+      setActiveSurvey({ lead_id: lead.id, status: "scheduled" });
+    }
+    setSurveyExecutionOpen(true);
+  }, []);
+
+  const [dealModalOpen, setDealModalOpen] = useState(false);
+  const [dealLead, setDealLead] = useState(null);
+  const [subsidyDrawerOpen, setSubsidyDrawerOpen] = useState(false);
+  const [subsidyLead, setSubsidyLead] = useState(null);
+
+  const openDealOrderModal = useCallback((lead) => {
+    setDealLead(lead);
+    setDealModalOpen(true);
+  }, []);
+
+  const openSubsidyTracker = useCallback((lead) => {
+    setSubsidyLead(lead);
+    setSubsidyDrawerOpen(true);
+  }, []);
 
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
 
@@ -1528,7 +1587,15 @@ const SalesLeads = () => {
           anchor="right"
           open={drawerOpen}
           onClose={handleCloseDrawer}
-          PaperProps={{ sx: { width: { xs: "100%", sm: 560 } } }}
+          PaperProps={{
+            sx: {
+              width: { xs: "100%", sm: 540 },
+              backgroundColor: "#F8FAFC",
+              borderLeft: `1px solid ${COLORS.border}`,
+              scrollbarWidth: "none",
+              "&::-webkit-scrollbar": { display: "none" },
+            },
+          }}
         >
           <SlideTransition in={drawerOpen} mountOnEnter unmountOnExit>
             <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -1972,6 +2039,71 @@ const SalesLeads = () => {
             {snackbar.message}
           </Alert>
         </Snackbar>
+        <WhatsAppDrawer
+          open={whatsappDrawerOpen}
+          onClose={() => setWhatsappDrawerOpen(false)}
+          lead={whatsappLead}
+          currentUser={user}
+        />
+        <ScheduleSurveyModal
+          open={scheduleSurveyOpen}
+          onClose={() => setScheduleSurveyOpen(false)}
+          lead={surveyLead}
+          onScheduled={() => {
+            fetchLeadsList();
+          }}
+          showSnackbar={showNotification}
+        />
+        <SurveyExecutionModal
+          open={surveyExecutionOpen}
+          onClose={() => setSurveyExecutionOpen(false)}
+          survey={activeSurvey}
+          lead={surveyLead}
+          onCompleted={() => {
+            fetchLeadsList();
+          }}
+          showSnackbar={showNotification}
+        />
+        <WhatsAppDrawer
+          open={whatsappDrawerOpen}
+          onClose={() => setWhatsappDrawerOpen(false)}
+          lead={whatsappLead}
+          currentUser={user}
+        />
+        <ScheduleSurveyModal
+          open={scheduleSurveyOpen}
+          onClose={() => setScheduleSurveyOpen(false)}
+          lead={surveyLead}
+          onScheduled={() => {
+            fetchLeadsList();
+          }}
+          showSnackbar={showNotification}
+        />
+        <SurveyExecutionModal
+          open={surveyExecutionOpen}
+          onClose={() => setSurveyExecutionOpen(false)}
+          survey={activeSurvey}
+          lead={surveyLead}
+          onCompleted={() => {
+            fetchLeadsList();
+          }}
+          showSnackbar={showNotification}
+        />
+        <DealOrderModal
+          open={dealModalOpen}
+          onClose={() => setDealModalOpen(false)}
+          lead={dealLead}
+          onOrderBooked={() => {
+            fetchLeadsList();
+          }}
+          showSnackbar={showNotification}
+        />
+        <SubsidyTrackerDrawer
+          open={subsidyDrawerOpen}
+          onClose={() => setSubsidyDrawerOpen(false)}
+          lead={subsidyLead}
+          showSnackbar={showNotification}
+        />
       </Box>
     </Box>
   );

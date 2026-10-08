@@ -54,9 +54,10 @@ const API_BASE_URL =
   "http://localhost:5000";
 
 const C = {
-  primary: "#00B5EF",
-  primaryDark: "#292075",
-  primarySoft: "#E0F7FF",
+  primary: "#0F172A",
+  primaryDark: "#020617",
+  primarySoft: "#FEF3C7",
+  accent: "#F59E0B",
   bg: "#F4F6FA",
   card: "#FFFFFF",
   border: "#E2E8F0",
@@ -449,17 +450,17 @@ const Reports = () => {
     const pl = PERIOD_OPTIONS.find((p) => p.value === period)?.label || "All Time";
     w.document.write(`<!DOCTYPE html><html><head><title>Report</title><style>
       body{font-family:'Segoe UI',sans-serif;margin:30px;color:#0F172A}
-      .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #00B5EF;padding-bottom:15px;margin-bottom:20px}
-      .logo{height:45px}.title{font-size:20px;font-weight:bold;color:#292075;margin:0}
+      .header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #F59E0B;padding-bottom:15px;margin-bottom:20px}
+      .logo{height:45px}.title{font-size:20px;font-weight:bold;color:#0F172A;margin:0}
       .subtitle{font-size:12px;color:#64748B;margin-top:4px}
       .kpi-container{display:flex;gap:15px;margin-bottom:25px}
       .kpi-card{flex:1;border:1px solid #E2E8F0;border-radius:8px;padding:12px;background:#F8FAFC;text-align:center}
       .kpi-title{font-size:10px;font-weight:bold;color:#64748B;text-transform:uppercase}
-      .kpi-value{font-size:18px;font-weight:800;color:#00B5EF;margin-top:5px}
+      .kpi-value{font-size:18px;font-weight:800;color:#D97706;margin-top:5px}
       table{width:100%;border-collapse:collapse;margin-top:10px;margin-bottom:25px;font-size:12px}
-      th{background-color:#292075;color:#FFF;text-align:left;padding:10px;font-weight:600}
+      th{background-color:#0F172A;color:#FFF;text-align:left;padding:10px;font-weight:600}
       td{padding:10px;border-bottom:1px solid #E2E8F0}tr:nth-child(even){background-color:#F8FAFC}
-      h3{color:#292075}.footer{margin-top:40px;font-size:10px;color:#94A3B8;text-align:center;border-top:1px solid #E2E8F0;padding-top:10px}
+      h3{color:#0F172A}.footer{margin-top:40px;font-size:10px;color:#94A3B8;text-align:center;border-top:1px solid #E2E8F0;padding-top:10px}
     </style></head><body>
       <div class="header"><div><h1 class="title">SOLAR CRM - ORGANIZATION PERFORMANCE REPORT</h1><p class="subtitle">Period: ${pl} | Generated on: ${dt}</p></div><img src="${window.location.origin}${logo}" class="logo" alt="Logo" onerror="this.style.display='none'"/></div>
       <div class="kpi-container">

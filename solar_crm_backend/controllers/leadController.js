@@ -11,9 +11,13 @@ const {
   getFollowups,
   getActivityLogs,
   deleteLead,
+  bulkDeleteLeads,
   bulkReassignLeads,
   bulkImportLeads,
+  getDateWiseFollowups,
+  getBirthdayEvents,
 } = require("../models/leadModel");
+const nodemailer = require("nodemailer");
 
 const { isUserInManagerTeam } = require("../models/userModel");
 
@@ -485,6 +489,154 @@ const deleteLeadController = async (req, res) => {
   }
 };
 
+// ======================================
+// Bulk Delete Leads — Admin / Manager
+// ======================================
+const bulkDeleteLeadsController = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: "Please provide an array of lead IDs to delete." });
+    }
+    await bulkDeleteLeads(ids, req.user.id, req.db);
+    return res.status(200).json({ success: true, message: `${ids.length} leads deleted successfully.` });
+  } catch (error) {
+    console.error("bulkDeleteLeadsController error:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error." });
+  }
+};
+
+// ======================================
+// Date-Wise Follow-ups (Calendar / Today / Overdue / Upcoming)
+// ======================================
+const getDateWiseFollowupsController = async (req, res) => {
+  try {
+    const roleId = req.user.role_id;
+    const userId = req.user.id;
+    const result = await getDateWiseFollowups(req.query, roleId, userId, req.db);
+    return res.status(200).json({
+      success: true,
+      message: "Date-wise followups fetched successfully.",
+      ...result,
+    });
+  } catch (error) {
+    console.error("getDateWiseFollowupsController error:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error." });
+  }
+};
+
+// ======================================
+// Birthdays & Anniversary Celebrations
+// ======================================
+const getBirthdayEventsController = async (req, res) => {
+  try {
+    const roleId = req.user.role_id;
+    const userId = req.user.id;
+    const result = await getBirthdayEvents(req.query, roleId, userId, req.db);
+    return res.status(200).json({
+      success: true,
+      message: "Birthday & anniversary events fetched successfully.",
+      ...result,
+    });
+  } catch (error) {
+    console.error("getBirthdayEventsController error:", error);
+    return res.status(500).json({ success: false, message: "Internal Server Error." });
+  }
+};
+
+// ======================================
+// Send Greeting Wish (WhatsApp link / Email)
+// ======================================
+const sendClientWishController = async (req, res) => {
+  try {
+    const { lead_id, wish_type = "birthday", channel = "whatsapp", custom_message } = req.body;
+    if (!lead_id) {
+      return res.status(400).json({ success: false, message: "lead_id is required." });
+    }
+
+    const leadRows = await getLeadById(lead_id, req.db);
+    if (!leadRows || leadRows.length === 0) {
+      return res.status(404).json({ success: false, message: "Lead not found." });
+    }
+    const lead = leadRows[0];
+
+    const eventName = wish_type === "anniversary" ? "Anniversary" : "Birthday";
+    const defaultText = custom_message || `☀️ Dear ${lead.customer_name},\n\nWishing you a very joyful and blessed Happy ${eventName}! 🎉\n\nMay your year ahead be full of prosperity, good health, and bright green energy! ⚡\n\nWarm regards,\nSolar CRM Team`;
+
+    if (channel === "whatsapp") {
+      const cleanPhone = String(lead.mobile_number || "").replace(/\D/g, "");
+      const fullPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+      const encodedMsg = encodeURIComponent(defaultText);
+      const whatsappUrl = `https://wa.me/${fullPhone}?text=${encodedMsg}`;
+
+      // Log activity
+      await req.db.query(
+        `INSERT INTO lead_activity_logs (lead_id, action_type, remark, performed_by) VALUES (?, 'Follow-up Added', ?, ?)`,
+        [lead_id, `${eventName} greeting generated via WhatsApp`, req.user.id]
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: `${eventName} WhatsApp link generated.`,
+        whatsapp_url: whatsappUrl,
+        message_text: defaultText,
+      });
+    }
+
+    if (channel === "email") {
+      if (!lead.email) {
+        return res.status(400).json({ success: false, message: "Lead does not have an email address." });
+      }
+
+      if (process.env.MAIL_HOST && process.env.MAIL_USER && process.env.MAIL_PASS) {
+        const transporter = nodemailer.createTransport({
+          host: process.env.MAIL_HOST,
+          port: process.env.MAIL_PORT || 587,
+          secure: false,
+          auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS },
+        });
+
+        await transporter.sendMail({
+          from: process.env.MAIL_FROM || `"Solar CRM" <${process.env.MAIL_USER}>`,
+          to: lead.email,
+          subject: `🎉 Happy ${eventName}, ${lead.customer_name}! | Warm Wishes from Solar Team`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <h1 style="color: #0f172a; margin-bottom: 6px;">🎉 Happy ${eventName}! ☀️</h1>
+                <p style="color: #64748b; font-size: 14px; margin-top: 0;">Warm wishes from your Solar Partner</p>
+              </div>
+              <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; color: #334155; line-height: 1.6; font-size: 15px;">
+                <p>Dear <strong>${lead.customer_name}</strong>,</p>
+                <p>${defaultText.replace(/\n/g, "<br/>")}</p>
+              </div>
+              <div style="text-align: center; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px; font-size: 12px; color: #94a3b8;">
+                Solar CRM Platform · Automated Customer Relationship Management
+              </div>
+            </div>
+          `,
+        });
+      }
+
+      // Log activity
+      await req.db.query(
+        `INSERT INTO lead_activity_logs (lead_id, action_type, remark, performed_by) VALUES (?, 'Follow-up Added', ?, ?)`,
+        [lead_id, `${eventName} greeting email sent to ${lead.email}`, req.user.id]
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: `${eventName} email greeting sent successfully.`,
+      });
+    }
+
+    return res.status(400).json({ success: false, message: "Invalid channel specified. Use 'email' or 'whatsapp'." });
+  } catch (error) {
+    console.error("sendClientWishController error:", error);
+    return res.status(500).json({ success: false, message: "Failed to send greeting wish: " + error.message });
+  }
+};
+
 module.exports = {
   createLead: createLeadController,
   getLeads: getLeadsController,
@@ -499,4 +651,8 @@ module.exports = {
   getFollowups: getFollowupsController,
   getActivityLogs: getActivityLogsController,
   deleteLead: deleteLeadController,
+  bulkDeleteLeads: bulkDeleteLeadsController,
+  getDateWiseFollowups: getDateWiseFollowupsController,
+  getBirthdayEvents: getBirthdayEventsController,
+  sendClientWish: sendClientWishController,
 };

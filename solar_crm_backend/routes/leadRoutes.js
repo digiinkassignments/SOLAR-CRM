@@ -7,6 +7,7 @@ const { authorizeRoles } = require("../middleware/roleMiddleware");
 const {
   createLead, getLeads, getLeadById, getTeamFollowupsList, updateLead, updateLeadStatus,
   assignLead, bulkReassign, bulkImport, addFollowup, getFollowups, getActivityLogs, deleteLead,
+  bulkDeleteLeads, getDateWiseFollowups, getBirthdayEvents, sendClientWish,
 } = require("../controllers/leadController");
 
 const {
@@ -21,14 +22,18 @@ const ROLE_SALES = 3;
 router.get("/", verifyToken, getLeads);
 router.post("/", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER, ROLE_SALES), createLead);
 
-// ⚠️ /:id se UPAR rakhna zaroori hai, warna "bulk-reassign" ko :id samajh lega
+// ⚠️ /:id se UPAR rakhna zaroori hai
 router.patch("/bulk-reassign", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), bulkReassign);
-
-// ⚠️ /:id se UPAR rakhna hai
 router.post("/bulk-import", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), bulkImport);
-
-// ⚠️ /:id se UPAR rakhna hai
+router.post("/bulk-delete", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), bulkDeleteLeads);
 router.get("/team/followups", verifyToken, authorizeRoles(ROLE_MANAGER), getTeamFollowupsList);
+
+// Date-wise Follow-ups (Today, Overdue, Upcoming, Custom Date Filter)
+router.get("/followups/calendar", verifyToken, getDateWiseFollowups);
+
+// Birthday & Anniversary Events / Wish Dispatcher
+router.get("/events/birthdays", verifyToken, getBirthdayEvents);
+router.post("/events/send-wish", verifyToken, sendClientWish);
 
 // PDF Generation Routes
 router.get("/:id/quotation-pdf", verifyToken, generateQuotationPDF);

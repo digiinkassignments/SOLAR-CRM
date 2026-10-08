@@ -55,8 +55,8 @@ import CloseIcon from "@mui/icons-material/Close";
 
 // SBI theme
 const COLORS = {
-  primary: "#00B5EF",
-  primaryDark: "#292075",
+  primary: "#0F172A",
+  primaryDark: "#020617",
   bg: "#F8FAFC",
   card: "#FFFFFF",
   border: "#E2E8F0",

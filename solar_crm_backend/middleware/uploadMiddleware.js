@@ -54,7 +54,7 @@ const createUploader = (folderName) => {
         fileFilter,
 
         limits: {
-            fileSize: 2 * 1024 * 1024 // 2MB
+            fileSize: 5 * 1024 * 1024 // 5MB
         }
     });
 };
@@ -123,6 +123,7 @@ const processImage = (folderName) => {
 
 const uploadProfile = createUploader("profiles");
 const uploadCompanyLogo = createUploader("company");
+const uploadStock = createUploader("stock");
 
 // ======================================
 // Processors
@@ -130,6 +131,7 @@ const uploadCompanyLogo = createUploader("company");
 
 const processProfileImage = processImage("profiles");
 const processCompanyLogo = processImage("company");
+const processStockImage = processImage("stock");
 
 // ======================================
 // Export
@@ -138,6 +140,8 @@ const processCompanyLogo = processImage("company");
 module.exports = {
     uploadProfile,
     uploadCompanyLogo,
+    uploadStock,
     processProfileImage,
-    processCompanyLogo
+    processCompanyLogo,
+    processStockImage
 };

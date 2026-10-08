@@ -56,10 +56,10 @@ const API_BASE_URL =
 
 // SBI Theme — cyan (primary) + indigo (primaryDark), matches Admin Leads / Admin Dashboard / Manager Leads
 const COLORS = {
-  primary: "#00B5EF",
-  primaryDark: "#292075",
-  primaryTint: "rgba(0, 181, 239, 0.12)",
-  primaryShadow: "rgba(41, 32, 117, 0.18)",
+  primary: "#0F172A",
+  primaryDark: "#020617",
+  primaryTint: "rgba(245, 158, 11, 0.12)",
+  primaryShadow: "rgba(15, 23, 42, 0.18)",
   bg: "#F5F7FA",
   card: "#FFFFFF",
   border: "#E5E7EB",

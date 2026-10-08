@@ -33,9 +33,9 @@ import {
 } from "@mui/icons-material";
 
 const COLORS = {
-  primary: "#00B5EF",
-  primaryDark: "#292075",
-  primarySoft: "#E0F7FF",
+  primary: "#0F172A",
+  primaryDark: "#020617",
+  primarySoft: "#FEF3C7",
   bg: "#F4F6FA",
   card: "#FFFFFF",
   border: "#E2E8F0",
@@ -62,7 +62,7 @@ const STATUS_OPTIONS = [
 
 const STATUS_STYLES = {
   "New Lead": { color: "#0284C7" },
-  Contacted: { color: "#00B5EF" },
+  Contacted: { color: "#D97706" },
   "Follow-up Pending": { color: COLORS.warning },
   "Site Visit Scheduled": { color: COLORS.purple },
   "Quotation Sent": { color: "#9333EA" },

@@ -4,6 +4,7 @@ const {
     checkUsernameExists,
     checkEmailExists,
     checkPhoneExists,
+    releaseDeletedUserUniqueField,
     createUser,
     getAllUsers,
     getTotalUsersCount,
@@ -17,52 +18,132 @@ const {
     getTeamMembersByManager
 } = require("../models/userModel");
 
+// Helper function to extract friendly error message from DB exceptions
+const getDatabaseErrorMessage = (error, defaultMsg = "Failed to save user.") => {
+    if (!error) return defaultMsg;
+    const sqlMsg = error.sqlMessage || error.message || "";
+
+    if (error.code === "ER_DUP_ENTRY" || error.errno === 1062) {
+        if (sqlMsg.includes("email") || sqlMsg.includes("users.email") || sqlMsg.includes("uq_email")) {
+            return "Email address is already registered in the system. Please use a different email.";
+        }
+        if (sqlMsg.includes("username") || sqlMsg.includes("users.username") || sqlMsg.includes("uq_username")) {
+            return "Username is already taken. Please choose a different username.";
+        }
+        if (sqlMsg.includes("phone") || sqlMsg.includes("users.phone") || sqlMsg.includes("uq_phone")) {
+            return "Phone number is already registered with another user.";
+        }
+        const dupValue = sqlMsg.split("for key")[0].replace("Duplicate entry", "").trim();
+        return `Duplicate record detected: ${dupValue || "value"} is already in use.`;
+    }
+
+    if (error.code === "ER_NO_REFERENCED_ROW_2" || error.errno === 1452) {
+        if (sqlMsg.includes("manager_id") || sqlMsg.includes("fk_manager")) {
+            return "Selected Reporting Manager does not exist in the database. Please select a valid Manager.";
+        }
+        if (sqlMsg.includes("role_id") || sqlMsg.includes("fk_role")) {
+            return "Selected Role is invalid or not found.";
+        }
+        return "Invalid reference provided for Role or Reporting Manager.";
+    }
+
+    if (error.code === "ER_DATA_TOO_LONG" || error.errno === 1406) {
+        return "One of the provided values exceeds maximum allowed character length in database.";
+    }
+
+    if (error.code === "ER_BAD_NULL_ERROR" || error.errno === 1048) {
+        return `Required field cannot be null: ${sqlMsg}`;
+    }
+
+    return sqlMsg || error.message || defaultMsg;
+};
+
 // ======================================
 // Create User
 // ======================================
 const createUserController = async (req, res) => {
     try {
-        const { role_id, manager_id, full_name, username, email, phone, password } = req.body;
+        let { role_id, manager_id, full_name, username, email, phone, password } = req.body;
+
+        // Clean & sanitize input values
+        full_name = full_name ? String(full_name).trim() : "";
+        username = username ? String(username).trim().toLowerCase() : "";
+        email = email ? String(email).trim().toLowerCase() : "";
+        phone = phone ? String(phone).trim() : "";
 
         if (!role_id || !full_name || !username || !email || !phone || !password) {
             return res.status(400).json({
                 success: false,
-                message: "All fields are required."
+                message: "All fields are required. Please check Full Name, Username, Email, Phone, Role and Password."
             });
         }
 
-        if (role_id == 3 && !manager_id) {
+        // Validate Sales Representative manager requirement
+        if (Number(role_id) === 3 && (!manager_id || manager_id === "")) {
             return res.status(400).json({
                 success: false,
-                message: "Manager is required for Sales Person."
+                message: "Reporting Manager is required when assigning the Sales Representative role."
             });
         }
 
         const db = req.db;
 
-        if ((await checkUsernameExists(username, db)).length > 0) {
-            return res.status(400).json({ success: false, message: "Username already exists." });
+        // 1. Check Username
+        const usernameRows = await checkUsernameExists(username, db);
+        if (usernameRows && usernameRows.length > 0) {
+            const match = usernameRows[0];
+            if (match.is_deleted === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Username '${username}' is already taken. Please choose another username.`
+                });
+            } else {
+                // Free up soft-deleted record's username
+                await releaseDeletedUserUniqueField(match.id, "username", db);
+            }
         }
 
-        if ((await checkEmailExists(email, db)).length > 0) {
-            return res.status(400).json({ success: false, message: "Email already exists." });
+        // 2. Check Email
+        const emailRows = await checkEmailExists(email, db);
+        if (emailRows && emailRows.length > 0) {
+            const match = emailRows[0];
+            if (match.is_deleted === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Email '${email}' is already registered with another user account.`
+                });
+            } else {
+                // Free up soft-deleted record's email
+                await releaseDeletedUserUniqueField(match.id, "email", db);
+            }
         }
 
-        if ((await checkPhoneExists(phone, db)).length > 0) {
-            return res.status(400).json({ success: false, message: "Phone number already exists." });
+        // 3. Check Phone
+        const phoneRows = await checkPhoneExists(phone, db);
+        if (phoneRows && phoneRows.length > 0) {
+            const match = phoneRows[0];
+            if (match.is_deleted === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Phone number '${phone}' is already registered with another user.`
+                });
+            } else {
+                // Free up soft-deleted record's phone
+                await releaseDeletedUserUniqueField(match.id, "phone", db);
+            }
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
         await createUser({
-            role_id,
-            manager_id: manager_id || null,
+            role_id: Number(role_id),
+            manager_id: manager_id ? Number(manager_id) : null,
             full_name,
             username,
             email,
             phone,
             password: hashedPassword,
-            created_by: req.user.id
+            created_by: req.user?.id || null
         }, db);
 
         return res.status(201).json({
@@ -71,10 +152,11 @@ const createUserController = async (req, res) => {
         });
 
     } catch (error) {
-        console.log(error);
-        return res.status(500).json({
+        console.error("Create User Error:", error);
+        const friendlyMessage = getDatabaseErrorMessage(error, "Failed to create user account.");
+        return res.status(400).json({
             success: false,
-            message: "Internal Server Error."
+            message: friendlyMessage
         });
     }
 };
@@ -234,18 +316,18 @@ const updateUserController = async (req, res) => {
 
         const result = await updateUser({
             id,
-            role_id,
-            manager_id: manager_id || null,
-            full_name,
-            username,
-            email,
-            phone
+            role_id: Number(role_id),
+            manager_id: manager_id ? Number(manager_id) : null,
+            full_name: String(full_name).trim(),
+            username: String(username).trim().toLowerCase(),
+            email: String(email).trim().toLowerCase(),
+            phone: String(phone).trim()
         }, db);
 
         if (result.affectedRows === 0) {
             return res.status(404).json({
                 success: false,
-                message: "User not found."
+                message: "User not found or already deleted."
             });
         }
 
@@ -255,10 +337,11 @@ const updateUserController = async (req, res) => {
         });
 
     } catch (error) {
-        console.log(error);
-        return res.status(500).json({
+        console.error("Update User Error:", error);
+        const friendlyMessage = getDatabaseErrorMessage(error, "Failed to update user details.");
+        return res.status(400).json({
             success: false,
-            message: "Internal Server Error."
+            message: friendlyMessage
         });
     }
 };
@@ -331,14 +414,15 @@ const deleteUserController = async (req, res) => {
             });
         }
 
-        const db = req.db;
+        const { db: defaultDb } = require("../config/db");
+        const db = req.db || defaultDb;
 
         const result = await softDeleteUser(id, db);
 
-        if (result.affectedRows === 0) {
+        if (!result || result.affectedRows === 0) {
             return res.status(404).json({
                 success: false,
-                message: "User not found."
+                message: "User not found or already deleted."
             });
         }
 
@@ -348,10 +432,10 @@ const deleteUserController = async (req, res) => {
         });
 
     } catch (error) {
-        console.log(error);
+        console.error("deleteUserController error:", error);
         return res.status(500).json({
             success: false,
-            message: "Internal Server Error."
+            message: error.message || "Failed to delete user."
         });
     }
 };

@@ -16,6 +16,7 @@ const {
   getAdminMonthlyTrend,
   getAdminRecentLeads,
   getAdminActivityFeed,
+  getAdminTeamLeaderboard,
 } = require("../models/dashboardModel");
 
 const getManagerDashboardStatsController = async (req, res) => {
@@ -106,7 +107,7 @@ const getSalesDashboardStatsController = async (req, res) => {
 // 🟣 Admin — Org-wide Dashboard Stats
 const getAdminDashboardStatsController = async (req, res) => {
   try {
-    const [overview, statusBreakdown, sourcePerformance, monthlyTrend, recentLeads, activityFeed] =
+    const [overview, statusBreakdown, sourcePerformance, monthlyTrend, recentLeads, activityFeed, teamLeaderboard] =
       await Promise.all([
         getAdminOverview(req.db),
         getAdminStatusBreakdown(req.db),
@@ -114,12 +115,13 @@ const getAdminDashboardStatsController = async (req, res) => {
         getAdminMonthlyTrend(req.db),
         getAdminRecentLeads(6, req.db),
         getAdminActivityFeed(15, req.db),
+        getAdminTeamLeaderboard(req.db),
       ]);
 
     return res.status(200).json({
       success: true,
       message: "Admin dashboard data fetched successfully.",
-      data: { ...overview, statusBreakdown, sourcePerformance, monthlyTrend, recentLeads, activityFeed },
+      data: { ...overview, statusBreakdown, sourcePerformance, monthlyTrend, recentLeads, activityFeed, teamLeaderboard },
     });
   } catch (error) {
     console.error("Error in Admin Dashboard Controller:", error);

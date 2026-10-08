@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
 import Login          from "../pages/Auth/Login";
@@ -15,6 +15,8 @@ import SalesLayout   from "../layouts/SalesLayout";
 import Dashboard from "../pages/Dashboard/Dashboard";
 import Users     from "../pages/Users/Users";
 import Leads     from "../pages/Leads/Leads";
+import TodayFollowups from "../pages/Leads/TodayFollowups";
+import BirthdayEvents from "../pages/Leads/BirthdayEvents";
 import Reports   from "../pages/Reports/Reports";
 import Settings  from "../pages/Settings/Settings";
 import Profile   from "../pages/Profile/Profile";
@@ -28,6 +30,20 @@ import SalesDashboard from "../pages/Sales/SalesDashboard";
 import SalesLeads     from "../pages/Sales/SalesLeads";
 import SalesProfile   from "../pages/Sales/SalesProfile";
 
+import SolarCalculator from "../pages/Calculator/SolarCalculator";
+import QuotationList   from "../pages/Quotations/QuotationList";
+import DynamicWebQuotationView from "../pages/Quotations/DynamicWebQuotationView";
+import InvoiceList from "../pages/Invoices/InvoiceList";
+import DynamicInvoiceView from "../pages/Invoices/DynamicInvoiceView";
+
+import StockList from "../pages/Stock/StockList";
+import StockDetail from "../pages/Stock/StockDetail";
+import StockTransactions from "../pages/Stock/StockTransactions";
+import StockAlerts from "../pages/Stock/StockAlerts";
+import ProjectsList from "../pages/Admin/Projects/ProjectsList";
+import ProjectDetail from "../pages/Admin/Projects/ProjectDetail";
+import ProcurementList from "../pages/Admin/Procurement/ProcurementList";
+
 const SubscriptionGuard = ({ children }) => {
   const { user, token } = useAuth();
   const [subStatus, setSubStatus] = useState("Active");
@@ -36,9 +52,7 @@ const SubscriptionGuard = ({ children }) => {
   const checkStatus = async () => {
     if (!token || !user) return;
     try {
-      const res = await axios.get("/api/subscription/status", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get("/subscription/status");
       const live = res.data?.data?.status;
       localStorage.setItem("subscription_status", live || "Active");
       setSubStatus(live || "Active");
@@ -100,34 +114,54 @@ const AppRoutes = () => {
         <Route path="/reset-password"  element={<ResetPassword />} />
         <Route path="/payment" element={<PaymentPage />} />
         <Route path="/change-password" element={<ChangePassword />} />
+        <Route path="/quote/:token" element={<DynamicWebQuotationView />} />
+        <Route path="/invoice/:token" element={<DynamicInvoiceView />} />
 
         <Route element={<PrivateRoute allowedRoles={["Admin", "Super Admin"]} />}>
           <Route element={<SubscriptionGuard><AdminLayout /></SubscriptionGuard>}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/users"     element={<Users />} />
-            <Route path="/leads"     element={<Leads />} />
-            <Route path="/reports"   element={<Reports />} />
-            <Route path="/settings"  element={<Settings />} />
-            <Route path="/profile"   element={<Profile />} />
+            <Route path="/dashboard"  element={<Dashboard />} />
+            <Route path="/users"      element={<Users />} />
+            <Route path="/leads" element={<Leads />} />
+            <Route path="/leads/today-followups" element={<TodayFollowups />} />
+            <Route path="/leads/birthdays" element={<BirthdayEvents />} />
+            <Route path="/calculator" element={<SolarCalculator />} />
+            <Route path="/quotations" element={<QuotationList />} />
+            <Route path="/invoices"   element={<InvoiceList />} />
+            <Route path="/projects"   element={<ProjectsList />} />
+            <Route path="/projects/:id" element={<ProjectDetail />} />
+            <Route path="/procurement" element={<ProcurementList />} />
+            <Route path="/stock"              element={<StockList />} />
+            <Route path="/stock/transactions" element={<StockTransactions />} />
+            <Route path="/stock/alerts"       element={<StockAlerts />} />
+            <Route path="/stock/:id"          element={<StockDetail />} />
+            <Route path="/reports"    element={<Reports />} />
+            <Route path="/settings"   element={<Settings />} />
+            <Route path="/profile"    element={<Profile />} />
           </Route>
         </Route>
 
         <Route element={<PrivateRoute allowedRoles={["Manager", "Team Manager"]} />}>
           <Route element={<SubscriptionGuard><ManagerLayout /></SubscriptionGuard>}>
-            <Route path="/manager/dashboard" element={<ManagerDashboard />} />
-            <Route path="/manager/team"      element={<TeamMembers />} />
-            <Route path="/manager/leads"     element={<ManagerLeads />} />
-            <Route path="/manager/followups" element={<TeamFollowups />} />
-            <Route path="/manager/reports"   element={<ManagerReports />} />
-            <Route path="/manager/profile"   element={<ManagerProfile />} />
+            <Route path="/manager/dashboard"  element={<ManagerDashboard />} />
+            <Route path="/manager/team"       element={<TeamMembers />} />
+            <Route path="/manager/leads"      element={<ManagerLeads />} />
+            <Route path="/manager/calculator" element={<SolarCalculator />} />
+            <Route path="/manager/quotations" element={<QuotationList />} />
+            <Route path="/manager/invoices"   element={<InvoiceList />} />
+            <Route path="/manager/followups"  element={<TeamFollowups />} />
+            <Route path="/manager/reports"    element={<ManagerReports />} />
+            <Route path="/manager/profile"    element={<ManagerProfile />} />
           </Route>
         </Route>
 
         <Route element={<PrivateRoute allowedRoles={["Sales Executive", "Salesperson", "Sales"]} />}>
           <Route element={<SubscriptionGuard><SalesLayout /></SubscriptionGuard>}>
-            <Route path="/sales/dashboard" element={<SalesDashboard />} />
-            <Route path="/sales/leads"     element={<SalesLeads />} />
-            <Route path="/sales/profile"   element={<SalesProfile />} />
+            <Route path="/sales/dashboard"  element={<SalesDashboard />} />
+            <Route path="/sales/leads"      element={<SalesLeads />} />
+            <Route path="/sales/calculator" element={<SolarCalculator />} />
+            <Route path="/sales/quotations" element={<QuotationList />} />
+            <Route path="/sales/invoices"   element={<InvoiceList />} />
+            <Route path="/sales/profile"    element={<SalesProfile />} />
           </Route>
         </Route>
 

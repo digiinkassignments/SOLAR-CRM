@@ -17,6 +17,7 @@ import {
   DialogContentText,
   DialogActions,
   Button,
+  Tooltip,
 } from "@mui/material";
 
 // Material UI Icons
@@ -24,6 +25,8 @@ import MenuIcon from "@mui/icons-material/Menu";
 import AccessTimeOutlinedIcon from "@mui/icons-material/AccessTimeOutlined";
 import AccountCircleOutlinedIcon from "@mui/icons-material/AccountCircleOutlined";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 
 const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
@@ -39,7 +42,7 @@ const getPageMetadata = (pathname) => {
   return { title: "Dashboard Overview", breadcrumb: "Dashboard" };
 };
 
-const Navbar = ({ handleDrawerToggle, sidebarWidth = 280, navbarHeight = 72 }) => {
+const Navbar = ({ handleDrawerToggle, handleToggleCollapse, collapsed, sidebarWidth = 260, navbarHeight = 64 }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -55,6 +58,25 @@ const Navbar = ({ handleDrawerToggle, sidebarWidth = 280, navbarHeight = 72 }) =
   // Component States
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFSChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", handleFSChange);
+    return () => document.removeEventListener("fullscreenchange", handleFSChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => console.error("Error enabling fullscreen:", err));
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
 
   // Local Storage Fallback if Auth Context is not used
   const [localUser, setLocalUser] = useState(() => {
@@ -160,26 +182,42 @@ const Navbar = ({ handleDrawerToggle, sidebarWidth = 280, navbarHeight = 72 }) =
           width: { md: `calc(100% - ${sidebarWidth}px)` },
           ml: { md: `${sidebarWidth}px` },
           backgroundColor: "#FFFFFF",
-          borderBottom: "1px solid #E5E7EB",
+          borderBottom: "1px solid #E2E8F0",
           color: "#1E293B",
           height: `${navbarHeight}px`,
           justifyContent: "center",
-          boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.03)",
+          boxShadow: "0 1px 3px 0 rgba(15, 23, 42, 0.03)",
           zIndex: (theme) => theme.zIndex.drawer - 1,
+          transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
       >
-        <Toolbar sx={{ justifyContent: "space-between", px: { xs: 2, sm: 3.5 } }}>
-          {/* LEFT SECTION: Mobile Hamburger, Breadcrumbs & Dynamic Title */}
+        <Toolbar sx={{ justifyContent: "space-between", px: { xs: 2, sm: 3 } }}>
+          {/* LEFT SECTION: Hamburger (Mobile + Desktop Collapse), Breadcrumbs & Dynamic Title */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              onClick={handleDrawerToggle}
-              sx={{ display: { md: "none" }, color: "#0B3A63" }}
-            >
-              <MenuIcon />
-            </IconButton>
+            <Tooltip title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}>
+              <IconButton
+                color="inherit"
+                aria-label="toggle sidebar"
+                edge="start"
+                onClick={() => {
+                  if (window.innerWidth < 900) {
+                    handleDrawerToggle?.();
+                  } else {
+                    handleToggleCollapse?.();
+                  }
+                }}
+                sx={{
+                  color: "#0F172A",
+                  bgcolor: "#F8FAFC",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: "8px",
+                  p: 0.8,
+                  "&:hover": { bgcolor: "#F1F5F9" },
+                }}
+              >
+                <MenuIcon sx={{ fontSize: 20 }} />
+              </IconButton>
+            </Tooltip>
 
             <Box>
               <Breadcrumbs
@@ -194,7 +232,7 @@ const Navbar = ({ handleDrawerToggle, sidebarWidth = 280, navbarHeight = 72 }) =
                 <Link underline="hover" color="inherit" href="/dashboard">
                   Dashboard
                 </Link>
-                <Typography sx={{ fontSize: "0.75rem", color: "#0284C7", fontWeight: 600 }}>
+                <Typography sx={{ fontSize: "0.75rem", color: "#D97706", fontWeight: 600 }}>
                   {pageMeta.breadcrumb}
                 </Typography>
               </Breadcrumbs>
@@ -202,8 +240,8 @@ const Navbar = ({ handleDrawerToggle, sidebarWidth = 280, navbarHeight = 72 }) =
                 variant="h6"
                 sx={{
                   fontWeight: 700,
-                  fontSize: { xs: "1rem", sm: "1.15rem" },
-                  color: "#0B3A63",
+                  fontSize: { xs: "1rem", sm: "1.1rem" },
+                  color: "#0F172A",
                   lineHeight: 1.1,
                 }}
               >
@@ -262,8 +300,26 @@ const Navbar = ({ handleDrawerToggle, sidebarWidth = 280, navbarHeight = 72 }) =
             </Box>
           </Box>
 
-          {/* RIGHT SECTION: Interactive Profile Area */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1.5, sm: 2.5 } }}>
+          {/* RIGHT SECTION: Interactive Profile Area + Fullscreen */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1.2, sm: 2 } }}>
+            <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+              <IconButton
+                onClick={toggleFullscreen}
+                sx={{
+                  color: "#475569",
+                  backgroundColor: "#F8FAFC",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: "10px",
+                  width: 38,
+                  height: 38,
+                  "&:hover": { backgroundColor: "#F1F5F9", color: "#0F172A" },
+                  transition: "all 0.2s ease-in-out",
+                }}
+              >
+                {isFullscreen ? <FullscreenExitIcon sx={{ fontSize: 20 }} /> : <FullscreenIcon sx={{ fontSize: 20 }} />}
+              </IconButton>
+            </Tooltip>
+
             <Box
               onClick={() => setProfileDialogOpen(true)}
               sx={{
@@ -284,9 +340,11 @@ const Navbar = ({ handleDrawerToggle, sidebarWidth = 280, navbarHeight = 72 }) =
               <Avatar
                 key={user?.id || user?.email || "avatar-user"}
                 src={avatarSrc || undefined}
-                imgProps={{
-                  onError: (e) => {
-                    e.target.style.display = "none";
+                slotProps={{
+                  img: {
+                    onError: (e) => {
+                      e.target.style.display = "none";
+                    },
                   },
                 }}
                 sx={{

@@ -30,6 +30,9 @@ import DashboardOutlinedIcon     from "@mui/icons-material/DashboardOutlined";
 import PhoneInTalkOutlinedIcon   from "@mui/icons-material/PhoneInTalkOutlined";
 import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
 import LogoutOutlinedIcon        from "@mui/icons-material/LogoutOutlined";
+import CalculateOutlinedIcon     from "@mui/icons-material/CalculateOutlined";
+import DescriptionOutlinedIcon   from "@mui/icons-material/DescriptionOutlined";
+import ReceiptLongOutlinedIcon   from "@mui/icons-material/ReceiptLongOutlined";
 
 // Logo
 import logo from "../assets/images/logo.png";
@@ -49,6 +52,9 @@ const navigationSections = [
     subheader: "WORKSPACE",
     items: [
       { title: "My Leads", icon: <PhoneInTalkOutlinedIcon />, path: "/sales/leads" },
+      { title: "Solar Calculator", icon: <CalculateOutlinedIcon />, path: "/sales/calculator" },
+      { title: "Quotations", icon: <DescriptionOutlinedIcon />, path: "/sales/quotations" },
+      { title: "Invoices & Billing", icon: <ReceiptLongOutlinedIcon />, path: "/sales/invoices" },
     ],
   },
   {
@@ -66,7 +72,7 @@ const getInitials = (name) => {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 };
 
-const SalesSidebar = ({ mobileOpen, handleDrawerToggle, sidebarWidth = 240 }) => {
+const SalesSidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWidth = 260 }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout: authLogout } = useAuth();
@@ -112,7 +118,7 @@ const SalesSidebar = ({ mobileOpen, handleDrawerToggle, sidebarWidth = 240 }) =>
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        backgroundColor: "#0B3A63",
+        backgroundColor: "#0F172A",
         color: "#FFFFFF",
         overflow: "hidden",
       }}
@@ -120,10 +126,11 @@ const SalesSidebar = ({ mobileOpen, handleDrawerToggle, sidebarWidth = 240 }) =>
       {/* BRAND HEADER */}
       <Box
         sx={{
-          p: 1.5,
-          px: 1.8,
+          p: collapsed ? 1.2 : 1.5,
+          px: collapsed ? 1 : 1.8,
           display: "flex",
           alignItems: "center",
+          justifyContent: collapsed ? "center" : "flex-start",
           gap: 1.5,
           borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
           minHeight: 64,
@@ -136,46 +143,48 @@ const SalesSidebar = ({ mobileOpen, handleDrawerToggle, sidebarWidth = 240 }) =>
           alt="Solar CRM"
           sx={{ height: 32, width: "auto", flexShrink: 0 }}
         />
-        <Box sx={{ overflow: "hidden" }}>
-          <Typography
-            variant="subtitle1"
-            sx={{
-              fontWeight: 700,
-              lineHeight: 1.1,
-              color: "#FFFFFF",
-              fontSize: "0.92rem",
-              letterSpacing: "0.02em",
-            }}
-          >
-            Solar CRM
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{
-              color: "#38BDF8",
-              fontSize: "0.66rem",
-              fontWeight: 600,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-            }}
-          >
-            Sales Portal
-          </Typography>
-        </Box>
+        {!collapsed && (
+          <Box sx={{ overflow: "hidden" }}>
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontWeight: 700,
+                lineHeight: 1.1,
+                color: "#FFFFFF",
+                fontSize: "0.92rem",
+                letterSpacing: "0.02em",
+              }}
+            >
+              Solar CRM
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                color: "#F59E0B",
+                fontSize: "0.66rem",
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+              }}
+            >
+              Sales Portal
+            </Typography>
+          </Box>
+        )}
       </Box>
 
       {/* Plan Badge */}
-      {features && (
+      {!collapsed && features && (
         <Box sx={{ px: 2, pt: 1, pb: 0 }}>
           <Chip
             label={features.name || "Starter"}
             size="small"
             sx={{
-              bgcolor: "rgba(56,189,248,0.15)",
-              color: "#38BDF8",
+              bgcolor: "rgba(245,158,11,0.15)",
+              color: "#F59E0B",
               fontWeight: 700,
               fontSize: "0.7rem",
-              border: "1px solid rgba(56,189,248,0.3)",
+              border: "1px solid rgba(245,158,11,0.3)",
             }}
           />
         </Box>
@@ -186,13 +195,11 @@ const SalesSidebar = ({ mobileOpen, handleDrawerToggle, sidebarWidth = 240 }) =>
         sx={{
           flex: 1,
           py: 1,
-          px: 1,
+          px: collapsed ? 0.8 : 1,
           overflowY: "auto",
-          "&::-webkit-scrollbar": { width: "4px" },
-          "&::-webkit-scrollbar-thumb": {
-            backgroundColor: "rgba(255, 255, 255, 0.15)",
-            borderRadius: "4px",
-          },
+          overflowX: "hidden",
+          scrollbarWidth: "none",
+          "&::-webkit-scrollbar": { display: "none" },
         }}
       >
         {navigationSections.map((section, idx) => (
@@ -200,22 +207,24 @@ const SalesSidebar = ({ mobileOpen, handleDrawerToggle, sidebarWidth = 240 }) =>
             key={section.subheader}
             disablePadding
             subheader={
-              <ListSubheader
-                disableSticky
-                sx={{
-                  backgroundColor: "transparent",
-                  color: "#64748B",
-                  fontSize: "0.62rem",
-                  fontWeight: 700,
-                  letterSpacing: "0.08em",
-                  lineHeight: "22px",
-                  mt: idx > 0 ? 1 : 0.2,
-                  mb: 0.2,
-                  px: 1.2,
-                }}
-              >
-                {section.subheader}
-              </ListSubheader>
+              !collapsed && (
+                <ListSubheader
+                  disableSticky
+                  sx={{
+                    backgroundColor: "transparent",
+                    color: "#64748B",
+                    fontSize: "0.62rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    lineHeight: "22px",
+                    mt: idx > 0 ? 1.2 : 0.2,
+                    mb: 0.2,
+                    px: 1.2,
+                  }}
+                >
+                  {section.subheader}
+                </ListSubheader>
+              )
             }
           >
             {section.items.map((item) => {
@@ -223,45 +232,53 @@ const SalesSidebar = ({ mobileOpen, handleDrawerToggle, sidebarWidth = 240 }) =>
 
               return (
                 <ListItem disablePadding key={item.title} sx={{ mb: 0.3 }}>
-                  <ListItemButton
-                    onClick={() => {
-                      navigate(item.path);
-                      if (mobileOpen && handleDrawerToggle) handleDrawerToggle();
-                    }}
-                    sx={{
-                      minHeight: 36,
-                      borderRadius: "6px",
-                      px: 1.2,
-                      backgroundColor: isActive ? "#005BAC" : "transparent",
-                      color: isActive ? "#FFFFFF" : "#CBD5E1",
-                      borderLeft: isActive ? "3px solid #38BDF8" : "3px solid transparent",
-                      "&:hover": {
-                        backgroundColor: isActive ? "#0A6FD8" : "rgba(255, 255, 255, 0.06)",
-                        color: "#FFFFFF",
-                      },
-                      transition: "all 0.15s ease-in-out",
-                    }}
-                  >
-                    <ListItemIcon
+                  <Tooltip title={collapsed ? item.title : ""} placement="right" arrow>
+                    <ListItemButton
+                      onClick={() => {
+                        navigate(item.path);
+                        if (mobileOpen && handleDrawerToggle) handleDrawerToggle();
+                      }}
                       sx={{
-                        minWidth: 28,
-                        color: isActive ? "#FFFFFF" : "#94A3B8",
-                        "& .MuiSvgIcon-root": { fontSize: "1.1rem" },
+                        minHeight: 38,
+                        borderRadius: "6px",
+                        px: collapsed ? 1 : 1.2,
+                        justifyContent: collapsed ? "center" : "flex-start",
+                        backgroundColor: isActive ? "rgba(245,158,11,0.15)" : "transparent",
+                        color: isActive ? "#F59E0B" : "#94A3B8",
+                        borderLeft: collapsed ? "none" : isActive ? "3px solid #F59E0B" : "3px solid transparent",
+                        borderBottom: collapsed && isActive ? "2px solid #F59E0B" : "none",
+                        "&:hover": {
+                          backgroundColor: isActive ? "rgba(245,158,11,0.2)" : "rgba(255, 255, 255, 0.06)",
+                          color: "#FFFFFF",
+                        },
+                        transition: "all 0.15s ease-in-out",
                       }}
                     >
-                      {item.icon}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={item.title}
-                      slotProps={{
-                        primary: {
-                          fontSize: "0.8rem",
-                          fontWeight: isActive ? 600 : 500,
-                          whiteSpace: "nowrap",
-                        },
-                      }}
-                    />
-                  </ListItemButton>
+                      <ListItemIcon
+                        sx={{
+                          minWidth: collapsed ? 0 : 28,
+                          justifyContent: "center",
+                          color: isActive ? "#F59E0B" : "#94A3B8",
+                          "& .MuiSvgIcon-root": { fontSize: "1.1rem" },
+                        }}
+                      >
+                        {item.icon}
+                      </ListItemIcon>
+                      {!collapsed && (
+                        <ListItemText
+                          primary={item.title}
+                          slotProps={{
+                            primary: {
+                              fontFamily: "'Inter', sans-serif",
+                              fontSize: "0.8rem",
+                              fontWeight: isActive ? 600 : 500,
+                              whiteSpace: "nowrap",
+                            },
+                          }}
+                        />
+                      )}
+                    </ListItemButton>
+                  </Tooltip>
                 </ListItem>
               );
             })}
@@ -270,100 +287,110 @@ const SalesSidebar = ({ mobileOpen, handleDrawerToggle, sidebarWidth = 240 }) =>
       </Box>
 
       {/* FOOTER: PROFILE & LOGOUT */}
-      <Box sx={{ p: 1.2, borderTop: "1px solid rgba(255, 255, 255, 0.08)", flexShrink: 0 }}>
-        <Box
-          onClick={() => navigate("/sales/profile")}
-          sx={{
-            p: 0.8,
-            mb: 0.6,
-            display: "flex",
-            alignItems: "center",
-            gap: 1.2,
-            borderRadius: "6px",
-            backgroundColor: "rgba(255, 255, 255, 0.04)",
-            border: "1px solid rgba(255, 255, 255, 0.05)",
-            cursor: "pointer",
-            "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.08)" },
-            transition: "background-color 0.15s ease",
-          }}
-        >
-          <Badge
-            overlap="circular"
-            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-            variant="dot"
+      <Box sx={{ p: collapsed ? 0.8 : 1.2, borderTop: "1px solid rgba(255, 255, 255, 0.08)", flexShrink: 0, backgroundColor: "#0F172A" }}>
+        <Tooltip title={collapsed ? `${fullName} (${roleName})` : ""} placement="right" arrow>
+          <Box
+            onClick={() => navigate("/sales/profile")}
             sx={{
-              "& .MuiBadge-badge": {
-                backgroundColor: "#22C55E",
-                color: "#22C55E",
-                boxShadow: "0 0 0 2px #0B3A63",
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-              },
+              p: 0.8,
+              mb: 0.6,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: collapsed ? "center" : "flex-start",
+              gap: 1.2,
+              borderRadius: "6px",
+              backgroundColor: "rgba(255, 255, 255, 0.04)",
+              border: "1px solid rgba(255, 255, 255, 0.05)",
+              cursor: "pointer",
+              "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.08)" },
+              transition: "background-color 0.15s ease",
             }}
           >
-            <Avatar
-              key={user?.id || avatarInitials}
-              src={avatarSrc || undefined}
+            <Badge
+              overlap="circular"
+              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+              variant="dot"
               sx={{
-                width: 32,
-                height: 32,
-                backgroundColor: "#005BAC",
-                fontSize: "0.78rem",
-                fontWeight: 700,
-                color: "#FFFFFF",
+                "& .MuiBadge-badge": {
+                  backgroundColor: "#22C55E",
+                  color: "#22C55E",
+                  boxShadow: "0 0 0 2px #0F172A",
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                },
               }}
             >
-              {avatarInitials}
-            </Avatar>
-          </Badge>
+              <Avatar
+                key={user?.id || avatarInitials}
+                src={avatarSrc || undefined}
+                sx={{
+                  width: 32,
+                  height: 32,
+                  background: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  color: "#FFFFFF",
+                }}
+              >
+                {avatarInitials}
+              </Avatar>
+            </Badge>
 
-          <Box sx={{ overflow: "hidden" }}>
-            <Typography
-              variant="subtitle2"
-              noWrap
-              sx={{ fontWeight: 600, fontSize: "0.78rem", color: "#FFFFFF" }}
-            >
-              {fullName}
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ color: "#38BDF8", fontSize: "0.66rem", display: "block", fontWeight: 500 }}
-            >
-              {roleName}
-            </Typography>
+            {!collapsed && (
+              <Box sx={{ overflow: "hidden" }}>
+                <Typography
+                  variant="subtitle2"
+                  noWrap
+                  sx={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, fontSize: "0.78rem", color: "#FFFFFF" }}
+                >
+                  {fullName}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{ fontFamily: "'Inter', sans-serif", color: "#F59E0B", fontSize: "0.66rem", display: "block", fontWeight: 600 }}
+                >
+                  {roleName}
+                </Typography>
+              </Box>
+            )}
           </Box>
-        </Box>
+        </Tooltip>
 
         <Divider sx={{ mb: 0.6, borderColor: "rgba(255, 255, 255, 0.08)" }} />
 
-        <ListItemButton
-          onClick={() => setLogoutDialogOpen(true)}
-          sx={{
-            minHeight: 34,
-            borderRadius: "6px",
-            color: "#F87171",
-            "&:hover": { backgroundColor: "rgba(239, 68, 68, 0.12)" },
-            px: 1.2,
-          }}
-        >
-          <ListItemIcon sx={{ minWidth: 28, color: "#F87171", "& .MuiSvgIcon-root": { fontSize: "1.1rem" } }}>
-            <LogoutOutlinedIcon />
-          </ListItemIcon>
-          <ListItemText
-            primary="Logout"
-            slotProps={{
-              primary: { fontSize: "0.8rem", fontWeight: 600 },
+        <Tooltip title={collapsed ? "Logout" : ""} placement="right" arrow>
+          <ListItemButton
+            onClick={() => setLogoutDialogOpen(true)}
+            sx={{
+              minHeight: 34,
+              borderRadius: "6px",
+              color: "#F87171",
+              justifyContent: collapsed ? "center" : "flex-start",
+              "&:hover": { backgroundColor: "rgba(239, 68, 68, 0.12)" },
+              px: collapsed ? 1 : 1.2,
             }}
-          />
-        </ListItemButton>
+          >
+            <ListItemIcon sx={{ minWidth: collapsed ? 0 : 28, justifyContent: "center", color: "#F87171", "& .MuiSvgIcon-root": { fontSize: "1.1rem" } }}>
+              <LogoutOutlinedIcon />
+            </ListItemIcon>
+            {!collapsed && (
+              <ListItemText
+                primary="Logout"
+                slotProps={{
+                  primary: { fontFamily: "'Inter', sans-serif", fontSize: "0.8rem", fontWeight: 600 },
+                }}
+              />
+            )}
+          </ListItemButton>
+        </Tooltip>
       </Box>
     </Box>
   );
 
   return (
     <>
-      <Box component="nav" sx={{ width: { md: sidebarWidth }, flexShrink: { md: 0 } }}>
+      <Box component="nav" sx={{ width: { md: sidebarWidth }, flexShrink: { md: 0 }, transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1)" }}>
         <Drawer
           variant="temporary"
           open={mobileOpen}
@@ -373,8 +400,12 @@ const SalesSidebar = ({ mobileOpen, handleDrawerToggle, sidebarWidth = 240 }) =>
             display: { xs: "block", md: "none" },
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
-              width: sidebarWidth,
-              borderRight: "none",
+              width: 260,
+              borderRight: "1px solid rgba(255,255,255,0.08)",
+              backgroundColor: "#0F172A",
+              color: "#FFFFFF",
+              borderRadius: "0px !important",
+              boxShadow: "none",
             },
           }}
         >
@@ -389,7 +420,13 @@ const SalesSidebar = ({ mobileOpen, handleDrawerToggle, sidebarWidth = 240 }) =>
             "& .MuiDrawer-paper": {
               boxSizing: "border-box",
               width: sidebarWidth,
-              borderRight: "none",
+              borderRight: "1px solid rgba(255,255,255,0.08)",
+              backgroundColor: "#0F172A",
+              color: "#FFFFFF",
+              borderRadius: "0px !important",
+              boxShadow: "none",
+              transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+              overflowX: "hidden",
             },
           }}
         >

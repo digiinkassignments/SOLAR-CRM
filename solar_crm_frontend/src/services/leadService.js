@@ -81,6 +81,22 @@ export const deleteLead = async (id) => {
   return response.data;
 };
 
+// Bulk Delete leads
+export const bulkDeleteLeads = async (ids) => {
+  if (!Array.isArray(ids) || ids.length === 0) return { success: true };
+  try {
+    const response = await api.post("/leads/bulk-delete", { ids });
+    return response.data;
+  } catch (err) {
+    if (err.response?.status === 404) {
+      // Fallback for live remote backend without bulk-delete route yet
+      await Promise.all(ids.map((id) => api.delete(`/leads/${id}`)));
+      return { success: true, message: `${ids.length} leads deleted.` };
+    }
+    throw err;
+  }
+};
+
 // Download Quotation PDF
 export const downloadQuotationPDF = async (leadId, leadCode) => {
   const response = await api.get(`/leads/${leadId}/quotation-pdf`, {
@@ -111,4 +127,22 @@ export const downloadInvoicePDF = async (leadId, leadCode) => {
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(url);
+};
+
+// Date-wise Follow-ups (Today, Overdue, Custom Date Filter)
+export const getDateWiseFollowups = async (params) => {
+  const response = await api.get("/leads/followups/calendar", { params });
+  return response.data;
+};
+
+// Birthday & Anniversary Events
+export const getBirthdayEvents = async (params) => {
+  const response = await api.get("/leads/events/birthdays", { params });
+  return response.data;
+};
+
+// Send Client Wish (WhatsApp Link or Email)
+export const sendClientWish = async (payload) => {
+  const response = await api.post("/leads/events/send-wish", payload);
+  return response.data;
 };

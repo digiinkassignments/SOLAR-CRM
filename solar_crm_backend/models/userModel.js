@@ -29,9 +29,10 @@ const buildUserQueryFilters = (search, role, status) => {
 // Check Username Exists
 // ===============================
 const checkUsernameExists = async (username, db = defaultDb) => {
+    const clean = String(username || "").trim();
     const [rows] = await db.query(
-        `SELECT id FROM users WHERE username = ? AND is_deleted = 0 LIMIT 1`,
-        [username]
+        `SELECT id, is_deleted FROM users WHERE LOWER(TRIM(username)) = LOWER(?) LIMIT 1`,
+        [clean]
     );
     return rows;
 };
@@ -40,9 +41,10 @@ const checkUsernameExists = async (username, db = defaultDb) => {
 // Check Email Exists
 // ===============================
 const checkEmailExists = async (email, db = defaultDb) => {
+    const clean = String(email || "").trim();
     const [rows] = await db.query(
-        `SELECT id FROM users WHERE email = ? AND is_deleted = 0 LIMIT 1`,
-        [email]
+        `SELECT id, is_deleted FROM users WHERE LOWER(TRIM(email)) = LOWER(?) LIMIT 1`,
+        [clean]
     );
     return rows;
 };
@@ -51,11 +53,29 @@ const checkEmailExists = async (email, db = defaultDb) => {
 // Check Phone Exists
 // ===============================
 const checkPhoneExists = async (phone, db = defaultDb) => {
+    const clean = String(phone || "").trim();
     const [rows] = await db.query(
-        `SELECT id FROM users WHERE phone = ? AND is_deleted = 0 LIMIT 1`,
-        [phone]
+        `SELECT id, is_deleted FROM users WHERE TRIM(phone) = ? LIMIT 1`,
+        [clean]
     );
     return rows;
+};
+
+// ===============================
+// Release unique constraints for soft-deleted user
+// (Allows reusing email/username of deleted accounts safely)
+// ===============================
+const releaseDeletedUserUniqueField = async (userId, field, db = defaultDb) => {
+    try {
+        const ts = Math.floor(Date.now() / 1000);
+        if (field === "email") {
+            await db.query(`UPDATE users SET email = CONCAT(SUBSTRING(email, 1, 35), '_d', ?, '_', ?) WHERE id = ? AND is_deleted = 1`, [userId, ts, userId]);
+        } else if (field === "username") {
+            await db.query(`UPDATE users SET username = CONCAT(SUBSTRING(username, 1, 20), '_d', ?, '_', ?) WHERE id = ? AND is_deleted = 1`, [userId, ts, userId]);
+        }
+    } catch (e) {
+        console.warn("releaseDeletedUserUniqueField warning:", e.message);
+    }
 };
 
 // ===============================
@@ -273,13 +293,48 @@ const updateUserStatus = async (id, status, db = defaultDb) => {
 // Soft Delete User
 // ===============================
 const softDeleteUser = async (id, db = defaultDb) => {
-
+    // 1. Mark user as deleted and inactive first
     const [result] = await db.query(
         `UPDATE users
-        SET is_deleted = 1
-        WHERE id = ?`,
+         SET is_deleted = 1,
+             status = 'Inactive'
+         WHERE id = ?`,
         [id]
     );
+
+    // 2. Safely release unique email and username in background
+    try {
+        const [rows] = await db.query(
+            `SELECT email, username FROM users WHERE id = ? LIMIT 1`,
+            [id]
+        );
+        if (rows.length > 0) {
+            const ts = Math.floor(Date.now() / 1000);
+            const u = rows[0];
+
+            let newEmail = u.email;
+            if (u.email && !u.email.includes("_d")) {
+                const parts = u.email.split("@");
+                const local = (parts[0] || "user").slice(0, 30);
+                const domain = (parts[1] || "deleted.com").slice(0, 30);
+                newEmail = `${local}_d${id}_${ts}@${domain}`.slice(0, 95);
+            }
+
+            let newUsername = u.username;
+            if (u.username && !u.username.includes("_d")) {
+                newUsername = `${u.username.slice(0, 20)}_d${id}_${ts}`.slice(0, 45);
+            }
+
+            if (newEmail !== u.email || newUsername !== u.username) {
+                await db.query(
+                    `UPDATE users SET email = ?, username = ? WHERE id = ?`,
+                    [newEmail, newUsername, id]
+                );
+            }
+        }
+    } catch (renameErr) {
+        console.warn("Could not rename deleted user email/username (ignorable):", renameErr.message);
+    }
 
     return result;
 };
@@ -332,6 +387,7 @@ module.exports = {
     checkUsernameExists,
     checkEmailExists,
     checkPhoneExists,
+    releaseDeletedUserUniqueField,
     createUser,
     getAllUsers,
     getTotalUsersCount,

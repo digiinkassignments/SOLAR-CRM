@@ -203,10 +203,33 @@ const getAdminOverview = async (db = defaultDb) => {
       (SELECT COUNT(*) FROM users WHERE role_id = 2 AND is_deleted = 0) AS total_managers,
       (SELECT COUNT(*) FROM users WHERE role_id = 3 AND is_deleted = 0) AS total_sales,
       (SELECT COALESCE(SUM(quotation_amount), 0) FROM leads WHERE is_deleted = 0 AND status = 'Won') AS total_revenue,
-      (SELECT COALESCE(SUM(required_kw), 0) FROM leads WHERE is_deleted = 0 AND status = 'Won') AS total_installed_kw
+      (SELECT COALESCE(SUM(required_kw), 0) FROM leads WHERE is_deleted = 0 AND status = 'Won') AS total_installed_kw,
+      (SELECT COUNT(*) FROM leads WHERE next_follow_up_date = CURDATE() AND status NOT IN ('Won','Lost','Not Interested') AND is_deleted = 0) AS todays_followups
   `;
   const [rows] = await db.query(query);
   const r = rows[0] || {};
+
+  // Fetch top performer sales executive
+  let top_performer = "N/A";
+  let top_performer_count = 0;
+  try {
+    const [topPerfRows] = await db.query(`
+      SELECT u.full_name, COUNT(l.id) AS won_count
+      FROM users u
+      JOIN leads l ON l.assigned_to = u.id AND l.status = 'Won' AND l.is_deleted = 0
+      WHERE u.is_deleted = 0
+      GROUP BY u.id
+      ORDER BY won_count DESC
+      LIMIT 1
+    `);
+    if (topPerfRows.length > 0) {
+      top_performer = topPerfRows[0].full_name;
+      top_performer_count = Number(topPerfRows[0].won_count);
+    }
+  } catch (err) {
+    console.error("Error fetching top performer:", err);
+  }
+
   return {
     total_leads: Number(r.total_leads) || 0,
     won_leads: Number(r.won_leads) || 0,
@@ -216,7 +239,32 @@ const getAdminOverview = async (db = defaultDb) => {
     total_sales: Number(r.total_sales) || 0,
     total_revenue: Number(r.total_revenue) || 0,
     total_installed_kw: Number(r.total_installed_kw) || 0,
+    todays_followups: Number(r.todays_followups) || 0,
+    top_performer,
+    top_performer_count,
   };
+};
+
+// 🟣 12b. Admin — Team Leaderboard
+const getAdminTeamLeaderboard = async (db = defaultDb) => {
+  const [rows] = await db.query(`
+    SELECT u.full_name AS rep_name,
+      COUNT(l.id) AS total_assigned,
+      SUM(CASE WHEN l.status = 'Won' THEN 1 ELSE 0 END) AS won_leads,
+      COALESCE(SUM(CASE WHEN l.status = 'Won' THEN l.quotation_amount ELSE 0 END), 0) AS revenue
+    FROM users u
+    LEFT JOIN leads l ON l.assigned_to = u.id AND l.is_deleted = 0
+    WHERE u.role_id IN (2, 3) AND u.is_deleted = 0
+    GROUP BY u.id
+    ORDER BY won_leads DESC, revenue DESC
+    LIMIT 6
+  `);
+  return rows.map((r) => ({
+    rep_name: r.rep_name,
+    total_assigned: Number(r.total_assigned),
+    won_leads: Number(r.won_leads),
+    revenue: Number(r.revenue),
+  }));
 };
 
 // 🟣 13. Admin — Org-wide Status Breakdown
@@ -328,4 +376,5 @@ module.exports = {
   getAdminMonthlyTrend,
   getAdminRecentLeads,
   getAdminActivityFeed,
+  getAdminTeamLeaderboard,
 };

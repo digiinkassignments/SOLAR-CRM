@@ -5,8 +5,8 @@
 }
 
 body {
-  background: #f5f7fa;
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #F8FAFC;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 #root {

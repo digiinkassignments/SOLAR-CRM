@@ -31,3 +31,10 @@ export const uploadProfilePhoto = (formData) => {
         },
     });
 };
+
+// ==============================
+// Remove Profile Photo
+// ==============================
+export const removeProfilePhoto = () => {
+    return api.delete("/profile/photo");
+};
