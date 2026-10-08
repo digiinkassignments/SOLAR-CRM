@@ -177,8 +177,9 @@ export default function SubsidyTracker() {
   };
 
   const handleOpenTracker = (lead) => {
-    setActiveLead(lead);
-    setDrawerOpen(true);
+    if (lead?.id) {
+      navigate(`/subsidies/${lead.id}`);
+    }
   };
 
   const hasActiveFilters = Boolean(search || selectedStatus !== "All");

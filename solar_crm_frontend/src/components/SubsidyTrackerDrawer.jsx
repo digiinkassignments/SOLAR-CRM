@@ -34,6 +34,11 @@ import {
   InsertDriveFile as FileIcon,
   OpenInNew as OpenLinkIcon,
   Save as SaveIcon,
+  BadgeOutlined as BadgeIcon,
+  CreditCardOutlined as CreditCardIcon,
+  ElectricBoltOutlined as ElectricBoltIcon,
+  AccountBalanceOutlined as AccountBalanceIcon,
+  CameraAltOutlined as CameraAltIcon,
 } from "@mui/icons-material";
 
 import {
@@ -65,11 +70,41 @@ const PORTAL_STEPS = [
 ];
 
 const REQUIRED_DOC_TYPES = [
-  { type: "id_proof", label: "Aadhaar Card / Photo ID", icon: "🪪" },
-  { type: "pan_card", label: "PAN Card", icon: "💳" },
-  { type: "electricity_bill", label: "Latest Electricity Bill", icon: "⚡" },
-  { type: "bank_proof", label: "Bank Passbook / Cancelled Cheque (DBT)", icon: "🏦" },
-  { type: "site_photo", label: "Site Inspection Photo", icon: "📷" },
+  {
+    type: "id_proof",
+    label: "Aadhaar Card / Photo ID",
+    icon: <BadgeIcon sx={{ fontSize: 20, color: "#2563EB" }} />,
+    bg: "#EFF6FF",
+    border: "#BFDBFE",
+  },
+  {
+    type: "pan_card",
+    label: "PAN Card",
+    icon: <CreditCardIcon sx={{ fontSize: 20, color: "#4F46E5" }} />,
+    bg: "#EEF2FF",
+    border: "#C7D2FE",
+  },
+  {
+    type: "electricity_bill",
+    label: "Latest Electricity Bill",
+    icon: <ElectricBoltIcon sx={{ fontSize: 20, color: "#D97706" }} />,
+    bg: "#FEF3C7",
+    border: "#FDE68A",
+  },
+  {
+    type: "bank_proof",
+    label: "Bank Passbook / Cancelled Cheque (DBT)",
+    icon: <AccountBalanceIcon sx={{ fontSize: 20, color: "#059669" }} />,
+    bg: "#ECFDF5",
+    border: "#A7F3D0",
+  },
+  {
+    type: "site_photo",
+    label: "Site Inspection Photo",
+    icon: <CameraAltIcon sx={{ fontSize: 20, color: "#0D9488" }} />,
+    bg: "#F0FDFA",
+    border: "#99F6E4",
+  },
 ];
 
 export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar }) {
@@ -466,8 +501,22 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                         }}
                       >
                         <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1.5}>
-                          <Stack direction="row" alignItems="center" spacing={1.2}>
-                            <Typography sx={{ fontSize: "1.4rem" }}>{docDef.icon}</Typography>
+                          <Stack direction="row" alignItems="center" spacing={1.5}>
+                            <Box
+                              sx={{
+                                width: 38,
+                                height: 38,
+                                borderRadius: "8px",
+                                backgroundColor: docDef.bg,
+                                border: `1px solid ${docDef.border}`,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                              }}
+                            >
+                              {docDef.icon}
+                            </Box>
                             <Box>
                               <Typography sx={{ fontWeight: 700, fontSize: "0.85rem", color: COLORS.textPrimary }}>
                                 {docDef.label}

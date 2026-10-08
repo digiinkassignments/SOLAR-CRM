@@ -44,6 +44,7 @@ import ProjectsList from "../pages/Admin/Projects/ProjectsList";
 import ProjectDetail from "../pages/Admin/Projects/ProjectDetail";
 import ProcurementList from "../pages/Admin/Procurement/ProcurementList";
 import SubsidyTracker from "../pages/Admin/Subsidy/SubsidyTracker";
+import SubsidyDetail from "../pages/Admin/Subsidy/SubsidyDetail";
 
 const SubscriptionGuard = ({ children }) => {
   const { user, token } = useAuth();
@@ -132,6 +133,7 @@ const AppRoutes = () => {
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/procurement" element={<ProcurementList />} />
             <Route path="/subsidies"   element={<SubsidyTracker />} />
+            <Route path="/subsidies/:leadId" element={<SubsidyDetail />} />
             <Route path="/stock"              element={<StockList />} />
             <Route path="/stock/transactions" element={<StockTransactions />} />
             <Route path="/stock/alerts"       element={<StockAlerts />} />
