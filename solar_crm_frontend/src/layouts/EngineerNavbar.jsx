@@ -67,31 +67,33 @@ export default function EngineerNavbar({
         ml: { md: `${sidebarWidth}px` },
         backgroundColor: "#FFFFFF",
         borderBottom: "1px solid #E2E8F0",
-        color: "#0F172A",
+        color: "#1E293B",
+        height: `${navbarHeight}px`,
+        justifyContent: "center",
+        boxShadow: "0 1px 3px 0 rgba(15, 23, 42, 0.03)",
+        zIndex: (theme) => theme.zIndex.drawer - 1,
         transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-        zIndex: 1100,
       }}
     >
-      <Toolbar sx={{ minHeight: `${navbarHeight}px`, px: { xs: 2, sm: 3 }, gap: 2 }}>
-        {/* MOBILE MENU TOGGLE */}
-        <IconButton
-          color="inherit"
-          edge="start"
-          onClick={handleDrawerToggle}
-          sx={{ display: { md: "none" } }}
-        >
-          <MenuIcon />
-        </IconButton>
-
-        {/* DESKTOP COLLAPSE TOGGLE */}
-        <IconButton
-          color="inherit"
-          edge="start"
-          onClick={handleToggleCollapse}
-          sx={{ display: { xs: "none", md: "flex" } }}
-        >
-          <MenuIcon />
-        </IconButton>
+      <Toolbar sx={{ justifyContent: "space-between", px: { xs: 2, sm: 3 } }}>
+        {/* LEFT SECTION: Hamburger Toggle, Breadcrumbs & Page Title */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <Tooltip title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}>
+            <IconButton
+              color="inherit"
+              edge="start"
+              onClick={() => {
+                if (window.innerWidth < 900) {
+                  handleDrawerToggle?.();
+                } else {
+                  handleToggleCollapse?.();
+                }
+              }}
+              sx={{ color: "#0F172A", p: 1 }}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Tooltip>
 
         {/* PAGE TITLE & BREADCRUMBS */}
         <Box sx={{ flexGrow: 1 }}>
@@ -114,6 +116,7 @@ export default function EngineerNavbar({
           <Typography sx={{ fontSize: "1.05rem", fontWeight: 800, color: "#0F172A", lineHeight: 1.2 }}>
             {title}
           </Typography>
+        </Box>
         </Box>
 
         {/* RIGHT ACTIONS */}

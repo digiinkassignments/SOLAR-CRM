@@ -223,51 +223,85 @@ export default function EngineerSidebar({
           )}
         </ListItemButton>
       </Box>
-
-      {/* LOGOUT DIALOG */}
-      <Dialog open={logoutDialogOpen} onClose={() => setLogoutDialogOpen(false)}>
-        <DialogTitle sx={{ fontWeight: 700 }}>Confirm Logout</DialogTitle>
-        <DialogContent>
-          <DialogContentText>Are you sure you want to log out of the Site Engineer portal?</DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setLogoutDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={handleLogoutConfirm}>
-            Logout
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 
   return (
     <>
-      <Drawer
-        variant="temporary"
-        open={mobileOpen}
-        onClose={handleDrawerToggle}
-        ModalProps={{ keepMounted: true }}
+      <Box
+        component="nav"
         sx={{
-          display: { xs: "block", md: "none" },
-          "& .MuiDrawer-paper": { boxSizing: "border-box", width: sidebarWidth },
+          width: { md: sidebarWidth },
+          flexShrink: { md: 0 },
+          transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
       >
-        {drawerContent}
-      </Drawer>
-      <Drawer
-        variant="permanent"
-        sx={{
-          display: { xs: "none", md: "block" },
-          "& .MuiDrawer-paper": {
-            boxSizing: "border-box",
-            width: sidebarWidth,
-            transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-          },
-        }}
-        open
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleDrawerToggle}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            display: { xs: "block", md: "none" },
+            "& .MuiDrawer-paper": {
+              boxSizing: "border-box",
+              width: 260,
+              borderRight: "1px solid rgba(255,255,255,0.08)",
+              backgroundColor: "#0F172A",
+              color: "#FFFFFF",
+              borderRadius: "0px !important",
+              boxShadow: "none",
+            },
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+        <Drawer
+          variant="permanent"
+          open
+          sx={{
+            display: { xs: "none", md: "block" },
+            "& .MuiDrawer-paper": {
+              boxSizing: "border-box",
+              width: sidebarWidth,
+              borderRight: "1px solid rgba(255,255,255,0.08)",
+              backgroundColor: "#0F172A",
+              color: "#FFFFFF",
+              borderRadius: "0px !important",
+              boxShadow: "none",
+              transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+              overflowX: "hidden",
+            },
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+      </Box>
+
+      {/* LOGOUT DIALOG */}
+      <Dialog
+        open={logoutDialogOpen}
+        onClose={() => setLogoutDialogOpen(false)}
+        slotProps={{ paper: { sx: { borderRadius: "12px", p: 1, minWidth: 330 } } }}
       >
-        {drawerContent}
-      </Drawer>
+        <DialogTitle sx={{ fontWeight: 700, color: "#0B3A63", pb: 1 }}>Confirm Logout</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ fontSize: "0.9rem", color: "#64748B" }}>
+            Are you sure you want to log out of the Site Engineer portal?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setLogoutDialogOpen(false)} sx={{ color: "#64748B", fontWeight: 600 }}>Cancel</Button>
+          <Button
+            variant="contained"
+            disableElevation
+            onClick={handleLogoutConfirm}
+            sx={{ backgroundColor: "#EF4444", "&:hover": { backgroundColor: "#DC2626" }, fontWeight: 600 }}
+          >
+            Logout
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
