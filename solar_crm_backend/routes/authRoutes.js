@@ -70,4 +70,42 @@ router.post("/change-password", verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/auth/me — Resolve user identity & subscription status from token
+router.get("/me", verifyToken, async (req, res) => {
+  try {
+    const db = req.db || require("../config/db").db;
+    const [rows] = await db.query(
+      `SELECT u.id, u.role_id, u.full_name, u.username, u.email, u.phone, 
+              u.profile_image, u.status, u.is_password_changed, r.role_name
+       FROM users u
+       LEFT JOIN roles r ON u.role_id = r.id
+       WHERE u.id = ? AND u.is_deleted = 0
+       LIMIT 1`,
+      [req.user.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    const user = rows[0];
+    const clientInfo = req.clientInfo;
+    const subscriptionStatus = clientInfo?.status || "Active";
+
+    return res.status(200).json({
+      success: true,
+      user,
+      subscription: {
+        status: subscriptionStatus,
+        subscription_end: clientInfo?.subscription_end,
+        grace_end_date: clientInfo?.grace_end_date,
+        delete_date: clientInfo?.delete_date,
+      },
+    });
+  } catch (err) {
+    console.error("/me error:", err);
+    return res.status(500).json({ success: false, message: "Failed to resolve session." });
+  }
+});
+
 module.exports = router;

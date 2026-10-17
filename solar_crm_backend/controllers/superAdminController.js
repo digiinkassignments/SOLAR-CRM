@@ -747,11 +747,83 @@ const resetClientAdminPassword = async (req, res) => {
       },
     });
 
+// ============================================================
+// CLIENTS — Impersonate Client (Login As Tenant Admin)
+// POST /superadmin/clients/:id/impersonate
+// ============================================================
+const impersonateClient = async (req, res) => {
+  try {
+    const clientId = req.params.id;
+
+    // 1. Fetch Client from Master DB
+    const [rows] = await masterDb.query(
+      `SELECT c.*, p.name AS plan_name 
+       FROM clients c 
+       LEFT JOIN plans p ON c.plan_id = p.id 
+       WHERE c.id = ? LIMIT 1`, 
+      [clientId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Client not found." });
+    }
+    const client = rows[0];
+
+    if (client.status === "Deleted") {
+      return res.status(400).json({ success: false, message: "Cannot impersonate a deleted client." });
+    }
+
+    if (!client.db_name) {
+      return res.status(400).json({ success: false, message: "Client database is not configured." });
+    }
+
+    // 2. Connect to Client Tenant DB
+    const clientPool = getClientPool(client.db_name);
+
+    // 3. Find Primary Admin User
+    const [adminUsers] = await clientPool.query(
+      `SELECT u.id, u.role_id, u.full_name, u.username, u.email, u.phone, u.profile_image, 
+              u.status, u.is_password_changed, r.role_name
+       FROM users u
+       LEFT JOIN roles r ON u.role_id = r.id
+       WHERE u.role_id = 1 AND u.is_deleted = 0
+       ORDER BY u.id ASC LIMIT 1`
+    );
+
+    if (adminUsers.length === 0) {
+      return res.status(404).json({ success: false, message: "Primary Admin user not found for this tenant." });
+    }
+    const adminUser = adminUsers[0];
+
+    // 4. Generate Temporary Impersonation JWT Token (Valid for 2 hours)
+    const token = jwt.sign(
+      { 
+        id: adminUser.id, 
+        role_id: adminUser.role_id,
+        is_impersonated: true,
+        impersonated_by: req.superAdmin?.id || "super_admin",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "2h" }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Impersonation session established for ${client.business_name}.`,
+      data: {
+        token,
+        user: adminUser,
+        subdomain: client.subdomain,
+        portalUrl: `https://${client.subdomain}.digiinksolutions.com`,
+        redirectUrl: `https://${client.subdomain}.digiinksolutions.com/dashboard?token=${token}`,
+      },
+    });
+
   } catch (err) {
-    console.error("resetClientAdminPassword error:", err.message);
+    console.error("impersonateClient error:", err.message);
     return res.status(500).json({ 
       success: false, 
-      message: err.message || "Failed to reset client admin password." 
+      message: err.message || "Failed to establish tenant impersonation." 
     });
   }
 };
@@ -762,6 +834,7 @@ module.exports = {
   getAllClients, getClientById, createClient,
   renewClient, updateClientStatus, deleteClient,
   resetClientAdminPassword,
+  impersonateClient,
   getPlans, updatePlan,
   getPaymentRequests, confirmPayment, rejectPayment,
   getMasterSettings, updateMasterSettings,

@@ -13,6 +13,7 @@ const {
   getAllClients, getClientById, createClient,
   renewClient, updateClientStatus, deleteClient,
   resetClientAdminPassword,
+  impersonateClient,
   getPlans, updatePlan,
   getPaymentRequests, confirmPayment, rejectPayment,
   getMasterSettings, updateMasterSettings,
@@ -55,6 +56,7 @@ router.post("/clients",             verifySuperAdmin, createClient);
 router.post("/clients/:id/renew",   verifySuperAdmin, renewClient);
 router.patch("/clients/:id/status", verifySuperAdmin, updateClientStatus);
 router.post("/clients/:id/reset-password", verifySuperAdmin, resetClientAdminPassword);
+router.post("/clients/:id/impersonate",    verifySuperAdmin, impersonateClient);
 router.delete("/clients/:id",       verifySuperAdmin, deleteClient);
 
 // ── Plans ────────────────────────────────────────────────────

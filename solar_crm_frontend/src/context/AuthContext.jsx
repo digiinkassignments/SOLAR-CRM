@@ -14,20 +14,49 @@ export const AuthProvider = ({ children }) => {
   const [user, setUserState] = useState(() => getCurrentUser());
   const [loading, setLoading] = useState(true);
 
-  // App init & sync on mount
+  // App init & sync on mount (including ?token= impersonation handoff)
   useEffect(() => {
-    const storedToken = getToken();
-    const storedUser = getCurrentUser();
+    const initAuth = async () => {
+      // 1. Check if token passed via URL (e.g., from SuperAdmin Impersonation)
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlToken = urlParams.get("token");
 
-    if (storedToken && storedUser) {
-      setTokenState(storedToken);
-      setUserState(storedUser);
-    } else {
-      clearStorage();
-      setTokenState(null);
-      setUserState(null);
-    }
-    setLoading(false);
+      if (urlToken) {
+        try {
+          // Temporarily store token so API client uses it
+          setToken(urlToken);
+          const res = await fetch("/api/auth/me", {
+            headers: { Authorization: `Bearer ${urlToken}` },
+          });
+          const data = await res.json();
+          if (data?.success && data.user) {
+            login(data.user, urlToken, data.subscription);
+            // Clean URL query param without reload
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          console.error("Impersonation token verification failed:", e);
+        }
+      }
+
+      // 2. Fallback to localStorage
+      const storedToken = getToken();
+      const storedUser = getCurrentUser();
+
+      if (storedToken && storedUser) {
+        setTokenState(storedToken);
+        setUserState(storedUser);
+      } else {
+        clearStorage();
+        setTokenState(null);
+        setUserState(null);
+      }
+      setLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   // userData = user object, authToken = JWT, subscription = subscription object from login API

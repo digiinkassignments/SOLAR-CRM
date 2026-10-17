@@ -40,6 +40,7 @@ import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import DomainOutlinedIcon from "@mui/icons-material/DomainOutlined";
 import FilterListRoundedIcon from "@mui/icons-material/FilterListRounded";
+import LaunchRoundedIcon from "@mui/icons-material/LaunchRounded";
 
 import api from "../api/axios";
 
@@ -84,6 +85,24 @@ const Clients = () => {
   const [selectedClientToDelete, setSelectedClientToDelete] = useState(null);
   const [deleteInput, setDeleteInput] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Impersonate state
+  const [impersonatingId, setImpersonatingId] = useState(null);
+
+  const handleImpersonate = async (e, clientId) => {
+    e.stopPropagation();
+    setImpersonatingId(clientId);
+    try {
+      const res = await api.post(`/clients/${clientId}/impersonate`);
+      if (res.data?.success && res.data.data?.redirectUrl) {
+        window.open(res.data.data.redirectUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to impersonate client admin.");
+    } finally {
+      setImpersonatingId(null);
+    }
+  };
 
   const handleConfirmDelete = async () => {
     if (!selectedClientToDelete || deleteInput.trim() !== selectedClientToDelete.client_code) return;
@@ -479,6 +498,31 @@ const Clients = () => {
 
                       <TableCell sx={{ textAlign: "right", px: 2, minWidth: 140 }}>
                         <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center">
+                          {c.status !== "Deleted" && (
+                            <Tooltip title="Login as Client Admin (Impersonate)">
+                              <Button
+                                size="small"
+                                variant="contained"
+                                disableElevation
+                                startIcon={<LaunchRoundedIcon sx={{ fontSize: 13 }} />}
+                                onClick={(e) => handleImpersonate(e, c.id)}
+                                disabled={impersonatingId === c.id}
+                                sx={{
+                                  borderRadius: "100px",
+                                  textTransform: "none",
+                                  fontWeight: 700,
+                                  fontSize: "0.75rem",
+                                  px: 1.6,
+                                  backgroundColor: "#0F172A",
+                                  color: "#FFFFFF",
+                                  "&:hover": { backgroundColor: "#1E293B" },
+                                }}
+                              >
+                                {impersonatingId === c.id ? "Launching..." : "Login As"}
+                              </Button>
+                            </Tooltip>
+                          )}
+
                           <Button
                             size="small"
                             variant="outlined"

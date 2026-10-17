@@ -377,6 +377,36 @@ const ClientDetail = () => {
             </Button>
 
             <Button
+              variant="contained"
+              disableElevation
+              startIcon={<OpenInNewRoundedIcon sx={{ fontSize: 16 }} />}
+              onClick={async () => {
+                try {
+                  const res = await api.post(`/clients/${id}/impersonate`);
+                  if (res.data?.success && res.data.data?.redirectUrl) {
+                    window.open(res.data.data.redirectUrl, "_blank", "noopener,noreferrer");
+                  }
+                } catch (err) {
+                  setError(err.response?.data?.message || "Failed to impersonate client.");
+                }
+              }}
+              sx={{
+                borderRadius: "100px",
+                textTransform: "none",
+                fontWeight: 700,
+                px: 2.2,
+                py: 1,
+                fontSize: "0.85rem",
+                backgroundColor: "#0F172A",
+                color: "#FFFFFF",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                "&:hover": { backgroundColor: "#1E293B" },
+              }}
+            >
+              Login As Client
+            </Button>
+
+            <Button
               variant="outlined"
               startIcon={<KeyRoundedIcon sx={{ fontSize: 18 }} />}
               onClick={() => {
