@@ -30,8 +30,9 @@ const PrivateRoute = ({ allowedRoles = [] }) => {
   });
 
   if (!isAllowed) {
-    if (userRole.includes("manager")) return <Navigate to="/manager/dashboard" replace />;
-    if (userRole.includes("sales"))   return <Navigate to="/sales/dashboard" replace />;
+    if (userRole.includes("manager"))  return <Navigate to="/manager/dashboard" replace />;
+    if (userRole.includes("sales"))    return <Navigate to="/sales/dashboard" replace />;
+    if (userRole.includes("engineer")) return <Navigate to="/engineer/dashboard" replace />;
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -40,8 +41,9 @@ const PrivateRoute = ({ allowedRoles = [] }) => {
   const requiredFeature = routeFeatureMap[currentPath];
   if (requiredFeature && !can(requiredFeature)) {
     // Role ke hisaab se dashboard pe bhejo
-    if (userRole.includes("manager")) return <Navigate to="/manager/dashboard" replace />;
-    if (userRole.includes("sales"))   return <Navigate to="/sales/dashboard" replace />;
+    if (userRole.includes("manager"))  return <Navigate to="/manager/dashboard" replace />;
+    if (userRole.includes("sales"))    return <Navigate to="/sales/dashboard" replace />;
+    if (userRole.includes("engineer")) return <Navigate to="/engineer/dashboard" replace />;
     return <Navigate to="/dashboard" replace />;
   }
 
