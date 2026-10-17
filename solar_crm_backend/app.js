@@ -11,6 +11,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // ── Static Uploads ───────────────────────────────────────────
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ── Dynamic Client DB Middleware ─────────────────────────────
 const { clientDbMiddleware } = require("./config/clientDb");
@@ -44,6 +45,12 @@ const stockRoutes = require("./routes/stockRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
 const projectRoutes = require("./routes/projectRoutes");
 const procurementRoutes = require("./routes/procurementRoutes");
+const inspectionRoutes = require("./routes/inspectionRoutes");
+const installationLogRoutes = require("./routes/installationLogRoutes");
+const commissioningRoutes = require("./routes/commissioningRoutes");
+const finalInspectionRoutes = require("./routes/finalInspectionRoutes");
+const handoverRoutes = require("./routes/handoverRoutes");
+const warrantyRoutes = require("./routes/warrantyRoutes");
 
 // ── Existing API Routes ──────────────────────────────────────
 app.use("/api/auth", authRoutes);
@@ -66,7 +73,21 @@ app.use("/api/deals", dealRoutes);
 app.use("/api/subsidy", subsidyRoutes);
 app.use("/api/stock", stockRoutes);
 app.use("/api/projects", projectRoutes);
+app.use("/api/projects/:id/inspection", inspectionRoutes);
+app.use("/api/projects/:id/installation-logs", installationLogRoutes);
+app.use("/api/projects/:id/commissioning", commissioningRoutes);
+app.use("/api/projects/:id/final-inspection", finalInspectionRoutes);
+app.use("/api/projects/:id/handover", handoverRoutes);
+app.use("/api/projects/:id/warranty", warrantyRoutes);
+const reportRoutes = require("./routes/reportRoutes");
+app.use("/api/reports", reportRoutes);
 app.use("/api/procurement", procurementRoutes);
+const customerRoutes = require("./routes/customerRoutes");
+app.use("/api/customers", customerRoutes);
+
+
+
+
 
 // ── Base Route ───────────────────────────────────────────────
 app.get("/", (req, res) => {

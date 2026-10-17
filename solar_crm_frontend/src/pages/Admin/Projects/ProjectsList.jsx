@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../../context/AuthContext";
 import {
   Box,
   Paper,
@@ -30,6 +31,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Autocomplete,
 } from "@mui/material";
 
 // Icons
@@ -50,6 +52,7 @@ import PersonIcon from "@mui/icons-material/Person";
 import PhoneIcon from "@mui/icons-material/Phone";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import DeleteIcon from "@mui/icons-material/Delete";
 import InboxIcon from "@mui/icons-material/Inbox";
 import CloseIcon from "@mui/icons-material/Close";
 
@@ -132,6 +135,10 @@ const STAGE_OPTIONS = [
 
 export default function ProjectsList() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const roleName = (user?.role_name || user?.role || "").toLowerCase();
+  const isManager = user?.role_id === 2 || roleName.includes("manager");
+  const projectBasePath = isManager ? "/manager/projects" : "/projects";
 
   // State
   const [projects, setProjects] = useState([]);
@@ -155,9 +162,19 @@ export default function ProjectsList() {
   // New Project Dialog State
   const [newModalOpen, setNewModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [quotationOptions, setQuotationOptions] = useState([]);
+  const [loadingQuotations, setLoadingQuotations] = useState(false);
+  const [selectedQuotation, setSelectedQuotation] = useState(null);
+
+  // Delete Project Dialog State
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [formData, setFormData] = useState({
     customer_name: "",
     customer_phone: "",
+    lead_id: null,
+    quotation_id: null,
     system_capacity_kw: "5.00",
     customer_address: "",
     city: "",
@@ -166,6 +183,29 @@ export default function ProjectsList() {
     stage: "Order Closed",
     notes: "",
   });
+
+  // Fetch Quotation sent/accepted leads when modal opens
+  const fetchQuotationOptions = useCallback(async () => {
+    setLoadingQuotations(true);
+    try {
+      const res = await api.get("/quotations");
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setQuotationOptions(res.data.data);
+      } else {
+        setQuotationOptions([]);
+      }
+    } catch (err) {
+      console.error("fetchQuotationOptions error:", err);
+    } finally {
+      setLoadingQuotations(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (newModalOpen) {
+      fetchQuotationOptions();
+    }
+  }, [newModalOpen, fetchQuotationOptions]);
 
   // Fetch Stats from GET /api/projects/stats
   const fetchStats = useCallback(async () => {
@@ -314,9 +354,12 @@ export default function ProjectsList() {
       if (res.data?.success) {
         toast.success(res.data.message || "Project created successfully!");
         setNewModalOpen(false);
+        setSelectedQuotation(null);
         setFormData({
           customer_name: "",
           customer_phone: "",
+          lead_id: null,
+          quotation_id: null,
           system_capacity_kw: "5.00",
           customer_address: "",
           city: "",
@@ -333,6 +376,35 @@ export default function ProjectsList() {
       toast.error(err.response?.data?.message || "Failed to create project");
     } finally {
       setCreating(false);
+    }
+  };
+
+  // Open Delete Confirmation
+  const handleDeleteClick = (project) => {
+    setProjectToDelete(project);
+    setDeleteConfirmOpen(true);
+  };
+
+  // Confirm Delete Handler
+  const handleConfirmDelete = async () => {
+    if (!projectToDelete) return;
+    setDeleting(true);
+    try {
+      const res = await api.delete(`/projects/${projectToDelete.id}`);
+      if (res.data?.success) {
+        toast.success(res.data.message || "Project deleted successfully!");
+        setDeleteConfirmOpen(false);
+        setProjectToDelete(null);
+        fetchProjects();
+        fetchStats();
+      } else {
+        toast.error(res.data?.message || "Failed to delete project");
+      }
+    } catch (err) {
+      console.error("Delete project error:", err);
+      toast.error(err.response?.data?.message || "Failed to delete project");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -1262,29 +1334,50 @@ export default function ProjectsList() {
                     Created {formatDate(proj.created_at)}
                   </Typography>
 
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<VisibilityIcon sx={{ fontSize: 15 }} />}
-                    onClick={() => navigate(`/projects/${proj.id}`)}
-                    sx={{
-                      height: 30,
-                      borderRadius: "6px",
-                      textTransform: "none",
-                      fontWeight: 700,
-                      fontSize: "0.74rem",
-                      px: 1.8,
-                      borderColor: COLORS.border,
-                      color: COLORS.textPrimary,
-                      backgroundColor: "#FFFFFF",
-                      "&:hover": {
-                        borderColor: COLORS.primary,
-                        backgroundColor: "#F8FAFC",
-                      },
-                    }}
-                  >
-                    View Project
-                  </Button>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<VisibilityIcon sx={{ fontSize: 15 }} />}
+                      onClick={() => navigate(`${projectBasePath}/${proj.id}`)}
+                      sx={{
+                        height: 30,
+                        borderRadius: "6px",
+                        textTransform: "none",
+                        fontWeight: 700,
+                        fontSize: "0.74rem",
+                        px: 1.8,
+                        borderColor: COLORS.border,
+                        color: COLORS.textPrimary,
+                        backgroundColor: "#FFFFFF",
+                        "&:hover": {
+                          borderColor: COLORS.primary,
+                          backgroundColor: "#F8FAFC",
+                        },
+                      }}
+                    >
+                      View Project
+                    </Button>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDeleteClick(proj)}
+                      sx={{
+                        height: 30,
+                        width: 30,
+                        borderRadius: "6px",
+                        border: `1px solid ${COLORS.border}`,
+                        color: "#EF4444",
+                        "&:hover": {
+                          backgroundColor: "#FEF2F2",
+                          borderColor: "#FCA5A5",
+                        },
+                      }}
+                    >
+                      <Tooltip title="Delete Project">
+                        <DeleteIcon sx={{ fontSize: 17 }} />
+                      </Tooltip>
+                    </IconButton>
+                  </Stack>
                 </Box>
               </Paper>
             ))}
@@ -1457,28 +1550,49 @@ export default function ProjectsList() {
 
                       {/* Actions */}
                       <TableCell align="right">
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<VisibilityIcon sx={{ fontSize: 14 }} />}
-                          onClick={() => navigate(`/projects/${proj.id}`)}
-                          sx={{
-                            height: 28,
-                            borderRadius: "6px",
-                            textTransform: "none",
-                            fontWeight: 700,
-                            fontSize: "0.72rem",
-                            px: 1.4,
-                            borderColor: COLORS.border,
-                            color: COLORS.textPrimary,
-                            "&:hover": {
-                              borderColor: COLORS.primary,
-                              backgroundColor: "#F8FAFC",
-                            },
-                          }}
-                        >
-                          View
-                        </Button>
+                        <Stack direction="row" spacing={0.8} justifyContent="flex-end">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<VisibilityIcon sx={{ fontSize: 14 }} />}
+                            onClick={() => navigate(`${projectBasePath}/${proj.id}`)}
+                            sx={{
+                              height: 28,
+                              borderRadius: "6px",
+                              textTransform: "none",
+                              fontWeight: 700,
+                              fontSize: "0.72rem",
+                              px: 1.4,
+                              borderColor: COLORS.border,
+                              color: COLORS.textPrimary,
+                              "&:hover": {
+                                borderColor: COLORS.primary,
+                                backgroundColor: "#F8FAFC",
+                              },
+                            }}
+                          >
+                            View
+                          </Button>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteClick(proj)}
+                            sx={{
+                              height: 28,
+                              width: 28,
+                              borderRadius: "6px",
+                              border: `1px solid ${COLORS.border}`,
+                              color: "#EF4444",
+                              "&:hover": {
+                                backgroundColor: "#FEF2F2",
+                                borderColor: "#FCA5A5",
+                              },
+                            }}
+                          >
+                            <Tooltip title="Delete Project">
+                              <DeleteIcon sx={{ fontSize: 16 }} />
+                            </Tooltip>
+                          </IconButton>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1546,6 +1660,65 @@ export default function ProjectsList() {
         <Box component="form" onSubmit={handleCreateSubmit}>
           <DialogContent dividers sx={{ borderColor: COLORS.border }}>
             <Grid container spacing={2}>
+              {/* Select Customer / Quotation Dropdown */}
+              <Grid item xs={12}>
+                <Typography
+                  sx={{
+                    fontSize: "0.74rem",
+                    fontWeight: 700,
+                    color: COLORS.textSecondary,
+                    mb: 0.5,
+                  }}
+                >
+                  Select Customer from Quotations (Jinko Quotation Bheja Hai)
+                </Typography>
+                <Autocomplete
+                  options={quotationOptions}
+                  loading={loadingQuotations}
+                  value={selectedQuotation}
+                  getOptionLabel={(option) => {
+                    if (typeof option === "string") return option;
+                    return `${option.customer_name || "Unknown"} (${option.customer_phone || "No phone"}) - [${option.quotation_number || "QUO"}] - ${option.system_capacity_kw || 0} kW (${option.status || "Sent"})`;
+                  }}
+                  isOptionEqualToValue={(option, val) => option.id === val.id}
+                  onChange={(e, newValue) => {
+                    setSelectedQuotation(newValue);
+                    if (newValue) {
+                      setFormData((prev) => ({
+                        ...prev,
+                        customer_name: newValue.customer_name || "",
+                        customer_phone: newValue.customer_phone || "",
+                        lead_id: newValue.lead_id || null,
+                        quotation_id: newValue.id || null,
+                        system_capacity_kw: newValue.system_capacity_kw ? String(newValue.system_capacity_kw) : prev.system_capacity_kw,
+                        customer_address: newValue.customer_address || prev.customer_address || "",
+                        city: newValue.city || prev.city || "",
+                        state: newValue.state || prev.state || "",
+                        pincode: newValue.pincode || prev.pincode || "",
+                      }));
+                    } else {
+                      setFormData((prev) => ({
+                        ...prev,
+                        lead_id: null,
+                        quotation_id: null,
+                      }));
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      size="small"
+                      placeholder="Search and select customer jinko quotation bheja hai..."
+                    />
+                  )}
+                  noOptionsText={
+                    loadingQuotations
+                      ? "Loading quotations..."
+                      : "Koi quotation nahi mila"
+                  }
+                />
+              </Grid>
+
               <Grid item xs={12} sm={6}>
                 <Typography
                   sx={{
@@ -1764,6 +1937,79 @@ export default function ProjectsList() {
             </Button>
           </DialogActions>
         </Box>
+      </Dialog>
+
+      {/* DELETE PROJECT CONFIRMATION DIALOG */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => !deleting && setDeleteConfirmOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: "14px", p: 1 },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 800,
+            fontSize: "1.05rem",
+            color: "#EF4444",
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <DeleteIcon color="error" />
+          Delete Solar Project
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: COLORS.border }}>
+          <Typography sx={{ fontSize: "0.85rem", color: COLORS.textPrimary, mb: 1 }}>
+            Are you sure you want to delete this project?
+          </Typography>
+          {projectToDelete && (
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: "8px",
+                backgroundColor: "#FEF2F2",
+                border: "1px solid #FECACA",
+              }}
+            >
+              <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#991B1B" }}>
+                {projectToDelete.project_number} — {projectToDelete.customer_name}
+              </Typography>
+              <Typography sx={{ fontSize: "0.75rem", color: "#B91C1C", mt: 0.5 }}>
+                Capacity: {parseFloat(projectToDelete.system_capacity_kw || 0).toFixed(2)} kW • Stage: {projectToDelete.stage}
+              </Typography>
+            </Box>
+          )}
+          <Typography sx={{ fontSize: "0.75rem", color: COLORS.textSecondary, mt: 1.5 }}>
+            This will mark the project as deleted and remove it from active lists.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, py: 1.5 }}>
+          <Button
+            onClick={() => setDeleteConfirmOpen(false)}
+            disabled={deleting}
+            sx={{ textTransform: "none", fontWeight: 600, color: COLORS.textSecondary }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={deleting}
+            onClick={handleConfirmDelete}
+            sx={{
+              textTransform: "none",
+              fontWeight: 700,
+              backgroundColor: "#EF4444",
+              "&:hover": { backgroundColor: "#DC2626" },
+            }}
+          >
+            {deleting ? "Deleting..." : "Delete Project"}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

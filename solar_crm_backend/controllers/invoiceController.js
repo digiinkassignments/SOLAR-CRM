@@ -46,6 +46,8 @@ const getInvoices = async (req, res) => {
       payment_status: req.query.payment_status,
       lead_id: req.query.lead_id,
       quotation_id: req.query.quotation_id,
+      role_id: req.user?.role_id,
+      user_id: req.user?.id,
     };
 
     const rows = await invoiceModel.getInvoices(filters, db);

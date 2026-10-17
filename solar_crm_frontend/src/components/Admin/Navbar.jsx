@@ -144,11 +144,11 @@ const Navbar = ({ handleDrawerToggle, handleToggleCollapse, collapsed, sidebarWi
   // Dynamic Avatar Initials Generator
   const initials = fullName
     ? fullName
-        .split(" ")
-        .map((word) => word[0])
-        .join("")
-        .substring(0, 2)
-        .toUpperCase()
+      .split(" ")
+      .map((word) => word[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase()
     : "U";
 
   const pageMeta = getPageMetadata(location.pathname);

@@ -70,6 +70,7 @@ import {
 
 import api from "../../api/axios";
 import toast from "react-hot-toast";
+import { useAuth } from "../../context/AuthContext";
 import CreateQuotationModal from "./CreateQuotationModal";
 import EditQuotationModal from "./EditQuotationModal";
 import ConvertInvoiceModal from "../Invoices/ConvertInvoiceModal";
@@ -192,6 +193,10 @@ const formatDate = (val) => {
 
 const QuotationList = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const roleName = (user?.role_name || user?.role || "").toLowerCase();
+  const isSuperAdmin = user?.role_id === 1 || roleName.includes("super") || roleName === "admin";
+  const canDeleteQuotation = isSuperAdmin;
 
   const [loading, setLoading] = useState(true);
   const [quotations, setQuotations] = useState([]);
@@ -784,16 +789,18 @@ const QuotationList = () => {
         </Paper>
 
         {/* BULK ACTIONS BAR */}
-        <BulkDeleteBar
-          selectedCount={selectedIds.length}
-          totalCount={quotations.length}
-          itemLabel="Quotations"
-          onSelectAll={handleSelectAll}
-          onDeselectAll={handleDeselectAll}
-          isAllSelected={selectedIds.length === quotations.length && quotations.length > 0}
-          onConfirmDelete={handleBulkDelete}
-          loading={bulkDeleting}
-        />
+        {canDeleteQuotation && (
+          <BulkDeleteBar
+            selectedCount={selectedIds.length}
+            totalCount={quotations.length}
+            itemLabel="Quotations"
+            onSelectAll={handleSelectAll}
+            onDeselectAll={handleDeselectAll}
+            isAllSelected={selectedIds.length === quotations.length && quotations.length > 0}
+            onConfirmDelete={handleBulkDelete}
+            loading={bulkDeleting}
+          />
+        )}
 
         {/* QUOTATIONS CONTENT */}
         {loading ? (
@@ -991,29 +998,31 @@ const QuotationList = () => {
                         PDF
                       </Button>
 
-                      <Button
-                        size="small"
-                        variant="contained"
-                        startIcon={<ReceiptLongIcon sx={{ fontSize: 15 }} />}
-                        onClick={() => setConvertInvoiceQuotation(q)}
-                        sx={{
-                          height: 34,
-                          fontSize: "0.76rem",
-                          fontWeight: 700,
-                          textTransform: "none",
-                          borderRadius: "8px",
-                          px: 1.8,
-                          bgcolor: q.status === "Accepted" ? "#16A34A" : "#0284C7",
-                          color: "#FFFFFF",
-                          boxShadow: "none",
-                          "&:hover": {
-                            bgcolor: q.status === "Accepted" ? "#15803D" : "#0369A1",
+                      {!roleName.includes("sales") && (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          startIcon={<ReceiptLongIcon sx={{ fontSize: 15 }} />}
+                          onClick={() => setConvertInvoiceQuotation(q)}
+                          sx={{
+                            height: 34,
+                            fontSize: "0.76rem",
+                            fontWeight: 700,
+                            textTransform: "none",
+                            borderRadius: "8px",
+                            px: 1.8,
+                            bgcolor: q.status === "Accepted" ? "#16A34A" : "#0284C7",
+                            color: "#FFFFFF",
                             boxShadow: "none",
-                          },
-                        }}
-                      >
-                        Convert to Invoice ➔
-                      </Button>
+                            "&:hover": {
+                              bgcolor: q.status === "Accepted" ? "#15803D" : "#0369A1",
+                              boxShadow: "none",
+                            },
+                          }}
+                        >
+                          Convert to Invoice ➔
+                        </Button>
+                      )}
 
                       {/* WhatsApp Quick Action */}
                       <Tooltip title="Share via WhatsApp">
@@ -1346,19 +1355,21 @@ const QuotationList = () => {
                               </IconButton>
                             </Tooltip>
 
-                            <Tooltip title="Delete">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleOpenDeleteConfirm(q.id)}
-                                sx={{
-                                  ...iconActionBtnSx,
-                                  color: COLORS.danger,
-                                  "&:hover": { bgcolor: COLORS.dangerSoft, borderColor: COLORS.danger },
-                                }}
-                              >
-                                <DeleteIcon sx={{ fontSize: 16 }} />
-                              </IconButton>
-                            </Tooltip>
+                            {canDeleteQuotation && (
+                              <Tooltip title="Delete">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleOpenDeleteConfirm(q.id)}
+                                  sx={{
+                                    ...iconActionBtnSx,
+                                    color: COLORS.danger,
+                                    "&:hover": { bgcolor: COLORS.dangerSoft, borderColor: COLORS.danger },
+                                  }}
+                                >
+                                  <DeleteIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
                           </Stack>
                         </TableCell>
                       </TableRow>
@@ -1456,17 +1467,20 @@ const QuotationList = () => {
             <EditIcon sx={{ fontSize: 16, color: COLORS.textSecondary }} /> Edit Details
           </MenuItem>
 
-          <Divider sx={{ my: 0.5 }} />
-
-          <MenuItem
-            onClick={() => {
-              if (cardTargetQuotation) handleOpenDeleteConfirm(cardTargetQuotation.id);
-              setCardMenuAnchor(null);
-            }}
-            sx={{ fontSize: "0.78rem", fontWeight: 700, gap: 1.2, py: 0.8, color: COLORS.danger, "&:hover": { bgcolor: COLORS.dangerSoft } }}
-          >
-            <DeleteIcon sx={{ fontSize: 16, color: COLORS.danger }} /> Delete Quotation
-          </MenuItem>
+          {canDeleteQuotation && (
+            <>
+              <Divider sx={{ my: 0.5 }} />
+              <MenuItem
+                onClick={() => {
+                  if (cardTargetQuotation) handleOpenDeleteConfirm(cardTargetQuotation.id);
+                  setCardMenuAnchor(null);
+                }}
+                sx={{ fontSize: "0.78rem", fontWeight: 700, gap: 1.2, py: 0.8, color: COLORS.danger, "&:hover": { bgcolor: COLORS.dangerSoft } }}
+              >
+                <DeleteIcon sx={{ fontSize: 16, color: COLORS.danger }} /> Delete Quotation
+              </MenuItem>
+            </>
+          )}
         </Menu>
 
         {/* Create Modal */}

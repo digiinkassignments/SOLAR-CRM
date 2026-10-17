@@ -189,6 +189,22 @@ const getQuotations = async (req, res) => {
       WHERE 1=1
     `;
     const params = [];
+    const roleId = Number(req.user?.role_id);
+    const userId = req.user?.id;
+
+    // Role-based scoping: Sales sees own quotations, Manager sees team's quotations, Admin sees all
+    if (roleId === 3) { // Sales
+      sql += ` AND (q.created_by = ? OR l.assigned_to = ?)`;
+      params.push(userId, userId);
+    } else if (roleId === 2) { // Manager
+      sql += ` AND (
+        q.created_by = ? 
+        OR q.created_by IN (SELECT id FROM users WHERE manager_id = ?) 
+        OR l.assigned_to = ? 
+        OR l.assigned_to IN (SELECT id FROM users WHERE manager_id = ?)
+      )`;
+      params.push(userId, userId, userId, userId);
+    }
 
     if (lead_id) {
       sql += ` AND q.lead_id = ?`;

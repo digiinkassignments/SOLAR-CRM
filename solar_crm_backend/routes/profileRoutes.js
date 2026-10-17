@@ -24,7 +24,8 @@ const {
     getMyProfile,
     updateMyProfile,
     changePassword,
-    updateProfilePhoto
+    updateProfilePhoto,
+    removeProfilePhoto
 } = require("../controllers/profileController");
 
 // ======================================
@@ -67,6 +68,16 @@ router.put(
     uploadProfile.single("profile_image"),
     processProfileImage,
     updateProfilePhoto
+);
+
+// ======================================
+// Remove Profile Photo
+// ======================================
+
+router.delete(
+    "/photo",
+    verifyToken,
+    removeProfilePhoto
 );
 
 // ======================================

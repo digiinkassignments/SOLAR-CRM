@@ -243,10 +243,9 @@ const createInvoice = async (data, createdBy = null, db = defaultDb) => {
   };
 };
 
-// Get Invoices List
 const getInvoices = async (filters = {}, db = defaultDb) => {
   await ensureInvoiceTables(db);
-  const { search, payment_status, lead_id, quotation_id } = filters;
+  const { search, payment_status, lead_id, quotation_id, role_id, user_id } = filters;
   let sql = `
     SELECT inv.*, l.lead_code, u.full_name AS created_by_name
     FROM invoices inv
@@ -255,6 +254,20 @@ const getInvoices = async (filters = {}, db = defaultDb) => {
     WHERE 1=1
   `;
   const params = [];
+
+  const roleIdNum = Number(role_id);
+  if (roleIdNum === 3) { // Sales: see invoices created by self or for assigned leads
+    sql += ` AND (inv.created_by = ? OR l.assigned_to = ?)`;
+    params.push(user_id, user_id);
+  } else if (roleIdNum === 2) { // Manager: see invoices for team or created by self
+    sql += ` AND (
+      inv.created_by = ? 
+      OR inv.created_by IN (SELECT id FROM users WHERE manager_id = ?) 
+      OR l.assigned_to = ? 
+      OR l.assigned_to IN (SELECT id FROM users WHERE manager_id = ?)
+    )`;
+    params.push(user_id, user_id, user_id, user_id);
+  }
 
   if (payment_status && payment_status !== "All") {
     sql += ` AND inv.payment_status = ?`;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "../../../context/AuthContext";
 import {
   Box,
   Paper,
@@ -20,6 +21,8 @@ import {
   Select,
   FormControl,
   Divider,
+  Tabs,
+  Tab,
 } from "@mui/material";
 
 // Icons
@@ -40,9 +43,26 @@ import HistoryIcon from "@mui/icons-material/History";
 import CloseIcon from "@mui/icons-material/Close";
 import ErrorOutlineOutlinedIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import ChecklistIcon from "@mui/icons-material/Checklist";
+import ConstructionIcon from "@mui/icons-material/Construction";
+import ElectricBoltIcon from "@mui/icons-material/ElectricBolt";
+import FactCheckIcon from "@mui/icons-material/FactCheck";
+import HandshakeIcon from "@mui/icons-material/Handshake";
+import VerifiedIcon from "@mui/icons-material/Verified";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 import toast from "react-hot-toast";
 import api from "../../../utils/api";
+import PreInstallInspection from "./tabs/PreInstallInspection";
+import InstallationProgress from "./tabs/InstallationProgress";
+import Commissioning from "./tabs/Commissioning";
+import FinalInspection from "./tabs/FinalInspection";
+import CustomerHandover from "./tabs/CustomerHandover";
+import WarrantyAMC from "./tabs/WarrantyAMC";
+
+
+
+
 
 // Theme constants
 const COLORS = {
@@ -122,6 +142,10 @@ const STAGE_CONFIG = {
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const roleName = (user?.role_name || user?.role || "").toLowerCase();
+  const isManager = user?.role_id === 2 || roleName.includes("manager");
+  const projectBasePath = isManager ? "/manager/projects" : "/projects";
 
   // Project Data State
   const [project, setProject] = useState(null);
@@ -138,6 +162,14 @@ export default function ProjectDetail() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({});
   const [updatingProject, setUpdatingProject] = useState(false);
+
+  // Active Tab State (0: Overview, 1: Stage History, 2: Pre-Install Inspection)
+  const [activeTab, setActiveTab] = useState(0);
+
+  // Delete Project Dialog State
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
 
   // Fetch Project Details by ID (for manual calls like after saving)
   const fetchProjectDetails = useCallback(async () => {
@@ -296,6 +328,27 @@ export default function ProjectDetail() {
     );
   };
 
+  // Confirm Delete Handler
+  const handleConfirmDelete = async () => {
+    if (!project) return;
+    setDeleting(true);
+    try {
+      const res = await api.delete(`/projects/${project.id}`);
+      if (res.data?.success) {
+        toast.success(res.data.message || "Project deleted successfully!");
+        setDeleteConfirmOpen(false);
+        navigate(projectBasePath);
+      } else {
+        toast.error(res.data?.message || "Failed to delete project");
+      }
+    } catch (err) {
+      console.error("Delete project error:", err);
+      toast.error(err.response?.data?.message || "Failed to delete project");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const formatDate = (dateVal) => {
     if (!dateVal) return "—";
     try {
@@ -383,7 +436,7 @@ export default function ProjectDetail() {
           <Button
             variant="contained"
             startIcon={<ArrowBackIcon />}
-            onClick={() => navigate("/projects")}
+            onClick={() => navigate(projectBasePath)}
             sx={{
               backgroundColor: COLORS.primary,
               textTransform: "none",
@@ -464,7 +517,7 @@ export default function ProjectDetail() {
                 cursor: "pointer",
                 "&:hover": { color: COLORS.primary },
               }}
-              onClick={() => navigate("/projects")}
+              onClick={() => navigate(projectBasePath)}
             >
               Projects
             </Typography>
@@ -586,547 +639,674 @@ export default function ProjectDetail() {
             >
               Change Stage
             </Button>
+
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              startIcon={<DeleteIcon sx={{ fontSize: 17 }} />}
+              onClick={() => setDeleteConfirmOpen(true)}
+              sx={{
+                height: 36,
+                borderRadius: "6px",
+                textTransform: "none",
+                fontWeight: 700,
+                fontSize: "0.78rem",
+                px: 2,
+                borderColor: "#FCA5A5",
+                color: "#EF4444",
+                backgroundColor: "#FEF2F2",
+                "&:hover": {
+                  borderColor: "#EF4444",
+                  backgroundColor: "#FEE2E2",
+                },
+              }}
+            >
+              Delete Project
+            </Button>
           </Stack>
         </Paper>
 
-        {/* SECTION 2 — INFO GRID (2 Columns) */}
-        <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-          {/* Left Column — Customer & System Info */}
-          <Grid item xs={12} md={7}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2.5,
-                borderRadius: "12px",
-                border: `1px solid ${COLORS.border}`,
-                backgroundColor: COLORS.card,
-                height: "100%",
-                boxSizing: "border-box",
-                display: "flex",
-                flexDirection: "column",
-                gap: 2,
-              }}
-            >
-              {/* Customer Profile */}
-              <Box>
-                <Typography
-                  sx={{
-                    fontSize: "0.78rem",
-                    fontWeight: 800,
-                    color: COLORS.textSecondary,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    mb: 1.5,
-                  }}
-                >
-                  Customer & Site Details
-                </Typography>
-
-                <Grid container spacing={1.8}>
-                  <Grid item xs={12} sm={6}>
-                    <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                      Customer Name
-                    </Typography>
-                    <Typography sx={{ fontSize: "0.86rem", fontWeight: 700, color: COLORS.textPrimary }}>
-                      {project.customer_name}
-                    </Typography>
-                  </Grid>
-
-                  <Grid item xs={12} sm={6}>
-                    <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                      Mobile Contact
-                    </Typography>
-                    <Stack direction="row" alignItems="center" gap={0.5}>
-                      <PhoneIcon sx={{ fontSize: 14, color: COLORS.textMuted }} />
-                      <Typography
-                        component="a"
-                        href={`tel:${project.customer_phone}`}
-                        sx={{
-                          fontSize: "0.86rem",
-                          fontWeight: 700,
-                          color: "#1D4ED8",
-                          textDecoration: "none",
-                          "&:hover": { textDecoration: "underline" },
-                        }}
-                      >
-                        {project.customer_phone}
-                      </Typography>
-                    </Stack>
-                  </Grid>
-
-                  <Grid item xs={12}>
-                    <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                      Installation Site Address
-                    </Typography>
-                    <Stack direction="row" alignItems="center" gap={0.5}>
-                      <LocationOnIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
-                      <Typography sx={{ fontSize: "0.82rem", color: COLORS.textPrimary }}>
-                        {[
-                          project.customer_address,
-                          project.city,
-                          project.state,
-                          project.pincode,
-                        ]
-                          .filter(Boolean)
-                          .join(", ") || "No address provided"}
-                      </Typography>
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Box>
-
-              <Divider sx={{ borderColor: COLORS.border }} />
-
-              {/* Technical Solar System Info */}
-              <Box>
-                <Typography
-                  sx={{
-                    fontSize: "0.78rem",
-                    fontWeight: 800,
-                    color: COLORS.textSecondary,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    mb: 1.5,
-                  }}
-                >
-                  Solar System Configuration
-                </Typography>
-
-                <Grid container spacing={1.8}>
-                  <Grid item xs={12} sm={4}>
-                    <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                      Capacity kW
-                    </Typography>
-                    <Chip
-                      icon={<SolarPowerIcon sx={{ fontSize: "14px !important", color: "#B45309 !important" }} />}
-                      label={`${parseFloat(project.system_capacity_kw || 1).toFixed(2)} kW`}
-                      size="small"
-                      sx={{
-                        mt: 0.3,
-                        fontWeight: 800,
-                        fontSize: "0.76rem",
-                        backgroundColor: "#FEF3C7",
-                        color: "#92400E",
-                        border: "1px solid #FDE68A",
-                        borderRadius: "6px",
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} sm={4}>
-                    <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                      Panel Count
-                    </Typography>
-                    <Typography sx={{ fontSize: "0.86rem", fontWeight: 700, color: COLORS.textPrimary, mt: 0.3 }}>
-                      {project.panel_count ? `${project.panel_count} Panels` : "—"}
-                    </Typography>
-                  </Grid>
-
-                  <Grid item xs={12} sm={4}>
-                    <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                      Inverter Capacity
-                    </Typography>
-                    <Typography sx={{ fontSize: "0.86rem", fontWeight: 700, color: COLORS.textPrimary, mt: 0.3 }}>
-                      {project.inverter_kw ? `${parseFloat(project.inverter_kw).toFixed(2)} kW` : "—"}
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </Box>
-
-              <Divider sx={{ borderColor: COLORS.border }} />
-
-              {/* Assignment & Key Dates */}
-              <Box>
-                <Typography
-                  sx={{
-                    fontSize: "0.78rem",
-                    fontWeight: 800,
-                    color: COLORS.textSecondary,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    mb: 1.5,
-                  }}
-                >
-                  Project Operations & Schedule
-                </Typography>
-
-                <Grid container spacing={1.8}>
-                  <Grid item xs={12} sm={6}>
-                    <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                      Assigned Representative
-                    </Typography>
-                    <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.3 }}>
-                      <PersonIcon sx={{ fontSize: 16, color: COLORS.textMuted }} />
-                      <Typography sx={{ fontSize: "0.84rem", fontWeight: 700, color: COLORS.textPrimary }}>
-                        {project.assigned_to_name || "Unassigned"}
-                      </Typography>
-                    </Stack>
-                  </Grid>
-
-                  <Grid item xs={12} sm={6}>
-                    <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                      Installation Start Date
-                    </Typography>
-                    <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.3 }}>
-                      <CalendarTodayIcon sx={{ fontSize: 14, color: COLORS.textMuted }} />
-                      <Typography sx={{ fontSize: "0.84rem", fontWeight: 600, color: COLORS.textPrimary }}>
-                        {formatDate(project.installation_start_date)}
-                      </Typography>
-                    </Stack>
-                  </Grid>
-
-                  <Grid item xs={12} sm={6}>
-                    <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                      Installation End Date
-                    </Typography>
-                    <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.3 }}>
-                      <CalendarTodayIcon sx={{ fontSize: 14, color: COLORS.textMuted }} />
-                      <Typography sx={{ fontSize: "0.84rem", fontWeight: 600, color: COLORS.textPrimary }}>
-                        {formatDate(project.installation_end_date)}
-                      </Typography>
-                    </Stack>
-                  </Grid>
-
-                  <Grid item xs={12} sm={6}>
-                    <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                      Project Completion Date
-                    </Typography>
-                    <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.3 }}>
-                      <CalendarTodayIcon sx={{ fontSize: 14, color: COLORS.textMuted }} />
-                      <Typography sx={{ fontSize: "0.84rem", fontWeight: 700, color: "#16A34A" }}>
-                        {formatDate(project.completion_date)}
-                      </Typography>
-                    </Stack>
-                  </Grid>
-
-                  {project.notes && (
-                    <Grid item xs={12}>
-                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                        Installation Notes
-                      </Typography>
-                      <Paper
-                        elevation={0}
-                        sx={{
-                          p: 1.5,
-                          mt: 0.4,
-                          borderRadius: "8px",
-                          backgroundColor: "#F8FAFC",
-                          border: `1px solid ${COLORS.border}`,
-                          fontSize: "0.78rem",
-                          color: COLORS.textSecondary,
-                        }}
-                      >
-                        {project.notes}
-                      </Paper>
-                    </Grid>
-                  )}
-                </Grid>
-              </Box>
-            </Paper>
-          </Grid>
-
-          {/* Right Column — Project Timeline (Vertical Stepper) */}
-          <Grid item xs={12} md={5}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2.5,
-                borderRadius: "12px",
-                border: `1px solid ${COLORS.border}`,
-                backgroundColor: COLORS.card,
-                height: "100%",
-                boxSizing: "border-box",
-              }}
-            >
-              <Typography
-                sx={{
-                  fontSize: "0.78rem",
-                  fontWeight: 800,
-                  color: COLORS.textSecondary,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  mb: 2.5,
-                }}
-              >
-                Project Pipeline Stages
-              </Typography>
-
-              <Box sx={{ position: "relative", pl: 1 }}>
-                {STAGES.map((stageName, index) => {
-                  const isCompleted = index < currentStageIndex;
-                  const isCurrent = index === currentStageIndex;
-                  const isLast = index === STAGES.length - 1;
-
-                  const matchingLog = project.stage_logs?.find(
-                    (l) => l.to_stage === stageName
-                  );
-
-                  return (
-                    <Box
-                      key={stageName}
-                      sx={{
-                        position: "relative",
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 1.8,
-                        pb: isLast ? 0 : 2.5,
-                      }}
-                    >
-                      {/* Vertical Connecting Line */}
-                      {!isLast && (
-                        <Box
-                          sx={{
-                            position: "absolute",
-                            left: 11,
-                            top: 24,
-                            bottom: 0,
-                            width: 2,
-                            backgroundColor: isCompleted
-                              ? "#16A34A"
-                              : isCurrent
-                              ? "#FDE68A"
-                              : "#E2E8F0",
-                            transition: "background-color 0.2s ease",
-                          }}
-                        />
-                      )}
-
-                      {/* Stage Node Icon */}
-                      <Box
-                        sx={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: "50%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          zIndex: 1,
-                          backgroundColor: "#FFFFFF",
-                        }}
-                      >
-                        {isCompleted ? (
-                          <CheckCircleIcon sx={{ fontSize: 22, color: "#16A34A" }} />
-                        ) : isCurrent ? (
-                          <RadioButtonCheckedIcon
-                            sx={{
-                              fontSize: 22,
-                              color: "#F59E0B",
-                              animation: "pulse 1.8s infinite",
-                              "@keyframes pulse": {
-                                "0%": { transform: "scale(0.95)" },
-                                "50%": { transform: "scale(1.15)" },
-                                "100%": { transform: "scale(0.95)" },
-                              },
-                            }}
-                          />
-                        ) : (
-                          <RadioButtonUncheckedIcon sx={{ fontSize: 22, color: "#CBD5E1" }} />
-                        )}
-                      </Box>
-
-                      {/* Stage Content */}
-                      <Box sx={{ flex: 1, pt: 0.2 }}>
-                        <Typography
-                          sx={{
-                            fontSize: "0.82rem",
-                            fontWeight: isCurrent ? 800 : isCompleted ? 700 : 500,
-                            color: isCurrent
-                              ? "#D97706"
-                              : isCompleted
-                              ? COLORS.textPrimary
-                              : COLORS.textMuted,
-                          }}
-                        >
-                          {stageName}
-                        </Typography>
-
-                        {/* Stage Timestamp if available */}
-                        {isCurrent ? (
-                          <Typography
-                            sx={{
-                              fontSize: "0.7rem",
-                              fontWeight: 600,
-                              color: "#F59E0B",
-                              mt: 0.2,
-                            }}
-                          >
-                            Active Stage • Updated{" "}
-                            {formatDateTime(project.stage_updated_at || project.updated_at)}
-                          </Typography>
-                        ) : matchingLog?.created_at ? (
-                          <Typography
-                            sx={{
-                              fontSize: "0.7rem",
-                              color: COLORS.textMuted,
-                              mt: 0.2,
-                            }}
-                          >
-                            Reached on {formatDateTime(matchingLog.created_at)}
-                          </Typography>
-                        ) : isCompleted ? (
-                          <Typography
-                            sx={{
-                              fontSize: "0.7rem",
-                              color: "#16A34A",
-                              mt: 0.2,
-                            }}
-                          >
-                            Completed
-                          </Typography>
-                        ) : (
-                          <Typography
-                            sx={{
-                              fontSize: "0.7rem",
-                              color: COLORS.textMuted,
-                              mt: 0.2,
-                            }}
-                          >
-                            Pending
-                          </Typography>
-                        )}
-                      </Box>
-                    </Box>
-                  );
-                })}
-              </Box>
-            </Paper>
-          </Grid>
-        </Grid>
-
-        {/* SECTION 3 — STAGE LOGS HISTORY */}
+        {/* TABS NAVIGATION BAR */}
         <Paper
           elevation={0}
           sx={{
-            p: 2.5,
+            mb: 2.5,
+            p: 0,
             borderRadius: "12px",
             border: `1px solid ${COLORS.border}`,
             backgroundColor: COLORS.card,
-            width: "100%",
-            boxSizing: "border-box",
+            overflow: "hidden",
           }}
         >
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-            sx={{ mb: 2 }}
-          >
-            <Stack direction="row" alignItems="center" gap={1}>
-              <HistoryIcon sx={{ fontSize: 20, color: COLORS.textSecondary }} />
-              <Typography
-                sx={{
-                  fontWeight: 800,
-                  fontSize: "0.95rem",
-                  color: COLORS.textPrimary,
-                }}
-              >
-                Stage Change History
-              </Typography>
-              <Chip
-                label={`${project.stage_logs?.length || 0} logs`}
-                size="small"
-                sx={{
-                  height: 20,
-                  fontSize: "0.68rem",
-                  fontWeight: 700,
-                  bgcolor: "#F1F5F9",
-                }}
-              />
-            </Stack>
-          </Stack>
-
-          {!project.stage_logs || project.stage_logs.length === 0 ? (
-            <Box
+          <Box sx={{ borderBottom: 1, borderColor: "divider", px: 2, pt: 0.5, backgroundColor: "#FFFFFF" }}>
+            <Tabs
+              value={activeTab}
+              onChange={(e, val) => setActiveTab(val)}
+              variant="scrollable"
+              scrollButtons="auto"
               sx={{
-                py: 4,
-                textAlign: "center",
-                color: COLORS.textMuted,
+                "& .MuiTab-root": {
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: "0.82rem",
+                  minHeight: 48,
+                  color: COLORS.textSecondary,
+                  "&.Mui-selected": { color: COLORS.primary, fontWeight: 700 },
+                },
+                "& .MuiTabs-indicator": { backgroundColor: COLORS.primary, height: 3 },
               }}
             >
-              <Typography sx={{ fontSize: "0.82rem" }}>
-                No stage change logs recorded yet for this project.
-              </Typography>
-            </Box>
-          ) : (
-            <Stack spacing={1.5}>
-              {project.stage_logs.map((log) => (
-                <Paper
-                  key={log.id}
-                  elevation={0}
+              <Tab label="Overview" iconPosition="start" />
+              <Tab label="Stage History" iconPosition="start" />
+              <Tab
+                label="Pre-Install Inspection"
+                icon={<ChecklistIcon sx={{ fontSize: "1.1rem" }} />}
+                iconPosition="start"
+              />
+              <Tab
+                label="Installation Progress"
+                icon={<ConstructionIcon sx={{ fontSize: "1.1rem" }} />}
+                iconPosition="start"
+              />
+              <Tab icon={<ElectricBoltIcon />} label="Commissioning" iconPosition="start" />
+              <Tab icon={<FactCheckIcon />} label="Final Inspection" iconPosition="start" />
+              <Tab icon={<HandshakeIcon />} label="Customer Handover" iconPosition="start" />
+              <Tab icon={<VerifiedIcon />} label="Warranty & AMC" iconPosition="start" />
+            </Tabs>
+
+
+
+          </Box>
+        </Paper>
+
+        {/* TAB 0: OVERVIEW (INFO GRID) */}
+        {activeTab === 0 && (
+          <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
+            {/* Left Column — Customer & System Info */}
+            <Grid item xs={12} md={7}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2.5,
+                  borderRadius: "12px",
+                  border: `1px solid ${COLORS.border}`,
+                  backgroundColor: COLORS.card,
+                  height: "100%",
+                  boxSizing: "border-box",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                }}
+              >
+                {/* Customer Profile */}
+                <Box>
+                  <Typography
+                    sx={{
+                      fontSize: "0.78rem",
+                      fontWeight: 800,
+                      color: COLORS.textSecondary,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      mb: 1.5,
+                    }}
+                  >
+                    Customer & Site Details
+                  </Typography>
+
+                  <Grid container spacing={1.8}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                        Customer Name
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.86rem", fontWeight: 700, color: COLORS.textPrimary }}>
+                        {project.customer_name}
+                      </Typography>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                        Mobile Contact
+                      </Typography>
+                      <Stack direction="row" alignItems="center" gap={0.5}>
+                        <PhoneIcon sx={{ fontSize: 14, color: COLORS.textMuted }} />
+                        <Typography
+                          component="a"
+                          href={`tel:${project.customer_phone}`}
+                          sx={{
+                            fontSize: "0.86rem",
+                            fontWeight: 700,
+                            color: "#1D4ED8",
+                            textDecoration: "none",
+                            "&:hover": { textDecoration: "underline" },
+                          }}
+                        >
+                          {project.customer_phone}
+                        </Typography>
+                      </Stack>
+                    </Grid>
+
+                    <Grid item xs={12}>
+                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                        Installation Site Address
+                      </Typography>
+                      <Stack direction="row" alignItems="center" gap={0.5}>
+                        <LocationOnIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
+                        <Typography sx={{ fontSize: "0.82rem", color: COLORS.textPrimary }}>
+                          {[
+                            project.customer_address,
+                            project.city,
+                            project.state,
+                            project.pincode,
+                          ]
+                            .filter(Boolean)
+                            .join(", ") || "No address provided"}
+                        </Typography>
+                      </Stack>
+                    </Grid>
+                  </Grid>
+                </Box>
+
+                <Divider sx={{ borderColor: COLORS.border }} />
+
+                {/* Technical Solar System Info */}
+                <Box>
+                  <Typography
+                    sx={{
+                      fontSize: "0.78rem",
+                      fontWeight: 800,
+                      color: COLORS.textSecondary,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      mb: 1.5,
+                    }}
+                  >
+                    Solar System Configuration
+                  </Typography>
+
+                  <Grid container spacing={1.8}>
+                    <Grid item xs={12} sm={4}>
+                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                        Capacity kW
+                      </Typography>
+                      <Chip
+                        icon={<SolarPowerIcon sx={{ fontSize: "14px !important", color: "#B45309 !important" }} />}
+                        label={`${parseFloat(project.system_capacity_kw || 1).toFixed(2)} kW`}
+                        size="small"
+                        sx={{
+                          mt: 0.3,
+                          fontWeight: 800,
+                          fontSize: "0.76rem",
+                          backgroundColor: "#FEF3C7",
+                          color: "#92400E",
+                          border: "1px solid #FDE68A",
+                          borderRadius: "6px",
+                        }}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} sm={4}>
+                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                        Panel Count
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.86rem", fontWeight: 700, color: COLORS.textPrimary, mt: 0.3 }}>
+                        {project.panel_count ? `${project.panel_count} Panels` : "—"}
+                      </Typography>
+                    </Grid>
+
+                    <Grid item xs={12} sm={4}>
+                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                        Inverter Capacity
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.86rem", fontWeight: 700, color: COLORS.textPrimary, mt: 0.3 }}>
+                        {project.inverter_kw ? `${parseFloat(project.inverter_kw).toFixed(2)} kW` : "—"}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Box>
+
+                <Divider sx={{ borderColor: COLORS.border }} />
+
+                {/* Assignment & Key Dates */}
+                <Box>
+                  <Typography
+                    sx={{
+                      fontSize: "0.78rem",
+                      fontWeight: 800,
+                      color: COLORS.textSecondary,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      mb: 1.5,
+                    }}
+                  >
+                    Project Operations & Schedule
+                  </Typography>
+
+                  <Grid container spacing={1.8}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                        Assigned Representative
+                      </Typography>
+                      <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.3 }}>
+                        <PersonIcon sx={{ fontSize: 16, color: COLORS.textMuted }} />
+                        <Typography sx={{ fontSize: "0.84rem", fontWeight: 700, color: COLORS.textPrimary }}>
+                          {project.assigned_to_name || "Unassigned"}
+                        </Typography>
+                      </Stack>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                        Installation Start Date
+                      </Typography>
+                      <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.3 }}>
+                        <CalendarTodayIcon sx={{ fontSize: 14, color: COLORS.textMuted }} />
+                        <Typography sx={{ fontSize: "0.84rem", fontWeight: 600, color: COLORS.textPrimary }}>
+                          {formatDate(project.installation_start_date)}
+                        </Typography>
+                      </Stack>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                        Installation End Date
+                      </Typography>
+                      <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.3 }}>
+                        <CalendarTodayIcon sx={{ fontSize: 14, color: COLORS.textMuted }} />
+                        <Typography sx={{ fontSize: "0.84rem", fontWeight: 600, color: COLORS.textPrimary }}>
+                          {formatDate(project.installation_end_date)}
+                        </Typography>
+                      </Stack>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                        Project Completion Date
+                      </Typography>
+                      <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.3 }}>
+                        <CalendarTodayIcon sx={{ fontSize: 14, color: COLORS.textMuted }} />
+                        <Typography sx={{ fontSize: "0.84rem", fontWeight: 700, color: "#16A34A" }}>
+                          {formatDate(project.completion_date)}
+                        </Typography>
+                      </Stack>
+                    </Grid>
+
+                    {project.notes && (
+                      <Grid item xs={12}>
+                        <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                          Installation Notes
+                        </Typography>
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            p: 1.5,
+                            mt: 0.4,
+                            borderRadius: "8px",
+                            backgroundColor: "#F8FAFC",
+                            border: `1px solid ${COLORS.border}`,
+                            fontSize: "0.78rem",
+                            color: COLORS.textSecondary,
+                          }}
+                        >
+                          {project.notes}
+                        </Paper>
+                      </Grid>
+                    )}
+                  </Grid>
+                </Box>
+              </Paper>
+            </Grid>
+
+            {/* Right Column — Project Timeline (Vertical Stepper) */}
+            <Grid item xs={12} md={5}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2.5,
+                  borderRadius: "12px",
+                  border: `1px solid ${COLORS.border}`,
+                  backgroundColor: COLORS.card,
+                  height: "100%",
+                  boxSizing: "border-box",
+                }}
+              >
+                <Typography
                   sx={{
-                    p: 1.8,
-                    borderRadius: "8px",
-                    border: `1px solid ${COLORS.border}`,
-                    backgroundColor: "#F8FAFC",
-                    display: "flex",
-                    flexDirection: { xs: "column", sm: "row" },
-                    justifyContent: "space-between",
-                    alignItems: { xs: "flex-start", sm: "center" },
-                    gap: 1.2,
+                    fontSize: "0.78rem",
+                    fontWeight: 800,
+                    color: COLORS.textSecondary,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    mb: 2.5,
                   }}
                 >
-                  <Box>
-                    <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-                      {log.from_stage ? (
-                        <>
-                          {renderStageChip(log.from_stage)}
-                          <ArrowForwardIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
-                        </>
-                      ) : (
-                        <Chip
-                          label="Initial Stage"
-                          size="small"
-                          sx={{
-                            fontSize: "0.68rem",
-                            height: 22,
-                            bgcolor: "#E2E8F0",
-                            color: COLORS.textSecondary,
-                            fontWeight: 700,
-                          }}
-                        />
-                      )}
-                      {renderStageChip(log.to_stage)}
-                    </Stack>
+                  Project Pipeline Stages
+                </Typography>
 
-                    {log.notes && (
-                      <Typography
+                <Box sx={{ position: "relative", pl: 1 }}>
+                  {STAGES.map((stageName, index) => {
+                    const isCompleted = index < currentStageIndex;
+                    const isCurrent = index === currentStageIndex;
+                    const isLast = index === STAGES.length - 1;
+
+                    const matchingLog = project.stage_logs?.find(
+                      (l) => l.to_stage === stageName
+                    );
+
+                    return (
+                      <Box
+                        key={stageName}
                         sx={{
-                          fontSize: "0.78rem",
-                          color: COLORS.textSecondary,
-                          mt: 0.8,
-                          fontStyle: "italic",
+                          position: "relative",
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 1.8,
+                          pb: isLast ? 0 : 2.5,
                         }}
                       >
-                        "{log.notes}"
-                      </Typography>
-                    )}
-                  </Box>
+                        {/* Vertical Connecting Line */}
+                        {!isLast && (
+                          <Box
+                            sx={{
+                              position: "absolute",
+                              left: 11,
+                              top: 24,
+                              bottom: 0,
+                              width: 2,
+                              backgroundColor: isCompleted
+                                ? "#16A34A"
+                                : isCurrent
+                                  ? "#FDE68A"
+                                  : "#E2E8F0",
+                              transition: "background-color 0.2s ease",
+                            }}
+                          />
+                        )}
 
-                  <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
-                    <Typography
-                      sx={{
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        color: COLORS.textPrimary,
-                      }}
-                    >
-                      {log.changed_by_name || log.name || "System Rep"}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: "0.7rem",
-                        color: COLORS.textMuted,
-                      }}
-                    >
-                      {formatDateTime(log.created_at)}
-                    </Typography>
-                  </Box>
-                </Paper>
-              ))}
+                        {/* Stage Node Icon */}
+                        <Box
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: "50%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            zIndex: 1,
+                            backgroundColor: "#FFFFFF",
+                          }}
+                        >
+                          {isCompleted ? (
+                            <CheckCircleIcon sx={{ fontSize: 22, color: "#16A34A" }} />
+                          ) : isCurrent ? (
+                            <RadioButtonCheckedIcon
+                              sx={{
+                                fontSize: 22,
+                                color: "#F59E0B",
+                                animation: "pulse 1.8s infinite",
+                                "@keyframes pulse": {
+                                  "0%": { transform: "scale(0.95)" },
+                                  "50%": { transform: "scale(1.15)" },
+                                  "100%": { transform: "scale(0.95)" },
+                                },
+                              }}
+                            />
+                          ) : (
+                            <RadioButtonUncheckedIcon sx={{ fontSize: 22, color: "#CBD5E1" }} />
+                          )}
+                        </Box>
+
+                        {/* Stage Content */}
+                        <Box sx={{ flex: 1, pt: 0.2 }}>
+                          <Typography
+                            sx={{
+                              fontSize: "0.82rem",
+                              fontWeight: isCurrent ? 800 : isCompleted ? 700 : 500,
+                              color: isCurrent
+                                ? "#D97706"
+                                : isCompleted
+                                  ? COLORS.textPrimary
+                                  : COLORS.textMuted,
+                            }}
+                          >
+                            {stageName}
+                          </Typography>
+
+                          {/* Stage Timestamp if available */}
+                          {isCurrent ? (
+                            <Typography
+                              sx={{
+                                fontSize: "0.7rem",
+                                fontWeight: 600,
+                                color: "#F59E0B",
+                                mt: 0.2,
+                              }}
+                            >
+                              Active Stage • Updated{" "}
+                              {formatDateTime(project.stage_updated_at || project.updated_at)}
+                            </Typography>
+                          ) : matchingLog?.created_at ? (
+                            <Typography
+                              sx={{
+                                fontSize: "0.7rem",
+                                color: COLORS.textMuted,
+                                mt: 0.2,
+                              }}
+                            >
+                              Reached on {formatDateTime(matchingLog.created_at)}
+                            </Typography>
+                          ) : isCompleted ? (
+                            <Typography
+                              sx={{
+                                fontSize: "0.7rem",
+                                color: "#16A34A",
+                                mt: 0.2,
+                              }}
+                            >
+                              Completed
+                            </Typography>
+                          ) : (
+                            <Typography
+                              sx={{
+                                fontSize: "0.7rem",
+                                color: COLORS.textMuted,
+                                mt: 0.2,
+                              }}
+                            >
+                              Pending
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              </Paper>
+            </Grid>
+          </Grid>
+        )}
+
+        {/* TAB 1: STAGE LOGS HISTORY */}
+        {activeTab === 1 && (
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2.5,
+              borderRadius: "12px",
+              border: `1px solid ${COLORS.border}`,
+              backgroundColor: COLORS.card,
+              width: "100%",
+              boxSizing: "border-box",
+            }}
+          >
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              sx={{ mb: 2 }}
+            >
+              <Stack direction="row" alignItems="center" gap={1}>
+                <HistoryIcon sx={{ fontSize: 20, color: COLORS.textSecondary }} />
+                <Typography
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: "0.95rem",
+                    color: COLORS.textPrimary,
+                  }}
+                >
+                  Stage Change History
+                </Typography>
+                <Chip
+                  label={`${project.stage_logs?.length || 0} logs`}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    bgcolor: "#F1F5F9",
+                  }}
+                />
+              </Stack>
             </Stack>
-          )}
-        </Paper>
+
+            {!project.stage_logs || project.stage_logs.length === 0 ? (
+              <Box
+                sx={{
+                  py: 4,
+                  textAlign: "center",
+                  color: COLORS.textMuted,
+                }}
+              >
+                <Typography sx={{ fontSize: "0.82rem" }}>
+                  No stage change logs recorded yet for this project.
+                </Typography>
+              </Box>
+            ) : (
+              <Stack spacing={1.5}>
+                {project.stage_logs.map((log) => (
+                  <Paper
+                    key={log.id}
+                    elevation={0}
+                    sx={{
+                      p: 1.8,
+                      borderRadius: "8px",
+                      border: `1px solid ${COLORS.border}`,
+                      backgroundColor: "#F8FAFC",
+                      display: "flex",
+                      flexDirection: { xs: "column", sm: "row" },
+                      justifyContent: "space-between",
+                      alignItems: { xs: "flex-start", sm: "center" },
+                      gap: 1.2,
+                    }}
+                  >
+                    <Box>
+                      <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
+                        {log.from_stage ? (
+                          <>
+                            {renderStageChip(log.from_stage)}
+                            <ArrowForwardIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
+                          </>
+                        ) : (
+                          <Chip
+                            label="Initial Stage"
+                            size="small"
+                            sx={{
+                              fontSize: "0.68rem",
+                              height: 22,
+                              bgcolor: "#E2E8F0",
+                              color: COLORS.textSecondary,
+                              fontWeight: 700,
+                            }}
+                          />
+                        )}
+                        {renderStageChip(log.to_stage)}
+                      </Stack>
+
+                      {log.notes && (
+                        <Typography
+                          sx={{
+                            fontSize: "0.78rem",
+                            color: COLORS.textSecondary,
+                            mt: 0.8,
+                            fontStyle: "italic",
+                          }}
+                        >
+                          "{log.notes}"
+                        </Typography>
+                      )}
+                    </Box>
+
+                    <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
+                      <Typography
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                          color: COLORS.textPrimary,
+                        }}
+                      >
+                        {log.changed_by_name || log.name || "System Rep"}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: "0.7rem",
+                          color: COLORS.textMuted,
+                        }}
+                      >
+                        {formatDateTime(log.created_at)}
+                      </Typography>
+                    </Box>
+                  </Paper>
+                ))}
+              </Stack>
+            )}
+          </Paper>
+        )}
+
+        {/* TAB 2: PRE-INSTALL INSPECTION */}
+        {activeTab === 2 && (
+          <Box sx={{ width: "100%" }}>
+            <PreInstallInspection project={project} projectId={id} />
+          </Box>
+        )}
+
+        {/* TAB 3: INSTALLATION PROGRESS */}
+        {activeTab === 3 && (
+          <Box sx={{ width: "100%" }}>
+            <InstallationProgress project={project} projectId={id} />
+          </Box>
+        )}
+
+        {/* Tab 4 - Commissioning */}
+        {activeTab === 4 && (
+          <Box sx={{ mt: 2 }}>
+            <Commissioning project={project} projectId={id} />
+          </Box>
+        )}
+
+        {/* Tab 5 - Final Inspection */}
+        {activeTab === 5 && (
+          <Box sx={{ mt: 2 }}>
+            <FinalInspection project={project} projectId={id} />
+          </Box>
+        )}
+
+        {/* Tab 6 - Customer Handover */}
+        {activeTab === 6 && (
+          <Box sx={{ mt: 2 }}>
+            <CustomerHandover project={project} projectId={id} />
+          </Box>
+        )}
+
+        {/* Tab 7 - Warranty & AMC */}
+        {activeTab === 7 && (
+          <Box sx={{ mt: 2 }}>
+            <WarrantyAMC project={project} projectId={id} />
+          </Box>
+        )}
       </Box>
+
+
+
 
       {/* SECTION 4 — CHANGE STAGE DIALOG */}
       <Dialog
@@ -1492,6 +1672,79 @@ export default function ProjectDetail() {
             </Button>
           </DialogActions>
         </Box>
+      </Dialog>
+
+      {/* DELETE PROJECT CONFIRMATION DIALOG */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => !deleting && setDeleteConfirmOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: "14px", p: 1 },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 800,
+            fontSize: "1.05rem",
+            color: "#EF4444",
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <DeleteIcon color="error" />
+          Delete Solar Project
+        </DialogTitle>
+        <DialogContent dividers sx={{ borderColor: COLORS.border }}>
+          <Typography sx={{ fontSize: "0.85rem", color: COLORS.textPrimary, mb: 1 }}>
+            Are you sure you want to delete this project?
+          </Typography>
+          {project && (
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: "8px",
+                backgroundColor: "#FEF2F2",
+                border: "1px solid #FECACA",
+              }}
+            >
+              <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#991B1B" }}>
+                {project.project_number} — {project.customer_name}
+              </Typography>
+              <Typography sx={{ fontSize: "0.75rem", color: "#B91C1C", mt: 0.5 }}>
+                Capacity: {parseFloat(project.system_capacity_kw || 0).toFixed(2)} kW • Stage: {project.stage}
+              </Typography>
+            </Box>
+          )}
+          <Typography sx={{ fontSize: "0.75rem", color: COLORS.textSecondary, mt: 1.5 }}>
+            This will mark the project as deleted and remove it from active lists. You will be redirected to the projects list.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, py: 1.5 }}>
+          <Button
+            onClick={() => setDeleteConfirmOpen(false)}
+            disabled={deleting}
+            sx={{ textTransform: "none", fontWeight: 600, color: COLORS.textSecondary }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={deleting}
+            onClick={handleConfirmDelete}
+            sx={{
+              textTransform: "none",
+              fontWeight: 700,
+              backgroundColor: "#EF4444",
+              "&:hover": { backgroundColor: "#DC2626" },
+            }}
+          >
+            {deleting ? "Deleting..." : "Delete Project"}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

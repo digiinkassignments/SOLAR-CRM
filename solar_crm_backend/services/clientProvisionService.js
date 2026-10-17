@@ -70,9 +70,10 @@ async function createClientDatabase(dbName) {
 
   await clientPool.query(`
     INSERT IGNORE INTO \`roles\` (\`id\`, \`role_name\`, \`description\`) VALUES
-    (1, 'Super Admin', 'Complete System Access'),
-    (2, 'Manager',     'Manage Team & Leads'),
-    (3, 'Sales',       'Handle Assigned Leads')
+    (1, 'Super Admin',   'Complete System Access'),
+    (2, 'Manager',       'Manage Team & Leads'),
+    (3, 'Sales',         'Handle Assigned Leads'),
+    (4, 'Site Engineer', 'Conduct site surveys, feasibility checks & technical visits')
   `);
 
   // Users table

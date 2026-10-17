@@ -109,6 +109,15 @@ const createLead = async (data, createdBy, db = defaultDb) => {
     [leadId, leadCode, createdBy]
   );
 
+  if (String(status).toLowerCase() === "won") {
+    try {
+      const customerModel = require("./customerModel");
+      await customerModel.createOrLinkCustomerFromLead(leadId, createdBy, db);
+    } catch (custErr) {
+      console.error("[createLead] Auto customer creation on Won error:", custErr);
+    }
+  }
+
   return { id: leadId, lead_code: leadCode };
 };
 
@@ -343,10 +352,6 @@ const getTeamFollowupsList = async (managerId, db = defaultDb) => {
 
 // ======================================
 // 4. Update Lead (full edit)
-// NOTE: needs the FULL lead object in body every time — customer_name,
-// mobile_number etc. are NOT NULL columns and mysql2 throws if a bind
-// param is undefined. Frontend flow should be: GET lead -> prefill edit
-// form -> submit ALL fields back, even unchanged ones.
 // ======================================
 const updateLead = async (id, data, updatedBy, db = defaultDb) => {
   await ensureLeadEventColumns(db);
@@ -354,19 +359,27 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
     customer_name, mobile_number, alternate_number, email, dob, anniversary_date, address, city,
     state, pincode, solar_requirement, interest_status, required_kw,
     remark, lead_source, priority, next_follow_up_date, site_visit_date,
-    quotation_amount, assigned_to,
+    quotation_amount, assigned_to, status: newStatus,
   } = data;
 
-  // Current assignment nikal lo, taaki pata chale actually badla ya nahi
+  // Current lead details nikal lo (assignment + current status)
   const [currentRows] = await db.query(
-    `SELECT assigned_to, assigned_by FROM leads WHERE id=? AND is_deleted=0`,
+    `SELECT assigned_to, assigned_by, status FROM leads WHERE id=? AND is_deleted=0`,
     [id]
   );
   const previousAssignedTo = currentRows[0]?.assigned_to ?? null;
   const previousAssignedBy = currentRows[0]?.assigned_by ?? null;
+  const oldStatus = currentRows[0]?.status || "New Lead";
+  const effectiveStatus = newStatus || oldStatus;
+
   const newAssignedTo = assigned_to || null;
   const assignmentChanged = String(previousAssignedTo || "") !== String(newAssignedTo || "");
   const newAssignedBy = assignmentChanged && newAssignedTo ? updatedBy : previousAssignedBy;
+
+  let closedAt = null;
+  if (["Won", "Lost", "Not Interested"].map(s => s.toLowerCase()).includes(String(effectiveStatus).toLowerCase())) {
+    closedAt = new Date();
+  }
 
   const [result] = await db.query(
     `
@@ -374,7 +387,9 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
       customer_name=?, mobile_number=?, alternate_number=?, email=?, dob=?, anniversary_date=?, address=?,
       city=?, state=?, pincode=?, solar_requirement=?, interest_status=?,
       required_kw=?, remark=?, lead_source=?, priority=?, next_follow_up_date=?,
-      site_visit_date=?, quotation_amount=?, assigned_to=?, assigned_by=?
+      site_visit_date=?, quotation_amount=?, assigned_to=?, assigned_by=?,
+      status = COALESCE(?, status),
+      closed_at = COALESCE(?, closed_at)
     WHERE id=? AND is_deleted=0
     `,
     [
@@ -383,7 +398,8 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
       address || null, city || null, state || null, pincode || null,
       solar_requirement, interest_status, required_kw || null, remark || null,
       lead_source, priority, next_follow_up_date || null, site_visit_date || null,
-      quotation_amount || null, newAssignedTo, newAssignedBy, id,
+      quotation_amount || null, newAssignedTo, newAssignedBy,
+      newStatus || null, closedAt, id,
     ]
   );
 
@@ -407,11 +423,32 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
     );
   }
 
+  // Status badla ho to log karo
+  if (newStatus && String(newStatus).toLowerCase() !== String(oldStatus).toLowerCase()) {
+    const isWon = String(newStatus).toLowerCase() === "won";
+    const actionType = (isWon || String(newStatus).toLowerCase() === "lost") ? "Lead Closed" : "Status Changed";
+    await db.query(
+      `INSERT INTO lead_activity_logs (lead_id, action_type, old_value, new_value, remark, performed_by)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, actionType, oldStatus, newStatus, `Status updated to ${newStatus}`, updatedBy]
+    );
+  }
+
   await db.query(
     `INSERT INTO lead_activity_logs (lead_id, action_type, remark, performed_by)
      VALUES (?, 'Lead Updated', 'Lead information updated', ?)`,
     [id, updatedBy]
   );
+
+  // 🎯 AUTO-CREATE CUSTOMER IF STATUS IS WON:
+  if (String(effectiveStatus).toLowerCase() === "won") {
+    try {
+      const customerModel = require("./customerModel");
+      await customerModel.createOrLinkCustomerFromLead(id, updatedBy, db);
+    } catch (custErr) {
+      console.error("[updateLead] Auto customer creation on Won error:", custErr);
+    }
+  }
 
   return result;
 };
@@ -429,7 +466,7 @@ const updateLeadStatus = async (id, payload, performedBy, db = defaultDb) => {
   const oldStatus = leadRows[0]?.status || "Unknown";
 
   let closedAt = null;
-  if (["Won", "Lost", "Not Interested"].includes(newStatus)) {
+  if (["Won", "Lost", "Not Interested"].map(s => s.toLowerCase()).includes(String(newStatus).toLowerCase())) {
     closedAt = new Date();
   }
 
@@ -445,16 +482,27 @@ const updateLeadStatus = async (id, payload, performedBy, db = defaultDb) => {
     [newStatus, closedAt, quotation_amount ?? null, site_visit_date ?? null, id]
   );
 
+  const isWon = String(newStatus).toLowerCase() === "won";
   let actionType = "Status Changed";
-  if (newStatus === "Won" || newStatus === "Lost") actionType = "Lead Closed";
-  else if (newStatus === "Quotation Sent" && quotation_amount) actionType = "Quotation Sent";
-  else if (newStatus === "Site Visit Scheduled" && site_visit_date) actionType = "Site Visit Scheduled";
+  if (isWon || String(newStatus).toLowerCase() === "lost") actionType = "Lead Closed";
+  else if (String(newStatus).toLowerCase() === "quotation sent" && quotation_amount) actionType = "Quotation Sent";
+  else if (String(newStatus).toLowerCase() === "site visit scheduled" && site_visit_date) actionType = "Site Visit Scheduled";
 
   await db.query(
     `INSERT INTO lead_activity_logs (lead_id, action_type, old_value, new_value, remark, performed_by)
      VALUES (?, ?, ?, ?, ?, ?)`,
     [id, actionType, oldStatus, newStatus, remark || `Status changed from ${oldStatus} to ${newStatus}`, performedBy]
   );
+
+  // 🎯 AUTO-CREATE CUSTOMER ON WON:
+  if (isWon) {
+    try {
+      const customerModel = require("./customerModel");
+      await customerModel.createOrLinkCustomerFromLead(id, performedBy, db);
+    } catch (custErr) {
+      console.error("[updateLeadStatus] Auto customer creation on Won error:", custErr);
+    }
+  }
 
   return result;
 };

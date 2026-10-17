@@ -102,6 +102,7 @@ const API_BASE_URL =
 const ROLE_SUPER_ADMIN = 1;
 const ROLE_MANAGER = 2;
 const ROLE_SALES = 3;
+const ROLE_SITE_ENGINEER = 4;
 
 const STATUS_ACTIVE = "Active";
 const STATUS_INACTIVE = "Inactive";
@@ -126,6 +127,8 @@ const COLORS = {
   dangerSoft: "#FEE2E2",
   purple: "#9333EA",
   purpleSoft: "#F3E8FF",
+  cyan: "#0284C7",
+  cyanSoft: "#E0F2FE",
 };
 
 const SlideTransition = React.forwardRef((props, ref) => (
@@ -229,6 +232,7 @@ const getRoleChipByName = (roleName) => {
   const nameLower = label.toLowerCase();
   if (nameLower.includes("admin")) return { label, bg: COLORS.primarySoft, color: COLORS.primaryDark };
   if (nameLower.includes("manager")) return { label, bg: COLORS.warningSoft, color: COLORS.warning };
+  if (nameLower.includes("engineer")) return { label, bg: COLORS.cyanSoft, color: COLORS.cyan };
   return { label, bg: COLORS.successSoft, color: COLORS.success };
 };
 
@@ -236,6 +240,7 @@ const getRoleLabel = (roleId) => {
   const id = Number(roleId);
   if (id === ROLE_SUPER_ADMIN) return "Super Admin";
   if (id === ROLE_MANAGER) return "Manager";
+  if (id === ROLE_SITE_ENGINEER) return "Site Engineer";
   return "Sales Representative";
 };
 
@@ -1320,6 +1325,7 @@ const Users = () => {
                 <MenuItem value={ROLE_SUPER_ADMIN} sx={{ fontSize: "0.78rem" }}>Super Admin</MenuItem>
                 <MenuItem value={ROLE_MANAGER} sx={{ fontSize: "0.78rem" }}>Manager</MenuItem>
                 <MenuItem value={ROLE_SALES} sx={{ fontSize: "0.78rem" }}>Sales Representative</MenuItem>
+                <MenuItem value={ROLE_SITE_ENGINEER} sx={{ fontSize: "0.78rem" }}>Site Engineer</MenuItem>
               </Select>
             </Box>
 
@@ -2088,6 +2094,7 @@ const Users = () => {
                       <MenuItem value={ROLE_MANAGER} sx={{ fontSize: "0.8rem" }}>Manager</MenuItem>
                     )}
                     <MenuItem value={ROLE_SALES} sx={{ fontSize: "0.8rem" }}>Sales Representative</MenuItem>
+                    <MenuItem value={ROLE_SITE_ENGINEER} sx={{ fontSize: "0.8rem" }}>Site Engineer</MenuItem>
                   </Select>
                 </Grid>
 

@@ -32,6 +32,9 @@ import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import VerifiedIcon from "@mui/icons-material/Verified";
 import EmailIcon from "@mui/icons-material/Email";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+import ShareIcon from "@mui/icons-material/Share";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import { Menu, MenuItem } from "@mui/material";
 
 import api from "../../api/axios";
 import toast from "react-hot-toast";
@@ -113,6 +116,7 @@ const DynamicWebQuotationView = () => {
   const [acceptedSuccess, setAcceptedSuccess] = useState(false);
   const [openConvertInvoiceModal, setOpenConvertInvoiceModal] = useState(false);
   const [logoSrc, setLogoSrc] = useState(null);
+  const [shareAnchorEl, setShareAnchorEl] = useState(null);
 
   useEffect(() => {
     fetchPublicQuotation();
@@ -393,146 +397,219 @@ const DynamicWebQuotationView = () => {
         }
       `}</style>
 
-      {/* Top Action Sticky Header */}
+      {/* Top Action Sticky Header — Executive SaaS Style */}
       <Box
         className="no-print"
         sx={{
-          bgcolor: "#0F172A",
-          color: "#FFFFFF",
-          py: 1.4,
-          px: { xs: 2, md: 5 },
-          boxShadow: "0 2px 10px rgba(15,23,42,0.12)",
+          bgcolor: "#FFFFFF",
+          color: "#0F172A",
+          borderBottom: "1px solid #E2E8F0",
+          boxShadow: "0 2px 8px rgba(15, 23, 42, 0.05)",
           position: "sticky",
           top: 0,
           zIndex: 1100,
+          backdropFilter: "blur(16px)",
+          backgroundColor: "rgba(255, 255, 255, 0.95)",
         }}
       >
-        <Container maxWidth="lg">
-          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={1.5}>
-            <Stack direction="row" alignItems="center" spacing={1.2}>
+        <Box
+          sx={{
+            maxWidth: "1350px",
+            mx: "auto",
+            px: { xs: 2, sm: 3, md: 4 },
+            py: 1.2,
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 2,
+            }}
+          >
+            {/* Left Brand & Status Group */}
+            <Stack direction="row" alignItems="center" spacing={2}>
               {logoSrc ? (
                 <Box
                   component="img"
                   src={logoSrc}
                   alt={displayCompanyName}
                   onError={() => setLogoSrc(null)}
-                  sx={{ maxHeight: 34, maxWidth: 130, objectFit: "contain", bgcolor: "#FFFFFF", p: 0.3, borderRadius: "4px" }}
+                  sx={{
+                    height: 38,
+                    maxWidth: 130,
+                    objectFit: "contain",
+                    borderRadius: "6px",
+                  }}
                 />
               ) : (
-                <Box sx={{ bgcolor: "#FFFFFF", borderRadius: "6px", p: 0.5, display: "flex", alignItems: "center" }}>
-                  <SolarPowerIcon sx={{ color: "#0F172A", fontSize: 20 }} />
+                <Box
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: "8px",
+                    bgcolor: "#0F172A",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <SolarPowerIcon sx={{ color: "#F59E0B", fontSize: 22 }} />
                 </Box>
               )}
-              <Box>
-                <Typography sx={{ fontWeight: 800, lineHeight: 1.1, color: "#FFFFFF", fontSize: "0.92rem" }}>
+
+              <Box sx={{ borderLeft: "1px solid #E2E8F0", pl: 2, display: { xs: "none", sm: "block" } }}>
+                <Typography
+                  sx={{
+                    fontFamily: "'Outfit', sans-serif",
+                    fontWeight: 700,
+                    color: "#0F172A",
+                    fontSize: "0.95rem",
+                    lineHeight: 1.2,
+                  }}
+                >
                   {displayCompanyName}
                 </Typography>
-                <Typography sx={{ color: "#94A3B8", fontWeight: 600, fontSize: "0.7rem" }}>
-                  Official Commercial Solar Energy Proposal
+                <Typography
+                  sx={{
+                    fontFamily: "'Inter', sans-serif",
+                    color: "#64748B",
+                    fontSize: "0.72rem",
+                    fontWeight: 500,
+                  }}
+                >
+                  Solar Proposal #{quotation.quotation_code || "QUO"}
                 </Typography>
               </Box>
-            </Stack>
 
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ rowGap: 1 }}>
               <Chip
-                icon={isAccepted ? <VerifiedIcon sx={{ color: "#FFFFFF !important", fontSize: "14px !important" }} /> : undefined}
-                label={isAccepted ? "Accepted Online" : `Status: ${quotation.status || "Sent"}`}
+                icon={isAccepted ? <VerifiedIcon sx={{ color: "#16A34A !important", fontSize: "14px !important" }} /> : undefined}
+                label={isAccepted ? "Accepted" : quotation.status || "Sent"}
                 size="small"
                 sx={{
-                  bgcolor: isAccepted ? "#16A34A" : "rgba(255,255,255,0.12)",
-                  color: "#FFFFFF",
+                  bgcolor: isAccepted ? "#DCFCE7" : "#F1F5F9",
+                  color: isAccepted ? "#15803D" : "#475569",
                   fontWeight: 700,
-                  fontSize: "0.74rem",
-                  height: 32,
-                  px: 0.5,
-                  borderRadius: "8px",
-                  border: "1px solid rgba(255,255,255,0.15)",
+                  fontSize: "0.72rem",
+                  height: 26,
+                  borderRadius: "6px",
+                  border: isAccepted ? "1px solid #BBF7D0" : "1px solid #E2E8F0",
                 }}
               />
+            </Stack>
 
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<WhatsAppIcon sx={{ fontSize: 16 }} />}
-                onClick={handleShareWhatsApp}
-                sx={{
-                  bgcolor: "#16A34A",
-                  color: "#FFFFFF",
-                  fontWeight: 700,
-                  fontSize: "0.75rem",
-                  textTransform: "none",
-                  height: 32,
-                  px: 1.5,
-                  borderRadius: "8px",
-                  boxShadow: "none",
-                  "&:hover": { bgcolor: "#15803D", boxShadow: "0 2px 6px rgba(22,163,74,0.3)" },
-                }}
-              >
-                WhatsApp Share
-              </Button>
-
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<EmailIcon sx={{ fontSize: 16 }} />}
-                onClick={handleShareEmail}
-                sx={{
-                  bgcolor: "#334155",
-                  color: "#FFFFFF",
-                  fontWeight: 700,
-                  fontSize: "0.75rem",
-                  textTransform: "none",
-                  height: 32,
-                  px: 1.5,
-                  borderRadius: "8px",
-                  boxShadow: "none",
-                  "&:hover": { bgcolor: "#1E293B", boxShadow: "0 2px 6px rgba(51,65,85,0.3)" },
-                }}
-              >
-                Email
-              </Button>
-
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<PictureAsPdfIcon sx={{ fontSize: 16 }} />}
-                onClick={handleDownloadPdf}
-                sx={{
-                  bgcolor: "#D97706",
-                  color: "#FFFFFF",
-                  fontWeight: 700,
-                  fontSize: "0.75rem",
-                  textTransform: "none",
-                  height: 32,
-                  px: 1.5,
-                  borderRadius: "8px",
-                  boxShadow: "none",
-                  "&:hover": { bgcolor: "#B45309", boxShadow: "0 2px 6px rgba(217,119,6,0.3)" },
-                }}
-              >
-                Download PDF
-              </Button>
-
+            {/* Right Action Buttons Group */}
+            <Stack direction="row" spacing={1} alignItems="center">
+              {/* Share Dropdown Button */}
               <Button
                 variant="outlined"
                 size="small"
-                startIcon={<PrintIcon sx={{ fontSize: 16 }} />}
-                onClick={() => window.print()}
+                startIcon={<ShareIcon sx={{ fontSize: 16, color: "#64748B" }} />}
+                endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 16, color: "#64748B" }} />}
+                onClick={(e) => setShareAnchorEl(e.currentTarget)}
                 sx={{
-                  borderColor: "rgba(255,255,255,0.3)",
-                  color: "#FFFFFF",
-                  fontWeight: 700,
-                  fontSize: "0.75rem",
+                  color: "#334155",
+                  borderColor: "#CBD5E1",
+                  bgcolor: "#FFFFFF",
+                  fontFamily: "'Inter', sans-serif",
+                  fontWeight: 600,
+                  fontSize: "0.78rem",
                   textTransform: "none",
-                  height: 32,
+                  height: 36,
                   px: 1.5,
                   borderRadius: "8px",
-                  "&:hover": { borderColor: "#FFFFFF", bgcolor: "rgba(255,255,255,0.1)" },
+                  "&:hover": { borderColor: "#94A3B8", bgcolor: "#F8FAFC" },
+                }}
+              >
+                Share
+              </Button>
+              <Menu
+                anchorEl={shareAnchorEl}
+                open={Boolean(shareAnchorEl)}
+                onClose={() => setShareAnchorEl(null)}
+                slotProps={{
+                  paper: {
+                    sx: {
+                      mt: 1,
+                      minWidth: 160,
+                      borderRadius: "10px",
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                      border: "1px solid #E2E8F0",
+                    },
+                  },
+                }}
+              >
+                <MenuItem
+                  onClick={() => {
+                    setShareAnchorEl(null);
+                    handleShareWhatsApp();
+                  }}
+                  sx={{ gap: 1.2, py: 1, fontSize: "0.82rem", fontWeight: 600, color: "#16A34A" }}
+                >
+                  <WhatsAppIcon sx={{ fontSize: 18 }} />
+                  WhatsApp Share
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setShareAnchorEl(null);
+                    handleShareEmail();
+                  }}
+                  sx={{ gap: 1.2, py: 1, fontSize: "0.82rem", fontWeight: 600, color: "#334155" }}
+                >
+                  <EmailIcon sx={{ fontSize: 18 }} />
+                  Email Client
+                </MenuItem>
+              </Menu>
+
+              {/* Print Button */}
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<PrintIcon sx={{ fontSize: 16, color: "#64748B" }} />}
+                onClick={() => window.print()}
+                sx={{
+                  color: "#334155",
+                  borderColor: "#CBD5E1",
+                  bgcolor: "#FFFFFF",
+                  fontFamily: "'Inter', sans-serif",
+                  fontWeight: 600,
+                  fontSize: "0.78rem",
+                  textTransform: "none",
+                  height: 36,
+                  px: 1.5,
+                  borderRadius: "8px",
+                  display: { xs: "none", sm: "inline-flex" },
+                  "&:hover": { borderColor: "#94A3B8", bgcolor: "#F8FAFC" },
                 }}
               >
                 Print
               </Button>
 
+              {/* Download PDF Button */}
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<PictureAsPdfIcon sx={{ fontSize: 16, color: "#D97706" }} />}
+                onClick={handleDownloadPdf}
+                sx={{
+                  color: "#B45309",
+                  borderColor: "#FDE68A",
+                  bgcolor: "#FFFBEB",
+                  fontFamily: "'Inter', sans-serif",
+                  fontWeight: 600,
+                  fontSize: "0.78rem",
+                  textTransform: "none",
+                  height: 36,
+                  px: 1.6,
+                  borderRadius: "8px",
+                  "&:hover": { bgcolor: "#FEF3C7", borderColor: "#F59E0B" },
+                }}
+              >
+                Download PDF
+              </Button>
+
+              {/* Convert to Invoice */}
               <Button
                 variant="contained"
                 size="small"
@@ -541,19 +618,21 @@ const DynamicWebQuotationView = () => {
                 sx={{
                   bgcolor: "#0284C7",
                   color: "#FFFFFF",
-                  fontWeight: 700,
-                  fontSize: "0.75rem",
+                  fontFamily: "'Inter', sans-serif",
+                  fontWeight: 600,
+                  fontSize: "0.78rem",
                   textTransform: "none",
-                  height: 32,
-                  px: 1.6,
+                  height: 36,
+                  px: 1.8,
                   borderRadius: "8px",
-                  boxShadow: "none",
-                  "&:hover": { bgcolor: "#0369A1", boxShadow: "0 2px 6px rgba(2,132,199,0.3)" },
+                  boxShadow: "0 1px 3px rgba(2, 132, 199, 0.2)",
+                  "&:hover": { bgcolor: "#0369A1", boxShadow: "0 3px 8px rgba(2, 132, 199, 0.35)" },
                 }}
               >
-                Convert to Invoice ➔
+                Invoice ➔
               </Button>
 
+              {/* Accept Proposal (Hero Action) */}
               {!isAccepted && (
                 <Button
                   variant="contained"
@@ -561,24 +640,25 @@ const DynamicWebQuotationView = () => {
                   startIcon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
                   onClick={() => setOpenAcceptModal(true)}
                   sx={{
-                    bgcolor: "#16A34A",
+                    bgcolor: "#10B981",
                     color: "#FFFFFF",
+                    fontFamily: "'Inter', sans-serif",
                     fontWeight: 700,
-                    fontSize: "0.75rem",
+                    fontSize: "0.8rem",
                     textTransform: "none",
-                    height: 32,
-                    px: 1.8,
+                    height: 36,
+                    px: 2.2,
                     borderRadius: "8px",
-                    boxShadow: "none",
-                    "&:hover": { bgcolor: "#15803D", boxShadow: "0 2px 6px rgba(22,163,74,0.3)" },
+                    boxShadow: "0 2px 6px rgba(16, 185, 129, 0.25)",
+                    "&:hover": { bgcolor: "#059669", boxShadow: "0 4px 12px rgba(16, 185, 129, 0.4)" },
                   }}
                 >
                   Accept Proposal
                 </Button>
               )}
             </Stack>
-          </Stack>
-        </Container>
+          </Box>
+        </Box>
       </Box>
 
       {/* MAIN 1-PAGE PROFESSIONAL EXECUTIVE SOLAR QUOTATION SHEET */}

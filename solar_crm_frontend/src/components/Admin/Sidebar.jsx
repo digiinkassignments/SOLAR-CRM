@@ -28,8 +28,8 @@ import FormatListBulletedOutlinedIcon from "@mui/icons-material/FormatListBullet
 import PersonAddOutlinedIcon from "@mui/icons-material/PersonAddOutlined";
 import CakeOutlinedIcon from "@mui/icons-material/CakeOutlined";
 import EngineeringIcon from "@mui/icons-material/Engineering";
-import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
+import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
 
 import logo from "../../assets/images/logo.png";
 
@@ -87,16 +87,23 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
 
   const navigationMenuItems = [
     { title: "Dashboard", icon: <DashboardOutlinedIcon />, path: "/dashboard", featureKey: null },
-    { title: "Lead Management", icon: <SolarPowerOutlinedIcon />, path: "/leads", featureKey: null },
     { title: "User Management", icon: <GroupOutlinedIcon />, path: "/users", featureKey: null },
-    { title: "Stock Management", icon: <Inventory2OutlinedIcon />, path: "/stock", featureKey: null },
-    { title: "Solar Calculator", icon: <CalculateOutlinedIcon />, path: "/calculator", featureKey: null },
+
+    { isSection: true, title: "SALES & LEADS" },
+    { title: "Lead Management", icon: <SolarPowerOutlinedIcon />, path: "/leads", featureKey: null },
+    { title: "Customers", icon: <PeopleAltOutlinedIcon />, path: "/customers", featureKey: null },
     { title: "Quotations", icon: <DescriptionOutlinedIcon />, path: "/quotations", featureKey: null },
+    { title: "Solar Calculator", icon: <CalculateOutlinedIcon />, path: "/calculator", featureKey: null },
+
+    { isSection: true, title: "FINANCE" },
     { title: "Invoices & Billing", icon: <ReceiptLongOutlinedIcon />, path: "/invoices", featureKey: null },
+    { title: "Subsidy Tracking", icon: <AccountBalanceIcon />, path: "/subsidies", featureKey: null },
+
     { isSection: true, title: "PROJECT EXECUTION" },
     { title: "Projects", icon: <EngineeringIcon />, path: "/projects", featureKey: null },
-    { title: "Procurement", icon: <LocalShippingIcon />, path: "/procurement", featureKey: null },
-    { title: "Subsidy Tracking", icon: <AccountBalanceIcon />, path: "/subsidies", featureKey: null },
+    { title: "Stock Management", icon: <Inventory2OutlinedIcon />, path: "/stock", featureKey: null },
+
+    { isSection: true, title: "REPORTS & SETTINGS" },
     { title: "Reports", icon: <AssessmentOutlinedIcon />, path: "/reports", featureKey: "feature_reports" },
     { title: "Settings", icon: <SettingsOutlinedIcon />, path: "/settings", featureKey: null },
   ];
@@ -153,24 +160,29 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
           {navigationMenuItems.map((item) => {
             if (item.isSection) {
               return (
-                <Box key={item.title} sx={{ mt: 1.8, mb: 0.6, px: collapsed ? 0.5 : 0.8 }}>
+                <Box key={item.title} sx={{ mt: 2.2, mb: 0.8, px: collapsed ? 0.5 : 0.8 }}>
                   {!collapsed ? (
-                    <Typography
-                      sx={{
-                        fontFamily: "'Inter', sans-serif",
-                        color: "#64748B",
-                        fontSize: "0.64rem",
-                        fontWeight: 700,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        px: 1,
-                        py: 0.4,
-                      }}
-                    >
-                      {item.title}
-                    </Typography>
+                    <Box>
+                      <Divider sx={{ mb: 1.2, borderColor: "rgba(255,255,255,0.08)" }} />
+                      <Typography
+                        sx={{
+                          fontFamily: "'Inter', sans-serif",
+                          color: "#64748B",
+                          fontSize: "0.65rem",
+                          fontWeight: 700,
+                          letterSpacing: "0.1em",
+                          textTransform: "uppercase",
+                          px: 1,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                        }}
+                      >
+                        {item.title}
+                      </Typography>
+                    </Box>
                   ) : (
-                    <Divider sx={{ my: 0.8, borderColor: "rgba(255,255,255,0.08)" }} />
+                    <Divider sx={{ my: 1, borderColor: "rgba(255,255,255,0.12)" }} />
                   )}
                 </Box>
               );

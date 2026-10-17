@@ -21,6 +21,8 @@ import LockOutlinedIcon           from "@mui/icons-material/LockOutlined";
 import CalculateOutlinedIcon      from "@mui/icons-material/CalculateOutlined";
 import DescriptionOutlinedIcon    from "@mui/icons-material/DescriptionOutlined";
 import ReceiptLongOutlinedIcon   from "@mui/icons-material/ReceiptLongOutlined";
+import EngineeringOutlinedIcon   from "@mui/icons-material/EngineeringOutlined";
+import PeopleAltOutlinedIcon      from "@mui/icons-material/PeopleAltOutlined";
 
 import logo from "../assets/images/logo.png";
 
@@ -39,9 +41,11 @@ const navigationSections = [
     subheader: "WORKSPACE",
     items: [
       { title: "Team Leads",          icon: <SolarPowerOutlinedIcon />,  path: "/manager/leads",      featureKey: null },
+      { title: "Customers",           icon: <PeopleAltOutlinedIcon />,   path: "/manager/customers",  featureKey: null },
       { title: "Solar Calculator",    icon: <CalculateOutlinedIcon />,   path: "/manager/calculator", featureKey: null },
       { title: "Quotations",          icon: <DescriptionOutlinedIcon />, path: "/manager/quotations", featureKey: null },
       { title: "Invoices & Billing",  icon: <ReceiptLongOutlinedIcon />, path: "/manager/invoices",   featureKey: null },
+      { title: "Projects & Execution",icon: <EngineeringOutlinedIcon />, path: "/manager/projects",   featureKey: null },
       { title: "Sales Team",          icon: <GroupsOutlinedIcon />,      path: "/manager/team",       featureKey: null },
       { title: "Team Follow-ups",     icon: <EventNoteOutlinedIcon />,   path: "/manager/followups",  featureKey: null },
       { title: "Performance Reports", icon: <AssessmentOutlinedIcon />,  path: "/manager/reports",    featureKey: "has_reports", upgradeMsg: "Professional plan mein upgrade karo" },

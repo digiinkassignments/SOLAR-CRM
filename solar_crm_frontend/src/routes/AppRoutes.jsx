@@ -30,6 +30,10 @@ import SalesDashboard from "../pages/Sales/SalesDashboard";
 import SalesLeads     from "../pages/Sales/SalesLeads";
 import SalesProfile   from "../pages/Sales/SalesProfile";
 
+import EngineerLayout    from "../layouts/EngineerLayout";
+import EngineerDashboard from "../pages/Engineer/EngineerDashboard";
+import EngineerSurveys   from "../pages/Engineer/EngineerSurveys";
+
 import SolarCalculator from "../pages/Calculator/SolarCalculator";
 import QuotationList   from "../pages/Quotations/QuotationList";
 import DynamicWebQuotationView from "../pages/Quotations/DynamicWebQuotationView";
@@ -42,9 +46,10 @@ import StockTransactions from "../pages/Stock/StockTransactions";
 import StockAlerts from "../pages/Stock/StockAlerts";
 import ProjectsList from "../pages/Admin/Projects/ProjectsList";
 import ProjectDetail from "../pages/Admin/Projects/ProjectDetail";
-import ProcurementList from "../pages/Admin/Procurement/ProcurementList";
 import SubsidyTracker from "../pages/Admin/Subsidy/SubsidyTracker";
 import SubsidyDetail from "../pages/Admin/Subsidy/SubsidyDetail";
+import CustomersList from "../pages/Customers/CustomersList";
+import CustomerDetail from "../pages/Customers/CustomerDetail";
 
 const SubscriptionGuard = ({ children }) => {
   const { user, token } = useAuth();
@@ -96,6 +101,8 @@ const HomeOrLogin = () => {
         navigate("/manager/dashboard", { replace: true });
       } else if (role.includes("sales")) {
         navigate("/sales/dashboard", { replace: true });
+      } else if (role.includes("engineer")) {
+        navigate("/engineer/dashboard", { replace: true });
       } else {
         navigate("/dashboard", { replace: true });
       }
@@ -126,12 +133,13 @@ const AppRoutes = () => {
             <Route path="/leads" element={<Leads />} />
             <Route path="/leads/today-followups" element={<TodayFollowups />} />
             <Route path="/leads/birthdays" element={<BirthdayEvents />} />
+            <Route path="/customers"   element={<CustomersList />} />
+            <Route path="/customers/:id" element={<CustomerDetail />} />
             <Route path="/calculator" element={<SolarCalculator />} />
             <Route path="/quotations" element={<QuotationList />} />
             <Route path="/invoices"   element={<InvoiceList />} />
             <Route path="/projects"   element={<ProjectsList />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
-            <Route path="/procurement" element={<ProcurementList />} />
             <Route path="/subsidies"   element={<SubsidyTracker />} />
             <Route path="/subsidies/:leadId" element={<SubsidyDetail />} />
             <Route path="/stock"              element={<StockList />} />
@@ -149,9 +157,13 @@ const AppRoutes = () => {
             <Route path="/manager/dashboard"  element={<ManagerDashboard />} />
             <Route path="/manager/team"       element={<TeamMembers />} />
             <Route path="/manager/leads"      element={<ManagerLeads />} />
+            <Route path="/manager/customers"  element={<CustomersList />} />
+            <Route path="/manager/customers/:id" element={<CustomerDetail />} />
             <Route path="/manager/calculator" element={<SolarCalculator />} />
             <Route path="/manager/quotations" element={<QuotationList />} />
             <Route path="/manager/invoices"   element={<InvoiceList />} />
+            <Route path="/manager/projects"   element={<ProjectsList />} />
+            <Route path="/manager/projects/:id" element={<ProjectDetail />} />
             <Route path="/manager/followups"  element={<TeamFollowups />} />
             <Route path="/manager/reports"    element={<ManagerReports />} />
             <Route path="/manager/profile"    element={<ManagerProfile />} />
@@ -166,6 +178,16 @@ const AppRoutes = () => {
             <Route path="/sales/quotations" element={<QuotationList />} />
             <Route path="/sales/invoices"   element={<InvoiceList />} />
             <Route path="/sales/profile"    element={<SalesProfile />} />
+          </Route>
+        </Route>
+
+        <Route element={<PrivateRoute allowedRoles={["Site Engineer", "Engineer"]} />}>
+          <Route element={<SubscriptionGuard><EngineerLayout /></SubscriptionGuard>}>
+            <Route path="/engineer/dashboard"  element={<EngineerDashboard />} />
+            <Route path="/engineer/surveys"    element={<EngineerSurveys />} />
+            <Route path="/engineer/projects"   element={<ProjectsList />} />
+            <Route path="/engineer/calculator" element={<SolarCalculator />} />
+            <Route path="/engineer/profile"    element={<Profile />} />
           </Route>
         </Route>
 

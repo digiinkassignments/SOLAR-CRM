@@ -23,3 +23,9 @@ export const getAdminDashboardStats = async () => {
   const response = await api.get("/dashboard/admin");
   return response.data;
 };
+
+// Site Engineer Dashboard — personal site survey & project metrics
+export const getEngineerDashboardStats = async (params) => {
+  const response = await api.get("/dashboard/engineer", { params });
+  return response.data;
+};

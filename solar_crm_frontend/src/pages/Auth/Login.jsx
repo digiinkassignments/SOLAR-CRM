@@ -43,6 +43,8 @@ const Login = () => {
         navigate("/manager/dashboard", { replace: true });
       } else if (userRole.includes("sales")) {
         navigate("/sales/dashboard", { replace: true });
+      } else if (userRole.includes("engineer")) {
+        navigate("/engineer/dashboard", { replace: true });
       } else {
         navigate("/dashboard", { replace: true });
       }

@@ -32,7 +32,10 @@ const ensureSurveyTable = async (db = defaultDb) => {
       await db.query(`ALTER TABLE leads MODIFY COLUMN status VARCHAR(100) NOT NULL DEFAULT 'New Lead'`);
     } catch (e) {}
     try {
-      await db.query(`ALTER TABLE lead_activity_logs MODIFY COLUMN action_type VARCHAR(100) NOT NULL DEFAULT 'Status Changed'`);
+      await db.query(`
+        INSERT IGNORE INTO roles (id, role_name, description, status) 
+        VALUES (4, 'Site Engineer', 'Conduct site surveys, feasibility checks & technical visits', 'Active')
+      `);
     } catch (e) {}
   } catch (err) {
     console.error("ensureSurveyTable error:", err);

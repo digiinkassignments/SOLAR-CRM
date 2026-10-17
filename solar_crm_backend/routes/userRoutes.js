@@ -35,7 +35,7 @@ router.post(
 router.get(
     "/",
     verifyToken,
-    authorizeRoles(1),
+    authorizeRoles(1, 2),
     getUsers
 );
 

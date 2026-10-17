@@ -228,9 +228,43 @@ const updateProfilePhotoController = async (req, res) => {
     }
 };
 
+// ======================================
+// Remove Profile Photo
+// ======================================
+
+const removeProfilePhotoController = async (req, res) => {
+    try {
+        const result = await updateProfilePhoto(
+            req.user.id,
+            null,
+            req.db
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Profile not found."
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile photo removed successfully.",
+            profile_image: null
+        });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error."
+        });
+    }
+};
+
 module.exports = {
     getMyProfile: getMyProfileController,
     updateMyProfile: updateMyProfileController,
     changePassword: changePasswordController,
-    updateProfilePhoto: updateProfilePhotoController
+    updateProfilePhoto: updateProfilePhotoController,
+    removeProfilePhoto: removeProfilePhotoController
 };

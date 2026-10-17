@@ -40,6 +40,7 @@ import PendingActionsIcon from "@mui/icons-material/HourglassEmpty";
 
 import api from "../../api/axios";
 import toast from "react-hot-toast";
+import { useAuth } from "../../context/AuthContext";
 import ConvertInvoiceModal from "./ConvertInvoiceModal";
 import RecordPaymentModal from "./RecordPaymentModal";
 import BulkDeleteBar from "../../components/BulkDeleteBar";
@@ -63,6 +64,13 @@ const COLORS = {
 };
 
 const InvoiceList = () => {
+  const { user } = useAuth();
+  const roleName = (user?.role_name || user?.role || "").toLowerCase();
+  const isSuperAdmin = user?.role_id === 1 || roleName.includes("super") || roleName === "admin";
+  const isManager = user?.role_id === 2 || roleName.includes("manager");
+  const canCreateOrPay = isSuperAdmin || isManager;
+  const canDeleteInvoice = isSuperAdmin;
+
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -190,23 +198,25 @@ const InvoiceList = () => {
           </Typography>
         </Box>
 
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setOpenCreateModal(true)}
-          sx={{
-            bgcolor: COLORS.primary,
-            color: "#FFFFFF",
-            fontWeight: 700,
-            textTransform: "none",
-            borderRadius: "8px",
-            px: 2.5,
-            py: 1,
-            "&:hover": { bgcolor: COLORS.primaryDark },
-          }}
-        >
-          Create Tax Invoice
-        </Button>
+        {canCreateOrPay && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setOpenCreateModal(true)}
+            sx={{
+              bgcolor: COLORS.primary,
+              color: "#FFFFFF",
+              fontWeight: 700,
+              textTransform: "none",
+              borderRadius: "8px",
+              px: 2.5,
+              py: 1,
+              "&:hover": { bgcolor: COLORS.primaryDark },
+            }}
+          >
+            Create Tax Invoice
+          </Button>
+        )}
       </Box>
 
       {/* KPI Cards */}
@@ -354,16 +364,18 @@ const InvoiceList = () => {
       </Paper>
 
       {/* Bulk Delete Bar */}
-      <BulkDeleteBar
-        selectedCount={selectedIds.length}
-        totalCount={invoices.length}
-        itemLabel="Invoices"
-        onSelectAll={handleSelectAll}
-        onDeselectAll={handleDeselectAll}
-        isAllSelected={selectedIds.length === invoices.length && invoices.length > 0}
-        onConfirmDelete={handleBulkDelete}
-        loading={bulkDeleting}
-      />
+      {canDeleteInvoice && (
+        <BulkDeleteBar
+          selectedCount={selectedIds.length}
+          totalCount={invoices.length}
+          itemLabel="Invoices"
+          onSelectAll={handleSelectAll}
+          onDeselectAll={handleDeselectAll}
+          isAllSelected={selectedIds.length === invoices.length && invoices.length > 0}
+          onConfirmDelete={handleBulkDelete}
+          loading={bulkDeleting}
+        />
+      )}
 
       {/* Invoices Table */}
       <Paper elevation={0} sx={{ borderRadius: "12px", border: `1px solid ${COLORS.border}`, overflow: "hidden" }}>
@@ -383,34 +395,38 @@ const InvoiceList = () => {
             <Typography variant="body2" sx={{ color: COLORS.textSecondary, mb: 2 }}>
               Generate invoices from Quotations or click Create Tax Invoice above.
             </Typography>
-            <Button
-              variant="outlined"
-              onClick={() => setOpenCreateModal(true)}
-              sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600 }}
-            >
-              + Create Invoice Now
-            </Button>
+            {canCreateOrPay && (
+              <Button
+                variant="outlined"
+                onClick={() => setOpenCreateModal(true)}
+                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600 }}
+              >
+                + Create Invoice Now
+              </Button>
+            )}
           </Box>
         ) : (
           <TableContainer>
             <Table sx={{ minWidth: 850 }}>
               <TableHead sx={{ bgcolor: COLORS.primary }}>
                 <TableRow>
-                  <TableCell sx={{ color: "#FFFFFF", width: 44, p: 0.5, pl: 1.5 }}>
-                    <Checkbox
-                      size="small"
-                      indeterminate={selectedIds.length > 0 && selectedIds.length < invoices.length}
-                      checked={invoices.length > 0 && selectedIds.length === invoices.length}
-                      onChange={(e) => {
-                        if (e.target.checked) setSelectedIds(invoices.map((inv) => inv.id));
-                        else setSelectedIds([]);
-                      }}
-                      sx={{
-                        color: "rgba(255,255,255,0.7)",
-                        "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#FFFFFF" },
-                      }}
-                    />
-                  </TableCell>
+                  {canDeleteInvoice && (
+                    <TableCell sx={{ color: "#FFFFFF", width: 44, p: 0.5, pl: 1.5 }}>
+                      <Checkbox
+                        size="small"
+                        indeterminate={selectedIds.length > 0 && selectedIds.length < invoices.length}
+                        checked={invoices.length > 0 && selectedIds.length === invoices.length}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedIds(invoices.map((inv) => inv.id));
+                          else setSelectedIds([]);
+                        }}
+                        sx={{
+                          color: "rgba(255,255,255,0.7)",
+                          "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#FFFFFF" },
+                        }}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem" }}>INVOICE #</TableCell>
                   <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem" }}>CUSTOMER / CONTACT</TableCell>
                   <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem" }}>SYSTEM SPEC</TableCell>
@@ -438,17 +454,19 @@ const InvoiceList = () => {
                         bgcolor: isSelected ? "rgba(15, 23, 42, 0.04)" : "inherit",
                       }}
                     >
-                      <TableCell sx={{ width: 44, p: 0.5, pl: 1.5 }}>
-                        <Checkbox
-                          size="small"
-                          checked={isSelected}
-                          onChange={() => handleToggleSelect(inv.id)}
-                          sx={{
-                            color: COLORS.border,
-                            "&.Mui-checked": { color: COLORS.primary },
-                          }}
-                        />
-                      </TableCell>
+                      {canDeleteInvoice && (
+                        <TableCell sx={{ width: 44, p: 0.5, pl: 1.5 }}>
+                          <Checkbox
+                            size="small"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelect(inv.id)}
+                            sx={{
+                              color: COLORS.border,
+                              "&.Mui-checked": { color: COLORS.primary },
+                            }}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell sx={{ fontWeight: 700, color: COLORS.primary, fontSize: "0.86rem" }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                           <ReceiptLongIcon sx={{ color: COLORS.info, fontSize: 18 }} />
@@ -506,8 +524,8 @@ const InvoiceList = () => {
 
                       <TableCell sx={{ textAlign: "center" }}>
                         <Stack direction="row" spacing={0.5} justifyContent="center">
-                          {/* Record Payment (if balance remains) */}
-                          {bal > 0 && (
+                          {/* Record Payment (if balance remains & authorized) */}
+                          {bal > 0 && canCreateOrPay && (
                             <Tooltip title="Record Payment Installment">
                               <IconButton
                                 size="small"
@@ -563,16 +581,18 @@ const InvoiceList = () => {
                             </IconButton>
                           </Tooltip>
 
-                          {/* Delete */}
-                          <Tooltip title="Delete Invoice">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDelete(inv.id)}
-                              sx={{ color: COLORS.danger }}
-                            >
-                              <DeleteOutlineIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                          {/* Delete (Super Admin only) */}
+                          {canDeleteInvoice && (
+                            <Tooltip title="Delete Invoice">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDelete(inv.id)}
+                                sx={{ color: COLORS.danger }}
+                              >
+                                <DeleteOutlineIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </Stack>
                       </TableCell>
                     </TableRow>

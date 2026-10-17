@@ -161,7 +161,8 @@ CREATE TABLE `roles` (
 INSERT INTO `roles` (`id`, `role_name`, `description`, `status`, `created_at`, `updated_at`) VALUES
 (1, 'Super Admin', 'Complete System Access', 'Active', '2026-08-02 19:00:48', '2026-08-02 19:00:48'),
 (2, 'Manager', 'Manage Team & Leads', 'Active', '2026-08-02 19:00:48', '2026-08-02 19:00:48'),
-(3, 'Sales', 'Handle Assigned Leads', 'Active', '2026-08-02 19:00:48', '2026-08-06 04:45:48');
+(3, 'Sales', 'Handle Assigned Leads', 'Active', '2026-08-02 19:00:48', '2026-08-06 04:45:48'),
+(4, 'Site Engineer', 'Conduct site surveys, feasibility checks & technical visits', 'Active', '2026-08-02 19:00:48', '2026-08-06 04:45:48');
 
 -- --------------------------------------------------------
 
