@@ -331,7 +331,7 @@ const ClientDetail = () => {
                   </Typography>
                   <Box
                     component="a"
-                    href={`https://${client?.subdomain}.solarcrm.com`}
+                    href={`https://${client?.subdomain}.digiinksolutions.com`}
                     target="_blank"
                     rel="noreferrer"
                     sx={{
@@ -345,7 +345,7 @@ const ClientDetail = () => {
                       "&:hover": { textDecoration: "underline" },
                     }}
                   >
-                    {client?.subdomain}.solarcrm.com
+                    {client?.subdomain}.digiinksolutions.com
                     <OpenInNewRoundedIcon sx={{ fontSize: 13 }} />
                   </Box>
                 </Stack>
