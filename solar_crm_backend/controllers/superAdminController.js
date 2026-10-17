@@ -658,11 +658,110 @@ const deleteClient = async (req, res) => {
   }
 };
 
+// ============================================================
+// CLIENTS — Hard Reset Client Admin Password (Temp Password)
+// POST /superadmin/clients/:id/reset-password
+// ============================================================
+const resetClientAdminPassword = async (req, res) => {
+  try {
+    const clientId = req.params.id;
+
+    // 1. Fetch Client from Master DB
+    const [rows] = await masterDb.query(
+      `SELECT c.*, p.name AS plan_name 
+       FROM clients c 
+       LEFT JOIN plans p ON c.plan_id = p.id 
+       WHERE c.id = ? LIMIT 1`, 
+      [clientId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Client not found." });
+    }
+    const client = rows[0];
+
+    if (client.status === "Deleted") {
+      return res.status(400).json({ success: false, message: "Cannot reset password for deleted client." });
+    }
+
+    if (!client.db_name) {
+      return res.status(400).json({ success: false, message: "Client database not provisioned." });
+    }
+
+    // 2. Connect to Client Tenant DB
+    const clientPool = getClientPool(client.db_name);
+
+    // 3. Find Primary Admin User (role_id = 1 or earliest admin)
+    const [adminUsers] = await clientPool.query(
+      `SELECT id, username, email, full_name, role_id 
+       FROM users 
+       WHERE role_id = 1 AND is_deleted = 0 
+       ORDER BY id ASC LIMIT 1`
+    );
+
+    if (adminUsers.length === 0) {
+      return res.status(404).json({ success: false, message: "No active Admin user found in client database." });
+    }
+    const adminUser = adminUsers[0];
+
+    // 4. Generate random secure temp password
+    const randomDigits = Math.floor(1000 + Math.random() * 9000);
+    const tempPassword = `Solar#${randomDigits}!`;
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    // 5. Update user in client DB (set is_password_changed = 0 to force reset on login)
+    await clientPool.query(
+      `UPDATE users 
+       SET password = ?, is_password_changed = 0, updated_at = NOW() 
+       WHERE id = ?`,
+      [hashedPassword, adminUser.id]
+    );
+
+    // 6. Send Security Notification Email (non-blocking failure)
+    try {
+      await sendSubscriptionEmail("Password Reset", {
+        owner_name: client.owner_name,
+        email: client.email,
+        admin_email: adminUser.email,
+        subdomain: client.subdomain,
+        business_name: client.business_name,
+        client_code: client.client_code,
+      }, { tempPassword });
+    } catch (emailErr) {
+      console.error("Password reset email notice failed (non-fatal):", emailErr.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Password successfully reset for ${client.business_name}.`,
+      data: {
+        clientId: client.id,
+        clientCode: client.client_code,
+        businessName: client.business_name,
+        subdomain: client.subdomain,
+        portalUrl: `https://${client.subdomain}.digiinksolutions.com`,
+        adminUsername: adminUser.email || adminUser.username,
+        adminFullName: adminUser.full_name,
+        tempPassword: tempPassword,
+        generatedAt: new Date().toISOString(),
+      },
+    });
+
+  } catch (err) {
+    console.error("resetClientAdminPassword error:", err.message);
+    return res.status(500).json({ 
+      success: false, 
+      message: err.message || "Failed to reset client admin password." 
+    });
+  }
+};
+
 module.exports = {
   login,
   getDashboard,
   getAllClients, getClientById, createClient,
   renewClient, updateClientStatus, deleteClient,
+  resetClientAdminPassword,
   getPlans, updatePlan,
   getPaymentRequests, confirmPayment, rejectPayment,
   getMasterSettings, updateMasterSettings,

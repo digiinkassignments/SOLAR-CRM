@@ -50,6 +50,9 @@ import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
 import CalendarTodayOutlinedIcon from "@mui/icons-material/CalendarTodayOutlined";
 import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
+import KeyRoundedIcon from "@mui/icons-material/KeyRounded";
+import ContentCopyRoundedIcon from "@mui/icons-material/ContentCopyRounded";
+import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 
 import api from "../api/axios";
 
@@ -105,6 +108,36 @@ const ClientDetail = () => {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Hard Reset Password Dialog
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetResult, setResetResult] = useState(null);
+  const [copiedKey, setCopiedKey] = useState(false);
+
+  const handleHardResetPassword = async () => {
+    setResetLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await api.post(`/clients/${id}/reset-password`);
+      if (res.data?.success) {
+        setResetResult(res.data.data);
+        setSuccess(`Password successfully reset for ${res.data.data.businessName}.`);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to reset client admin password.");
+      setResetModalOpen(false);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2500);
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -331,16 +364,43 @@ const ClientDetail = () => {
                 borderRadius: "100px",
                 textTransform: "none",
                 fontWeight: 700,
-                px: 2.8,
+                px: 2.5,
                 py: 1,
-                fontSize: "0.88rem",
+                fontSize: "0.85rem",
                 backgroundColor: GOOGLE_COLORS.green,
                 color: "#FFFFFF",
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 "&:hover": { backgroundColor: "#15803D" },
               }}
             >
-              Renew Subscription
+              Renew
+            </Button>
+
+            <Button
+              variant="outlined"
+              startIcon={<KeyRoundedIcon sx={{ fontSize: 18 }} />}
+              onClick={() => {
+                setResetResult(null);
+                setResetModalOpen(true);
+              }}
+              sx={{
+                borderRadius: "100px",
+                textTransform: "none",
+                fontWeight: 700,
+                px: 2.2,
+                py: 1,
+                fontSize: "0.85rem",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                color: GOOGLE_COLORS.blueDark,
+                borderColor: "#C2E7FF",
+                backgroundColor: GOOGLE_COLORS.blueSoft,
+                "&:hover": {
+                  borderColor: GOOGLE_COLORS.blue,
+                  backgroundColor: "#D2E3FC",
+                },
+              }}
+            >
+              Reset Password
             </Button>
 
             <Button
@@ -351,9 +411,9 @@ const ClientDetail = () => {
                 borderRadius: "100px",
                 textTransform: "none",
                 fontWeight: 700,
-                px: 2.4,
+                px: 2.2,
                 py: 1,
-                fontSize: "0.88rem",
+                fontSize: "0.85rem",
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 color: client?.status === "Locked" ? GOOGLE_COLORS.green : GOOGLE_COLORS.red,
                 borderColor: client?.status === "Locked" ? GOOGLE_COLORS.green : GOOGLE_COLORS.red,
@@ -363,7 +423,7 @@ const ClientDetail = () => {
                 },
               }}
             >
-              {client?.status === "Locked" ? "Unlock Access" : "Lock Instance"}
+              {client?.status === "Locked" ? "Unlock" : "Lock"}
             </Button>
           </Stack>
         </Box>
@@ -1001,6 +1061,223 @@ const ClientDetail = () => {
           >
             {deleteLoading ? <CircularProgress size={18} color="inherit" /> : "Permanently Delete"}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Hard Reset Password Dialog ────────────────────────────────────── */}
+      <Dialog
+        open={resetModalOpen}
+        onClose={() => !resetLoading && setResetModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "24px",
+            border: `1px solid ${GOOGLE_COLORS.border}`,
+            p: 1,
+            boxShadow: "0 20px 40px rgba(0, 0, 0, 0.1)",
+          },
+        }}
+      >
+        <DialogTitle sx={{ pb: 1, fontWeight: 800, color: GOOGLE_COLORS.textPrimary, display: "flex", alignItems: "center", gap: 1.5 }}>
+          <Avatar sx={{ bgcolor: GOOGLE_COLORS.blueSoft, color: GOOGLE_COLORS.blueDark, width: 40, height: 40 }}>
+            <KeyRoundedIcon sx={{ fontSize: 22 }} />
+          </Avatar>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 800, fontSize: "1.1rem", lineHeight: 1.2 }}>
+              {resetResult ? "Temporary Credentials Generated" : "Reset Client Admin Password"}
+            </Typography>
+            <Typography variant="caption" sx={{ color: GOOGLE_COLORS.textSecondary }}>
+              {client?.business_name} ({client?.client_code})
+            </Typography>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 1.5 }}>
+          {!resetResult ? (
+            <Box>
+              <Alert
+                severity="warning"
+                sx={{
+                  mb: 2.5,
+                  borderRadius: "14px",
+                  bgcolor: GOOGLE_COLORS.yellowSoft,
+                  color: "#92400E",
+                  border: `1px solid #FDE68A`,
+                  fontSize: "0.84rem",
+                  "& .MuiAlert-icon": { color: "#D97706" },
+                }}
+              >
+                This will generate a new randomized <strong>One-Time Temporary Password</strong> for the primary Admin of <strong>{client?.business_name}</strong> and overwrite their existing password.
+              </Alert>
+
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  borderRadius: "14px",
+                  bgcolor: GOOGLE_COLORS.bg,
+                  border: `1px solid ${GOOGLE_COLORS.border}`,
+                  mb: 1.5,
+                }}
+              >
+                <Stack spacing={1.2}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                    <Typography variant="body2" sx={{ color: GOOGLE_COLORS.textSecondary, fontSize: "0.82rem" }}>Target Instance:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.84rem" }}>{client?.subdomain}.digiinksolutions.com</Typography>
+                  </Box>
+                  <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                    <Typography variant="body2" sx={{ color: GOOGLE_COLORS.textSecondary, fontSize: "0.82rem" }}>Target Database:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.84rem" }}>{client?.db_name}</Typography>
+                  </Box>
+                  <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                    <Typography variant="body2" sx={{ color: GOOGLE_COLORS.textSecondary, fontSize: "0.82rem" }}>Admin Email Notice:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.84rem" }}>{client?.email}</Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+
+              <Typography variant="body2" sx={{ color: GOOGLE_COLORS.textSecondary, fontSize: "0.82rem", lineHeight: 1.5 }}>
+                • When the client logs in with this temporary password, they will be <strong>forced to create a new personal password</strong> before accessing any dashboard data.
+              </Typography>
+            </Box>
+          ) : (
+            <Box>
+              <Alert
+                severity="success"
+                sx={{
+                  mb: 2.5,
+                  borderRadius: "14px",
+                  bgcolor: GOOGLE_COLORS.greenSoft,
+                  color: GOOGLE_COLORS.green,
+                  border: `1px solid #CEEAD6`,
+                  fontSize: "0.84rem",
+                  "& .MuiAlert-icon": { color: GOOGLE_COLORS.green },
+                }}
+              >
+                Password has been updated in database and an email notice has been sent. Copy the credentials below to share directly with the client.
+              </Alert>
+
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2.5,
+                  borderRadius: "16px",
+                  bgcolor: "#0F172A",
+                  color: "#FFFFFF",
+                  border: "1px solid #334155",
+                  mb: 2,
+                }}
+              >
+                <Stack spacing={2}>
+                  <Box>
+                    <Typography sx={{ fontSize: "0.72rem", color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      PORTAL URL
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.92rem", fontWeight: 700, color: "#38BDF8", mt: 0.3 }}>
+                      {resetResult.portalUrl}
+                    </Typography>
+                  </Box>
+
+                  <Box>
+                    <Typography sx={{ fontSize: "0.72rem", color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      ADMIN USERNAME / EMAIL
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.92rem", fontWeight: 700, color: "#F8FAFC", mt: 0.3 }}>
+                      {resetResult.adminUsername}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ p: 1.5, borderRadius: "10px", bgcolor: "#1E293B", border: "1px dashed #475569", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Box>
+                      <Typography sx={{ fontSize: "0.7rem", color: "#FBBF24", fontWeight: 800, textTransform: "uppercase" }}>
+                        TEMPORARY ONE-TIME PASSWORD
+                      </Typography>
+                      <Typography sx={{ fontSize: "1.15rem", fontWeight: 800, color: "#FFFFFF", letterSpacing: "0.05em", fontFamily: "monospace", mt: 0.2 }}>
+                        {resetResult.tempPassword}
+                      </Typography>
+                    </Box>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={() => copyToClipboard(`Portal: ${resetResult.portalUrl}\nUsername: ${resetResult.adminUsername}\nTemp Password: ${resetResult.tempPassword}`)}
+                      startIcon={copiedKey ? <CheckRoundedIcon /> : <ContentCopyRoundedIcon />}
+                      sx={{
+                        borderRadius: "100px",
+                        bgcolor: copiedKey ? "#16A34A" : "#0284C7",
+                        color: "#FFFFFF",
+                        textTransform: "none",
+                        fontWeight: 700,
+                        fontSize: "0.78rem",
+                        px: 2,
+                        "&:hover": { bgcolor: copiedKey ? "#15803D" : "#0369A1" },
+                      }}
+                    >
+                      {copiedKey ? "Copied!" : "Copy All"}
+                    </Button>
+                  </Box>
+                </Stack>
+              </Paper>
+
+              <Typography variant="caption" sx={{ color: GOOGLE_COLORS.textMuted, display: "block", textAlign: "center" }}>
+                Generated at: {new Date(resetResult.generatedAt).toLocaleString("en-IN")}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2, pt: 1 }}>
+          {!resetResult ? (
+            <>
+              <Button
+                onClick={() => setResetModalOpen(false)}
+                disabled={resetLoading}
+                sx={{ textTransform: "none", color: GOOGLE_COLORS.textSecondary, borderRadius: "100px", px: 2.5 }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                disableElevation
+                onClick={handleHardResetPassword}
+                disabled={resetLoading}
+                startIcon={<KeyRoundedIcon />}
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 700,
+                  borderRadius: "100px",
+                  px: 3,
+                  py: 0.9,
+                  backgroundColor: GOOGLE_COLORS.blue,
+                  color: "#FFFFFF",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  "&:hover": { backgroundColor: GOOGLE_COLORS.blueDark },
+                }}
+              >
+                {resetLoading ? <CircularProgress size={18} color="inherit" /> : "Confirm & Reset"}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="contained"
+              disableElevation
+              onClick={() => {
+                setResetModalOpen(false);
+                setResetResult(null);
+              }}
+              sx={{
+                textTransform: "none",
+                fontWeight: 700,
+                borderRadius: "100px",
+                px: 3.5,
+                backgroundColor: GOOGLE_COLORS.blue,
+                color: "#FFFFFF",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}
+            >
+              Done
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

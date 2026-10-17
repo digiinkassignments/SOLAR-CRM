@@ -336,6 +336,45 @@ function paymentRejectedTemplate(client, rejectionNote, settings) {
 // ============================================================
 // MAIN SEND FUNCTION
 // ============================================================
+function passwordResetTemplate(client, tempPassword, settings) {
+  const loginUrl = `https://${client.subdomain}.digiinksolutions.com`;
+  const bodyContent = `
+    <p style="color:#475569; font-size:14px; line-height:1.6; margin:0 0 16px;">
+      Hello <strong>${client.owner_name}</strong>,
+    </p>
+    <p style="color:#475569; font-size:14px; line-height:1.6; margin:0 0 16px;">
+      The administrator of <strong>${settings.company_name || "DigiInk Solutions"}</strong> has generated a new temporary password for your account on <strong>${client.business_name}</strong> (${client.client_code}).
+    </p>
+
+    <div style="background:#F1F5F9; border-radius:8px; border:1px solid #E2E8F0; padding:18px; margin:20px 0;">
+      <p style="margin:0 0 8px; color:#1E293B; font-size:13px;">
+        <strong>Portal URL:</strong> <a href="${loginUrl}" style="color:#0B3A63; text-decoration:underline;">${loginUrl}</a>
+      </p>
+      <p style="margin:0 0 8px; color:#1E293B; font-size:13px;">
+        <strong>Admin Username:</strong> ${client.admin_email || client.email}
+      </p>
+      <p style="margin:0; color:#1E293B; font-size:13px;">
+        <strong>New Temporary Password:</strong> <code style="background:#E2E8F0; color:#0F172A; font-weight:700; padding:3px 8px; border-radius:4px; font-family:monospace; font-size:14px;">${tempPassword}</code>
+      </p>
+    </div>
+
+    <p style="color:#DC2626; font-size:13px; line-height:1.5; font-weight:600; margin:0 0 20px;">
+      ⚠️ Security Notice: Upon logging in with this temporary password, you will be prompted to set your personal permanent password immediately.
+    </p>
+
+    <a href="${loginUrl}" style="display:inline-block; background:#0B3A63; color:#ffffff; padding:12px 24px; border-radius:6px; text-decoration:none; font-size:14px; font-weight:600;">
+      Login Now
+    </a>
+
+    ${supportBlock(settings)}
+  `;
+
+  return {
+    subject: `Security Alert: Temporary Password Reset for ${client.business_name}`,
+    html: emailLayout(`Temporary Password Reset`, bodyContent, settings),
+  };
+}
+
 async function sendSubscriptionEmail(emailType, client, extras = {}) {
   const settings = await getMasterSettings();
 
@@ -344,6 +383,9 @@ async function sendSubscriptionEmail(emailType, client, extras = {}) {
   switch (emailType) {
     case "Welcome":
       template = welcomeEmailTemplate(client, extras.tempPassword, settings);
+      break;
+    case "Password Reset":
+      template = passwordResetTemplate(client, extras.tempPassword, settings);
       break;
     case "Expiring Soon":
       template = expiringSoonTemplate(client, settings);
