@@ -261,38 +261,26 @@ const deleteRole = async (req, res) => {
 
     // Check if any active user is assigned to this role
     const [assigned] = await db.query(
-      "SELECT id, full_name FROM users WHERE role_id = ? AND is_deleted = 0 LIMIT 5",
+      "SELECT id, full_name, is_deleted FROM users WHERE role_id = ?",
       [roleId]
     );
-    if (assigned.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Cannot delete role. There are ${assigned.length} active user(s) assigned to this role (${assigned.map(u => u.full_name).join(", ")}). Please reassign or delete those users first.`,
-      });
-    }
 
-    // Set role_id = NULL or reassign any soft-deleted historical users to prevent FK constraint failure
-    try {
-      await db.query("UPDATE users SET role_id = NULL WHERE role_id = ? AND is_deleted = 1", [roleId]);
-    } catch (e) {
-      // Ignore if role_id does not allow NULL
+    if (assigned.length > 0) {
+      // Reassign all active and soft-deleted users of this deleted role to default Sales Executive (role_id = 3)
+      // to cleanly unbind the foreign key constraint
+      await db.query("UPDATE users SET role_id = 3 WHERE role_id = ?", [roleId]);
     }
 
     await db.query("DELETE FROM roles WHERE id = ?", [roleId]);
 
     return res.status(200).json({
       success: true,
-      message: "Custom role deleted successfully.",
+      message: assigned.length > 0 
+        ? `Custom role deleted successfully. (${assigned.length} user(s) were reassigned to Sales Executive).`
+        : "Custom role deleted successfully.",
     });
   } catch (err) {
     console.error("deleteRole error:", err);
-    // If MySQL Foreign Key constraint error (ER_ROW_IS_REFERENCED_2 / 1451)
-    if (err.code === "ER_ROW_IS_REFERENCED_2" || err.errno === 1451) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot delete this role because one or more users are linked to it. Please reassign those users first.",
-      });
-    }
     return res.status(500).json({ 
       success: false, 
       message: err.message || "Failed to delete role." 
