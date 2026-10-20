@@ -267,8 +267,15 @@ const deleteRole = async (req, res) => {
     if (assigned.length > 0) {
       return res.status(400).json({
         success: false,
-        message: `Cannot delete role. There are ${assigned.length} active users assigned to this role. Please reassign them first.`,
+        message: `Cannot delete role. There are ${assigned.length} active user(s) assigned to this role (${assigned.map(u => u.full_name).join(", ")}). Please reassign or delete those users first.`,
       });
+    }
+
+    // Set role_id = NULL or reassign any soft-deleted historical users to prevent FK constraint failure
+    try {
+      await db.query("UPDATE users SET role_id = NULL WHERE role_id = ? AND is_deleted = 1", [roleId]);
+    } catch (e) {
+      // Ignore if role_id does not allow NULL
     }
 
     await db.query("DELETE FROM roles WHERE id = ?", [roleId]);
@@ -279,7 +286,17 @@ const deleteRole = async (req, res) => {
     });
   } catch (err) {
     console.error("deleteRole error:", err);
-    return res.status(500).json({ success: false, message: "Failed to delete role." });
+    // If MySQL Foreign Key constraint error (ER_ROW_IS_REFERENCED_2 / 1451)
+    if (err.code === "ER_ROW_IS_REFERENCED_2" || err.errno === 1451) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot delete this role because one or more users are linked to it. Please reassign those users first.",
+      });
+    }
+    return res.status(500).json({ 
+      success: false, 
+      message: err.message || "Failed to delete role." 
+    });
   }
 };
 
