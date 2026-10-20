@@ -88,7 +88,11 @@ router.get("/me", verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found." });
     }
 
-    const user = rows[0];
+    const user = {
+      ...rows[0],
+      is_impersonated: Boolean(req.user?.is_impersonated),
+      impersonated_by: req.user?.impersonated_by || null,
+    };
     const clientInfo = req.clientInfo;
     const subscriptionStatus = clientInfo?.status || "Active";
 

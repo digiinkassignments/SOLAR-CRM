@@ -1,10 +1,15 @@
 const admin = require('firebase-admin');
 const { db: defaultDb } = require('../config/db');
 
-const serviceAccount = require('../config/serviceAccountKey.json');
+let serviceAccount = null;
+try {
+  serviceAccount = require('../config/serviceAccountKey.json');
+} catch (err) {
+  // Service account key might only be present on production server
+}
 
 try {
-  if (!admin.apps || admin.apps.length === 0) {
+  if (serviceAccount && (!admin.apps || admin.apps.length === 0)) {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });

@@ -58,8 +58,19 @@ const login = async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid login credentials." });
     }
 
+    // Parse permissions safely
+    let userPermissions = [];
+    if (user.permissions) {
+      try {
+        userPermissions = typeof user.permissions === "string" ? JSON.parse(user.permissions) : user.permissions;
+      } catch (e) {
+        userPermissions = [];
+      }
+    }
+    user.permissions = userPermissions;
+
     const token = jwt.sign(
-      { id: user.id, role_id: user.role_id },
+      { id: user.id, role_id: user.role_id, permissions: userPermissions },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );

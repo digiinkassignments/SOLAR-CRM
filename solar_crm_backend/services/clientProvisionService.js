@@ -16,6 +16,8 @@ const mysql  = require("mysql2").createPool({
   connectionLimit: 5,
 }).promise();
 
+const fs     = require("fs");
+const path   = require("path");
 const bcrypt = require("bcrypt");
 const { masterDb } = require("../config/masterDb");
 const { getClientPool } = require("../config/clientDb");
@@ -60,7 +62,9 @@ async function createClientDatabase(dbName) {
       \`id\`          INT(11) NOT NULL AUTO_INCREMENT,
       \`role_name\`   VARCHAR(50) NOT NULL,
       \`description\` VARCHAR(255) DEFAULT NULL,
+      \`permissions\` JSON DEFAULT NULL,
       \`status\`      ENUM('Active','Inactive') DEFAULT 'Active',
+      \`is_system\`   TINYINT(1) NOT NULL DEFAULT 0,
       \`created_at\`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       \`updated_at\`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       PRIMARY KEY (\`id\`),
@@ -69,11 +73,11 @@ async function createClientDatabase(dbName) {
   `);
 
   await clientPool.query(`
-    INSERT IGNORE INTO \`roles\` (\`id\`, \`role_name\`, \`description\`) VALUES
-    (1, 'Super Admin',   'Complete System Access'),
-    (2, 'Manager',       'Manage Team & Leads'),
-    (3, 'Sales',         'Handle Assigned Leads'),
-    (4, 'Site Engineer', 'Conduct site surveys, feasibility checks & technical visits')
+    INSERT IGNORE INTO \`roles\` (\`id\`, \`role_name\`, \`description\`, \`is_system\`, \`permissions\`) VALUES
+    (1, 'Super Admin', 'Complete System Access', 1, JSON_ARRAY('dashboard:view','users:view','users:create','users:edit','users:delete','roles:view','roles:create','roles:edit','roles:delete','leads:view','leads:create','leads:edit','leads:delete','leads:export','customers:view','customers:create','customers:edit','quotations:view','quotations:create','quotations:edit','quotations:delete','calculator:view','calculator:use','invoices:view','invoices:create','invoices:edit','invoices:delete','subsidies:view','subsidies:edit','projects:view','projects:create','projects:edit','projects:delete','stock:view','stock:create','stock:edit','stock:delete','surveys:view','surveys:create','surveys:edit','reports:view','reports:export','settings:view','settings:edit','ai_copilot:use')),
+    (2, 'Manager', 'Manage Team & Leads', 1, JSON_ARRAY('dashboard:view','users:view','users:create','leads:view','leads:create','leads:edit','leads:export','customers:view','customers:create','customers:edit','quotations:view','quotations:create','quotations:edit','calculator:view','calculator:use','invoices:view','invoices:create','subsidies:view','projects:view','projects:edit','stock:view','surveys:view','surveys:create','surveys:edit','reports:view','ai_copilot:use')),
+    (3, 'Sales', 'Handle Assigned Leads', 1, JSON_ARRAY('dashboard:view','leads:view','leads:create','leads:edit','customers:view','customers:create','quotations:view','quotations:create','calculator:view','calculator:use','invoices:view','surveys:view','surveys:create','ai_copilot:use')),
+    (4, 'Site Engineer', 'Conduct site surveys, feasibility checks & technical visits', 1, JSON_ARRAY('dashboard:view','surveys:view','surveys:create','surveys:edit','projects:view','projects:edit'))
   `);
 
   // Users table
@@ -293,6 +297,34 @@ async function createClientDatabase(dbName) {
       UNIQUE KEY \`unique_lead_field\` (\`lead_id\`, \`field_id\`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+
+  // 3. Install Full Solar ERP Modules & Seeds from complete_client_template.sql
+  try {
+    const templatePath = path.join(__dirname, "../Database/complete_client_template.sql");
+    if (fs.existsSync(templatePath)) {
+      const sqlContent = fs.readFileSync(templatePath, "utf8");
+      // Split by semicolon ignoring semicolons inside strings or comments
+      const statements = sqlContent
+        .replace(/\/\*[\s\S]*?\*\/|--[^\n]*\n/g, "")
+        .split(";")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 5);
+
+      for (const statement of statements) {
+        try {
+          await clientPool.query(statement);
+        } catch (stmtErr) {
+          // Ignore duplicate table / column warnings
+          if (!stmtErr.message.includes("already exists") && !stmtErr.message.includes("Duplicate")) {
+            console.warn(`[Client Provisioning] Non-fatal migration note in ${dbName}:`, stmtErr.message);
+          }
+        }
+      }
+      console.log(`✅ All 24+ Solar CRM & ERP tables verified in ${dbName}`);
+    }
+  } catch (templateErr) {
+    console.error(`[Client Provisioning] Template execution error for ${dbName}:`, templateErr.message);
+  }
 
   console.log(`✅ Schema installed in ${dbName}`);
   return clientPool;

@@ -3,7 +3,6 @@ import {
   Box,
   Paper,
   Typography,
-  Grid,
   TextField,
   Button,
   CircularProgress,
@@ -145,296 +144,274 @@ const Settings = () => {
         </Button>
       </Box>
 
-      <Grid container spacing={3}>
+      {/* Modern 2-Column Top Grid */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
+          gap: 3,
+          mb: 3,
+          width: "100%",
+        }}
+      >
         {/* Company Information */}
-        <Grid item xs={12} md={6}>
-          <Paper
-            elevation={0}
-            sx={{
-              borderRadius: "20px",
-              border: `1px solid ${GOOGLE_COLORS.border}`,
-              p: 3,
-              backgroundColor: GOOGLE_COLORS.card,
-              height: "100%",
-            }}
-          >
-            <Stack direction="row" alignItems="center" spacing={1.2} mb={2}>
-              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.blue }} />
-              <BusinessRoundedIcon sx={{ color: GOOGLE_COLORS.blue, fontSize: 22 }} />
-              <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
-                Master Organization Profile
-              </Typography>
-            </Stack>
-            <Divider sx={{ mb: 2.5, borderColor: GOOGLE_COLORS.border }} />
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: "20px",
+            border: `1px solid ${GOOGLE_COLORS.border}`,
+            p: 3,
+            backgroundColor: GOOGLE_COLORS.card,
+            height: "100%",
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={1.2} mb={2}>
+            <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.blue }} />
+            <BusinessRoundedIcon sx={{ color: GOOGLE_COLORS.blue, fontSize: 22 }} />
+            <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
+              Master Organization Profile
+            </Typography>
+          </Stack>
+          <Divider sx={{ mb: 2.5, borderColor: GOOGLE_COLORS.border }} />
 
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  label="Organization / Business Name"
-                  name="company_name"
-                  value={form.company_name || ""}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Official Website URL"
-                  name="company_website"
-                  placeholder="https://digiink.com"
-                  value={form.company_website || ""}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-            </Grid>
-          </Paper>
-        </Grid>
+          <Stack spacing={2.5}>
+            <TextField
+              label="Organization / Business Name"
+              name="company_name"
+              value={form.company_name || ""}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              InputProps={{
+                sx: {
+                  borderRadius: "12px",
+                  backgroundColor: GOOGLE_COLORS.bg,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                },
+              }}
+            />
+            <TextField
+              label="Official Website URL"
+              name="company_website"
+              placeholder="https://digiink.com"
+              value={form.company_website || ""}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              InputProps={{
+                sx: {
+                  borderRadius: "12px",
+                  backgroundColor: GOOGLE_COLORS.bg,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                },
+              }}
+            />
+          </Stack>
+        </Paper>
 
         {/* Customer Support Channels */}
-        <Grid item xs={12} md={6}>
-          <Paper
-            elevation={0}
-            sx={{
-              borderRadius: "20px",
-              border: `1px solid ${GOOGLE_COLORS.border}`,
-              p: 3,
-              backgroundColor: GOOGLE_COLORS.card,
-              height: "100%",
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: "20px",
+            border: `1px solid ${GOOGLE_COLORS.border}`,
+            p: 3,
+            backgroundColor: GOOGLE_COLORS.card,
+            height: "100%",
+          }}
+        >
+          <Stack direction="row" alignItems="center" spacing={1.2} mb={2}>
+            <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.green }} />
+            <SupportAgentRoundedIcon sx={{ color: GOOGLE_COLORS.green, fontSize: 22 }} />
+            <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
+              Tenant Support Channels
+            </Typography>
+          </Stack>
+          <Divider sx={{ mb: 2.5, borderColor: GOOGLE_COLORS.border }} />
+
+          <Stack spacing={2}>
+            <TextField
+              label="Support Phone Helpline"
+              name="support_phone"
+              placeholder="+91 9876543210"
+              value={form.support_phone || ""}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              InputProps={{
+                sx: {
+                  borderRadius: "12px",
+                  backgroundColor: GOOGLE_COLORS.bg,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                },
+              }}
+            />
+            <TextField
+              label="Support Email Address"
+              name="support_email"
+              placeholder="support@digiink.com"
+              value={form.support_email || ""}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              InputProps={{
+                sx: {
+                  borderRadius: "12px",
+                  backgroundColor: GOOGLE_COLORS.bg,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                },
+              }}
+            />
+            <TextField
+              label="WhatsApp Support Number"
+              name="support_whatsapp"
+              placeholder="+91 9876543210"
+              value={form.support_whatsapp || ""}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              InputProps={{
+                sx: {
+                  borderRadius: "12px",
+                  backgroundColor: GOOGLE_COLORS.bg,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                },
+              }}
+            />
+          </Stack>
+        </Paper>
+      </Box>
+
+      {/* Bank & UPI Information (Full Width Card) */}
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: "20px",
+          border: `1px solid ${GOOGLE_COLORS.border}`,
+          p: 3,
+          backgroundColor: GOOGLE_COLORS.card,
+          width: "100%",
+        }}
+      >
+        <Stack direction="row" alignItems="center" spacing={1.2} mb={2}>
+          <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.blueDark }} />
+          <AccountBalanceRoundedIcon sx={{ color: GOOGLE_COLORS.blueDark, fontSize: 22 }} />
+          <Box>
+            <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
+              Bank Wire & NEFT / RTGS Billing Info
+            </Typography>
+            <Typography variant="caption" sx={{ color: GOOGLE_COLORS.textSecondary, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              Displayed to tenant administrators when settling invoice payments & renewals
+            </Typography>
+          </Box>
+        </Stack>
+        <Divider sx={{ mb: 2.5, borderColor: GOOGLE_COLORS.border }} />
+
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" },
+            gap: 2.5,
+          }}
+        >
+          <TextField
+            label="Account Holder Name"
+            name="bank_account_name"
+            value={form.bank_account_name || ""}
+            onChange={handleChange}
+            fullWidth
+            size="small"
+            InputProps={{
+              sx: {
+                borderRadius: "12px",
+                backgroundColor: GOOGLE_COLORS.bg,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              },
             }}
-          >
-            <Stack direction="row" alignItems="center" spacing={1.2} mb={2}>
-              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.green }} />
-              <SupportAgentRoundedIcon sx={{ color: GOOGLE_COLORS.green, fontSize: 22 }} />
-              <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
-                Tenant Support Channels
-              </Typography>
-            </Stack>
-            <Divider sx={{ mb: 2.5, borderColor: GOOGLE_COLORS.border }} />
+          />
 
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  label="Support Phone Helpline"
-                  name="support_phone"
-                  placeholder="+91 9876543210"
-                  value={form.support_phone || ""}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Support Email Address"
-                  name="support_email"
-                  placeholder="support@digiink.com"
-                  value={form.support_email || ""}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="WhatsApp Support Number"
-                  name="support_whatsapp"
-                  placeholder="+91 9876543210"
-                  value={form.support_whatsapp || ""}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-            </Grid>
-          </Paper>
-        </Grid>
-
-        {/* Bank & UPI Information */}
-        <Grid item xs={12}>
-          <Paper
-            elevation={0}
-            sx={{
-              borderRadius: "20px",
-              border: `1px solid ${GOOGLE_COLORS.border}`,
-              p: 3,
-              backgroundColor: GOOGLE_COLORS.card,
+          <TextField
+            label="Bank Account Number"
+            name="bank_account_number"
+            value={form.bank_account_number || ""}
+            onChange={handleChange}
+            fullWidth
+            size="small"
+            InputProps={{
+              sx: {
+                borderRadius: "12px",
+                backgroundColor: GOOGLE_COLORS.bg,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              },
             }}
-          >
-            <Stack direction="row" alignItems="center" spacing={1.2} mb={2}>
-              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.blueDark }} />
-              <AccountBalanceRoundedIcon sx={{ color: GOOGLE_COLORS.blueDark, fontSize: 22 }} />
-              <Box>
-                <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
-                  Bank Wire & NEFT / RTGS Billing Info
-                </Typography>
-                <Typography variant="caption" sx={{ color: GOOGLE_COLORS.textSecondary, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                  Displayed to tenant administrators when settling invoice payments & renewals
-                </Typography>
-              </Box>
-            </Stack>
-            <Divider sx={{ mb: 2.5, borderColor: GOOGLE_COLORS.border }} />
+          />
 
-            <Grid container spacing={2.5}>
-              <Grid item xs={12} sm={6} md={4}>
-                <TextField
-                  label="Account Holder Name"
-                  name="bank_account_name"
-                  value={form.bank_account_name || ""}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
+          <TextField
+            label="IFSC Code"
+            name="bank_ifsc"
+            value={form.bank_ifsc || ""}
+            onChange={handleChange}
+            fullWidth
+            size="small"
+            InputProps={{
+              sx: {
+                borderRadius: "12px",
+                backgroundColor: GOOGLE_COLORS.bg,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              },
+            }}
+          />
 
-              <Grid item xs={12} sm={6} md={4}>
-                <TextField
-                  label="Bank Account Number"
-                  name="bank_account_number"
-                  value={form.bank_account_number || ""}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
+          <TextField
+            label="Bank Name"
+            name="bank_name"
+            value={form.bank_name || ""}
+            onChange={handleChange}
+            fullWidth
+            size="small"
+            InputProps={{
+              sx: {
+                borderRadius: "12px",
+                backgroundColor: GOOGLE_COLORS.bg,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              },
+            }}
+          />
 
-              <Grid item xs={12} sm={6} md={4}>
-                <TextField
-                  label="IFSC Code"
-                  name="bank_ifsc"
-                  value={form.bank_ifsc || ""}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
+          <TextField
+            label="Bank Branch"
+            name="bank_branch"
+            value={form.bank_branch || ""}
+            onChange={handleChange}
+            fullWidth
+            size="small"
+            InputProps={{
+              sx: {
+                borderRadius: "12px",
+                backgroundColor: GOOGLE_COLORS.bg,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              },
+            }}
+          />
 
-              <Grid item xs={12} sm={6} md={6}>
-                <TextField
-                  label="Bank Name"
-                  name="bank_name"
-                  value={form.bank_name || ""}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={6} md={6}>
-                <TextField
-                  label="Bank Branch"
-                  name="bank_branch"
-                  value={form.bank_branch || ""}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <Divider sx={{ my: 1.5, borderColor: GOOGLE_COLORS.border }} />
-                <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                  <QrCodeRoundedIcon sx={{ color: GOOGLE_COLORS.blue, fontSize: 20 }} />
-                  <Typography variant="subtitle2" fontWeight={700} color={GOOGLE_COLORS.textPrimary}>
-                    UPI VPA Identifier
-                  </Typography>
-                </Stack>
-              </Grid>
-
-              <Grid item xs={12} sm={6} md={4}>
-                <TextField
-                  label="UPI ID / VPA"
-                  name="upi_id"
-                  placeholder="digiink@okhdfcbank"
-                  value={form.upi_id || ""}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-            </Grid>
-          </Paper>
-        </Grid>
-      </Grid>
+          <TextField
+            label="UPI ID / VPA"
+            name="upi_id"
+            placeholder="digiink@okhdfcbank"
+            value={form.upi_id || ""}
+            onChange={handleChange}
+            fullWidth
+            size="small"
+            InputProps={{
+              sx: {
+                borderRadius: "12px",
+                backgroundColor: GOOGLE_COLORS.bg,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              },
+            }}
+          />
+        </Box>
+      </Paper>
 
       <Snackbar
         open={snack.open}

@@ -80,6 +80,18 @@ export const AuthProvider = ({ children }) => {
     setUserState(null);
   };
 
+  // Granular Permission Check helper
+  const hasPermission = (permissionKey) => {
+    if (!user) return false;
+    // Super Admin (Role 1) has complete bypass
+    if (user.role_id === 1) return true;
+    const permissions = user.permissions;
+    if (Array.isArray(permissions)) {
+      return permissions.includes(permissionKey);
+    }
+    return false;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -88,6 +100,7 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         isAuthenticated: !!token && !!user,
+        hasPermission,
         loading,
       }}
     >

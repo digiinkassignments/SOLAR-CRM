@@ -47,7 +47,7 @@ const getInitials = (name) => {
 const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWidth = 260 }) => {
   const location = useLocation();
   const navigate  = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const { can } = usePlanFeatures();
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
@@ -86,26 +86,26 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
   }, [user?.profile_image]);
 
   const navigationMenuItems = [
-    { title: "Dashboard", icon: <DashboardOutlinedIcon />, path: "/dashboard", featureKey: null },
-    { title: "User Management", icon: <GroupOutlinedIcon />, path: "/users", featureKey: null },
+    { title: "Dashboard", icon: <DashboardOutlinedIcon />, path: "/dashboard", featureKey: null, requiredPermission: "dashboard:view" },
+    { title: "User Management", icon: <GroupOutlinedIcon />, path: "/users", featureKey: null, requiredPermission: "users:view" },
 
     { isSection: true, title: "SALES & LEADS" },
-    { title: "Lead Management", icon: <SolarPowerOutlinedIcon />, path: "/leads", featureKey: null },
-    { title: "Customers", icon: <PeopleAltOutlinedIcon />, path: "/customers", featureKey: null },
-    { title: "Quotations", icon: <DescriptionOutlinedIcon />, path: "/quotations", featureKey: null },
-    { title: "Solar Calculator", icon: <CalculateOutlinedIcon />, path: "/calculator", featureKey: null },
+    { title: "Lead Management", icon: <SolarPowerOutlinedIcon />, path: "/leads", featureKey: null, requiredPermission: "leads:view" },
+    { title: "Customers", icon: <PeopleAltOutlinedIcon />, path: "/customers", featureKey: null, requiredPermission: "customers:view" },
+    { title: "Quotations", icon: <DescriptionOutlinedIcon />, path: "/quotations", featureKey: null, requiredPermission: "quotations:view" },
+    { title: "Solar Calculator", icon: <CalculateOutlinedIcon />, path: "/calculator", featureKey: null, requiredPermission: "calculator:view" },
 
     { isSection: true, title: "FINANCE" },
-    { title: "Invoices & Billing", icon: <ReceiptLongOutlinedIcon />, path: "/invoices", featureKey: null },
-    { title: "Subsidy Tracking", icon: <AccountBalanceIcon />, path: "/subsidies", featureKey: null },
+    { title: "Invoices & Billing", icon: <ReceiptLongOutlinedIcon />, path: "/invoices", featureKey: null, requiredPermission: "invoices:view" },
+    { title: "Subsidy Tracking", icon: <AccountBalanceIcon />, path: "/subsidies", featureKey: null, requiredPermission: "subsidies:view" },
 
     { isSection: true, title: "PROJECT EXECUTION" },
-    { title: "Projects", icon: <EngineeringIcon />, path: "/projects", featureKey: null },
-    { title: "Stock Management", icon: <Inventory2OutlinedIcon />, path: "/stock", featureKey: null },
+    { title: "Projects", icon: <EngineeringIcon />, path: "/projects", featureKey: null, requiredPermission: "projects:view" },
+    { title: "Stock Management", icon: <Inventory2OutlinedIcon />, path: "/stock", featureKey: null, requiredPermission: "stock:view" },
 
     { isSection: true, title: "REPORTS & SETTINGS" },
-    { title: "Reports", icon: <AssessmentOutlinedIcon />, path: "/reports", featureKey: "feature_reports" },
-    { title: "Settings", icon: <SettingsOutlinedIcon />, path: "/settings", featureKey: null },
+    { title: "Reports", icon: <AssessmentOutlinedIcon />, path: "/reports", featureKey: "feature_reports", requiredPermission: "reports:view" },
+    { title: "Settings", icon: <SettingsOutlinedIcon />, path: "/settings", featureKey: null, requiredPermission: "settings:view" },
   ];
 
   const handleConfirmLogout = () => {
@@ -186,6 +186,10 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
                   )}
                 </Box>
               );
+            }
+
+            if (item.requiredPermission && !hasPermission(item.requiredPermission)) {
+              return null;
             }
 
             const isLeadMgmt = item.title === "Lead Management";

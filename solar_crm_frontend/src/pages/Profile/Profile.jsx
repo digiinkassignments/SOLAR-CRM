@@ -17,6 +17,12 @@ import {
   Fade,
   Slide,
   LinearProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Slider,
+  Tooltip,
 } from "@mui/material";
 
 // Icons
@@ -41,6 +47,10 @@ import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import MailOutlineOutlinedIcon from "@mui/icons-material/MailOutlineOutlined";
 import PhoneOutlinedIcon from "@mui/icons-material/PhoneOutlined";
+import ZoomInOutlinedIcon from "@mui/icons-material/ZoomInOutlined";
+import ZoomOutOutlinedIcon from "@mui/icons-material/ZoomOutOutlined";
+import CropIcon from "@mui/icons-material/Crop";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 
 // Import Profile Services safely
 import * as profileService from "../../services/profileService";
@@ -48,8 +58,8 @@ import * as profileService from "../../services/profileService";
 const { getProfile, updateProfile, changePassword, uploadProfilePhoto } = profileService;
 
 const API_BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
-  "http://localhost:5000";
+  import.meta.env.VITE_API_BASE_URL?.replace("/api", "") ||
+  "";
 
 const COLORS = {
   primary: "#0F172A",
@@ -142,11 +152,6 @@ const formatDate = (dateString) => {
   });
 };
 
-const formatEmpId = (id, code) => {
-  if (code) return code;
-  if (!id) return "EMP00001";
-  return `EMP${String(id).padStart(5, "0")}`;
-};
 
 const getInitials = (name) => {
   if (!name || typeof name !== "string") return "TS";
@@ -155,7 +160,7 @@ const getInitials = (name) => {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 };
 
-const Profile = () => {
+const Profile = ({ embedded = false }) => {
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState(null);
 
@@ -183,6 +188,15 @@ const Profile = () => {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [removingPhoto, setRemovingPhoto] = useState(false);
+
+  // Picture Viewer & Cropper States
+  const [viewPhotoOpen, setViewPhotoOpen] = useState(false);
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [rawImageSrc, setRawImageSrc] = useState(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -280,7 +294,8 @@ const Profile = () => {
     return `${API_BASE_URL}/${cleanPath}${cacheKey}`;
   };
 
-  const handlePhotoChange = async (e) => {
+  // When file is selected, open interactive Crop Dialog
+  const handlePhotoSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -289,32 +304,89 @@ const Profile = () => {
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      showNotification("Image size must be under 2MB.", "warning");
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification("Image size must be under 5MB.", "warning");
       return;
     }
 
-    const previewUrl = URL.createObjectURL(file);
-    setPhotoPreview(previewUrl);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setRawImageSrc(reader.result);
+      setZoomLevel(1);
+      setPanOffset({ x: 0, y: 0 });
+      setCropDialogOpen(true);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
-    const formData = new FormData();
-    formData.append("profile_image", file);
+  // Perform canvas circular crop and upload
+  const handleApplyCropAndUpload = async () => {
+    if (!rawImageSrc) return;
 
     try {
       setPhotoUploading(true);
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = rawImageSrc;
+
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      const outputSize = 400; // High quality 400x400 square for avatar
+      const canvas = document.createElement("canvas");
+      canvas.width = outputSize;
+      canvas.height = outputSize;
+      const ctx = canvas.getContext("2d");
+
+      // Clear transparent
+      ctx.clearRect(0, 0, outputSize, outputSize);
+
+      // Compute display dimensions matching the 260px preview container
+      const previewSize = 260;
+      const scaleFactor = outputSize / previewSize;
+
+      const baseScale = Math.max(previewSize / img.naturalWidth, previewSize / img.naturalHeight);
+      const drawWidth = img.naturalWidth * baseScale * zoomLevel * scaleFactor;
+      const drawHeight = img.naturalHeight * baseScale * zoomLevel * scaleFactor;
+
+      const drawX = (outputSize - drawWidth) / 2 + (panOffset.x * scaleFactor);
+      const drawY = (outputSize - drawHeight) / 2 + (panOffset.y * scaleFactor);
+
+      ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+
+      // Convert canvas to WebP/JPEG Blob
+      const blob = await new Promise((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.92)
+      );
+
+      if (!blob) throw new Error("Could not crop image");
+
+      const croppedFile = new File([blob], "profile_avatar.jpg", { type: "image/jpeg" });
+      const previewUrl = URL.createObjectURL(croppedFile);
+      setPhotoPreview(previewUrl);
+
+      const formData = new FormData();
+      formData.append("profile_image", croppedFile);
+
+      setCropDialogOpen(false);
+
       const res = await uploadProfilePhoto(formData);
       const updatedData = res?.data?.data || res?.data || {};
 
-      showNotification("Profile photo updated successfully!", "success");
+      showNotification("Profile photo cropped & updated successfully!", "success");
       setPhotoPreview(null);
-      
+
       if (updatedData.profile_image) {
         updateLocalStorageUser({ profile_image: updatedData.profile_image });
       }
       await fetchProfile();
     } catch (err) {
+      console.error(err);
       showNotification(
-        err.response?.data?.message || "Failed to upload photo.",
+        err.response?.data?.message || "Failed to crop & upload photo.",
         "error"
       );
       setPhotoPreview(null);
@@ -491,7 +563,7 @@ const handleUpdatePassword = async () => {
   const activeStatus = isAccountActive();
 
   return (
-    <Box sx={{ width: "100%", backgroundColor: COLORS.bg, minHeight: "100vh", p: { xs: 2, md: 2.5 } }}>
+    <Box sx={{ width: "100%", backgroundColor: embedded ? "transparent" : COLORS.bg, minHeight: embedded ? "auto" : "100vh", p: embedded ? 0 : { xs: 1.5, sm: 2, md: 2.5 } }}>
       <Box sx={{ width: "100%" }}>
         
         {/* TOP ROW */}
@@ -506,22 +578,20 @@ const handleUpdatePassword = async () => {
                     <Avatar
                       key={currentPhotoUrl || "initials"}
                       src={currentPhotoUrl || undefined}
-                      imgProps={{
-                        onError: (e) => {
-                          e.target.style.display = "none";
-                        },
-                      }}
                       sx={{
-                        width: 104,
-                        height: 104,
+                        width: 110,
+                        height: 110,
                         fontSize: "2.4rem",
                         fontWeight: 700,
                         backgroundColor: COLORS.primaryDark,
                         color: "#FFFFFF",
-                        boxShadow: "0 6px 16px rgba(11, 58, 99, 0.18)",
+                        boxShadow: "0 8px 24px rgba(15, 23, 42, 0.12)",
                         border: "3px solid #FFFFFF",
                         outline: `1px solid ${COLORS.border}`,
                         mx: "auto",
+                        "& img": {
+                          objectFit: "cover",
+                        },
                       }}
                     >
                       {getInitials(profileData?.full_name)}
@@ -547,7 +617,7 @@ const handleUpdatePassword = async () => {
                       ) : (
                         <PhotoCameraOutlinedIcon sx={{ fontSize: "1rem" }} />
                       )}
-                      <input type="file" hidden accept="image/jpeg,image/png,image/jpg,image/webp" onChange={handlePhotoChange} />
+                      <input type="file" hidden accept="image/jpeg,image/png,image/jpg,image/webp" onChange={handlePhotoSelect} />
                     </IconButton>
                   </Box>
 
@@ -597,16 +667,32 @@ const handleUpdatePassword = async () => {
                     />
                   </Box>
 
-                  <Box sx={{ display: "flex", justifyContent: "center", gap: 1.5, mb: 1.5 }}>
+                  <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", flexWrap: "wrap", gap: 1.25, mb: 1.5 }}>
                     <Button
                       component="label"
                       variant="contained"
-                      startIcon={photoUploading ? <CircularProgress size={14} sx={{ color: "#FFF" }} /> : <PhotoCameraOutlinedIcon sx={{ fontSize: "1.05rem" }} />}
+                      startIcon={photoUploading ? <CircularProgress size={14} sx={{ color: "#FFF" }} /> : <CropIcon sx={{ fontSize: "1.05rem" }} />}
                       disabled={photoUploading}
-                      sx={{ ...primaryButtonSx, minWidth: "120px" }}
+                      sx={{ ...primaryButtonSx, minWidth: "125px" }}
                     >
-                      Upload Photo
-                      <input type="file" hidden accept="image/jpeg,image/png,image/jpg,image/webp" onChange={handlePhotoChange} />
+                      {photoUploading ? "Uploading..." : "Upload Photo"}
+                      <input type="file" hidden accept="image/jpeg,image/png,image/jpg,image/webp" onChange={handlePhotoSelect} />
+                    </Button>
+
+                    <Button
+                      variant="outlined"
+                      startIcon={<VisibilityOutlinedIcon sx={{ fontSize: "1.05rem" }} />}
+                      onClick={() => setViewPhotoOpen(true)}
+                      disabled={!hasPhoto}
+                      sx={{
+                        ...outlinedButtonSx,
+                        minWidth: "115px",
+                        color: COLORS.primary,
+                        borderColor: COLORS.border,
+                        "&:hover": { borderColor: COLORS.primary, backgroundColor: COLORS.hover },
+                      }}
+                    >
+                      View Picture
                     </Button>
 
                     <Button
@@ -616,7 +702,7 @@ const handleUpdatePassword = async () => {
                       disabled={!hasPhoto || removingPhoto || photoUploading}
                       sx={{
                         ...outlinedButtonSx,
-                        minWidth: "100px",
+                        minWidth: "90px",
                         color: COLORS.danger,
                         borderColor: "#FCA5A5",
                         "&:hover": { borderColor: COLORS.danger, backgroundColor: "#FEF2F2" },
@@ -786,16 +872,7 @@ const handleUpdatePassword = async () => {
                 <Divider sx={{ mb: 1.5, borderColor: "#F1F5F9" }} />
 
                 <Grid container spacing={1.5}>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="Employee ID"
-                      value={formatEmpId(profileData?.id, profileData?.employee_code || profileData?.employee_id)}
-                      disabled
-                      size="small"
-                      sx={fieldSx(true)}
-                    />
-                  </Grid>
+
 
                   <Grid item xs={12} sm={6}>
                     <TextField
@@ -976,6 +1053,212 @@ const handleUpdatePassword = async () => {
             </Fade>
           </Grid>
         </Grid>
+
+        {/* CROP PICTURE DIALOG */}
+        <Dialog
+          open={cropDialogOpen}
+          onClose={() => !photoUploading && setCropDialogOpen(false)}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: "16px",
+              p: 1,
+              boxShadow: "0 20px 40px rgba(15, 23, 42, 0.2)",
+            },
+          }}
+        >
+          <DialogTitle sx={{ fontWeight: 800, fontSize: "1.05rem", color: COLORS.textPrimary, pb: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <CropIcon sx={{ color: COLORS.primary, fontSize: "1.2rem" }} />
+              Crop Profile Photo
+            </Box>
+            <IconButton size="small" onClick={() => setCropDialogOpen(false)} disabled={photoUploading}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </DialogTitle>
+
+          <DialogContent sx={{ pt: 1, pb: 2, display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <Typography variant="caption" sx={{ color: COLORS.textSecondary, mb: 2, textAlign: "center", display: "block" }}>
+              Drag to reposition or adjust zoom to fit nicely in the circular profile avatar.
+            </Typography>
+
+            {/* Circular Crop Frame with Dragging */}
+            <Box
+              onMouseDown={(e) => {
+                setIsDragging(true);
+                setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+              }}
+              onMouseMove={(e) => {
+                if (!isDragging) return;
+                setPanOffset({
+                  x: e.clientX - dragStart.x,
+                  y: e.clientY - dragStart.y,
+                });
+              }}
+              onMouseUp={() => setIsDragging(false)}
+              onMouseLeave={() => setIsDragging(false)}
+              sx={{
+                width: 260,
+                height: 260,
+                borderRadius: "50%",
+                overflow: "hidden",
+                position: "relative",
+                border: "4px solid #0F172A",
+                boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.65), 0 8px 24px rgba(0,0,0,0.3)",
+                cursor: isDragging ? "grabbing" : "grab",
+                backgroundColor: "#0F172A",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                userSelect: "none",
+              }}
+            >
+              {rawImageSrc && (
+                <Box
+                  component="img"
+                  src={rawImageSrc}
+                  alt="Crop preview"
+                  draggable={false}
+                  sx={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                    transition: isDragging ? "none" : "transform 0.1s ease",
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
+            </Box>
+
+            {/* Zoom Slider Controls */}
+            <Box sx={{ width: "100%", mt: 3, px: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.5 }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.textPrimary }}>
+                  Zoom Level
+                </Typography>
+                <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textSecondary }}>
+                  {Math.round(zoomLevel * 100)}%
+                </Typography>
+              </Box>
+
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <ZoomOutOutlinedIcon sx={{ color: "#94A3B8", fontSize: "1.2rem" }} />
+                <Slider
+                  value={zoomLevel}
+                  min={1}
+                  max={3}
+                  step={0.05}
+                  onChange={(e, val) => setZoomLevel(val)}
+                  sx={{
+                    color: COLORS.primary,
+                    "& .MuiSlider-thumb": { width: 16, height: 16 },
+                  }}
+                />
+                <ZoomInOutlinedIcon sx={{ color: "#94A3B8", fontSize: "1.2rem" }} />
+              </Box>
+            </Box>
+          </DialogContent>
+
+          <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+            <Button
+              onClick={() => setCropDialogOpen(false)}
+              disabled={photoUploading}
+              sx={{ ...outlinedButtonSx, height: 36 }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleApplyCropAndUpload}
+              disabled={photoUploading}
+              startIcon={photoUploading ? <CircularProgress size={14} sx={{ color: "#FFF" }} /> : <CropIcon sx={{ fontSize: "1rem" }} />}
+              sx={{ ...primaryButtonSx, height: 36, px: 3 }}
+            >
+              {photoUploading ? "Saving Photo..." : "Crop & Save"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* FULL PICTURE VIEWER DIALOG */}
+        <Dialog
+          open={viewPhotoOpen}
+          onClose={() => setViewPhotoOpen(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: "16px",
+              p: 1,
+              backgroundColor: "#0F172A",
+              color: "#FFFFFF",
+              boxShadow: "0 25px 50px rgba(0,0,0,0.5)",
+            },
+          }}
+        >
+          <DialogTitle sx={{ fontWeight: 700, fontSize: "1rem", pb: 1, color: "#FFFFFF", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <VisibilityOutlinedIcon sx={{ color: "#38BDF8", fontSize: "1.2rem" }} />
+              Profile Photo Preview
+            </Box>
+            <IconButton size="small" onClick={() => setViewPhotoOpen(false)} sx={{ color: "#94A3B8", "&:hover": { color: "#FFFFFF" } }}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </DialogTitle>
+
+          <DialogContent sx={{ p: 2, display: "flex", justifyContent: "center", alignItems: "center", minHeight: 320 }}>
+            {currentPhotoUrl ? (
+              <Box
+                component="img"
+                src={currentPhotoUrl}
+                alt={profileData?.full_name || "Profile Photo"}
+                sx={{
+                  maxWidth: "100%",
+                  maxHeight: "65vh",
+                  borderRadius: "12px",
+                  objectFit: "contain",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                }}
+              />
+            ) : (
+              <Avatar
+                sx={{
+                  width: 160,
+                  height: 160,
+                  fontSize: "3.5rem",
+                  fontWeight: 700,
+                  backgroundColor: "#1E293B",
+                  color: "#FFFFFF",
+                }}
+              >
+                {getInitials(profileData?.full_name)}
+              </Avatar>
+            )}
+          </DialogContent>
+
+          <DialogActions sx={{ px: 2, pb: 1.5, justifyContent: "space-between" }}>
+            <Typography variant="caption" sx={{ color: "#94A3B8" }}>
+              {profileData?.full_name} (@{profileData?.username})
+            </Typography>
+            <Button
+              onClick={() => setViewPhotoOpen(false)}
+              variant="outlined"
+              sx={{
+                borderRadius: "8px",
+                borderColor: "rgba(255,255,255,0.2)",
+                color: "#FFFFFF",
+                textTransform: "none",
+                fontWeight: 600,
+                fontSize: "0.825rem",
+                "&:hover": { borderColor: "#FFFFFF", backgroundColor: "rgba(255,255,255,0.05)" },
+              }}
+            >
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* TOAST SYSTEM */}
         <Snackbar

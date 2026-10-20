@@ -47,8 +47,8 @@ import * as profileService from "../../services/profileService";
 const { getProfile, updateProfile, changePassword, uploadProfilePhoto } = profileService;
 
 const API_BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
-  "http://localhost:5000";
+  import.meta.env.VITE_API_BASE_URL?.replace("/api", "") ||
+  "";
 
 const COLORS = {
   primary: "#005BAC",
@@ -139,11 +139,6 @@ const formatDate = (dateString) => {
   });
 };
 
-const formatEmpId = (id, code) => {
-  if (code) return code;
-  if (!id) return "EMP00001";
-  return `EMP${String(id).padStart(5, "0")}`;
-};
 
 const getInitials = (name) => {
   if (!name || typeof name !== "string") return "SE";
@@ -770,14 +765,7 @@ const SalesProfile = () => {
               <Divider sx={{ mb: 1.5, borderColor: "#F1F5F9" }} />
 
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
-                <TextField
-                  fullWidth
-                  label="Employee ID"
-                  value={formatEmpId(profileData?.id, profileData?.employee_code || profileData?.employee_id)}
-                  disabled
-                  size="small"
-                  sx={fieldSx(true)}
-                />
+
 
                 <TextField
                   fullWidth

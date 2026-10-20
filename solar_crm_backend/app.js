@@ -60,6 +60,8 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/leads", leadRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/custom-fields", require("./routes/customFieldRoutes"));
+app.use("/api/lead-config", require("./routes/leadConfigRoutes"));
+app.use("/api/roles", require("./routes/roleRoutes"));
 app.use("/api/notifications", notificationRoutes);
 
 // ── NEW: API Routes ──────────────────────────────────────────
@@ -84,6 +86,8 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/procurement", procurementRoutes);
 const customerRoutes = require("./routes/customerRoutes");
 app.use("/api/customers", customerRoutes);
+const aiRoutes = require("./routes/aiRoutes");
+app.use("/api/ai", aiRoutes);
 
 
 

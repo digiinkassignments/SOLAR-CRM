@@ -714,10 +714,27 @@ const Users = () => {
     return () => clearTimeout(handler);
   }, [search]);
 
+  const [availableRoles, setAvailableRoles] = useState([]);
+
   useEffect(() => {
     fetchManagersDropdown();
     fetchCompanySettingsData();
+    fetchRolesList();
   }, []);
+
+  const fetchRolesList = async () => {
+    try {
+      const res = await fetch("/api/roles", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setAvailableRoles(data.data);
+      }
+    } catch (e) {
+      console.error("Failed to load roles list in Users:", e);
+    }
+  };
 
   useEffect(() => {
     fetchUsersData();
@@ -2089,12 +2106,22 @@ const Users = () => {
                     IconComponent={KeyboardArrowDownRoundedIcon}
                     sx={controlSx}
                   >
-                    <MenuItem value={ROLE_SUPER_ADMIN} sx={{ fontSize: "0.8rem" }}>Super Admin</MenuItem>
-                    {can("has_manager_role") && (
-                      <MenuItem value={ROLE_MANAGER} sx={{ fontSize: "0.8rem" }}>Manager</MenuItem>
+                    {availableRoles.length > 0 ? (
+                      availableRoles.map((r) => (
+                        <MenuItem key={r.id} value={r.id} sx={{ fontSize: "0.8rem" }}>
+                          {r.role_name} {r.is_system ? "" : "(Custom)"}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <>
+                        <MenuItem value={ROLE_SUPER_ADMIN} sx={{ fontSize: "0.8rem" }}>Super Admin</MenuItem>
+                        {can("has_manager_role") && (
+                          <MenuItem value={ROLE_MANAGER} sx={{ fontSize: "0.8rem" }}>Manager</MenuItem>
+                        )}
+                        <MenuItem value={ROLE_SALES} sx={{ fontSize: "0.8rem" }}>Sales Representative</MenuItem>
+                        <MenuItem value={ROLE_SITE_ENGINEER} sx={{ fontSize: "0.8rem" }}>Site Engineer</MenuItem>
+                      </>
                     )}
-                    <MenuItem value={ROLE_SALES} sx={{ fontSize: "0.8rem" }}>Sales Representative</MenuItem>
-                    <MenuItem value={ROLE_SITE_ENGINEER} sx={{ fontSize: "0.8rem" }}>Site Engineer</MenuItem>
                   </Select>
                 </Grid>
 

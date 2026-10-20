@@ -24,7 +24,12 @@ const PrivateRoute = ({ allowedRoles = [] }) => {
 
   // 4. Role check
   const userRole = (user?.role_name || user?.role || "").toLowerCase().trim();
-  const isAllowed = allowedRoles.some((role) => {
+  const roleId = Number(user?.role_id) || 0;
+  const isCustomRole = roleId > 4 || user?.is_system === 0;
+
+  // Custom roles use AdminLayout (sidebar filters dynamically by permissions)
+  // so if allowedRoles includes "Admin" or "Super Admin", custom roles are allowed.
+  const isAllowed = isCustomRole || allowedRoles.some((role) => {
     const target = role.toLowerCase().trim();
     return userRole.includes(target) || target.includes(userRole);
   });
@@ -33,7 +38,7 @@ const PrivateRoute = ({ allowedRoles = [] }) => {
     if (userRole.includes("manager"))  return <Navigate to="/manager/dashboard" replace />;
     if (userRole.includes("sales"))    return <Navigate to="/sales/dashboard" replace />;
     if (userRole.includes("engineer")) return <Navigate to="/engineer/dashboard" replace />;
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   // 5. Plan feature check — URL se bhi lock

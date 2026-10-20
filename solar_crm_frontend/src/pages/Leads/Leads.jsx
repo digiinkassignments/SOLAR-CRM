@@ -85,6 +85,7 @@ import {
   PictureAsPdf as PictureAsPdfIcon,
   History as HistoryIcon,
   Send as SendIcon,
+  AutoAwesome as AutoAwesomeIcon,
 } from "@mui/icons-material";
 
 import { State, City } from "country-state-city";
@@ -108,8 +109,13 @@ import { getSettings } from "../../services/settingsService";
 import ImportLeadsDialog from "../../components/ImportLeadsDialog";
 import { useAuth } from "../../context/AuthContext";
 import WhatsAppDrawer from "../../components/WhatsAppDrawer";
+import AICopilotModal from "../../components/AICopilotModal";
 import ScheduleSurveyModal from "../../components/ScheduleSurveyModal";
 import { getSurveyByLead } from "../../services/surveyService";
+import {
+  getLeadSources,
+  getPipelineStatuses,
+} from "../../services/leadConfigService";
 import BulkDeleteBar from "../../components/BulkDeleteBar";
 
 /* ============================================================
@@ -685,6 +691,15 @@ export default function Leads() {
   const [whatsappDrawerOpen, setWhatsappDrawerOpen] = useState(false);
   const [whatsappLead, setWhatsappLead] = useState(null);
 
+  const [aiCopilotOpen, setAiCopilotOpen] = useState(false);
+  const [aiCopilotLead, setAiCopilotLead] = useState(null);
+
+  const openAICopilot = useCallback((lead) => {
+    setAiCopilotLead(lead);
+    setAiCopilotOpen(true);
+    setAnchorEl(null);
+  }, []);
+
   const [scheduleSurveyOpen, setScheduleSurveyOpen] = useState(false);
   const [surveyLead, setSurveyLead] = useState(null);
 
@@ -707,6 +722,11 @@ export default function Leads() {
 
   const [duplicateWarning, setDuplicateWarning] = useState(null);
   const [duplicateChecking, setDuplicateChecking] = useState(false);
+
+  // Dynamic Pipeline Stages & Lead Sources from Admin Settings
+  const [dynamicSources, setDynamicSources] = useState(LEAD_SOURCE_OPTIONS);
+  const [dynamicStatuses, setDynamicStatuses] = useState(STATUS_OPTIONS);
+  const [statusColorMap, setStatusColorMap] = useState({});
 
   // View Lead Modal Popup State (Centered Modal Popup)
   const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -914,6 +934,30 @@ export default function Leads() {
   useEffect(() => {
     fetchUsers();
     fetchCompanySettings();
+
+    // Fetch dynamic sources & pipeline statuses
+    const fetchLeadConfigs = async () => {
+      try {
+        const [srcRes, statusRes] = await Promise.all([
+          getLeadSources(false),
+          getPipelineStatuses(false),
+        ]);
+        if (srcRes?.success && srcRes.data?.length > 0) {
+          setDynamicSources(srcRes.data.map((s) => s.name));
+        }
+        if (statusRes?.success && statusRes.data?.length > 0) {
+          setDynamicStatuses(statusRes.data.map((s) => s.name));
+          const colorMap = {};
+          statusRes.data.forEach((s) => {
+            colorMap[s.name] = s.color_code;
+          });
+          setStatusColorMap(colorMap);
+        }
+      } catch (err) {
+        console.warn("Could not load dynamic lead config, using standard defaults:", err.message);
+      }
+    };
+    fetchLeadConfigs();
   }, [fetchUsers]);
 
   useEffect(() => {
@@ -1477,7 +1521,7 @@ export default function Leads() {
                 <FieldLabel>Pipeline Status</FieldLabel>
                 <Select fullWidth displayEmpty size="small" value={filters.status} onChange={(e) => handleFilterChange("status", e.target.value)} sx={controlSx}>
                   <MenuItem value="" sx={{ fontSize: "0.78rem" }}>All Statuses</MenuItem>
-                  {STATUS_OPTIONS.map((s) => (
+                  {dynamicStatuses.map((s) => (
                     <MenuItem key={s} value={s} sx={{ fontSize: "0.78rem" }}>{s}</MenuItem>
                   ))}
                 </Select>
@@ -1488,7 +1532,7 @@ export default function Leads() {
                 <FieldLabel>Lead Source</FieldLabel>
                 <Select fullWidth displayEmpty size="small" value={filters.lead_source} onChange={(e) => handleFilterChange("lead_source", e.target.value)} sx={controlSx}>
                   <MenuItem value="" sx={{ fontSize: "0.78rem" }}>All Sources</MenuItem>
-                  {LEAD_SOURCE_OPTIONS.map((s) => (
+                  {dynamicSources.map((s) => (
                     <MenuItem key={s} value={s} sx={{ fontSize: "0.78rem" }}>{s}</MenuItem>
                   ))}
                 </Select>
@@ -1705,6 +1749,31 @@ export default function Leads() {
                       >
                         <WhatsAppIcon sx={{ fontSize: 16 }} />
                       </IconButton>
+                    </Tooltip>
+
+                    <Tooltip title="AI Copilot & Deal Advisor">
+                      <Button
+                        size="small"
+                        startIcon={<AutoAwesomeIcon sx={{ fontSize: 13, color: "#FDE047" }} />}
+                        onClick={() => openAICopilot(row)}
+                        sx={{
+                          height: 28,
+                          borderRadius: "6px",
+                          background: "linear-gradient(135deg, #1E1B4B 0%, #4338CA 100%)",
+                          color: "#FFFFFF",
+                          fontSize: "0.7rem",
+                          fontWeight: 800,
+                          px: 1.2,
+                          textTransform: "none",
+                          boxShadow: "0 2px 6px rgba(67, 56, 202, 0.35)",
+                          "&:hover": {
+                            background: "linear-gradient(135deg, #312E81 0%, #4F46E5 100%)",
+                            boxShadow: "0 4px 12px rgba(67, 56, 202, 0.45)",
+                          },
+                        }}
+                      >
+                        AI Copilot
+                      </Button>
                     </Tooltip>
 
                     <IconButton
@@ -2095,9 +2164,27 @@ export default function Leads() {
                         <QuickRemarkInput lead={row} onSave={handleQuickRemarkSubmit} />
                       </TableCell>
                       <TableCell align="right">
-                        <IconButton size="small" onClick={(e) => handleMenuOpen(e, row)} sx={iconSquareBtnSx}>
-                          <MoreVertIcon sx={{ fontSize: 16 }} />
-                        </IconButton>
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center">
+                          <Tooltip title="AI Copilot & Deal Insights">
+                            <IconButton
+                              size="small"
+                              onClick={() => openAICopilot(row)}
+                              sx={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: "6px",
+                                bgcolor: "#EEF2FF",
+                                color: "#4F46E5",
+                                "&:hover": { bgcolor: "#4F46E5", color: "#FFFFFF" },
+                              }}
+                            >
+                              <AutoAwesomeIcon sx={{ fontSize: 15 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <IconButton size="small" onClick={(e) => handleMenuOpen(e, row)} sx={iconSquareBtnSx}>
+                            <MoreVertIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                     );
@@ -2205,6 +2292,11 @@ export default function Leads() {
                       <IconButton size="small" onClick={() => openWhatsAppDrawer(row)} sx={{ color: "#16A34A", bgcolor: "#DCFCE7" }}>
                         <WhatsAppIcon sx={{ fontSize: 15 }} />
                       </IconButton>
+                      <Tooltip title="AI Copilot Insights">
+                        <IconButton size="small" onClick={() => openAICopilot(row)} sx={{ color: "#4F46E5", bgcolor: "#EEF2FF" }}>
+                          <AutoAwesomeIcon sx={{ fontSize: 15 }} />
+                        </IconButton>
+                      </Tooltip>
                     </Stack>
 
                     <IconButton size="small" onClick={(e) => handleMenuOpen(e, row)} sx={iconSquareBtnSx}>
@@ -2256,6 +2348,22 @@ export default function Leads() {
           },
         }}
       >
+        <MenuItem
+          onClick={() => {
+            const target = activeLead;
+            handleMenuClose();
+            openAICopilot(target);
+          }}
+          sx={{
+            fontSize: "0.8rem",
+            py: 0.9,
+            fontWeight: 700,
+            background: "linear-gradient(90deg, rgba(67, 56, 202, 0.08) 0%, rgba(99, 102, 241, 0.02) 100%)",
+            color: "#4338CA",
+          }}
+        >
+          <AutoAwesomeIcon sx={{ fontSize: 16, mr: 1.2, color: "#6366F1" }} /> AI Lead Copilot &amp; Script
+        </MenuItem>
         <MenuItem
           onClick={() => {
             const target = activeLead;
@@ -2576,6 +2684,23 @@ export default function Leads() {
                 <IconButton size="small" onClick={() => openWhatsAppDrawer(viewLead)} sx={{ color: "#16A34A", bgcolor: "#DCFCE7" }}>
                   <WhatsAppIcon sx={{ fontSize: 16 }} />
                 </IconButton>
+                <Button
+                  size="small"
+                  variant="contained"
+                  startIcon={<AutoAwesomeIcon sx={{ fontSize: 14, color: "#FDE047" }} />}
+                  onClick={() => openAICopilot(viewLead)}
+                  sx={{
+                    background: "linear-gradient(135deg, #1E1B4B 0%, #4338CA 100%)",
+                    color: "#FFFFFF",
+                    fontWeight: 700,
+                    fontSize: "0.74rem",
+                    textTransform: "none",
+                    borderRadius: "6px",
+                    px: 1.5,
+                  }}
+                >
+                  AI Copilot Insights
+                </Button>
               </>
             )}
           </Stack>
@@ -2770,7 +2895,7 @@ export default function Leads() {
               <Grid item xs={12} sm={4}>
                 <FieldLabel>Lead Source</FieldLabel>
                 <Select fullWidth size="small" value={formData.lead_source} onChange={(e) => handleFormFieldChange("lead_source", e.target.value)} sx={controlSx}>
-                  {LEAD_SOURCE_OPTIONS.map((s) => (
+                  {dynamicSources.map((s) => (
                     <MenuItem key={s} value={s} sx={{ fontSize: "0.78rem" }}>{s}</MenuItem>
                   ))}
                 </Select>
@@ -2798,10 +2923,26 @@ export default function Leads() {
               <Grid item xs={12} sm={6}>
                 <FieldLabel>Pipeline Status</FieldLabel>
                 <Select fullWidth size="small" value={formData.status} onChange={(e) => handleFormFieldChange("status", e.target.value)} sx={controlSx}>
-                  {STATUS_OPTIONS.map((s) => (
+                  {dynamicStatuses.map((s) => (
                     <MenuItem key={s} value={s} sx={{ fontSize: "0.78rem" }}>{s}</MenuItem>
                   ))}
                 </Select>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <FieldLabel>Deal / Quotation Amount (₹)</FieldLabel>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  placeholder="e.g. 250000"
+                  value={formData.quotation_amount || ""}
+                  onChange={(e) => handleFormFieldChange("quotation_amount", e.target.value)}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                  }}
+                  sx={controlSx}
+                />
               </Grid>
 
               <Grid item xs={12}>
@@ -3182,6 +3323,9 @@ export default function Leads() {
       )}
       {whatsappLead && (
         <WhatsAppDrawer open={whatsappDrawerOpen} onClose={() => setWhatsappDrawerOpen(false)} lead={whatsappLead} />
+      )}
+      {aiCopilotLead && (
+        <AICopilotModal open={aiCopilotOpen} onClose={() => setAiCopilotOpen(false)} lead={aiCopilotLead} />
       )}
       <ImportLeadsDialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)} onImportSuccess={fetchLeadsList} showSnackbar={showSnackbar} />
 

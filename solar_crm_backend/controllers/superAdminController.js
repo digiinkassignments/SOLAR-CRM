@@ -113,7 +113,7 @@ const getDashboard = async (req, res) => {
       `SELECT p.name AS plan_name, COUNT(c.id) AS total
        FROM plans p
        LEFT JOIN clients c ON p.id = c.plan_id AND c.status != 'Deleted'
-       GROUP BY p.id, p.name
+       GROUP BY p.id, p.name, p.price_monthly
        ORDER BY p.price_monthly ASC`
     );
 
@@ -159,7 +159,7 @@ const getAllClients = async (req, res) => {
 
     const [clients] = await masterDb.query(
       `SELECT c.*, p.name AS plan_name, p.price_monthly
-       FROM clients c JOIN plans p ON c.plan_id = p.id
+       FROM clients c LEFT JOIN plans p ON c.plan_id = p.id
        ${where}
        ORDER BY c.created_at DESC`,
       params
@@ -481,10 +481,10 @@ const getPaymentRequests = async (req, res) => {
               c.email, c.subdomain, c.status AS client_status,
               p.name AS plan_name
        FROM payment_requests pr
-       JOIN clients c ON pr.client_id = c.id
-       JOIN plans p   ON pr.plan_id   = p.id
+       LEFT JOIN clients c ON pr.client_id = c.id
+       LEFT JOIN plans p   ON pr.plan_id   = p.id
        WHERE pr.status = ?
-       ORDER BY pr.requested_at ASC`,
+       ORDER BY pr.requested_at DESC`,
       [status]
     );
     return res.status(200).json({ success: true, data: rows });
@@ -746,6 +746,14 @@ const resetClientAdminPassword = async (req, res) => {
         generatedAt: new Date().toISOString(),
       },
     });
+  } catch (err) {
+    console.error("resetClientAdminPassword error:", err.message);
+    return res.status(500).json({ 
+      success: false, 
+      message: err.message || "Failed to reset client admin password." 
+    });
+  }
+};
 
 // ============================================================
 // CLIENTS — Impersonate Client (Login As Tenant Admin)

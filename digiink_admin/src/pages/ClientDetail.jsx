@@ -354,19 +354,30 @@ const ClientDetail = () => {
           </Stack>
 
           {/* Right: Actions */}
-          <Stack direction="row" spacing={1.5} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={1.2}
+            alignItems="center"
+            flexWrap="wrap"
+            sx={{
+              gap: 1.2,
+              justifyContent: { xs: "flex-start", sm: "flex-end" },
+              width: { xs: "100%", md: "auto" },
+            }}
+          >
             <Button
               variant="contained"
               disableElevation
-              startIcon={<RefreshRoundedIcon sx={{ fontSize: 18 }} />}
+              size="medium"
+              startIcon={<RefreshRoundedIcon sx={{ fontSize: 17 }} />}
               onClick={() => setRenewOpen(true)}
               sx={{
                 borderRadius: "100px",
                 textTransform: "none",
                 fontWeight: 700,
-                px: 2.5,
-                py: 1,
-                fontSize: "0.85rem",
+                px: 2.2,
+                py: 0.8,
+                fontSize: "0.82rem",
                 backgroundColor: GOOGLE_COLORS.green,
                 color: "#FFFFFF",
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -379,7 +390,8 @@ const ClientDetail = () => {
             <Button
               variant="contained"
               disableElevation
-              startIcon={<OpenInNewRoundedIcon sx={{ fontSize: 16 }} />}
+              size="medium"
+              startIcon={<OpenInNewRoundedIcon sx={{ fontSize: 15 }} />}
               onClick={async () => {
                 try {
                   const res = await api.post(`/clients/${id}/impersonate`);
@@ -395,8 +407,8 @@ const ClientDetail = () => {
                 textTransform: "none",
                 fontWeight: 700,
                 px: 2.2,
-                py: 1,
-                fontSize: "0.85rem",
+                py: 0.8,
+                fontSize: "0.82rem",
                 backgroundColor: "#0F172A",
                 color: "#FFFFFF",
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -408,7 +420,8 @@ const ClientDetail = () => {
 
             <Button
               variant="outlined"
-              startIcon={<KeyRoundedIcon sx={{ fontSize: 18 }} />}
+              size="medium"
+              startIcon={<KeyRoundedIcon sx={{ fontSize: 16 }} />}
               onClick={() => {
                 setResetResult(null);
                 setResetModalOpen(true);
@@ -417,9 +430,9 @@ const ClientDetail = () => {
                 borderRadius: "100px",
                 textTransform: "none",
                 fontWeight: 700,
-                px: 2.2,
-                py: 1,
-                fontSize: "0.85rem",
+                px: 2,
+                py: 0.8,
+                fontSize: "0.82rem",
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 color: GOOGLE_COLORS.blueDark,
                 borderColor: "#C2E7FF",
@@ -435,21 +448,23 @@ const ClientDetail = () => {
 
             <Button
               variant="outlined"
-              startIcon={client?.status === "Locked" ? <LockOpenRoundedIcon sx={{ fontSize: 18 }} /> : <LockOutlinedIcon sx={{ fontSize: 18 }} />}
+              size="medium"
+              startIcon={client?.status === "Locked" ? <LockOpenRoundedIcon sx={{ fontSize: 16 }} /> : <LockOutlinedIcon sx={{ fontSize: 16 }} />}
               onClick={handleStatusToggle}
               sx={{
                 borderRadius: "100px",
                 textTransform: "none",
                 fontWeight: 700,
-                px: 2.2,
-                py: 1,
-                fontSize: "0.85rem",
+                px: 2,
+                py: 0.8,
+                fontSize: "0.82rem",
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 color: client?.status === "Locked" ? GOOGLE_COLORS.green : GOOGLE_COLORS.red,
-                borderColor: client?.status === "Locked" ? GOOGLE_COLORS.green : GOOGLE_COLORS.red,
+                borderColor: client?.status === "Locked" ? "#CEEAD6" : "#FAD2CF",
+                backgroundColor: client?.status === "Locked" ? GOOGLE_COLORS.greenSoft : GOOGLE_COLORS.redSoft,
                 "&:hover": {
                   borderColor: client?.status === "Locked" ? GOOGLE_COLORS.green : GOOGLE_COLORS.red,
-                  backgroundColor: client?.status === "Locked" ? GOOGLE_COLORS.greenSoft : GOOGLE_COLORS.redSoft,
+                  backgroundColor: client?.status === "Locked" ? "#CEEAD6" : "#FAD2CF",
                 },
               }}
             >
@@ -633,12 +648,12 @@ const ClientDetail = () => {
                 value={
                   <Box
                     component="a"
-                    href={`https://${client?.subdomain}.solarcrm.com`}
+                    href={`https://${client?.subdomain}.digiinksolutions.com`}
                     target="_blank"
                     rel="noreferrer"
                     sx={{ color: GOOGLE_COLORS.blue, fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 0.5, "&:hover": { textDecoration: "underline" } }}
                   >
-                    https://{client?.subdomain}.solarcrm.com
+                    https://{client?.subdomain}.digiinksolutions.com
                   </Box>
                 }
               />

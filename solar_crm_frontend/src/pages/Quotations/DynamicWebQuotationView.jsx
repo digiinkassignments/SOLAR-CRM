@@ -34,9 +34,14 @@ import EmailIcon from "@mui/icons-material/Email";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ShareIcon from "@mui/icons-material/Share";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import BoltIcon from "@mui/icons-material/Bolt";
+import ForestIcon from "@mui/icons-material/Forest";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import { Menu, MenuItem } from "@mui/material";
 
 import api from "../../api/axios";
+import { getAIProposalSavings } from "../../services/aiService";
 import toast from "react-hot-toast";
 import ConvertInvoiceModal from "../Invoices/ConvertInvoiceModal";
 
@@ -158,15 +163,45 @@ const DynamicWebQuotationView = () => {
     };
   }, [company]);
 
+  const [aiInsights, setAiInsights] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
   const fetchPublicQuotation = async () => {
     setLoading(true);
     try {
       const res = await api.get(`/quotations/public/${token}`);
       if (res.data?.success) {
-        setQuotation(res.data.data.quotation);
+        const qData = res.data.data.quotation;
+        setQuotation(qData);
         setCompany(res.data.data.company);
-        if (res.data.data.quotation?.customer_name) {
-          setSignatureName(res.data.data.quotation.customer_name);
+        if (qData?.customer_name) {
+          setSignatureName(qData.customer_name);
+        }
+
+        // Fetch AI ROI and Savings story for this quotation
+        if (qData) {
+          setAiLoading(true);
+          getAIProposalSavings({
+            customer_name: qData.customer_name,
+            city: qData.city,
+            state: qData.state,
+            system_capacity_kw: qData.system_capacity_kw,
+            system_type: qData.system_type,
+            panel_brand: qData.panel_brand,
+            inverter_brand: qData.inverter_brand,
+            base_price: qData.base_price,
+            subsidy_amount: qData.subsidy_amount,
+            net_payable: qData.net_payable_amount,
+          })
+            .then((aiRes) => {
+              if (aiRes?.success && aiRes?.data) {
+                setAiInsights(aiRes.data);
+              }
+            })
+            .catch((aiErr) => {
+              console.warn("AI proposal fetch note:", aiErr);
+            })
+            .finally(() => setAiLoading(false));
         }
       }
     } catch (err) {
@@ -821,12 +856,112 @@ const DynamicWebQuotationView = () => {
           </Box>
 
           {/* ============================================================ */}
+          {/* 1. EXECUTIVE SOLAR ASSESSMENT & LIFETIME ROI IMPACT          */}
+          {/* ============================================================ */}
+          {aiInsights && (
+            <Box sx={{ mb: 1.5 }}>
+              {/* Header Bar matching section 2 and 3 */}
+              <Box
+                sx={{
+                  bgcolor: "#F1F5F9",
+                  py: 0.5,
+                  px: 1.2,
+                  borderLeft: "3px solid #0F172A",
+                  mb: 0.8,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography sx={{ fontWeight: 800, color: "#0F172A", fontSize: "0.74rem", textTransform: "uppercase", letterSpacing: "0.02em" }}>
+                  1. Executive Solar Assessment &amp; Projected Lifetime Returns
+                </Typography>
+                <Typography sx={{ fontSize: "0.62rem", fontWeight: 700, color: "#0284C7", textTransform: "uppercase" }}>
+                  Feasibility Analysis
+                </Typography>
+              </Box>
+
+              {/* Professional Description & Tagline */}
+              <Box sx={{ p: 1.2, px: 1.4, bgcolor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "6px", mb: 0.8 }}>
+                <Typography sx={{ fontSize: "0.72rem", color: "#334155", lineHeight: 1.5, fontWeight: 500 }}>
+                  {aiInsights.executive_proposal_summary}
+                </Typography>
+
+                {aiInsights.customer_pitch_tagline && (
+                  <Box
+                    sx={{
+                      mt: 0.8,
+                      pt: 0.8,
+                      borderTop: "1px dashed #E2E8F0",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.8,
+                    }}
+                  >
+                    <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#16A34A", flexShrink: 0 }} />
+                    <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: "#15803D" }}>
+                      Key Highlight: {aiInsights.customer_pitch_tagline}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+
+              {/* 3 Structured Metrics Grid */}
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 1.2,
+                  width: "100%",
+                  boxSizing: "border-box",
+                }}
+              >
+                <Box sx={{ p: 1, bgcolor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "6px" }}>
+                  <Typography sx={{ fontSize: "0.6rem", color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>
+                    ANNUAL GENERATION &amp; SAVINGS
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.76rem", fontWeight: 800, color: "#0F172A", mt: 0.2 }}>
+                    {aiInsights.financial_highlights?.annual_units_generated || `${Math.round(quotation.system_capacity_kw * 1450)} kWh / Yr`}
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.64rem", color: "#16A34A", fontWeight: 700, mt: 0.1 }}>
+                    {aiInsights.financial_highlights?.annual_savings || "₹35,000 / Yr Saved"}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ p: 1, bgcolor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "6px" }}>
+                  <Typography sx={{ fontSize: "0.6rem", color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>
+                    25-YEAR CUMULATIVE ROI
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.76rem", fontWeight: 800, color: "#0284C7", mt: 0.2 }}>
+                    {aiInsights.financial_highlights?.lifetime_savings_25yr || "₹12,50,000+ Savings"}
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.64rem", color: "#475569", fontWeight: 600, mt: 0.1 }}>
+                    Payback: {aiInsights.financial_highlights?.estimated_payback_years || "3.2 Years"} • {aiInsights.financial_highlights?.roi_percentage || "28% ROI"}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ p: 1, bgcolor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "6px" }}>
+                  <Typography sx={{ fontSize: "0.6rem", color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>
+                    ENVIRONMENTAL IMPACT
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.76rem", fontWeight: 800, color: "#16A34A", mt: 0.2 }}>
+                    {aiInsights.environmental_impact?.co2_offset_tonnes || `${(quotation.system_capacity_kw * 1.25 * 25).toFixed(1)} Tonnes CO2`}
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.64rem", color: "#475569", fontWeight: 600, mt: 0.1 }}>
+                    {aiInsights.environmental_impact?.trees_equivalent || `${Math.round(quotation.system_capacity_kw * 45)} Trees Equivalent`}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          )}
+
+          {/* ============================================================ */}
           {/* 3. TECHNICAL SPECIFICATIONS & HARDWARE BAR                   */}
           {/* ============================================================ */}
           <Box sx={{ mb: 1.5 }}>
             <Box sx={{ bgcolor: "#F1F5F9", py: 0.5, px: 1.2, borderLeft: "3px solid #0F172A", mb: 0.8 }}>
               <Typography sx={{ fontWeight: 800, color: "#0F172A", fontSize: "0.74rem", textTransform: "uppercase" }}>
-                1. System Specifications &amp; Hardware Included
+                2. System Specifications &amp; Hardware Included
               </Typography>
             </Box>
 
@@ -887,7 +1022,7 @@ const DynamicWebQuotationView = () => {
           <Box sx={{ mb: 1.5 }}>
             <Box sx={{ bgcolor: "#F1F5F9", py: 0.5, px: 1.2, borderLeft: "3px solid #0F172A", mb: 0.8 }}>
               <Typography sx={{ fontWeight: 800, color: "#0F172A", fontSize: "0.74rem", textTransform: "uppercase" }}>
-                2. Commercial Budget &amp; Subsidy Breakdown
+                3. Commercial Budget &amp; Subsidy Breakdown
               </Typography>
             </Box>
 

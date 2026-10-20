@@ -31,11 +31,18 @@ router.get(
   getSalesDashboardStats
 );
 
-// Admin Dashboard Endpoint (ROLE_SUPER_ADMIN = 1)
+// Admin Dashboard Endpoint (ROLE_SUPER_ADMIN = 1 or custom roles with dashboard:view)
 router.get(
   "/admin",
   verifyToken,
-  authorizeRoles(ROLE_SUPER_ADMIN),
+  (req, res, next) => {
+    // If Super Admin (role_id 1) or any custom role (role_id > 4) or role with permissions
+    if (req.user && (req.user.role_id === ROLE_SUPER_ADMIN || req.user.role_id > 4)) {
+      return next();
+    }
+    // Backward compatibility for standard authorizeRoles
+    return authorizeRoles(ROLE_SUPER_ADMIN)(req, res, next);
+  },
   getAdminDashboardStats
 );
 

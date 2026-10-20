@@ -146,9 +146,33 @@ const createUserController = async (req, res) => {
             created_by: req.user?.id || null
         }, db);
 
+        // Dispatch welcome email with credentials
+        try {
+            const [roleRows] = await db.query("SELECT role_name FROM roles WHERE id = ? LIMIT 1", [Number(role_id)]);
+            const [settingRows] = await db.query("SELECT company_name FROM settings LIMIT 1");
+            const roleName = roleRows[0]?.role_name || "Team Member";
+            const companyName = settingRows[0]?.company_name || "Solar CRM";
+            const host = req.headers.host || "";
+            const protocol = req.secure || req.headers["x-forwarded-proto"] === "https" ? "https" : "http";
+            const loginUrl = host ? (protocol + "://" + host + "/login") : undefined;
+
+            const { sendUserWelcomeCredentialsEmail } = require("../services/userEmailService");
+            sendUserWelcomeCredentialsEmail({
+                toEmail: email,
+                fullName: full_name,
+                username,
+                password,
+                roleName,
+                loginUrl,
+                companyName
+            }).catch(e => console.error("Async welcome email error:", e.message));
+        } catch (emailErr) {
+            console.warn("Could not dispatch welcome email:", emailErr.message);
+        }
+
         return res.status(201).json({
             success: true,
-            message: "User created successfully."
+            message: "User created successfully. Credentials email sent to user."
         });
 
     } catch (error) {

@@ -6,6 +6,8 @@ import Navbar from "../components/Admin/Navbar";
 import SubscriptionBanner from "../components/SubscriptionBanner";
 import OnboardingTour from "../components/OnboardingTour";
 
+import ImpersonationBanner from "../components/ImpersonationBanner";
+
 const EXPANDED_SIDEBAR_WIDTH = 260;
 const COLLAPSED_SIDEBAR_WIDTH = 76;
 const NAVBAR_HEIGHT = 64;
@@ -59,6 +61,7 @@ const AdminLayout = () => {
         }}
       >
         <Toolbar sx={{ minHeight: `${NAVBAR_HEIGHT}px !important` }} />
+        <ImpersonationBanner />
         <SubscriptionBanner />
         <Box
           sx={{

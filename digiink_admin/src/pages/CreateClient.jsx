@@ -6,7 +6,6 @@ import {
   Typography,
   TextField,
   Button,
-  Grid,
   MenuItem,
   Select,
   FormControl,
@@ -110,9 +109,9 @@ const CreateClient = () => {
       const res = await api.post("/clients", form);
       const data = res.data?.data;
       setSuccess(
-        `Client provisioned successfully! Subdomain: ${data.subdomain}.solarcrm.com | Temp Password: ${data.tempPassword}`
+        `Client provisioned successfully! Subdomain: ${data.subdomain}.digiinksolutions.com | Temp Password: ${data.tempPassword}`
       );
-      setTimeout(() => navigate("/clients"), 3500);
+      setTimeout(() => navigate("/clients"), 4000);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to provision tenant client.");
     } finally {
@@ -197,339 +196,345 @@ const CreateClient = () => {
         </Alert>
       )}
 
-      <Grid container spacing={3}>
+      {/* Main Responsive Layout: Form on Left, Sticky Resource Card on Right */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", lg: "1.85fr 1fr" },
+          gap: 3,
+          alignItems: "start",
+          width: "100%",
+        }}
+      >
         {/* Provision Form */}
-        <Grid item xs={12} lg={8}>
-          <Paper
-            elevation={0}
-            sx={{
-              borderRadius: "20px",
-              border: `1px solid ${GOOGLE_COLORS.border}`,
-              p: { xs: 2.8, sm: 3.5 },
-              backgroundColor: GOOGLE_COLORS.card,
-            }}
-            component="form"
-            onSubmit={handleSubmit}
-          >
-            {/* Section 1: Business Info */}
-            <Stack direction="row" alignItems="center" spacing={1.2} mb={2}>
-              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.blue }} />
-              <BusinessRoundedIcon sx={{ color: GOOGLE_COLORS.blue, fontSize: 22 }} />
-              <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
-                Tenant Organization Details
-              </Typography>
-            </Stack>
-            <Divider sx={{ mb: 2.8, borderColor: GOOGLE_COLORS.border }} />
-
-            <Grid container spacing={2.5}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Business Name *"
-                  name="business_name"
-                  placeholder="e.g. Smart Sun Power Ltd."
-                  value={form.business_name}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Owner / Contact Person *"
-                  name="owner_name"
-                  placeholder="e.g. Rajesh Sharma"
-                  value={form.owner_name}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Email Address *"
-                  name="email"
-                  type="email"
-                  placeholder="admin@business.com"
-                  value={form.email}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Phone Number *"
-                  name="phone"
-                  placeholder="10-digit mobile number"
-                  value={form.phone}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="City"
-                  name="city"
-                  placeholder="e.g. Jaipur"
-                  value={form.city}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="State"
-                  name="state"
-                  placeholder="e.g. Rajasthan"
-                  value={form.state}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-            </Grid>
-
-            {/* Section 2: Subscription & Subdomain */}
-            <Stack direction="row" alignItems="center" spacing={1.2} mt={4} mb={2}>
-              <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.green }} />
-              <CardMembershipRoundedIcon sx={{ color: GOOGLE_COLORS.green, fontSize: 22 }} />
-              <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
-                Subscription Tier & Subdomain Route
-              </Typography>
-            </Stack>
-            <Divider sx={{ mb: 2.8, borderColor: GOOGLE_COLORS.border }} />
-
-            <Grid container spacing={2.5}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Tenant Subdomain *"
-                  name="subdomain"
-                  value={form.subdomain}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  helperText={
-                    form.subdomain
-                      ? `Tenant Route: https://${form.subdomain}.solarcrm.com`
-                      : "Auto-generated slug based on business name"
-                  }
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel sx={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Select Subscription Plan *</InputLabel>
-                  <Select
-                    name="plan_id"
-                    value={form.plan_id}
-                    label="Select Subscription Plan *"
-                    onChange={handleChange}
-                    sx={{
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    }}
-                  >
-                    {plans.map((p) => (
-                      <MenuItem key={p.id} value={p.id}>
-                        {p.name} — ₹{Number(p.price_monthly).toLocaleString("en-IN")}/month
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel sx={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Initial Duration</InputLabel>
-                  <Select
-                    name="duration_months"
-                    value={form.duration_months}
-                    label="Initial Duration"
-                    onChange={handleChange}
-                    sx={{
-                      borderRadius: "12px",
-                      backgroundColor: GOOGLE_COLORS.bg,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    }}
-                  >
-                    <MenuItem value={0.25}>7 Days (Trial)</MenuItem>
-                    <MenuItem value={1}>1 Month</MenuItem>
-                    <MenuItem value={3}>3 Months</MenuItem>
-                    <MenuItem value={6}>6 Months</MenuItem>
-                    <MenuItem value={12}>12 Months (1 Year)</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-
-            {/* Actions */}
-            <Box sx={{ mt: 4, display: "flex", gap: 2 }}>
-              <Button
-                type="submit"
-                variant="contained"
-                disableElevation
-                disabled={loading}
-                startIcon={<AddBusinessRoundedIcon />}
-                sx={{
-                  borderRadius: "100px",
-                  textTransform: "none",
-                  fontWeight: 600,
-                  px: 3.5,
-                  py: 1.2,
-                  backgroundColor: GOOGLE_COLORS.blue,
-                  color: "#FFFFFF",
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  "&:hover": { backgroundColor: GOOGLE_COLORS.blueDark },
-                }}
-              >
-                {loading ? <CircularProgress size={20} color="inherit" /> : "Provision & Deploy Instance"}
-              </Button>
-
-              <Button
-                onClick={() => navigate("/clients")}
-                sx={{
-                  borderRadius: "100px",
-                  textTransform: "none",
-                  fontWeight: 600,
-                  color: GOOGLE_COLORS.textSecondary,
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                }}
-              >
-                Cancel
-              </Button>
-            </Box>
-          </Paper>
-        </Grid>
-
-        {/* Plan Summary Card */}
-        <Grid item xs={12} lg={4}>
-          <Paper
-            elevation={0}
-            sx={{
-              borderRadius: "20px",
-              border: `1px solid ${GOOGLE_COLORS.border}`,
-              p: 3,
-              backgroundColor: GOOGLE_COLORS.card,
-              position: "sticky",
-              top: 90,
-            }}
-          >
-            <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem", mb: 2 }}>
-              Resource Plan Summary
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: "20px",
+            border: `1px solid ${GOOGLE_COLORS.border}`,
+            p: { xs: 2.5, sm: 3.5 },
+            backgroundColor: GOOGLE_COLORS.card,
+          }}
+          component="form"
+          onSubmit={handleSubmit}
+        >
+          {/* Section 1: Business Info */}
+          <Stack direction="row" alignItems="center" spacing={1.2} mb={2}>
+            <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.blue }} />
+            <BusinessRoundedIcon sx={{ color: GOOGLE_COLORS.blue, fontSize: 22 }} />
+            <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
+              Tenant Organization Details
             </Typography>
-            <Divider sx={{ mb: 2.5, borderColor: GOOGLE_COLORS.border }} />
+          </Stack>
+          <Divider sx={{ mb: 2.8, borderColor: GOOGLE_COLORS.border }} />
 
-            {selectedPlan ? (
-              <Box>
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
-                  <Box>
-                    <Typography variant="h6" fontWeight={700} color={GOOGLE_COLORS.blue}>
-                      {selectedPlan.name} Tier
-                    </Typography>
-                    <Typography variant="caption" color={GOOGLE_COLORS.textSecondary}>
-                      ₹{Number(selectedPlan.price_monthly).toLocaleString("en-IN")}/month
-                    </Typography>
-                  </Box>
-                  <Chip
-                    label={`${form.duration_months} mo`}
-                    size="small"
-                    sx={{ fontWeight: 700, bgcolor: GOOGLE_COLORS.blueSoft, color: GOOGLE_COLORS.blue, borderRadius: "100px" }}
-                  />
-                </Box>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+              gap: 2.5,
+            }}
+          >
+            <TextField
+              label="Business Name *"
+              name="business_name"
+              placeholder="e.g. Smart Sun Power Ltd."
+              value={form.business_name}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              InputProps={{
+                sx: {
+                  borderRadius: "12px",
+                  backgroundColor: GOOGLE_COLORS.bg,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                },
+              }}
+            />
 
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 2,
-                    mb: 2.5,
-                    borderRadius: "14px",
-                    bgcolor: GOOGLE_COLORS.bg,
-                    border: `1px solid ${GOOGLE_COLORS.border}`,
-                  }}
-                >
-                  <Typography variant="caption" color={GOOGLE_COLORS.textSecondary} fontWeight={600}>Estimated Initial Invoice</Typography>
-                  <Typography variant="h5" fontWeight={700} color={GOOGLE_COLORS.textPrimary}>
-                    ₹{estimatedCost.toLocaleString("en-IN")}
+            <TextField
+              label="Owner / Contact Person *"
+              name="owner_name"
+              placeholder="e.g. Rajesh Sharma"
+              value={form.owner_name}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              InputProps={{
+                sx: {
+                  borderRadius: "12px",
+                  backgroundColor: GOOGLE_COLORS.bg,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                },
+              }}
+            />
+
+            <TextField
+              label="Email Address *"
+              name="email"
+              type="email"
+              placeholder="admin@business.com"
+              value={form.email}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              InputProps={{
+                sx: {
+                  borderRadius: "12px",
+                  backgroundColor: GOOGLE_COLORS.bg,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                },
+              }}
+            />
+
+            <TextField
+              label="Phone Number *"
+              name="phone"
+              placeholder="10-digit mobile number"
+              value={form.phone}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              InputProps={{
+                sx: {
+                  borderRadius: "12px",
+                  backgroundColor: GOOGLE_COLORS.bg,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                },
+              }}
+            />
+
+            <TextField
+              label="City"
+              name="city"
+              placeholder="e.g. Jaipur"
+              value={form.city}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              InputProps={{
+                sx: {
+                  borderRadius: "12px",
+                  backgroundColor: GOOGLE_COLORS.bg,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                },
+              }}
+            />
+
+            <TextField
+              label="State"
+              name="state"
+              placeholder="e.g. Rajasthan"
+              value={form.state}
+              onChange={handleChange}
+              fullWidth
+              size="small"
+              InputProps={{
+                sx: {
+                  borderRadius: "12px",
+                  backgroundColor: GOOGLE_COLORS.bg,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                },
+              }}
+            />
+          </Box>
+
+          {/* Section 2: Subscription & Subdomain */}
+          <Stack direction="row" alignItems="center" spacing={1.2} mt={4} mb={2}>
+            <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: GOOGLE_COLORS.green }} />
+            <CardMembershipRoundedIcon sx={{ color: GOOGLE_COLORS.green, fontSize: 22 }} />
+            <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem" }}>
+              Subscription Tier & Subdomain Route
+            </Typography>
+          </Stack>
+          <Divider sx={{ mb: 2.8, borderColor: GOOGLE_COLORS.border }} />
+
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+              gap: 2.5,
+            }}
+          >
+            <Box sx={{ gridColumn: { xs: "1", sm: "span 2" } }}>
+              <TextField
+                label="Tenant Subdomain *"
+                name="subdomain"
+                value={form.subdomain}
+                onChange={handleChange}
+                fullWidth
+                size="small"
+                helperText={
+                  form.subdomain
+                    ? `Tenant Route: https://${form.subdomain}.digiinksolutions.com`
+                    : "Auto-generated slug based on business name"
+                }
+                InputProps={{
+                  sx: {
+                    borderRadius: "12px",
+                    backgroundColor: GOOGLE_COLORS.bg,
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  },
+                }}
+              />
+            </Box>
+
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Select Subscription Plan *</InputLabel>
+              <Select
+                name="plan_id"
+                value={form.plan_id}
+                label="Select Subscription Plan *"
+                onChange={handleChange}
+                sx={{
+                  borderRadius: "12px",
+                  backgroundColor: GOOGLE_COLORS.bg,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}
+              >
+                {plans.map((p) => (
+                  <MenuItem key={p.id} value={p.id}>
+                    {p.name} — ₹{Number(p.price_monthly).toLocaleString("en-IN")}/month
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Initial Duration</InputLabel>
+              <Select
+                name="duration_months"
+                value={form.duration_months}
+                label="Initial Duration"
+                onChange={handleChange}
+                sx={{
+                  borderRadius: "12px",
+                  backgroundColor: GOOGLE_COLORS.bg,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}
+              >
+                <MenuItem value={0.25}>7 Days (Trial)</MenuItem>
+                <MenuItem value={1}>1 Month</MenuItem>
+                <MenuItem value={3}>3 Months</MenuItem>
+                <MenuItem value={6}>6 Months</MenuItem>
+                <MenuItem value={12}>12 Months (1 Year)</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+
+          {/* Actions */}
+          <Box sx={{ mt: 4, display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
+            <Button
+              type="submit"
+              variant="contained"
+              disableElevation
+              disabled={loading}
+              startIcon={<AddBusinessRoundedIcon />}
+              sx={{
+                borderRadius: "100px",
+                textTransform: "none",
+                fontWeight: 600,
+                px: 3.5,
+                py: 1.2,
+                backgroundColor: GOOGLE_COLORS.blue,
+                color: "#FFFFFF",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                "&:hover": { backgroundColor: GOOGLE_COLORS.blueDark },
+              }}
+            >
+              {loading ? <CircularProgress size={20} color="inherit" /> : "Provision & Deploy Instance"}
+            </Button>
+
+            <Button
+              onClick={() => navigate("/clients")}
+              sx={{
+                borderRadius: "100px",
+                textTransform: "none",
+                fontWeight: 600,
+                color: GOOGLE_COLORS.textSecondary,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                px: 2.5,
+                py: 1.2,
+                "&:hover": { bgcolor: GOOGLE_COLORS.bg },
+              }}
+            >
+              Cancel
+            </Button>
+          </Box>
+        </Paper>
+
+        {/* Plan Summary Card (Right Column) */}
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: "20px",
+            border: `1px solid ${GOOGLE_COLORS.border}`,
+            p: { xs: 2.5, sm: 3 },
+            backgroundColor: GOOGLE_COLORS.card,
+            position: { lg: "sticky" },
+            top: { lg: 90 },
+          }}
+        >
+          <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.98rem", mb: 2 }}>
+            Resource Plan Summary
+          </Typography>
+          <Divider sx={{ mb: 2.5, borderColor: GOOGLE_COLORS.border }} />
+
+          {selectedPlan ? (
+            <Box>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
+                <Box>
+                  <Typography variant="h6" fontWeight={700} color={GOOGLE_COLORS.blue}>
+                    {selectedPlan.name} Tier
                   </Typography>
-                </Paper>
+                  <Typography variant="caption" color={GOOGLE_COLORS.textSecondary}>
+                    ₹{Number(selectedPlan.price_monthly).toLocaleString("en-IN")}/month
+                  </Typography>
+                </Box>
+                <Chip
+                  label={`${form.duration_months} mo`}
+                  size="small"
+                  sx={{ fontWeight: 700, bgcolor: GOOGLE_COLORS.blueSoft, color: GOOGLE_COLORS.blue, borderRadius: "100px" }}
+                />
+              </Box>
 
-                <Stack spacing={1.2}>
-                  <FeatureRow label="Team Members" value={selectedPlan.max_users === 0 ? "Unlimited" : `${selectedPlan.max_users} Users`} enabled />
-                  <FeatureRow label="Monthly Leads Limit" value={selectedPlan.max_leads_per_month === 0 ? "Unlimited" : `${selectedPlan.max_leads_per_month} Leads`} enabled />
-                  <FeatureRow label="Site Surveys Module" enabled={Boolean(selectedPlan.has_site_survey)} />
-                  <FeatureRow label="Quotation & Invoice PDF" enabled={Boolean(selectedPlan.has_quotation_stages)} />
-                  <FeatureRow label="Advanced Analytics" enabled={Boolean(selectedPlan.has_reports)} />
-                  <FeatureRow label="Android Mobile App Access" enabled={Boolean(selectedPlan.has_android_apk)} />
-                </Stack>
-              </Box>
-            ) : (
-              <Box sx={{ py: 6, textAlign: "center" }}>
-                <CardMembershipRoundedIcon sx={{ fontSize: 44, color: GOOGLE_COLORS.border, mb: 1.5 }} />
-                <Typography color={GOOGLE_COLORS.textSecondary} variant="body2">
-                  Select a subscription plan to view resource quotas and estimated billing breakdown.
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  mb: 2.5,
+                  borderRadius: "14px",
+                  bgcolor: GOOGLE_COLORS.bg,
+                  border: `1px solid ${GOOGLE_COLORS.border}`,
+                }}
+              >
+                <Typography variant="caption" color={GOOGLE_COLORS.textSecondary} fontWeight={600}>
+                  Estimated Initial Invoice
                 </Typography>
-              </Box>
-            )}
-          </Paper>
-        </Grid>
-      </Grid>
+                <Typography variant="h5" fontWeight={700} color={GOOGLE_COLORS.textPrimary}>
+                  ₹{estimatedCost.toLocaleString("en-IN")}
+                </Typography>
+              </Paper>
+
+              <Stack spacing={1.2}>
+                <FeatureRow label="Team Members" value={selectedPlan.max_users === 0 ? "Unlimited" : `${selectedPlan.max_users} Users`} enabled />
+                <FeatureRow label="Monthly Leads Limit" value={selectedPlan.max_leads_per_month === 0 ? "Unlimited" : `${selectedPlan.max_leads_per_month} Leads`} enabled />
+                <FeatureRow label="Site Surveys Module" enabled={Boolean(selectedPlan.has_site_survey)} />
+                <FeatureRow label="Quotation & Invoice PDF" enabled={Boolean(selectedPlan.has_quotation_stages)} />
+                <FeatureRow label="Advanced Analytics" enabled={Boolean(selectedPlan.has_reports)} />
+                <FeatureRow label="Android Mobile App Access" enabled={Boolean(selectedPlan.has_android_apk)} />
+              </Stack>
+            </Box>
+          ) : (
+            <Box sx={{ py: 6, textAlign: "center" }}>
+              <CardMembershipRoundedIcon sx={{ fontSize: 44, color: GOOGLE_COLORS.border, mb: 1.5 }} />
+              <Typography color={GOOGLE_COLORS.textSecondary} variant="body2" sx={{ px: 2 }}>
+                Select a subscription plan to view resource quotas and estimated billing breakdown.
+              </Typography>
+            </Box>
+          )}
+        </Paper>
+      </Box>
     </Box>
   );
 };

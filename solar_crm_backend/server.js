@@ -13,6 +13,7 @@ const { connectDB }               = require("./config/db");            // existi
 const { connectMasterDB }         = require("./config/masterDb");      // NEW
 const { startScheduledNotifications } = require("./services/scheduledNotifications"); // existing
 const { startSubscriptionCrons }  = require("./services/subscriptionCron"); // NEW
+const { autoMigrateAllTenants }   = require("./Database/autoMigrate"); // Auto Sync All Clients
 
 const PORT = process.env.PORT || 5000;
 
@@ -23,15 +24,22 @@ const startServer = async () => {
   // 2. NEW — Master DB connect
   await connectMasterDB();
 
-  // 3. Start server
+  // 3. Auto-Migrate: Sync any new tables/columns across ALL client DBs automatically
+  try {
+    await autoMigrateAllTenants();
+  } catch (migErr) {
+    console.error("Auto-migration non-fatal error on startup:", migErr.message);
+  }
+
+  // 4. Start server
   app.listen(PORT, () => {
     console.log(`Solar CRM Server running on port ${PORT}`);
   });
 
-  // 4. Existing cron jobs
+  // 5. Existing cron jobs
   startScheduledNotifications();
 
-  // 5. NEW — Subscription cron jobs
+  // 6. NEW — Subscription cron jobs
   startSubscriptionCrons();
 };
 

@@ -28,32 +28,37 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Card,
+  CardContent,
+  Divider,
 } from "@mui/material";
 
 // Icons
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import CancelRoundedIcon from "@mui/icons-material/CancelRounded";
-import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
+import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import HourglassEmptyRoundedIcon from "@mui/icons-material/HourglassEmptyRounded";
 import VerifiedUserRoundedIcon from "@mui/icons-material/VerifiedUserRounded";
 import BlockRoundedIcon from "@mui/icons-material/BlockRounded";
-import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
+import FilterListRoundedIcon from "@mui/icons-material/FilterListRounded";
 
 import api from "../api/axios";
 
-const COLORS = {
-  primary: "#1A73E8",
-  primaryDark: "#0B57D0",
-  primarySoft: "#E8F0FE",
+const GOOGLE_COLORS = {
+  blue: "#1A73E8",
+  blueDark: "#0B57D0",
+  blueSoft: "#E8F0FE",
+  green: "#1E8E3E",
+  greenSoft: "#E6F4EA",
+  red: "#D93025",
+  redSoft: "#FCE8E6",
+  yellow: "#F9AB00",
+  yellowSoft: "#FEF7E0",
+  orange: "#E37400",
+  orangeSoft: "#FEF3D6",
   bg: "#F8F9FA",
   card: "#FFFFFF",
   border: "#E0E3E7",
-  success: "#1E8E3E",
-  successSoft: "#E6F4EA",
-  danger: "#D93025",
-  dangerSoft: "#FCE8E6",
-  warning: "#F9AB00",
-  warningSoft: "#FEF7E0",
   textPrimary: "#202124",
   textSecondary: "#5F6368",
   textMuted: "#70757A",
@@ -66,7 +71,6 @@ const Payments = () => {
   const [error, setError] = useState("");
   const [snack, setSnack] = useState({ open: false, msg: "", severity: "success" });
 
-  // Counts for summary metrics
   const [counts, setCounts] = useState({ pending: 0, confirmed: 0, rejected: 0 });
 
   // Confirm Dialog
@@ -85,16 +89,18 @@ const Payments = () => {
   const fetchPayments = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/payments", {
-        params: { status: statusMap[tab] },
+      const [currRes, pendingRes, confirmedRes, rejectedRes] = await Promise.all([
+        api.get("/payments", { params: { status: statusMap[tab] } }),
+        api.get("/payments", { params: { status: "Pending" } }),
+        api.get("/payments", { params: { status: "Confirmed" } }),
+        api.get("/payments", { params: { status: "Rejected" } }),
+      ]);
+      setPayments(currRes.data?.data || []);
+      setCounts({
+        pending: pendingRes.data?.data?.length || 0,
+        confirmed: confirmedRes.data?.data?.length || 0,
+        rejected: rejectedRes.data?.data?.length || 0,
       });
-      const data = res.data?.data || [];
-      setPayments(data);
-
-      // Fetch overview counts if on tab 0
-      if (tab === 0) {
-        setCounts((prev) => ({ ...prev, pending: data.length }));
-      }
     } catch (err) {
       setError("Failed to load payment requests.");
     } finally {
@@ -153,123 +159,265 @@ const Payments = () => {
   };
 
   return (
-    <Box sx={{ pb: 4 }}>
-      {/* Header Section */}
+    <Box sx={{ width: "100%", fontFamily: "'Plus Jakarta Sans', sans-serif", pb: 4 }}>
+      {/* ── Top Header ────────────────────────────────────────── */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={800} color={COLORS.primaryDark} letterSpacing="-0.02em">
-          Payment Approvals & Audits
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: 700,
+            color: GOOGLE_COLORS.textPrimary,
+            fontSize: "1.35rem",
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+          }}
+        >
+          Payment Approvals & Billing Verification
         </Typography>
-        <Typography variant="body2" color={COLORS.textSecondary} sx={{ mt: 0.3 }}>
-          Verify bank wire receipts and UTR numbers submitted by client organization admins
+        <Typography
+          variant="body2"
+          sx={{
+            color: GOOGLE_COLORS.textSecondary,
+            mt: 0.4,
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+          }}
+        >
+          Audit client bank wire transfers, verify transaction UTR references, and confirm subscription renewals
         </Typography>
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3, borderRadius: "10px" }}>
+        <Alert
+          severity="error"
+          sx={{
+            mb: 3,
+            borderRadius: "16px",
+            bgcolor: GOOGLE_COLORS.redSoft,
+            color: GOOGLE_COLORS.red,
+            border: `1px solid #FAD2CF`,
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+          }}
+        >
           {error}
         </Alert>
       )}
 
-      {/* Summary Cards */}
-      <Grid container spacing={2.5} sx={{ mb: 3 }}>
+      {/* ── 3 Exact Google Stat Cards ─────────────────────────── */}
+      <Grid container spacing={2.5} sx={{ mb: 3.5 }}>
         <Grid item xs={12} sm={4}>
-          <Paper
+          <Card
             elevation={0}
             onClick={() => setTab(0)}
             sx={{
-              p: 2.5,
-              borderRadius: "14px",
-              border: `1px solid ${tab === 0 ? COLORS.warning : COLORS.border}`,
-              bgcolor: tab === 0 ? COLORS.warningSoft : COLORS.card,
+              height: "100%",
+              borderRadius: "16px",
+              border: `1px solid ${tab === 0 ? GOOGLE_COLORS.yellow : GOOGLE_COLORS.border}`,
+              backgroundColor: tab === 0 ? GOOGLE_COLORS.yellowSoft : GOOGLE_COLORS.card,
               cursor: "pointer",
-              transition: "all 0.2s ease",
-              "&:hover": { borderColor: COLORS.warning },
+              transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+              "&:hover": {
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+                borderColor: GOOGLE_COLORS.yellow,
+              },
             }}
           >
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <Box>
-                <Typography variant="caption" sx={{ color: COLORS.textMuted, fontWeight: 700, textTransform: "uppercase" }}>
+            <CardContent sx={{ p: 2.2 }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.2 }}>
+                <Typography
+                  sx={{
+                    color: GOOGLE_COLORS.textSecondary,
+                    fontWeight: 700,
+                    fontSize: "0.7rem",
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  }}
+                >
                   Pending Review
                 </Typography>
-                <Typography variant="h4" fontWeight={800} sx={{ color: COLORS.warning, mt: 0.5 }}>
-                  {tab === 0 ? payments.length : counts.pending}
-                </Typography>
+                <Avatar
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "100px",
+                    backgroundColor: GOOGLE_COLORS.yellowSoft,
+                    color: GOOGLE_COLORS.yellow,
+                  }}
+                >
+                  <HourglassEmptyRoundedIcon sx={{ fontSize: 20 }} />
+                </Avatar>
               </Box>
-              <Avatar sx={{ bgcolor: COLORS.warningSoft, color: COLORS.warning, width: 44, height: 44 }}>
-                <HourglassEmptyRoundedIcon />
-              </Avatar>
-            </Box>
-          </Paper>
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  color: GOOGLE_COLORS.yellow,
+                  lineHeight: 1.1,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}
+              >
+                {counts.pending}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: GOOGLE_COLORS.textSecondary,
+                  mt: 0.6,
+                  display: "block",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}
+              >
+                Awaiting manual bank reconciliation
+              </Typography>
+            </CardContent>
+          </Card>
         </Grid>
 
         <Grid item xs={12} sm={4}>
-          <Paper
+          <Card
             elevation={0}
             onClick={() => setTab(1)}
             sx={{
-              p: 2.5,
-              borderRadius: "14px",
-              border: `1px solid ${tab === 1 ? COLORS.success : COLORS.border}`,
-              bgcolor: tab === 1 ? COLORS.successSoft : COLORS.card,
+              height: "100%",
+              borderRadius: "16px",
+              border: `1px solid ${tab === 1 ? GOOGLE_COLORS.green : GOOGLE_COLORS.border}`,
+              backgroundColor: tab === 1 ? GOOGLE_COLORS.greenSoft : GOOGLE_COLORS.card,
               cursor: "pointer",
-              transition: "all 0.2s ease",
-              "&:hover": { borderColor: COLORS.success },
+              transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+              "&:hover": {
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+                borderColor: GOOGLE_COLORS.green,
+              },
             }}
           >
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <Box>
-                <Typography variant="caption" sx={{ color: COLORS.textMuted, fontWeight: 700, textTransform: "uppercase" }}>
+            <CardContent sx={{ p: 2.2 }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.2 }}>
+                <Typography
+                  sx={{
+                    color: GOOGLE_COLORS.textSecondary,
+                    fontWeight: 700,
+                    fontSize: "0.7rem",
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  }}
+                >
                   Confirmed Payments
                 </Typography>
-                <Typography variant="h4" fontWeight={800} sx={{ color: COLORS.success, mt: 0.5 }}>
-                  {tab === 1 ? payments.length : "—"}
-                </Typography>
+                <Avatar
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "100px",
+                    backgroundColor: GOOGLE_COLORS.greenSoft,
+                    color: GOOGLE_COLORS.green,
+                  }}
+                >
+                  <VerifiedUserRoundedIcon sx={{ fontSize: 20 }} />
+                </Avatar>
               </Box>
-              <Avatar sx={{ bgcolor: COLORS.successSoft, color: COLORS.success, width: 44, height: 44 }}>
-                <VerifiedUserRoundedIcon />
-              </Avatar>
-            </Box>
-          </Paper>
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  color: GOOGLE_COLORS.green,
+                  lineHeight: 1.1,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}
+              >
+                {counts.confirmed}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: GOOGLE_COLORS.textSecondary,
+                  mt: 0.6,
+                  display: "block",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}
+              >
+                Approved and extended subscriptions
+              </Typography>
+            </CardContent>
+          </Card>
         </Grid>
 
         <Grid item xs={12} sm={4}>
-          <Paper
+          <Card
             elevation={0}
             onClick={() => setTab(2)}
             sx={{
-              p: 2.5,
-              borderRadius: "14px",
-              border: `1px solid ${tab === 2 ? COLORS.danger : COLORS.border}`,
-              bgcolor: tab === 2 ? COLORS.dangerSoft : COLORS.card,
+              height: "100%",
+              borderRadius: "16px",
+              border: `1px solid ${tab === 2 ? GOOGLE_COLORS.red : GOOGLE_COLORS.border}`,
+              backgroundColor: tab === 2 ? GOOGLE_COLORS.redSoft : GOOGLE_COLORS.card,
               cursor: "pointer",
-              transition: "all 0.2s ease",
-              "&:hover": { borderColor: COLORS.danger },
+              transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+              "&:hover": {
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+                borderColor: GOOGLE_COLORS.red,
+              },
             }}
           >
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <Box>
-                <Typography variant="caption" sx={{ color: COLORS.textMuted, fontWeight: 700, textTransform: "uppercase" }}>
+            <CardContent sx={{ p: 2.2 }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.2 }}>
+                <Typography
+                  sx={{
+                    color: GOOGLE_COLORS.textSecondary,
+                    fontWeight: 700,
+                    fontSize: "0.7rem",
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  }}
+                >
                   Rejected Requests
                 </Typography>
-                <Typography variant="h4" fontWeight={800} sx={{ color: COLORS.danger, mt: 0.5 }}>
-                  {tab === 2 ? payments.length : "—"}
-                </Typography>
+                <Avatar
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: "100px",
+                    backgroundColor: GOOGLE_COLORS.redSoft,
+                    color: GOOGLE_COLORS.red,
+                  }}
+                >
+                  <BlockRoundedIcon sx={{ fontSize: 20 }} />
+                </Avatar>
               </Box>
-              <Avatar sx={{ bgcolor: COLORS.dangerSoft, color: COLORS.danger, width: 44, height: 44 }}>
-                <BlockRoundedIcon />
-              </Avatar>
-            </Box>
-          </Paper>
+              <Typography
+                variant="h4"
+                sx={{
+                  fontWeight: 700,
+                  color: GOOGLE_COLORS.red,
+                  lineHeight: 1.1,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}
+              >
+                {counts.rejected}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: GOOGLE_COLORS.textSecondary,
+                  mt: 0.6,
+                  display: "block",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}
+              >
+                Invalid transaction or declined proofs
+              </Typography>
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
 
-      {/* Tabs & Table Container */}
+      {/* ── Table & Navigation Container ───────────────────────── */}
       <Paper
         elevation={0}
         sx={{
-          borderRadius: "14px",
-          border: `1px solid ${COLORS.border}`,
-          backgroundColor: COLORS.card,
+          borderRadius: "20px",
+          border: `1px solid ${GOOGLE_COLORS.border}`,
+          backgroundColor: GOOGLE_COLORS.card,
           overflow: "hidden",
         }}
       >
@@ -277,39 +425,42 @@ const Payments = () => {
           value={tab}
           onChange={(_, v) => setTab(v)}
           sx={{
-            borderBottom: `1px solid ${COLORS.border}`,
+            borderBottom: `1px solid ${GOOGLE_COLORS.border}`,
             px: 2,
-            bgcolor: COLORS.bg,
-            "& .MuiTabs-indicator": { backgroundColor: COLORS.primary, height: 3, borderRadius: "3px 3px 0 0" },
+            bgcolor: "#F8F9FA",
+            "& .MuiTabs-indicator": { backgroundColor: GOOGLE_COLORS.blue, height: 3, borderRadius: "3px 3px 0 0" },
           }}
         >
           <Tab
-            label="Pending Review"
+            label={`Pending Review (${counts.pending})`}
             sx={{
               textTransform: "none",
               fontWeight: tab === 0 ? 700 : 500,
-              fontSize: "0.88rem",
-              color: tab === 0 ? COLORS.primary : COLORS.textSecondary,
+              fontSize: "0.85rem",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              color: tab === 0 ? GOOGLE_COLORS.blue : GOOGLE_COLORS.textSecondary,
               py: 2,
             }}
           />
           <Tab
-            label="Confirmed Transactions"
+            label={`Confirmed Transactions (${counts.confirmed})`}
             sx={{
               textTransform: "none",
               fontWeight: tab === 1 ? 700 : 500,
-              fontSize: "0.88rem",
-              color: tab === 1 ? COLORS.primary : COLORS.textSecondary,
+              fontSize: "0.85rem",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              color: tab === 1 ? GOOGLE_COLORS.blue : GOOGLE_COLORS.textSecondary,
               py: 2,
             }}
           />
           <Tab
-            label="Rejected Submissions"
+            label={`Rejected Submissions (${counts.rejected})`}
             sx={{
               textTransform: "none",
               fontWeight: tab === 2 ? 700 : 500,
-              fontSize: "0.88rem",
-              color: tab === 2 ? COLORS.primary : COLORS.textSecondary,
+              fontSize: "0.85rem",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              color: tab === 2 ? GOOGLE_COLORS.blue : GOOGLE_COLORS.textSecondary,
               py: 2,
             }}
           />
@@ -317,31 +468,31 @@ const Payments = () => {
 
         {loading ? (
           <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", p: 8 }}>
-            <CircularProgress size={36} sx={{ color: COLORS.primary }} />
+            <CircularProgress size={36} sx={{ color: GOOGLE_COLORS.blue }} />
           </Box>
         ) : payments.length === 0 ? (
           <Box sx={{ p: 8, textAlign: "center" }}>
-            <AccountBalanceWalletRoundedIcon sx={{ fontSize: 52, color: COLORS.textMuted, mb: 1.5, opacity: 0.5 }} />
-            <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.textPrimary }}>
+            <AccountBalanceWalletOutlinedIcon sx={{ fontSize: 52, color: GOOGLE_COLORS.border, mb: 1.5 }} />
+            <Typography sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "1rem" }}>
               No {statusMap[tab].toLowerCase()} payment records found
             </Typography>
-            <Typography sx={{ color: COLORS.textSecondary, fontSize: "0.85rem", mt: 0.5, maxWidth: 380, mx: "auto" }}>
+            <Typography sx={{ color: GOOGLE_COLORS.textSecondary, fontSize: "0.85rem", mt: 0.5, maxWidth: 400, mx: "auto" }}>
               When tenant administrators submit transaction receipts, they will be queued here for audit and approval.
             </Typography>
           </Box>
         ) : (
           <TableContainer sx={{ width: "100%", overflowX: "auto" }}>
-            <Table sx={{ minWidth: 920 }} size="small">
+            <Table sx={{ minWidth: 960 }} size="small">
               <TableHead>
                 <TableRow sx={{ bgcolor: "#F8F9FA" }}>
-                  <TableCell sx={{ fontWeight: 700, color: COLORS.textPrimary, py: 1.8, px: 2, fontSize: "0.78rem" }}>Client Organization</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: COLORS.textPrimary, px: 2, fontSize: "0.78rem" }}>Target Plan</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: COLORS.textPrimary, px: 2, fontSize: "0.78rem" }}>Amount Paid</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: COLORS.textPrimary, px: 2, fontSize: "0.78rem" }}>UTR / Transaction Reference</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: COLORS.textPrimary, px: 2, fontSize: "0.78rem" }}>Notes</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: COLORS.textPrimary, px: 2, fontSize: "0.78rem" }}>Requested Date</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: COLORS.textPrimary, px: 2, fontSize: "0.78rem" }}>Status</TableCell>
-                  {tab === 0 && <TableCell sx={{ fontWeight: 700, color: COLORS.textPrimary, textAlign: "right", px: 2, fontSize: "0.78rem" }}>Actions</TableCell>}
+                  <TableCell sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, py: 1.8, px: 2, fontSize: "0.78rem" }}>Client Organization</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, px: 2, fontSize: "0.78rem" }}>Target Plan</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, px: 2, fontSize: "0.78rem" }}>Amount Paid</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, px: 2, fontSize: "0.78rem" }}>UTR Reference</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, px: 2, fontSize: "0.78rem" }}>Notes</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, px: 2, fontSize: "0.78rem" }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, px: 2, fontSize: "0.78rem" }}>Status</TableCell>
+                  {tab === 0 && <TableCell sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, textAlign: "right", px: 2, fontSize: "0.78rem" }}>Actions</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -353,8 +504,8 @@ const Payments = () => {
                           sx={{
                             width: 36,
                             height: 36,
-                            backgroundColor: COLORS.primarySoft,
-                            color: COLORS.primary,
+                            backgroundColor: GOOGLE_COLORS.blueSoft,
+                            color: GOOGLE_COLORS.blue,
                             fontSize: "0.82rem",
                             fontWeight: 700,
                             borderRadius: "100px",
@@ -363,10 +514,10 @@ const Payments = () => {
                           {p.business_name?.[0]?.toUpperCase() || "C"}
                         </Avatar>
                         <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.textPrimary, fontSize: "0.85rem" }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.85rem" }}>
                             {p.business_name}
                           </Typography>
-                          <Typography variant="caption" sx={{ color: COLORS.textMuted, fontSize: "0.72rem" }}>
+                          <Typography variant="caption" sx={{ color: GOOGLE_COLORS.textSecondary, fontSize: "0.72rem" }}>
                             {p.client_code} • {p.subdomain}
                           </Typography>
                         </Box>
@@ -375,20 +526,21 @@ const Payments = () => {
 
                     <TableCell sx={{ px: 2 }}>
                       <Chip
-                        label={p.plan_name}
+                        label={p.plan_name || "Starter"}
                         size="small"
                         sx={{
                           fontWeight: 700,
                           fontSize: "0.72rem",
-                          bgcolor: COLORS.primarySoft,
-                          color: COLORS.primary,
+                          bgcolor: GOOGLE_COLORS.blueSoft,
+                          color: GOOGLE_COLORS.blue,
                           borderRadius: "100px",
+                          border: `1px solid #D2E3FC`,
                         }}
                       />
                     </TableCell>
 
                     <TableCell sx={{ px: 2 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 800, color: COLORS.textPrimary, fontSize: "0.85rem" }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.85rem" }}>
                         ₹{Number(p.amount).toLocaleString("en-IN")}
                       </Typography>
                     </TableCell>
@@ -401,18 +553,19 @@ const Payments = () => {
                         sx={{
                           fontWeight: p.utr_number ? 700 : 500,
                           fontSize: "0.72rem",
-                          borderColor: COLORS.border,
-                          color: p.utr_number ? COLORS.textPrimary : COLORS.textMuted,
+                          borderColor: GOOGLE_COLORS.border,
+                          color: p.utr_number ? GOOGLE_COLORS.textPrimary : GOOGLE_COLORS.textMuted,
                           borderRadius: "100px",
+                          fontFamily: "monospace",
                         }}
                       />
                     </TableCell>
 
-                    <TableCell sx={{ color: COLORS.textSecondary, fontSize: "0.82rem", maxWidth: 180, px: 2 }}>
+                    <TableCell sx={{ color: GOOGLE_COLORS.textSecondary, fontSize: "0.82rem", maxWidth: 180, px: 2 }}>
                       {p.payment_note || "—"}
                     </TableCell>
 
-                    <TableCell sx={{ color: COLORS.textSecondary, fontSize: "0.82rem", px: 2 }}>
+                    <TableCell sx={{ color: GOOGLE_COLORS.textSecondary, fontSize: "0.82rem", px: 2 }}>
                       {new Date(p.requested_at).toLocaleDateString("en-IN", {
                         day: "2-digit",
                         month: "short",
@@ -428,11 +581,12 @@ const Payments = () => {
                           fontWeight: 700,
                           fontSize: "0.72rem",
                           bgcolor:
-                            tab === 0 ? COLORS.warningSoft :
-                            tab === 1 ? COLORS.successSoft : COLORS.dangerSoft,
+                            tab === 0 ? GOOGLE_COLORS.yellowSoft :
+                            tab === 1 ? GOOGLE_COLORS.greenSoft : GOOGLE_COLORS.redSoft,
                           color:
-                            tab === 0 ? COLORS.warning :
-                            tab === 1 ? COLORS.success : COLORS.danger,
+                            tab === 0 ? GOOGLE_COLORS.yellow :
+                            tab === 1 ? GOOGLE_COLORS.green : GOOGLE_COLORS.red,
+                          border: `1px solid ${tab === 0 ? "#FDE293" : tab === 1 ? "#CEEAD6" : "#FAD2CF"}`,
                           borderRadius: "100px",
                         }}
                       />
@@ -453,7 +607,8 @@ const Payments = () => {
                               borderRadius: "100px",
                               fontSize: "0.75rem",
                               px: 2,
-                              backgroundColor: COLORS.success,
+                              py: 0.6,
+                              backgroundColor: GOOGLE_COLORS.green,
                               "&:hover": { backgroundColor: "#15803D" },
                             }}
                           >
@@ -470,9 +625,11 @@ const Payments = () => {
                               borderRadius: "100px",
                               fontSize: "0.75rem",
                               px: 1.8,
-                              color: COLORS.danger,
-                              borderColor: COLORS.danger,
-                              "&:hover": { backgroundColor: COLORS.dangerSoft, borderColor: COLORS.danger },
+                              py: 0.6,
+                              color: GOOGLE_COLORS.red,
+                              borderColor: "#FAD2CF",
+                              backgroundColor: GOOGLE_COLORS.redSoft,
+                              "&:hover": { backgroundColor: "#FAD2CF", borderColor: GOOGLE_COLORS.red },
                             }}
                           >
                             Reject
@@ -488,42 +645,57 @@ const Payments = () => {
         )}
       </Paper>
 
-      {/* Confirm Modal */}
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: "14px", p: 1 } }}>
-        <DialogTitle sx={{ fontWeight: 800, color: COLORS.primaryDark }}>Approve Payment & Extend Plan</DialogTitle>
+      {/* ── Confirm Modal ───────────────────────────────────────── */}
+      <Dialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "20px",
+            p: 1.5,
+            border: `1px solid ${GOOGLE_COLORS.border}`,
+            boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "1.15rem", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+          Approve Payment & Extend Plan
+        </DialogTitle>
         <DialogContent>
-          <Paper variant="outlined" sx={{ p: 2, mb: 2.5, borderRadius: "10px", bgcolor: "#F8FAFC", borderColor: COLORS.border }}>
-            <Typography variant="body2" color={COLORS.textSecondary} mb={0.5}>
-              Client: <strong style={{ color: COLORS.textPrimary }}>{selectedPr?.business_name}</strong>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              mb: 2.5,
+              borderRadius: "14px",
+              bgcolor: GOOGLE_COLORS.bg,
+              border: `1px solid ${GOOGLE_COLORS.border}`,
+            }}
+          >
+            <Typography variant="body2" color={GOOGLE_COLORS.textSecondary} mb={0.5} sx={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              Client: <strong style={{ color: GOOGLE_COLORS.textPrimary }}>{selectedPr?.business_name}</strong>
             </Typography>
-            <Typography variant="body2" color={COLORS.textSecondary}>
-              Amount Recorded: <strong style={{ color: COLORS.success }}>₹{Number(selectedPr?.amount || 0).toLocaleString("en-IN")}</strong>
+            <Typography variant="body2" color={GOOGLE_COLORS.textSecondary} sx={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              Amount Recorded: <strong style={{ color: GOOGLE_COLORS.green }}>₹{Number(selectedPr?.amount || 0).toLocaleString("en-IN")}</strong>
             </Typography>
           </Paper>
 
           <FormControl fullWidth size="small" sx={{ mt: 1 }}>
             <InputLabel id="duration-select-label" sx={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              Select Subscription Extension Duration
+              Select Subscription Duration
             </InputLabel>
             <Select
               labelId="duration-select-label"
               id="duration-select"
               value={duration}
-              label="Select Subscription Extension Duration"
+              label="Select Subscription Duration"
               onChange={(e) => setDuration(Number(e.target.value))}
               sx={{
                 borderRadius: "12px",
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 fontSize: "0.88rem",
-              }}
-              MenuProps={{
-                PaperProps: {
-                  sx: {
-                    borderRadius: "12px",
-                    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.12)",
-                    fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  },
-                },
               }}
             >
               <MenuItem value={0.25}>7 Days (Trial Extension)</MenuItem>
@@ -535,21 +707,22 @@ const Payments = () => {
           </FormControl>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setConfirmOpen(false)} sx={{ textTransform: "none", color: COLORS.textSecondary }}>
+          <Button onClick={() => setConfirmOpen(false)} sx={{ textTransform: "none", color: GOOGLE_COLORS.textSecondary, borderRadius: "100px", px: 2 }}>
             Cancel
           </Button>
           <Button
             variant="contained"
+            disableElevation
             onClick={handleConfirm}
             disabled={confirmLoading}
             sx={{
               textTransform: "none",
               fontWeight: 700,
-              borderRadius: "8px",
+              borderRadius: "100px",
               px: 3,
-              backgroundColor: COLORS.success,
-              boxShadow: "none",
-              "&:hover": { backgroundColor: "#15803D", boxShadow: "none" },
+              backgroundColor: GOOGLE_COLORS.green,
+              color: "#FFFFFF",
+              "&:hover": { backgroundColor: "#15803D" },
             }}
           >
             {confirmLoading ? <CircularProgress size={18} color="inherit" /> : "Approve & Activate"}
@@ -557,12 +730,27 @@ const Payments = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Reject Modal */}
-      <Dialog open={rejectOpen} onClose={() => setRejectOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: "14px", p: 1 } }}>
-        <DialogTitle sx={{ fontWeight: 800, color: COLORS.primaryDark }}>Reject Payment Submission</DialogTitle>
+      {/* ── Reject Modal ────────────────────────────────────────── */}
+      <Dialog
+        open={rejectOpen}
+        onClose={() => setRejectOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "20px",
+            p: 1.5,
+            border: `1px solid ${GOOGLE_COLORS.border}`,
+            boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: GOOGLE_COLORS.red, fontSize: "1.15rem", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+          Reject Payment Submission
+        </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color={COLORS.textSecondary} mb={2}>
-            You are rejecting payment verification for <strong style={{ color: COLORS.textPrimary }}>{selectedPr?.business_name}</strong>.
+          <Typography variant="body2" color={GOOGLE_COLORS.textSecondary} mb={2} sx={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+            You are rejecting payment verification for <strong style={{ color: GOOGLE_COLORS.textPrimary }}>{selectedPr?.business_name}</strong>.
           </Typography>
           <TextField
             label="Reason for Rejection (Optional)"
@@ -573,37 +761,45 @@ const Payments = () => {
             placeholder="e.g. UTR number not matching bank statement records"
             value={rejectNote}
             onChange={(e) => setRejectNote(e.target.value)}
-            InputProps={{ sx: { borderRadius: "8px" } }}
+            InputProps={{
+              sx: {
+                borderRadius: "12px",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              },
+            }}
           />
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setRejectOpen(false)} sx={{ textTransform: "none", color: COLORS.textSecondary }}>
+          <Button onClick={() => setRejectOpen(false)} sx={{ textTransform: "none", color: GOOGLE_COLORS.textSecondary, borderRadius: "100px", px: 2 }}>
             Cancel
           </Button>
           <Button
             variant="contained"
+            disableElevation
             onClick={handleReject}
             disabled={rejectLoading}
             sx={{
               textTransform: "none",
               fontWeight: 700,
-              borderRadius: "8px",
-              backgroundColor: COLORS.danger,
-              boxShadow: "none",
-              "&:hover": { backgroundColor: "#B91C1C", boxShadow: "none" },
+              borderRadius: "100px",
+              px: 3,
+              backgroundColor: GOOGLE_COLORS.red,
+              color: "#FFFFFF",
+              "&:hover": { backgroundColor: "#B91C1C" },
             }}
           >
             {rejectLoading ? <CircularProgress size={18} color="inherit" /> : "Confirm Rejection"}
           </Button>
         </DialogActions>
       </Dialog>
+
       <Snackbar
         open={snack.open}
         autoHideDuration={4000}
         onClose={() => setSnack({ ...snack, open: false })}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert severity={snack.severity} sx={{ borderRadius: "10px", fontWeight: 600 }}>
+        <Alert severity={snack.severity} sx={{ borderRadius: "12px", fontWeight: 600, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
           {snack.msg}
         </Alert>
       </Snackbar>

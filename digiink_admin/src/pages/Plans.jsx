@@ -3,7 +3,6 @@ import {
   Box,
   Paper,
   Typography,
-  Grid,
   Chip,
   Button,
   Switch,
@@ -175,215 +174,227 @@ const Plans = () => {
         </Alert>
       )}
 
-      {/* 2x2 Balanced Plans Grid */}
-      <Grid container spacing={3} mb={4}>
+      {/* 2x2 Balanced Plans Grid using CSS Grid */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
+          gap: 3,
+          mb: 4,
+          width: "100%",
+        }}
+      >
         {plans.map((plan) => {
           const isEnterprise = plan.id === 4 || plan.name?.toLowerCase().includes("enterprise");
 
           return (
-            <Grid item xs={12} md={6} key={plan.id}>
-              <Paper
-                elevation={0}
+            <Paper
+              key={plan.id}
+              elevation={0}
+              sx={{
+                borderRadius: "20px",
+                border: isEnterprise ? `2px solid ${GOOGLE_COLORS.blue}` : `1px solid ${GOOGLE_COLORS.border}`,
+                overflow: "hidden",
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                backgroundColor: GOOGLE_COLORS.card,
+                transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                "&:hover": {
+                  boxShadow: "0 6px 16px rgba(0, 0, 0, 0.06)",
+                  borderColor: GOOGLE_COLORS.blue,
+                },
+              }}
+            >
+              {/* Plan Header */}
+              <Box
                 sx={{
-                  borderRadius: "20px",
-                  border: isEnterprise ? `2px solid ${GOOGLE_COLORS.blue}` : `1px solid ${GOOGLE_COLORS.border}`,
-                  overflow: "hidden",
-                  height: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  backgroundColor: GOOGLE_COLORS.card,
-                  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                  "&:hover": {
-                    boxShadow: "0 6px 16px rgba(0, 0, 0, 0.06)",
-                    borderColor: GOOGLE_COLORS.blue,
-                  },
+                  p: 2.8,
+                  backgroundColor: isEnterprise ? GOOGLE_COLORS.blueDark : "#F8F9FA",
+                  borderBottom: `1px solid ${GOOGLE_COLORS.border}`,
                 }}
               >
-                {/* Plan Header */}
-                <Box
-                  sx={{
-                    p: 2.8,
-                    backgroundColor: isEnterprise ? GOOGLE_COLORS.blueDark : "#F8F9FA",
-                    borderBottom: `1px solid ${GOOGLE_COLORS.border}`,
-                  }}
-                >
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                      <Avatar
-                        sx={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: "100px",
-                          backgroundColor: isEnterprise ? "rgba(255,255,255,0.15)" : GOOGLE_COLORS.blueSoft,
-                          color: isEnterprise ? "#FFFFFF" : GOOGLE_COLORS.blue,
-                        }}
-                      >
-                        <WorkspacePremiumRoundedIcon sx={{ fontSize: 22 }} />
-                      </Avatar>
-                      <Box>
-                        <Typography
-                          variant="h6"
-                          sx={{
-                            fontWeight: 700,
-                            color: isEnterprise ? "#FFFFFF" : GOOGLE_COLORS.textPrimary,
-                            fontSize: "1.15rem",
-                            lineHeight: 1.2,
-                            fontFamily: "'Plus Jakarta Sans', sans-serif",
-                          }}
-                        >
-                          {plan.name} Tier
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: isEnterprise ? "rgba(255,255,255,0.7)" : GOOGLE_COLORS.textSecondary,
-                            fontFamily: "'Plus Jakarta Sans', sans-serif",
-                          }}
-                        >
-                          Monthly Recurring Subscription
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    <Button
-                      size="small"
-                      variant={isEnterprise ? "contained" : "outlined"}
-                      disableElevation
-                      startIcon={<EditRoundedIcon sx={{ fontSize: 14 }} />}
-                      onClick={() => openEdit(plan)}
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                    <Avatar
                       sx={{
-                        textTransform: "none",
-                        fontWeight: 600,
+                        width: 40,
+                        height: 40,
                         borderRadius: "100px",
-                        fontSize: "0.78rem",
-                        px: 2,
-                        py: 0.6,
-                        fontFamily: "'Plus Jakarta Sans', sans-serif",
-                        backgroundColor: isEnterprise ? "rgba(255,255,255,0.2)" : GOOGLE_COLORS.card,
+                        backgroundColor: isEnterprise ? "rgba(255,255,255,0.15)" : GOOGLE_COLORS.blueSoft,
                         color: isEnterprise ? "#FFFFFF" : GOOGLE_COLORS.blue,
-                        borderColor: isEnterprise ? "rgba(255,255,255,0.3)" : GOOGLE_COLORS.border,
-                        "&:hover": {
-                          backgroundColor: isEnterprise ? "rgba(255,255,255,0.3)" : GOOGLE_COLORS.blueSoft,
-                          borderColor: GOOGLE_COLORS.blue,
-                        },
                       }}
                     >
-                      Edit Plan
-                    </Button>
-                  </Box>
-
-                  {/* Pricing and Capacity Badges */}
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", mt: 2.2 }}>
-                    <Typography
-                      variant="h4"
-                      sx={{
-                        fontWeight: 700,
-                        color: isEnterprise ? "#FFFFFF" : GOOGLE_COLORS.blue,
-                        fontSize: "1.65rem",
-                        fontFamily: "'Plus Jakarta Sans', sans-serif",
-                      }}
-                    >
-                      ₹{Number(plan.price_monthly).toLocaleString("en-IN")}
+                      <WorkspacePremiumRoundedIcon sx={{ fontSize: 22 }} />
+                    </Avatar>
+                    <Box>
                       <Typography
-                        component="span"
-                        variant="body2"
+                        variant="h6"
                         sx={{
-                          color: isEnterprise ? "rgba(255,255,255,0.7)" : GOOGLE_COLORS.textSecondary,
-                          ml: 0.5,
-                          fontSize: "0.82rem",
-                          fontWeight: 500,
+                          fontWeight: 700,
+                          color: isEnterprise ? "#FFFFFF" : GOOGLE_COLORS.textPrimary,
+                          fontSize: "1.15rem",
+                          lineHeight: 1.2,
                           fontFamily: "'Plus Jakarta Sans', sans-serif",
                         }}
                       >
-                        /month
+                        {plan.name} Tier
                       </Typography>
-                    </Typography>
-
-                    <Stack direction="row" spacing={1}>
-                      <Chip
-                        label={`${plan.max_users === 0 ? "Unlimited" : plan.max_users} Users`}
-                        size="small"
+                      <Typography
+                        variant="caption"
                         sx={{
-                          bgcolor: isEnterprise ? "rgba(255,255,255,0.2)" : GOOGLE_COLORS.blueSoft,
-                          color: isEnterprise ? "#FFFFFF" : GOOGLE_COLORS.blue,
-                          fontWeight: 700,
-                          fontSize: "0.72rem",
-                          borderRadius: "100px",
+                          color: isEnterprise ? "rgba(255,255,255,0.7)" : GOOGLE_COLORS.textSecondary,
+                          fontFamily: "'Plus Jakarta Sans', sans-serif",
                         }}
-                      />
-                      <Chip
-                        label={`${plan.max_leads_per_month === 0 ? "Unlimited" : plan.max_leads_per_month} Leads/mo`}
-                        size="small"
-                        sx={{
-                          bgcolor: isEnterprise ? "rgba(30,142,62,0.3)" : GOOGLE_COLORS.greenSoft,
-                          color: isEnterprise ? "#CEEAD6" : GOOGLE_COLORS.green,
-                          fontWeight: 700,
-                          fontSize: "0.72rem",
-                          borderRadius: "100px",
-                        }}
-                      />
-                    </Stack>
+                      >
+                        Monthly Recurring Subscription
+                      </Typography>
+                    </Box>
                   </Box>
+
+                  <Button
+                    size="small"
+                    variant={isEnterprise ? "contained" : "outlined"}
+                    disableElevation
+                    startIcon={<EditRoundedIcon sx={{ fontSize: 14 }} />}
+                    onClick={() => openEdit(plan)}
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: 600,
+                      borderRadius: "100px",
+                      fontSize: "0.78rem",
+                      px: 2,
+                      py: 0.6,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                      backgroundColor: isEnterprise ? "rgba(255,255,255,0.2)" : GOOGLE_COLORS.card,
+                      color: isEnterprise ? "#FFFFFF" : GOOGLE_COLORS.blue,
+                      borderColor: isEnterprise ? "rgba(255,255,255,0.3)" : GOOGLE_COLORS.border,
+                      "&:hover": {
+                        backgroundColor: isEnterprise ? "rgba(255,255,255,0.3)" : GOOGLE_COLORS.blueSoft,
+                        borderColor: GOOGLE_COLORS.blue,
+                      },
+                    }}
+                  >
+                    Edit Plan
+                  </Button>
                 </Box>
 
-                {/* 2-Column Feature Grid inside each Plan Card */}
-                <Box sx={{ p: 2.8, flex: 1 }}>
+                {/* Pricing and Capacity Badges */}
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 1.5, mt: 2.2 }}>
                   <Typography
-                    variant="caption"
+                    variant="h4"
                     sx={{
-                      color: GOOGLE_COLORS.textMuted,
                       fontWeight: 700,
-                      display: "block",
-                      mb: 1.5,
-                      letterSpacing: "0.04em",
-                      textTransform: "uppercase",
+                      color: isEnterprise ? "#FFFFFF" : GOOGLE_COLORS.blue,
+                      fontSize: "1.65rem",
                       fontFamily: "'Plus Jakarta Sans', sans-serif",
                     }}
                   >
-                    INCLUDED FEATURES & PERMISSIONS
+                    ₹{Number(plan.price_monthly).toLocaleString("en-IN")}
+                    <Typography
+                      component="span"
+                      variant="body2"
+                      sx={{
+                        color: isEnterprise ? "rgba(255,255,255,0.7)" : GOOGLE_COLORS.textSecondary,
+                        ml: 0.5,
+                        fontSize: "0.82rem",
+                        fontWeight: 500,
+                        fontFamily: "'Plus Jakarta Sans', sans-serif",
+                      }}
+                    >
+                      /month
+                    </Typography>
                   </Typography>
 
-                  <Grid container spacing={1.2}>
-                    {featureLabels.map(({ key, label }) => {
-                      const isEnabled = Boolean(plan[key]);
-
-                      return (
-                        <Grid item xs={12} sm={6} key={key}>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                              py: 0.5,
-                            }}
-                          >
-                            {isEnabled ? (
-                              <CheckCircleRoundedIcon sx={{ fontSize: 17, color: GOOGLE_COLORS.green }} />
-                            ) : (
-                              <CancelRoundedIcon sx={{ fontSize: 17, color: GOOGLE_COLORS.textMuted }} />
-                            )}
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                color: isEnabled ? GOOGLE_COLORS.textPrimary : GOOGLE_COLORS.textMuted,
-                                fontSize: "0.82rem",
-                                fontWeight: isEnabled ? 600 : 400,
-                                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                              }}
-                            >
-                              {label}
-                            </Typography>
-                          </Box>
-                        </Grid>
-                      );
-                    })}
-                  </Grid>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 0.8 }}>
+                    <Chip
+                      label={`${plan.max_users === 0 ? "Unlimited" : plan.max_users} Users`}
+                      size="small"
+                      sx={{
+                        bgcolor: isEnterprise ? "rgba(255,255,255,0.2)" : GOOGLE_COLORS.blueSoft,
+                        color: isEnterprise ? "#FFFFFF" : GOOGLE_COLORS.blue,
+                        fontWeight: 700,
+                        fontSize: "0.72rem",
+                        borderRadius: "100px",
+                      }}
+                    />
+                    <Chip
+                      label={`${plan.max_leads_per_month === 0 ? "Unlimited" : plan.max_leads_per_month} Leads/mo`}
+                      size="small"
+                      sx={{
+                        bgcolor: isEnterprise ? "rgba(30,142,62,0.3)" : GOOGLE_COLORS.greenSoft,
+                        color: isEnterprise ? "#CEEAD6" : GOOGLE_COLORS.green,
+                        fontWeight: 700,
+                        fontSize: "0.72rem",
+                        borderRadius: "100px",
+                      }}
+                    />
+                  </Stack>
                 </Box>
-              </Paper>
-            </Grid>
+              </Box>
+
+              {/* 2-Column Feature Grid inside each Plan Card */}
+              <Box sx={{ p: 2.8, flex: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: GOOGLE_COLORS.textMuted,
+                    fontWeight: 700,
+                    display: "block",
+                    mb: 1.5,
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  }}
+                >
+                  INCLUDED FEATURES & PERMISSIONS
+                </Typography>
+
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+                    gap: 1.2,
+                  }}
+                >
+                  {featureLabels.map(({ key, label }) => {
+                    const isEnabled = Boolean(plan[key]);
+
+                    return (
+                      <Box
+                        key={key}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                          py: 0.5,
+                        }}
+                      >
+                        {isEnabled ? (
+                          <CheckCircleRoundedIcon sx={{ fontSize: 17, color: GOOGLE_COLORS.green }} />
+                        ) : (
+                          <CancelRoundedIcon sx={{ fontSize: 17, color: GOOGLE_COLORS.textMuted }} />
+                        )}
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: isEnabled ? GOOGLE_COLORS.textPrimary : GOOGLE_COLORS.textMuted,
+                            fontSize: "0.82rem",
+                            fontWeight: isEnabled ? 600 : 400,
+                            fontFamily: "'Plus Jakarta Sans', sans-serif",
+                          }}
+                        >
+                          {label}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              </Box>
+            </Paper>
           );
         })}
-      </Grid>
+      </Box>
 
       {/* Feature Comparison Matrix Table */}
       <Paper
@@ -448,15 +459,15 @@ const Plans = () => {
             </TableRow>
             {featureLabels.map(({ key, label }) => (
               <TableRow key={key} hover sx={{ "&:hover": { backgroundColor: "#F8F9FA" } }}>
-                <TableCell sx={{ color: GOOGLE_COLORS.textPrimary, py: 1.2, fontSize: "0.82rem" }}>
+                <TableCell sx={{ color: GOOGLE_COLORS.textPrimary, py: 1.3, fontSize: "0.82rem", fontWeight: 500 }}>
                   {label}
                 </TableCell>
                 {plans.map((p) => (
-                  <TableCell key={p.id} sx={{ textAlign: "center" }}>
-                    {p[key] ? (
-                      <CheckCircleRoundedIcon sx={{ fontSize: 18, color: GOOGLE_COLORS.green }} />
+                  <TableCell key={p.id} sx={{ textAlign: "center", py: 1.3 }}>
+                    {Boolean(p[key]) ? (
+                      <CheckCircleRoundedIcon sx={{ fontSize: 18, color: GOOGLE_COLORS.green, verticalAlign: "middle" }} />
                     ) : (
-                      <CancelRoundedIcon sx={{ fontSize: 18, color: GOOGLE_COLORS.textMuted }} />
+                      <CancelRoundedIcon sx={{ fontSize: 18, color: GOOGLE_COLORS.textMuted, opacity: 0.5, verticalAlign: "middle" }} />
                     )}
                   </TableCell>
                 ))}
@@ -486,87 +497,86 @@ const Plans = () => {
             Configure Tier Entitlements: {editForm.name}
           </DialogTitle>
           <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Plan Tier Name"
-                  name="name"
-                  value={editForm.name}
-                  onChange={handleEditChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+                gap: 2,
+                mt: 1,
+              }}
+            >
+              <TextField
+                label="Plan Tier Name"
+                name="name"
+                value={editForm.name}
+                onChange={handleEditChange}
+                fullWidth
+                size="small"
+                InputProps={{
+                  sx: {
+                    borderRadius: "12px",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  },
+                }}
+              />
 
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Monthly Price (₹)"
-                  name="price_monthly"
-                  type="number"
-                  value={editForm.price_monthly}
-                  onChange={handleEditChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
+              <TextField
+                label="Monthly Price (₹)"
+                name="price_monthly"
+                type="number"
+                value={editForm.price_monthly}
+                onChange={handleEditChange}
+                fullWidth
+                size="small"
+                InputProps={{
+                  sx: {
+                    borderRadius: "12px",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  },
+                }}
+              />
 
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Max Users (0 = Unlimited)"
-                  name="max_users"
-                  type="number"
-                  value={editForm.max_users}
-                  onChange={handleEditChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
+              <TextField
+                label="Max Users (0 = Unlimited)"
+                name="max_users"
+                type="number"
+                value={editForm.max_users}
+                onChange={handleEditChange}
+                fullWidth
+                size="small"
+                InputProps={{
+                  sx: {
+                    borderRadius: "12px",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  },
+                }}
+              />
 
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Max Leads/Month (0 = Unlimited)"
-                  name="max_leads_per_month"
-                  type="number"
-                  value={editForm.max_leads_per_month}
-                  onChange={handleEditChange}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    sx: {
-                      borderRadius: "12px",
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    },
-                  }}
-                />
-              </Grid>
+              <TextField
+                label="Max Leads/Month (0 = Unlimited)"
+                name="max_leads_per_month"
+                type="number"
+                value={editForm.max_leads_per_month}
+                onChange={handleEditChange}
+                fullWidth
+                size="small"
+                InputProps={{
+                  sx: {
+                    borderRadius: "12px",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  },
+                }}
+              />
 
-              <Grid item xs={12}>
+              <Box sx={{ gridColumn: { xs: "1", sm: "span 2" } }}>
                 <Divider sx={{ my: 1.5, borderColor: GOOGLE_COLORS.border }} />
                 <Typography variant="subtitle2" fontWeight={700} color={GOOGLE_COLORS.textPrimary} mb={1}>
                   Feature Flag Permissions
                 </Typography>
-              </Grid>
+              </Box>
 
               {featureLabels.map(({ key, label }) => (
-                <Grid item xs={6} key={key}>
+                <Box key={key}>
                   <FormControlLabel
                     control={
                       <Switch
@@ -579,9 +589,9 @@ const Plans = () => {
                     }
                     label={<Typography variant="body2" sx={{ fontSize: "0.82rem", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{label}</Typography>}
                   />
-                </Grid>
+                </Box>
               ))}
-            </Grid>
+            </Box>
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
             <Button onClick={() => setEditOpen(false)} sx={{ textTransform: "none", color: GOOGLE_COLORS.textSecondary, borderRadius: "100px", px: 2 }}>
