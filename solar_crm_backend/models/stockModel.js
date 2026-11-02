@@ -282,10 +282,19 @@ const checkAndCreateStockAlerts = async (db, itemId, currentStock, minStockLevel
 
 const getCategories = async (db = defaultDb) => {
   await ensureStockTables(db);
-  const [rows] = await db.query(
-    "SELECT * FROM stock_categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
-  );
-  return rows;
+  try {
+    const [rows] = await db.query(
+      "SELECT id, name FROM stock_categories ORDER BY id ASC"
+    );
+    return rows.map((r) => ({
+      ...r,
+      slug: (r.slug || r.name || "category").toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      icon: r.icon || "solar_power"
+    }));
+  } catch (err) {
+    console.error("getCategories error:", err.message);
+    return [];
+  }
 };
 
 const getItems = async (db = defaultDb, filters = {}) => {
@@ -301,7 +310,7 @@ const getItems = async (db = defaultDb, filters = {}) => {
     limit = 50,
   } = filters;
 
-  let whereClauses = ["i.is_active = 1"];
+  let whereClauses = ["(i.is_active = 1 OR i.is_active IS NULL)"];
   let queryParams = [];
 
   if (category_id) {
@@ -351,9 +360,8 @@ const getItems = async (db = defaultDb, filters = {}) => {
   const sql = `
     SELECT 
       i.*,
-      c.name AS category_name,
-      c.slug AS category_slug,
-      c.icon AS category_icon,
+      IFNULL(c.name, 'General') AS category_name,
+      LOWER(REPLACE(IFNULL(c.name, 'general'), ' ', '-')) AS category_slug,
       u.full_name AS created_by_name
     FROM stock_items i
     LEFT JOIN stock_categories c ON i.category_id = c.id
@@ -395,9 +403,8 @@ const getItemById = async (db = defaultDb, id) => {
   const sql = `
     SELECT 
       i.*,
-      c.name AS category_name,
-      c.slug AS category_slug,
-      c.icon AS category_icon,
+      IFNULL(c.name, 'General') AS category_name,
+      LOWER(REPLACE(IFNULL(c.name, 'general'), ' ', '-')) AS category_slug,
       u.full_name AS created_by_name
     FROM stock_items i
     LEFT JOIN stock_categories c ON i.category_id = c.id
@@ -450,15 +457,14 @@ const getItemByCodeOrBarcode = async (db = defaultDb, rawCode) => {
   const exactSql = `
     SELECT 
       i.*,
-      c.name AS category_name,
-      c.slug AS category_slug,
-      c.icon AS category_icon,
+      IFNULL(c.name, 'General') AS category_name,
+      LOWER(REPLACE(IFNULL(c.name, 'general'), ' ', '-')) AS category_slug,
       u.full_name AS created_by_name
     FROM stock_items i
     LEFT JOIN stock_categories c ON i.category_id = c.id
     LEFT JOIN users u ON i.created_by = u.id
     WHERE (i.item_code = ? OR i.barcode = ? OR UPPER(i.item_code) = ? OR UPPER(i.barcode) = ?)
-      AND i.is_active = 1
+      AND (i.is_active = 1 OR i.is_active IS NULL)
     LIMIT 1
   `;
   const [exactRows] = await db.query(exactSql, [clean, clean, upper, upper]);
@@ -1034,34 +1040,44 @@ const getStockReport = async (db = defaultDb) => {
   `);
 
   // Category breakdown
-  const [categories] = await db.query(`
-    SELECT 
-      c.id AS category_id,
-      c.name AS category_name,
-      c.slug AS category_slug,
-      c.icon AS category_icon,
-      COUNT(i.id) AS item_count,
-      IFNULL(SUM(i.current_stock), 0) AS category_quantity,
-      IFNULL(SUM(i.current_stock * i.unit_price), 0) AS category_valuation
-    FROM stock_categories c
-    LEFT JOIN stock_items i ON c.id = i.category_id AND i.is_active = 1
-    WHERE c.is_active = 1
-    GROUP BY c.id, c.name, c.slug, c.icon
-    ORDER BY category_valuation DESC
-  `);
+  let categories = [];
+  try {
+    const [catRows] = await db.query(`
+      SELECT 
+        c.id AS category_id,
+        c.name AS category_name,
+        LOWER(REPLACE(c.name, ' ', '-')) AS category_slug,
+        COUNT(i.id) AS item_count,
+        IFNULL(SUM(i.current_stock), 0) AS category_quantity,
+        IFNULL(SUM(i.current_stock * i.unit_price), 0) AS category_valuation
+      FROM stock_categories c
+      LEFT JOIN stock_items i ON c.id = i.category_id AND (i.is_active = 1 OR i.is_active IS NULL)
+      GROUP BY c.id, c.name
+      ORDER BY category_valuation DESC
+    `);
+    categories = catRows;
+  } catch (catErr) {
+    console.warn("Category breakdown query fallback:", catErr.message);
+  }
 
   // Top 5 Valuable Items
-  const [topItems] = await db.query(`
-    SELECT 
-      i.id, i.item_code, i.name, i.brand, i.current_stock, i.unit_price, i.unit,
-      (i.current_stock * i.unit_price) AS valuation,
-      c.name AS category_name
-    FROM stock_items i
-    LEFT JOIN stock_categories c ON i.category_id = c.id
-    WHERE i.is_active = 1
-    ORDER BY valuation DESC
-    LIMIT 5
-  `);
+  let topItems = [];
+  try {
+    const [topRows] = await db.query(`
+      SELECT 
+        i.id, i.item_code, i.name, i.brand, i.current_stock, i.unit_price, i.unit,
+        (i.current_stock * i.unit_price) AS valuation,
+        IFNULL(c.name, 'General') AS category_name
+      FROM stock_items i
+      LEFT JOIN stock_categories c ON i.category_id = c.id
+      WHERE (i.is_active = 1 OR i.is_active IS NULL)
+      ORDER BY valuation DESC
+      LIMIT 5
+    `);
+    topItems = topRows;
+  } catch (topErr) {
+    console.warn("Top items query fallback:", topErr.message);
+  }
 
   return {
     summary: overall[0] || {},

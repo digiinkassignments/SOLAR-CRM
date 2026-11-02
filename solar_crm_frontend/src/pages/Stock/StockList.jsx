@@ -263,7 +263,7 @@ const StockList = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [catRes, itemsRes, reportRes] = await Promise.all([
+      const [catRes, itemsRes, reportRes] = await Promise.allSettled([
         getCategories(),
         getStockItems({
           category_id: selectedCategory,
@@ -274,9 +274,15 @@ const StockList = () => {
         getStockReport(),
       ]);
 
-      setCategories(catRes.data || []);
-      setItems(itemsRes.data || []);
-      setReportData(reportRes.data || null);
+      if (catRes.status === "fulfilled") {
+        setCategories(catRes.value?.data || []);
+      }
+      if (itemsRes.status === "fulfilled") {
+        setItems(itemsRes.value?.data || []);
+      }
+      if (reportRes.status === "fulfilled") {
+        setReportData(reportRes.value?.data || null);
+      }
     } catch (err) {
       console.error(err);
       toast.error("Failed to load inventory stock items.");
