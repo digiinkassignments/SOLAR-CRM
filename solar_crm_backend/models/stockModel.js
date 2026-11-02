@@ -30,6 +30,36 @@ const ensureStockTables = async (db = defaultDb) => {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
 
+      // Ensure missing columns in stock_categories if table was created with an older schema
+      try {
+        const [catCols] = await db.query("SHOW COLUMNS FROM stock_categories LIKE 'slug'");
+        if (catCols.length === 0) {
+          await db.query("ALTER TABLE stock_categories ADD COLUMN slug VARCHAR(100) DEFAULT NULL AFTER name");
+          await db.query("UPDATE stock_categories SET slug = LOWER(REPLACE(REPLACE(REPLACE(name, ' ', '-'), '&', 'and'), '/', '-')) WHERE slug IS NULL");
+        }
+      } catch (e) {}
+
+      try {
+        const [iconCols] = await db.query("SHOW COLUMNS FROM stock_categories LIKE 'icon'");
+        if (iconCols.length === 0) {
+          await db.query("ALTER TABLE stock_categories ADD COLUMN icon VARCHAR(50) DEFAULT NULL AFTER description");
+        }
+      } catch (e) {}
+
+      try {
+        const [orderCols] = await db.query("SHOW COLUMNS FROM stock_categories LIKE 'sort_order'");
+        if (orderCols.length === 0) {
+          await db.query("ALTER TABLE stock_categories ADD COLUMN sort_order INT(11) DEFAULT 0 AFTER icon");
+        }
+      } catch (e) {}
+
+      try {
+        const [activeCols] = await db.query("SHOW COLUMNS FROM stock_categories LIKE 'is_active'");
+        if (activeCols.length === 0) {
+          await db.query("ALTER TABLE stock_categories ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1 AFTER sort_order");
+        }
+      } catch (e) {}
+
       // Insert Default Categories
       await db.query(`
         INSERT IGNORE INTO stock_categories (name, slug, description, icon, sort_order) VALUES

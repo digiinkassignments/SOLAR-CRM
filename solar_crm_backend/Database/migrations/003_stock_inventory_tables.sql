@@ -18,6 +18,11 @@ CREATE TABLE IF NOT EXISTS `stock_categories` (
   UNIQUE KEY `uq_category_slug` (`slug`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+ALTER TABLE `stock_categories` ADD COLUMN IF NOT EXISTS `slug` VARCHAR(100) DEFAULT NULL AFTER `name`;
+ALTER TABLE `stock_categories` ADD COLUMN IF NOT EXISTS `icon` VARCHAR(50) DEFAULT NULL AFTER `description`;
+ALTER TABLE `stock_categories` ADD COLUMN IF NOT EXISTS `sort_order` INT(11) DEFAULT 0 AFTER `icon`;
+ALTER TABLE `stock_categories` ADD COLUMN IF NOT EXISTS `is_active` TINYINT(1) NOT NULL DEFAULT 1 AFTER `sort_order`;
+
 -- Seed Default Categories
 INSERT IGNORE INTO `stock_categories` (`name`, `slug`, `description`, `icon`, `sort_order`) VALUES
 ('Solar Panels', 'solar-panels', 'Mono PERC, Bifacial, Poly panels', 'solar_power', 1),
