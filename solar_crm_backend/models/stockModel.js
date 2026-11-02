@@ -1,147 +1,153 @@
-let stockTablesEnsured = false;
-let ensuringStockPromise = null;
+const ensuredDbs = new Set();
+const ensuringPromises = new Map();
 
-// Auto-ensure stock tables exist
+// Auto-ensure stock tables exist for the current tenant db
 const ensureStockTables = async (db = defaultDb) => {
-  if (stockTablesEnsured) return;
-  if (ensuringStockPromise) return ensuringStockPromise;
+  let dbName = "default";
+  try {
+    dbName = db?.pool?.config?.connectionConfig?.database || "default";
+  } catch (e) {}
 
-  ensuringStockPromise = (async () => {
+  if (ensuredDbs.has(dbName)) return;
+  if (ensuringPromises.has(dbName)) return ensuringPromises.get(dbName);
+
+  const promise = (async () => {
     try {
-    // 1. stock_categories
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS stock_categories (
-        id INT(11) NOT NULL AUTO_INCREMENT,
-        name VARCHAR(100) NOT NULL,
-        slug VARCHAR(100) NOT NULL,
-        description TEXT DEFAULT NULL,
-        icon VARCHAR(50) DEFAULT NULL,
-        sort_order INT(11) DEFAULT 0,
-        is_active TINYINT(1) NOT NULL DEFAULT 1,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
-        UNIQUE KEY uq_category_slug (slug)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
+      // 1. stock_categories
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS stock_categories (
+          id INT(11) NOT NULL AUTO_INCREMENT,
+          name VARCHAR(100) NOT NULL,
+          slug VARCHAR(100) NOT NULL,
+          description TEXT DEFAULT NULL,
+          icon VARCHAR(50) DEFAULT NULL,
+          sort_order INT(11) DEFAULT 0,
+          is_active TINYINT(1) NOT NULL DEFAULT 1,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_category_slug (slug)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
 
-    // Insert Default Categories
-    await db.query(`
-      INSERT IGNORE INTO stock_categories (name, slug, description, icon, sort_order) VALUES
-      ('Solar Panels', 'solar-panels', 'Mono PERC, Bifacial, Poly panels', 'solar_power', 1),
-      ('Inverters', 'inverters', 'On-Grid, Off-Grid, Hybrid inverters', 'electric_meter', 2),
-      ('Mounting Structure', 'mounting-structure', 'GI, Aluminium mounting structures', 'architecture', 3),
-      ('DC Cables & Connectors', 'dc-cables', 'DC cables, MC4 connectors, junction boxes', 'cable', 4),
-      ('AC Cables & Switchgear', 'ac-cables', 'AC cables, MCB, ACDB, DCDB panels', 'power', 5),
-      ('Earthing & Lightning', 'earthing', 'Earthing kits, lightning arrestors', 'bolt', 6),
-      ('Battery & Storage', 'battery', 'Lithium, Lead-acid batteries', 'battery_charging_full', 7),
-      ('Tools & Consumables', 'tools', 'Installation tools, lugs, conduit pipes', 'build', 8),
-      ('Monitoring & Others', 'monitoring', 'Data loggers, wi-fi dongles, others', 'monitoring', 9);
-    `);
+      // Insert Default Categories
+      await db.query(`
+        INSERT IGNORE INTO stock_categories (name, slug, description, icon, sort_order) VALUES
+        ('Solar Panels', 'solar-panels', 'Mono PERC, Bifacial, Poly panels', 'solar_power', 1),
+        ('Inverters', 'inverters', 'On-Grid, Off-Grid, Hybrid inverters', 'electric_meter', 2),
+        ('Mounting Structure', 'mounting-structure', 'GI, Aluminium mounting structures', 'architecture', 3),
+        ('DC Cables & Connectors', 'dc-cables', 'DC cables, MC4 connectors, junction boxes', 'cable', 4),
+        ('AC Cables & Switchgear', 'ac-cables', 'AC cables, MCB, ACDB, DCDB panels', 'power', 5),
+        ('Earthing & Lightning', 'earthing', 'Earthing kits, lightning arrestors', 'bolt', 6),
+        ('Battery & Storage', 'battery', 'Lithium, Lead-acid batteries', 'battery_charging_full', 7),
+        ('Tools & Consumables', 'tools', 'Installation tools, lugs, conduit pipes', 'build', 8),
+        ('Monitoring & Others', 'monitoring', 'Data loggers, wi-fi dongles, others', 'monitoring', 9);
+      `);
 
-    // 2. stock_items
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS stock_items (
-        id INT(11) NOT NULL AUTO_INCREMENT,
-        category_id INT(11) NOT NULL,
-        item_code VARCHAR(50) NOT NULL,
-        barcode VARCHAR(100) DEFAULT NULL,
-        name VARCHAR(200) NOT NULL,
-        brand VARCHAR(100) DEFAULT NULL,
-        model VARCHAR(100) DEFAULT NULL,
-        description TEXT DEFAULT NULL,
-        specifications JSON DEFAULT NULL,
-        image_url VARCHAR(500) DEFAULT NULL,
-        unit ENUM('Piece','Set','Meter','Kg','Litre','Roll','Pair','Box') NOT NULL DEFAULT 'Piece',
-        unit_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-        gst_rate DECIMAL(5,2) NOT NULL DEFAULT 18.00,
-        hsn_code VARCHAR(20) DEFAULT NULL,
-        min_stock_level INT(11) NOT NULL DEFAULT 5,
-        reorder_level INT(11) NOT NULL DEFAULT 10,
-        current_stock INT(11) NOT NULL DEFAULT 0,
-        reserved_stock INT(11) NOT NULL DEFAULT 0,
-        available_stock INT(11) GENERATED ALWAYS AS (current_stock - reserved_stock) STORED,
-        is_active TINYINT(1) NOT NULL DEFAULT 1,
-        created_by INT(11) DEFAULT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
-        UNIQUE KEY uq_item_code (item_code),
-        KEY idx_item_barcode (barcode),
-        KEY idx_item_category (category_id),
-        KEY idx_item_brand (brand),
-        KEY idx_item_active (is_active)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
+      // 2. stock_items
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS stock_items (
+          id INT(11) NOT NULL AUTO_INCREMENT,
+          category_id INT(11) NOT NULL,
+          item_code VARCHAR(50) NOT NULL,
+          barcode VARCHAR(100) DEFAULT NULL,
+          name VARCHAR(200) NOT NULL,
+          brand VARCHAR(100) DEFAULT NULL,
+          model VARCHAR(100) DEFAULT NULL,
+          description TEXT DEFAULT NULL,
+          specifications JSON DEFAULT NULL,
+          image_url VARCHAR(500) DEFAULT NULL,
+          unit ENUM('Piece','Set','Meter','Kg','Litre','Roll','Pair','Box') NOT NULL DEFAULT 'Piece',
+          unit_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+          gst_rate DECIMAL(5,2) NOT NULL DEFAULT 18.00,
+          hsn_code VARCHAR(20) DEFAULT NULL,
+          min_stock_level INT(11) NOT NULL DEFAULT 5,
+          reorder_level INT(11) NOT NULL DEFAULT 10,
+          current_stock INT(11) NOT NULL DEFAULT 0,
+          reserved_stock INT(11) NOT NULL DEFAULT 0,
+          available_stock INT(11) GENERATED ALWAYS AS (current_stock - reserved_stock) STORED,
+          is_active TINYINT(1) NOT NULL DEFAULT 1,
+          created_by INT(11) DEFAULT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_item_code (item_code),
+          KEY idx_item_barcode (barcode),
+          KEY idx_item_category (category_id),
+          KEY idx_item_brand (brand),
+          KEY idx_item_active (is_active)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
 
-    // Ensure barcode column exists for existing tables
-    try {
-      const [colRows] = await db.query("SHOW COLUMNS FROM stock_items LIKE 'barcode'");
-      if (colRows.length === 0) {
-        await db.query("ALTER TABLE stock_items ADD COLUMN barcode VARCHAR(100) DEFAULT NULL AFTER item_code");
-        await db.query("ALTER TABLE stock_items ADD KEY idx_item_barcode (barcode)");
+      // Ensure barcode column exists for existing tables
+      try {
+        const [colRows] = await db.query("SHOW COLUMNS FROM stock_items LIKE 'barcode'");
+        if (colRows.length === 0) {
+          await db.query("ALTER TABLE stock_items ADD COLUMN barcode VARCHAR(100) DEFAULT NULL AFTER item_code");
+          await db.query("ALTER TABLE stock_items ADD KEY idx_item_barcode (barcode)");
+        }
+      } catch (colErr) {
+        // Ignore if table doesn't exist yet
       }
-    } catch (colErr) {
-      // Ignore if table doesn't exist yet
+
+      // 3. stock_transactions
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS stock_transactions (
+          id INT(11) NOT NULL AUTO_INCREMENT,
+          transaction_number VARCHAR(50) NOT NULL,
+          item_id INT(11) NOT NULL,
+          transaction_type ENUM('IN','OUT','ADJUSTMENT','RESERVED','RELEASED') NOT NULL,
+          quantity INT(11) NOT NULL,
+          quantity_before INT(11) NOT NULL DEFAULT 0,
+          quantity_after INT(11) NOT NULL DEFAULT 0,
+          unit_price DECIMAL(12,2) DEFAULT NULL,
+          total_value DECIMAL(14,2) DEFAULT NULL,
+          reference_type ENUM('PURCHASE','LEAD','PROJECT','ADJUSTMENT','RETURN','DAMAGE') DEFAULT NULL,
+          reference_id INT(11) DEFAULT NULL,
+          reference_number VARCHAR(100) DEFAULT NULL,
+          vendor_name VARCHAR(200) DEFAULT NULL,
+          vendor_invoice VARCHAR(100) DEFAULT NULL,
+          notes TEXT DEFAULT NULL,
+          created_by INT(11) DEFAULT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_transaction_number (transaction_number),
+          KEY idx_txn_item (item_id),
+          KEY idx_txn_type (transaction_type),
+          KEY idx_txn_ref (reference_type, reference_id),
+          KEY idx_txn_created_by (created_by)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      // 4. stock_alerts
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS stock_alerts (
+          id INT(11) NOT NULL AUTO_INCREMENT,
+          item_id INT(11) NOT NULL,
+          alert_type ENUM('LOW_STOCK','OUT_OF_STOCK','REORDER') NOT NULL,
+          current_stock INT(11) NOT NULL,
+          min_stock_level INT(11) NOT NULL,
+          is_resolved TINYINT(1) NOT NULL DEFAULT 0,
+          resolved_at DATETIME DEFAULT NULL,
+          resolved_by INT(11) DEFAULT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          KEY idx_alert_item (item_id),
+          KEY idx_alert_type (alert_type),
+          KEY idx_alert_resolved (is_resolved)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      ensuredDbs.add(dbName);
+    } catch (err) {
+      console.error(`ensureStockTables error for ${dbName}:`, err.message);
+    } finally {
+      ensuringPromises.delete(dbName);
     }
-
-    // 3. stock_transactions
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS stock_transactions (
-        id INT(11) NOT NULL AUTO_INCREMENT,
-        transaction_number VARCHAR(50) NOT NULL,
-        item_id INT(11) NOT NULL,
-        transaction_type ENUM('IN','OUT','ADJUSTMENT','RESERVED','RELEASED') NOT NULL,
-        quantity INT(11) NOT NULL,
-        quantity_before INT(11) NOT NULL DEFAULT 0,
-        quantity_after INT(11) NOT NULL DEFAULT 0,
-        unit_price DECIMAL(12,2) DEFAULT NULL,
-        total_value DECIMAL(14,2) DEFAULT NULL,
-        reference_type ENUM('PURCHASE','LEAD','PROJECT','ADJUSTMENT','RETURN','DAMAGE') DEFAULT NULL,
-        reference_id INT(11) DEFAULT NULL,
-        reference_number VARCHAR(100) DEFAULT NULL,
-        vendor_name VARCHAR(200) DEFAULT NULL,
-        vendor_invoice VARCHAR(100) DEFAULT NULL,
-        notes TEXT DEFAULT NULL,
-        created_by INT(11) DEFAULT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
-        UNIQUE KEY uq_transaction_number (transaction_number),
-        KEY idx_txn_item (item_id),
-        KEY idx_txn_type (transaction_type),
-        KEY idx_txn_ref (reference_type, reference_id),
-        KEY idx_txn_created_by (created_by)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
-
-    // 4. stock_alerts
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS stock_alerts (
-        id INT(11) NOT NULL AUTO_INCREMENT,
-        item_id INT(11) NOT NULL,
-        alert_type ENUM('LOW_STOCK','OUT_OF_STOCK','REORDER') NOT NULL,
-        current_stock INT(11) NOT NULL,
-        min_stock_level INT(11) NOT NULL,
-        is_resolved TINYINT(1) NOT NULL DEFAULT 0,
-        resolved_at DATETIME DEFAULT NULL,
-        resolved_by INT(11) DEFAULT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
-        KEY idx_alert_item (item_id),
-        KEY idx_alert_type (alert_type),
-        KEY idx_alert_resolved (is_resolved)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
-
-    stockTablesEnsured = true;
-  } catch (err) {
-    console.error("ensureStockTables error:", err.message);
-  } finally {
-    ensuringStockPromise = null;
-  }
   })();
 
-  return ensuringStockPromise;
+  ensuringPromises.set(dbName, promise);
+  return promise;
 };
 
 ensureStockTables().catch(() => {});
@@ -1036,7 +1042,28 @@ const getStockReport = async (db = defaultDb) => {
 
 const bulkImportItems = async (db = defaultDb, items = [], userId) => {
   await ensureStockTables(db);
-  const categories = await getCategories(db);
+  let categories = await getCategories(db);
+
+  // If categories are somehow empty, seed them immediately
+  if (!categories || categories.length === 0) {
+    try {
+      await db.query(`
+        INSERT IGNORE INTO stock_categories (name, slug, description, icon, sort_order) VALUES
+        ('Solar Panels', 'solar-panels', 'Mono PERC, Bifacial, Poly panels', 'solar_power', 1),
+        ('Inverters', 'inverters', 'On-Grid, Off-Grid, Hybrid inverters', 'electric_meter', 2),
+        ('Mounting Structure', 'mounting-structure', 'GI, Aluminium mounting structures', 'architecture', 3),
+        ('DC Cables & Connectors', 'dc-cables', 'DC cables, MC4 connectors, junction boxes', 'cable', 4),
+        ('AC Cables & Switchgear', 'ac-cables', 'AC cables, MCB, ACDB, DCDB panels', 'power', 5),
+        ('Earthing & Lightning', 'earthing', 'Earthing kits, lightning arrestors', 'bolt', 6),
+        ('Battery & Storage', 'battery', 'Lithium, Lead-acid batteries', 'battery_charging_full', 7),
+        ('Tools & Consumables', 'tools', 'Installation tools, lugs, conduit pipes', 'build', 8),
+        ('Monitoring & Others', 'monitoring', 'Data loggers, wi-fi dongles, others', 'monitoring', 9);
+      `);
+      categories = await getCategories(db);
+    } catch (catSeedErr) {
+      console.warn("Could not seed categories in bulkImportItems:", catSeedErr.message);
+    }
+  }
 
   let successCount = 0;
   let failedCount = 0;
@@ -1056,39 +1083,105 @@ const bulkImportItems = async (db = defaultDb, items = [], userId) => {
 
       // Resolve category
       let categoryId = raw.category_id;
-      if (!categoryId && (raw.category_name || raw.category || raw.category_slug)) {
-        const catSearch = String(raw.category_name || raw.category || raw.category_slug).trim().toLowerCase();
-        const found = categories.find(
+      const rawCatName = String(raw.category_name || raw.category || raw.category_slug || "").trim();
+
+      if (!categoryId && rawCatName) {
+        const catSearch = rawCatName.toLowerCase();
+        let found = categories.find(
           (c) => c.name.toLowerCase() === catSearch || c.slug.toLowerCase() === catSearch || String(c.id) === catSearch
         );
-        if (found) categoryId = found.id;
+
+        if (found) {
+          categoryId = found.id;
+        } else {
+          // Auto-create missing category so import never fails on category
+          try {
+            const catSlug = catSearch.replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+            const [cRes] = await db.query(
+              "INSERT INTO stock_categories (name, slug, sort_order) VALUES (?, ?, ?)",
+              [rawCatName, catSlug || `cat-${Date.now()}`, categories.length + 1]
+            );
+            categoryId = cRes.insertId;
+            categories.push({ id: categoryId, name: rawCatName, slug: catSlug });
+          } catch (createCatErr) {
+            const [existing] = await db.query("SELECT id FROM stock_categories WHERE name = ? LIMIT 1", [rawCatName]);
+            if (existing.length > 0) categoryId = existing[0].id;
+          }
+        }
       }
 
+      // Fallback to first available category
       if (!categoryId && categories.length > 0) {
-        categoryId = categories[0].id; // Fallback to first category
+        categoryId = categories[0].id;
       }
 
+      // Absolute safety fallback
       if (!categoryId) {
-        errors.push({ row: rowNum, item: raw, error: "Category could not be determined." });
-        failedCount++;
-        continue;
+        try {
+          const [genRes] = await db.query("INSERT INTO stock_categories (name, slug) VALUES ('General Solar', 'general-solar')");
+          categoryId = genRes.insertId;
+          categories.push({ id: categoryId, name: "General Solar", slug: "general-solar" });
+        } catch (e) {
+          const [firstCat] = await db.query("SELECT id FROM stock_categories LIMIT 1");
+          if (firstCat.length > 0) categoryId = firstCat[0].id;
+        }
+      }
+
+      const itemCode = (raw.item_code || raw.sku || raw.code || "").trim();
+      const currentStock = parseInt(raw.current_stock || raw.quantity || raw.qty || 0, 10) || 0;
+      const unitPrice = parseFloat(raw.unit_price || raw.price || raw.cost_price || 0) || 0;
+
+      // Check if item with this item_code already exists -> Update stock instead of erroring out
+      if (itemCode) {
+        const [existingItemRows] = await db.query(
+          "SELECT id, current_stock, unit_price FROM stock_items WHERE item_code = ? LIMIT 1",
+          [itemCode]
+        );
+
+        if (existingItemRows.length > 0) {
+          const existing = existingItemRows[0];
+          const updatedStock = (Number(existing.current_stock) || 0) + currentStock;
+          const updatedPrice = unitPrice > 0 ? unitPrice : existing.unit_price;
+
+          await db.query(
+            "UPDATE stock_items SET current_stock = ?, unit_price = ?, updated_at = NOW() WHERE id = ?",
+            [updatedStock, updatedPrice, existing.id]
+          );
+
+          if (currentStock > 0) {
+            const txnNum = await generateTransactionNumber(db);
+            const totalVal = currentStock * updatedPrice;
+            await db.query(
+              `INSERT INTO stock_transactions (
+                transaction_number, item_id, transaction_type, quantity,
+                quantity_before, quantity_after, unit_price, total_value,
+                reference_type, notes, created_by
+              ) VALUES (?, ?, 'IN', ?, ?, ?, ?, ?, 'PURCHASE', 'Bulk Import Stock Addition', ?)`,
+              [txnNum, existing.id, currentStock, existing.current_stock, updatedStock, updatedPrice, totalVal, userId || null]
+            );
+          }
+
+          createdItems.push({ id: existing.id, item_code: itemCode, updated: true, current_stock: updatedStock });
+          successCount++;
+          continue;
+        }
       }
 
       const itemPayload = {
         category_id: categoryId,
-        item_code: raw.item_code || raw.sku || raw.code || "",
+        item_code: itemCode,
         barcode: raw.barcode || raw.barcode_number || raw.upc || raw.ean || "",
         name: String(raw.name).trim(),
         brand: raw.brand || "",
         model: raw.model || "",
         description: raw.description || raw.remarks || "",
         unit: raw.unit || "Piece",
-        unit_price: parseFloat(raw.unit_price || raw.price || raw.cost_price || 0) || 0,
+        unit_price: unitPrice,
         gst_rate: parseFloat(raw.gst_rate || 18.0) || 18.0,
         hsn_code: raw.hsn_code || "",
         min_stock_level: parseInt(raw.min_stock_level || raw.min_stock || 5, 10) || 5,
         reorder_level: parseInt(raw.reorder_level || 10, 10) || 10,
-        current_stock: parseInt(raw.current_stock || raw.quantity || raw.qty || 0, 10) || 0,
+        current_stock: currentStock,
         specifications: raw.specifications || {},
       };
 

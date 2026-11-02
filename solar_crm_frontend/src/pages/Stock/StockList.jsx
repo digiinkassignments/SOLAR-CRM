@@ -56,7 +56,7 @@ import BarcodeScannerModal from "./components/BarcodeScannerModal";
 
 const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
-  "http://localhost:5000";
+  (typeof window !== "undefined" ? window.location.origin : "");
 
 /* ============================================================
    DESIGN TOKENS (Matching Leads.jsx)
@@ -700,8 +700,79 @@ const StockList = () => {
         loading={bulkDeleting}
       />
 
-      {/* ── Items Grid View ───────────────────────────────────── */}
-      {viewMode === "grid" ? (
+      {/* ── Empty State or Items ──────────────────────────────── */}
+      {items.length === 0 ? (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 6,
+            textAlign: "center",
+            borderRadius: "16px",
+            border: `1px dashed ${COLORS.borderStrong}`,
+            bgcolor: "#FFFFFF",
+            my: 2,
+          }}
+        >
+          <Box
+            sx={{
+              width: 64,
+              height: 64,
+              borderRadius: "16px",
+              bgcolor: COLORS.primarySoft,
+              color: COLORS.primary,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              mx: "auto",
+              mb: 2,
+            }}
+          >
+            <Inventory2Icon sx={{ fontSize: 32 }} />
+          </Box>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.textPrimary, mb: 0.5, fontFamily: "'Outfit', sans-serif" }}>
+            No Stock Items Found
+          </Typography>
+          <Typography variant="body2" sx={{ color: COLORS.textSecondary, maxWidth: 440, mx: "auto", mb: 2.5 }}>
+            {search || selectedCategory || (selectedStatus && selectedStatus !== "all")
+              ? "No items match your active filters. Try resetting search or category filters."
+              : "Your inventory catalog is currently empty. Add items manually or import multiple SKUs using a CSV template."}
+          </Typography>
+          <Stack direction="row" spacing={1.5} justifyContent="center">
+            <Button
+              variant="outlined"
+              startIcon={<FileUploadIcon />}
+              onClick={() => setImportModalOpen(true)}
+              sx={{
+                borderColor: COLORS.borderStrong,
+                color: COLORS.textPrimary,
+                fontWeight: 600,
+                fontSize: "0.8125rem",
+                textTransform: "none",
+                borderRadius: "8px",
+                "&:hover": { borderColor: COLORS.primary, bgcolor: COLORS.primarySoft },
+              }}
+            >
+              Import CSV
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => { setActiveItem(null); setItemModalOpen(true); }}
+              sx={{
+                bgcolor: COLORS.primary,
+                color: "#FFFFFF",
+                fontWeight: 600,
+                fontSize: "0.8125rem",
+                textTransform: "none",
+                borderRadius: "8px",
+                "&:hover": { bgcolor: COLORS.primaryDark },
+              }}
+            >
+              Add New Item
+            </Button>
+          </Stack>
+        </Paper>
+      ) : viewMode === "grid" ? (
         <Grid container spacing={2}>
           {items.map((item) => {
             const catIcon = getCategoryIcon(item.category_slug);

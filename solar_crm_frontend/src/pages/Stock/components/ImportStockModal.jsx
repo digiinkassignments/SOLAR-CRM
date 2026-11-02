@@ -136,16 +136,24 @@ const ImportStockModal = ({ open, onClose, onSuccess, categories = [] }) => {
     if (k.includes("itemname") || k.includes("productname") || k.includes("title") || k === "name") return "name";
     if (k.includes("category")) return "category";
     if (k.includes("itemcode") || k.includes("sku") || k === "code") return "item_code";
+    if (k.includes("barcode") || k.includes("ean") || k.includes("upc")) return "barcode";
     if (k.includes("brand") || k.includes("make")) return "brand";
     if (k.includes("model")) return "model";
-    if (k.includes("unitprice") || k.includes("price") || k.includes("cost") || k.includes("rate")) return "unit_price";
-    if (k.includes("currentstock") || k.includes("qty") || k.includes("quantity") || k.includes("stock")) return "current_stock";
-    if (k === "unit") return "unit";
+
+    // Priority checks for specific attributes BEFORE general substrings
+    if (k.includes("gstrate") || k.includes("gst")) return "gst_rate";
     if (k.includes("minstock") || k.includes("minlevel")) return "min_stock_level";
     if (k.includes("reorder") || k.includes("reorderlevel")) return "reorder_level";
-    if (k.includes("gstrate") || k.includes("gst")) return "gst_rate";
     if (k.includes("hsn") || k.includes("hsncode")) return "hsn_code";
-    if (k.includes("description") || k.includes("remarks") || k.includes("notes")) return "description";
+
+    // Unit price check (after gst_rate to avoid "rate" matching "gstrate")
+    if (k.includes("unitprice") || k.includes("price") || k.includes("cost") || k.includes("rate")) return "unit_price";
+
+    // Current stock check (after minstock/reorder to avoid "stock" matching "minstock")
+    if (k.includes("currentstock") || k.includes("qty") || k.includes("quantity") || k.includes("stock")) return "current_stock";
+
+    if (k === "unit") return "unit";
+    if (k.includes("description") || k.includes("remarks") || k.includes("notes") || k.includes("desc")) return "description";
     return key;
   };
 
@@ -235,12 +243,26 @@ const ImportStockModal = ({ open, onClose, onSuccess, categories = [] }) => {
     setImporting(true);
     try {
       const res = await bulkImportStockItems(validItems);
-      toast.success(res.message || `Successfully imported ${res.data?.successCount} stock items!`);
-      onSuccess?.();
-      handleClose();
+      const count = res.data?.successCount ?? 0;
+      const failed = res.data?.failedCount ?? 0;
+
+      if (count > 0) {
+        toast.success(res.message || `Successfully imported ${count} stock items!`);
+        if (failed > 0) {
+          toast.error(`${failed} items failed to import. Check console/details.`);
+        }
+        onSuccess?.();
+        handleClose();
+      } else {
+        const firstErrMsg = res.data?.errors?.[0]?.error || "Could not import stock items. Please check Category & SKU.";
+        toast.error(`Import failed: ${firstErrMsg}`);
+        setUploadError(`Import failed (0/${validItems.length} imported): ${firstErrMsg}`);
+      }
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.message || "Failed to bulk import stock items.");
+      const errMsg = err.response?.data?.message || err.message || "Failed to bulk import stock items.";
+      toast.error(errMsg);
+      setUploadError(errMsg);
     } finally {
       setImporting(false);
     }
