@@ -5,3 +5,4 @@ ALTER TABLE project_handover
   MODIFY COLUMN handover_status VARCHAR(60) DEFAULT 'Pending';
 
 -- Columns added safely across tenant DBs via add_handover_cols.sh
+

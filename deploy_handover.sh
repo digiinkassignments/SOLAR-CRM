@@ -20,3 +20,4 @@ ssh $SERVER "cd $REMOTE_FRONTEND && npm run build"
 echo "=========================================================="
 echo "    CUSTOMER HANDOVER STAGE DEPLOYED SUCCESSFULLY!        "
 echo "=========================================================="
+

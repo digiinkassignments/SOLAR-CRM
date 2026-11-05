@@ -3,7 +3,8 @@ const {
   getWarrantyAndVisits,
   createWarranty,
   updateWarranty,
-  addServiceVisit
+  addServiceVisit,
+  updateServiceVisit
 } = require('../models/warrantyModel');
 
 exports.get = async (req, res) => {
@@ -53,6 +54,21 @@ exports.addVisit = async (req, res) => {
     });
   } catch (err) {
     console.error('Add visit error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.updateVisit = async (req, res) => {
+  try {
+    await updateServiceVisit(req.db, req.params.visitId, req.body);
+    const data = await getWarrantyAndVisits(req.db, req.params.id);
+    res.json({
+      message: 'Service visit updated',
+      warranty: data.warranty,
+      visits: data.visits
+    });
+  } catch (err) {
+    console.error('Update visit error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };

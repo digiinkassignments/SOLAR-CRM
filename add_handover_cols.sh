@@ -32,3 +32,4 @@ done
 
 echo "Done! Verifying db_client_003:"
 mysql -e "DESCRIBE db_client_003.project_handover;"
+

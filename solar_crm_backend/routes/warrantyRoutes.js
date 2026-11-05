@@ -10,5 +10,6 @@ router.get('/', ctrl.get);
 router.post('/', ctrl.createOrUpdate);
 router.put('/', ctrl.createOrUpdate);
 router.post('/visits', ctrl.addVisit);
+router.put('/visits/:visitId', ctrl.updateVisit);
 
 module.exports = router;
