@@ -686,7 +686,7 @@ export default function Commissioning({ project, projectId }) {
                         commissioning.net_meter_export_kwh ? `${commissioning.net_meter_export_kwh} kWh` : null
                       )}
                     </Grid>
-                    <Grid size={12}>
+                    <Grid size={{ xs: 12 }}>
                       {renderDetailItem(
                         "Solar Generation Baseline",
                         (commissioning.generation_meter_kwh || commissioning.meter_reading_kwh)
@@ -1255,7 +1255,8 @@ export default function Commissioning({ project, projectId }) {
                       fullWidth
                       size="small"
                       multiline
-                      minRows={3}
+                      minRows={3.5}
+                      InputLabelProps={{ shrink: true }}
                       maxRows={6}
                       label="Commissioning Remarks & Engineering Observations"
                       placeholder="Observations on grid voltage harmonics, inverter synchronization time, anti-islanding test result, customer briefing notes..."

@@ -1186,6 +1186,7 @@ export default function CustomerHandover({ project, projectId }) {
                     size="small"
                     type="date"
                     required
+                    InputLabelProps={{ shrink: true }}
                     label="Customer Handover Date *"
                     InputLabelProps={{ shrink: true }}
                     value={formData.handover_date}
@@ -1583,7 +1584,7 @@ export default function CustomerHandover({ project, projectId }) {
                 6. Customer Feedback & Engineering Remarks
               </Typography>
               <Grid container spacing={2}>
-                <Grid size={12}>
+                <Grid size={{ xs: 12 }}>
                   <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
                     <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: COLORS.textPrimary }}>
                       Customer Star Rating:
@@ -1599,12 +1600,13 @@ export default function CustomerHandover({ project, projectId }) {
                   </Stack>
                 </Grid>
 
-                <Grid size={12}>
+                <Grid size={{ xs: 12 }}>
                   <TextField
                     fullWidth
                     size="small"
                     multiline
-                    rows={3}
+                    minRows={3.5}
+                    InputLabelProps={{ shrink: true }}
                     label="Customer Feedback / Testimonial *"
                     placeholder="Record customer experience, feedback on crew timeliness, quality, etc."
                     value={formData.customer_feedback}
@@ -1617,7 +1619,8 @@ export default function CustomerHandover({ project, projectId }) {
                     fullWidth
                     size="small"
                     multiline
-                    rows={3}
+                    minRows={3.5}
+                    InputLabelProps={{ shrink: true }}
                     label="Supervisor Handover Remarks"
                     placeholder="Internal audit notes, spare parts left on site, client special requests..."
                     value={formData.remarks}

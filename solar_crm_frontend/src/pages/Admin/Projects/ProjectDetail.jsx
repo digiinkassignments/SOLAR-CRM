@@ -1306,7 +1306,8 @@ export default function ProjectDetail() {
                 fullWidth
                 size="small"
                 multiline
-                rows={3}
+                minRows={3.5}
+                InputLabelProps={{ shrink: true }}
                 placeholder="Reason for change, approvals received, or milestone status..."
                 value={stageNotes}
                 onChange={(e) => setStageNotes(e.target.value)}
@@ -1615,7 +1616,8 @@ export default function ProjectDetail() {
                   fullWidth
                   size="small"
                   multiline
-                  rows={3}
+                  minRows={3.5}
+                  InputLabelProps={{ shrink: true }}
                   label="Notes"
                   placeholder="Installation notes, customer requests, or site hurdles..."
                   value={editFormData.notes}

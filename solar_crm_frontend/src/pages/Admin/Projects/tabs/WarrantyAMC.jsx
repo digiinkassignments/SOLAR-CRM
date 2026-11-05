@@ -1072,6 +1072,7 @@ export default function WarrantyAMC({ project, projectId }) {
                     size="small"
                     type="date"
                     required
+                    InputLabelProps={{ shrink: true }}
                     label="Warranty Start Date *"
                     InputLabelProps={{ shrink: true }}
                     value={warrantyForm.warranty_start_date}
@@ -1452,7 +1453,8 @@ export default function WarrantyAMC({ project, projectId }) {
               fullWidth
               size="small"
               multiline
-              rows={2}
+              minRows={3}
+              InputLabelProps={{ shrink: true }}
               label="Issue Reported / Scope of Work *"
               value={newVisitForm.issue_reported}
               onChange={(e) => setNewVisitForm({ ...newVisitForm, issue_reported: e.target.value })}
@@ -1462,7 +1464,8 @@ export default function WarrantyAMC({ project, projectId }) {
               fullWidth
               size="small"
               multiline
-              rows={2}
+              minRows={3}
+              InputLabelProps={{ shrink: true }}
               label="Action Taken / Resolution *"
               value={newVisitForm.resolution}
               onChange={(e) => setNewVisitForm({ ...newVisitForm, resolution: e.target.value })}

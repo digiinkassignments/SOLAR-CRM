@@ -668,7 +668,7 @@ export default function PreInstallInspection({ project, projectId }) {
                         inspection.roof_age_years ? `${inspection.roof_age_years} years` : null
                       )}
                     </Grid>
-                    <Grid size={12}>
+                    <Grid size={{ xs: 12 }}>
                       {renderDetailItem("Structural Concerns", inspection.structural_concerns)}
                     </Grid>
                   </Grid>
@@ -734,7 +734,7 @@ export default function PreInstallInspection({ project, projectId }) {
                     <Grid size={6}>
                       {renderDetailItem("Earthing Available", inspection.earthing_available)}
                     </Grid>
-                    <Grid size={12}>
+                    <Grid size={{ xs: 12 }}>
                       {renderDetailItem("Electrical Observations", inspection.electrical_issues)}
                     </Grid>
                   </Grid>
@@ -777,11 +777,11 @@ export default function PreInstallInspection({ project, projectId }) {
                     <Grid size={6}>
                       {renderDetailItem("Site Access", inspection.site_access)}
                     </Grid>
-                    <Grid size={12}>
+                    <Grid size={{ xs: 12 }}>
                       {renderDetailItem("GPS Coordinates", inspection.gps_coordinates)}
                     </Grid>
                     {inspection.site_photos && (
-                      <Grid size={12}>
+                      <Grid size={{ xs: 12 }}>
                         {renderDetailItem("Site Photos / Notes", inspection.site_photos)}
                       </Grid>
                     )}
@@ -1001,8 +1001,24 @@ export default function PreInstallInspection({ project, projectId }) {
                     type="number"
                     placeholder="e.g. 15, 20 or 25"
                     inputProps={{ min: 0, max: 90, step: "any" }}
+                    InputLabelProps={{ shrink: true }}
                     value={formData.roof_tilt_angle}
                     onChange={(e) => handleInputChange("roof_tilt_angle", e.target.value)}
+                  />
+                </Grid>
+
+                {/* Roof Age */}
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Roof Age (years)"
+                    type="number"
+                    placeholder="e.g. 5"
+                    inputProps={{ min: 0, step: "any" }}
+                    InputLabelProps={{ shrink: true }}
+                    value={formData.roof_age_years}
+                    onChange={(e) => handleInputChange("roof_age_years", e.target.value)}
                   />
                 </Grid>
 
@@ -1016,6 +1032,7 @@ export default function PreInstallInspection({ project, projectId }) {
                     type="number"
                     placeholder="e.g. 800"
                     inputProps={{ min: 0, step: "any" }}
+                    InputLabelProps={{ shrink: true }}
                     value={formData.roof_area_sqft}
                     onChange={(e) => handleInputChange("roof_area_sqft", e.target.value)}
                     helperText="Total physical footprint of the rooftop"
@@ -1031,34 +1048,22 @@ export default function PreInstallInspection({ project, projectId }) {
                     type="number"
                     placeholder="e.g. 600"
                     inputProps={{ min: 0, step: "any" }}
+                    InputLabelProps={{ shrink: true }}
                     value={formData.shadow_free_area_sqft}
                     onChange={(e) => handleInputChange("shadow_free_area_sqft", e.target.value)}
                     helperText="Area receiving unobstructed sunlight (9am - 4pm)"
                   />
                 </Grid>
 
-                {/* Roof Age */}
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Roof Age (years)"
-                    type="number"
-                    placeholder="e.g. 5"
-                    inputProps={{ min: 0, step: "any" }}
-                    value={formData.roof_age_years}
-                    onChange={(e) => handleInputChange("roof_age_years", e.target.value)}
-                  />
-                </Grid>
-
                 {/* Structural Concerns - TALL MULTI-LINE */}
-                <Grid size={12}>
+                <Grid size={{ xs: 12 }}>
                   <TextField
                     fullWidth
                     size="small"
                     multiline
-                    minRows={3}
-                    maxRows={6}
+                    minRows={3.5}
+                    maxRows={8}
+                    InputLabelProps={{ shrink: true }}
                     label="Structural Concerns"
                     placeholder="Waterproofing status, crack formations, parapet height, structural load capacity observations..."
                     value={formData.structural_concerns}
@@ -1193,7 +1198,8 @@ export default function PreInstallInspection({ project, projectId }) {
                     fullWidth
                     size="small"
                     multiline
-                    minRows={3}
+                    minRows={3.5}
+                    InputLabelProps={{ shrink: true }}
                     maxRows={6}
                     label="Electrical Issues & Notes"
                     placeholder="Voltage fluctuation history, distance from LT transformer, wiring quality, cable route distance to inverter..."
@@ -1358,7 +1364,8 @@ export default function PreInstallInspection({ project, projectId }) {
                     fullWidth
                     size="small"
                     multiline
-                    minRows={3}
+                    minRows={3.5}
+                    InputLabelProps={{ shrink: true }}
                     maxRows={6}
                     label="Additional Challenges"
                     placeholder="Narrow staircase for lifting solar panels, crane required, high wind zone, animal nuisance..."
@@ -1466,7 +1473,8 @@ export default function PreInstallInspection({ project, projectId }) {
                     fullWidth
                     size="small"
                     multiline
-                    minRows={3}
+                    minRows={3.5}
+                    InputLabelProps={{ shrink: true }}
                     maxRows={6}
                     label="Remarks & Feasibility Recommendations"
                     placeholder="Key observations, BOM recommendations, structure height recommendations, condition clauses..."

@@ -124,11 +124,19 @@ const theme = createTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          height: 40,
           borderRadius: 6,
           fontSize: "13px",
           fontWeight: 500,
           backgroundColor: "#FFFFFF",
+          "&:not(.MuiInputBase-multiline)": {
+            height: 40,
+          },
+          "&.MuiInputBase-multiline": {
+            height: "auto",
+            minHeight: 88,
+            padding: "10px 14px",
+            alignItems: "flex-start",
+          },
           "& fieldset": {
             borderColor: "#CBD5E1",
           },
@@ -145,6 +153,10 @@ const theme = createTheme({
         },
         input: {
           padding: "10px 14px",
+          "&.MuiInputBase-inputMultiline": {
+            padding: 0,
+            lineHeight: 1.5,
+          },
         },
       },
     },
@@ -158,6 +170,19 @@ const theme = createTheme({
           "&.Mui-focused": {
             color: "#D97706",
           },
+        },
+        shrink: {
+          backgroundColor: "#FFFFFF",
+          padding: "0 4px",
+          borderRadius: 2,
+        },
+      },
+    },
+
+    MuiTextField: {
+      defaultProps: {
+        InputLabelProps: {
+          shrink: true,
         },
       },
     },

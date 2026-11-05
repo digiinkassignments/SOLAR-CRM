@@ -691,7 +691,7 @@ export default function FinalInspection({ project, projectId }) {
                     </Grid>
 
                     {/* Sub-Checklist Evidence Breakdown */}
-                    <Grid size={12}>
+                    <Grid size={{ xs: 12 }}>
                       <Box sx={{ p: 1.5, borderRadius: "8px", backgroundColor: "#F8FAFC", border: `1px solid ${COLORS.border}` }}>
                         <Typography sx={{ fontSize: "0.7rem", fontWeight: 800, color: COLORS.textMuted, textTransform: "uppercase", mb: 0.8 }}>
                           Audited Engineering Evidence
@@ -751,7 +751,7 @@ export default function FinalInspection({ project, projectId }) {
                         commissioningData?.anti_islanding_test || "Pass (<2s Cutoff)"
                       )}
                     </Grid>
-                    <Grid size={12}>
+                    <Grid size={{ xs: 12 }}>
                       <Box sx={{ p: 1.2, borderRadius: "8px", backgroundColor: "#ECFDF5", border: "1px solid #A7F3D0" }}>
                         <Stack direction="row" alignItems="center" gap={1}>
                           <CheckCircleIcon sx={{ color: "#059669", fontSize: 16 }} />
@@ -1128,7 +1128,8 @@ export default function FinalInspection({ project, projectId }) {
                       fullWidth
                       size="small"
                       multiline
-                      minRows={3}
+                      minRows={3.5}
+                      InputLabelProps={{ shrink: true }}
                       maxRows={6}
                       required={isCorrectionsRequired}
                       label={isCorrectionsRequired ? "Corrections Needed (Rework Action Items) *" : "Corrections Needed"}
@@ -1157,7 +1158,8 @@ export default function FinalInspection({ project, projectId }) {
                       fullWidth
                       size="small"
                       multiline
-                      minRows={3}
+                      minRows={3.5}
+                      InputLabelProps={{ shrink: true }}
                       maxRows={6}
                       label="General Audit Remarks & Engineering Evaluation"
                       placeholder="Overall installation quality appraisal, rooftop civil conditions, client handover readiness..."

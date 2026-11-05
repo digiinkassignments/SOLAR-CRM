@@ -1356,7 +1356,8 @@ export default function InstallationProgress({ project, projectId }) {
                   required
                   size="small"
                   multiline
-                  minRows={3}
+                  minRows={3.5}
+                  InputLabelProps={{ shrink: true }}
                   maxRows={6}
                   label="Work Done Today *"
                   placeholder="Describe exact rooftop tasks: number of structure legs grouted, torque tightness checked, panels bolted, DC stringing, conduit piping, earthing pit excavation..."
@@ -1414,7 +1415,7 @@ export default function InstallationProgress({ project, projectId }) {
                   </Grid>
 
                   {/* Crew Names */}
-                  <Grid size={12}>
+                  <Grid size={{ xs: 12 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1643,7 +1644,8 @@ export default function InstallationProgress({ project, projectId }) {
                       fullWidth
                       size="small"
                       multiline
-                      minRows={2}
+                      minRows={3}
+                      InputLabelProps={{ shrink: true }}
                       maxRows={4}
                       label="Issues Faced / Field Roadblocks"
                       placeholder="e.g. Delayed panel crane lifting, parapet wall drilling issue, inverter breaker tripping..."
