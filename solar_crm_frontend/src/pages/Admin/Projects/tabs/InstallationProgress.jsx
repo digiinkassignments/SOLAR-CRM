@@ -1268,7 +1268,6 @@ export default function InstallationProgress({ project, projectId }) {
                     slotProps={{ inputLabel: { shrink: true } }}
                     InputLabelProps={{ shrink: true }}
                       label="Log Date *"
-                      InputLabelProps={{ shrink: true }}
                       value={formData.log_date}
                       onChange={(e) => handleInputChange("log_date", e.target.value)}
                     />
@@ -1848,7 +1847,6 @@ export default function InstallationProgress({ project, projectId }) {
                     slotProps={{ inputLabel: { shrink: true } }}
                     InputLabelProps={{ shrink: true }}
             label="Target Completion Date"
-            InputLabelProps={{ shrink: true }}
             value={newTargetDate}
             onChange={(e) => setNewTargetDate(e.target.value)}
           />

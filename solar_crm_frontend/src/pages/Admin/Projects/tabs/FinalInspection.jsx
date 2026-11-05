@@ -1046,7 +1046,6 @@ export default function FinalInspection({ project, projectId }) {
                     slotProps={{ inputLabel: { shrink: true } }}
                     InputLabelProps={{ shrink: true }}
                       label="Inspection Date *"
-                      InputLabelProps={{ shrink: true }}
                       value={formData.inspection_date}
                       onChange={(e) => handleInputChange("inspection_date", e.target.value)}
                       helperText="Conducted after commissioning completion"
@@ -1120,7 +1119,6 @@ export default function FinalInspection({ project, projectId }) {
                     slotProps={{ inputLabel: { shrink: true } }}
                     InputLabelProps={{ shrink: true }}
                       label="Re-inspection Date"
-                      InputLabelProps={{ shrink: true }}
                       value={formData.reinspection_date}
                       onChange={(e) => handleInputChange("reinspection_date", e.target.value)}
                     />

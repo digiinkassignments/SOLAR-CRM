@@ -1441,7 +1441,6 @@ export default function PreInstallInspection({ project, projectId }) {
                     slotProps={{ inputLabel: { shrink: true } }}
                     InputLabelProps={{ shrink: true }}
                     label="Inspection Date *"
-                    InputLabelProps={{ shrink: true }}
                     value={formData.inspection_date}
                     onChange={(e) => handleInputChange("inspection_date", e.target.value)}
                   />

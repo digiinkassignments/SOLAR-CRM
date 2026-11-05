@@ -1188,9 +1188,7 @@ export default function CustomerHandover({ project, projectId }) {
                     slotProps={{ inputLabel: { shrink: true } }}
                     InputLabelProps={{ shrink: true }}
                     required
-                    InputLabelProps={{ shrink: true }}
                     label="Customer Handover Date *"
-                    InputLabelProps={{ shrink: true }}
                     value={formData.handover_date}
                     helperText={`Final Inspection was on ${formatDate(finalInspectionDate)}`}
                     onChange={(e) => handleHandoverDateChange(e.target.value)}
@@ -1206,7 +1204,6 @@ export default function CustomerHandover({ project, projectId }) {
                     InputLabelProps={{ shrink: true }}
                     required
                     label="Warranty Start Date *"
-                    InputLabelProps={{ shrink: true }}
                     value={formData.warranty_start_date}
                     helperText="Must be on or after Handover Date"
                     onChange={(e) => handleWarrantyStartDateChange(e.target.value)}
@@ -1221,7 +1218,6 @@ export default function CustomerHandover({ project, projectId }) {
                     slotProps={{ inputLabel: { shrink: true } }}
                     InputLabelProps={{ shrink: true }}
                     label="1st Routine Service Date"
-                    InputLabelProps={{ shrink: true }}
                     value={formData.first_service_due_date}
                     helperText="Auto 90 days after Handover"
                     onChange={(e) => setFormData({ ...formData, first_service_due_date: e.target.value })}

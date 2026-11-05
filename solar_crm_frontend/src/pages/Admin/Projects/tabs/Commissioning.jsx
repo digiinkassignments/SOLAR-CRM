@@ -1179,7 +1179,6 @@ export default function Commissioning({ project, projectId }) {
                     slotProps={{ inputLabel: { shrink: true } }}
                     InputLabelProps={{ shrink: true }}
                       label="Commissioning Date *"
-                      InputLabelProps={{ shrink: true }}
                       value={formData.commission_date}
                       onChange={(e) => handleInputChange("commission_date", e.target.value)}
                       helperText="Must be on or after installation finish date"

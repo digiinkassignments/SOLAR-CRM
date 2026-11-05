@@ -1074,9 +1074,7 @@ export default function WarrantyAMC({ project, projectId }) {
                     slotProps={{ inputLabel: { shrink: true } }}
                     InputLabelProps={{ shrink: true }}
                     required
-                    InputLabelProps={{ shrink: true }}
                     label="Warranty Start Date *"
-                    InputLabelProps={{ shrink: true }}
                     value={warrantyForm.warranty_start_date}
                     helperText="Starts on Handover Date (12 Nov 2026)"
                     onChange={(e) => handleWarrantyStartDateChange(e.target.value)}
@@ -1092,7 +1090,6 @@ export default function WarrantyAMC({ project, projectId }) {
                     InputLabelProps={{ shrink: true }}
                     required
                     label="Free 1st-Year Service Ends *"
-                    InputLabelProps={{ shrink: true }}
                     value={warrantyForm.free_service_end_date}
                     helperText="1 Year from Handover (11 Nov 2027)"
                     onChange={(e) => setWarrantyForm({ ...warrantyForm, free_service_end_date: e.target.value })}
@@ -1230,7 +1227,6 @@ export default function WarrantyAMC({ project, projectId }) {
                     InputLabelProps={{ shrink: true }}
                     required
                     label="AMC Start Date *"
-                    InputLabelProps={{ shrink: true }}
                     value={warrantyForm.amc_start_date}
                     helperText="Starts day after free service ends"
                     onChange={(e) => handleAmcStartDateChange(e.target.value)}
@@ -1246,7 +1242,6 @@ export default function WarrantyAMC({ project, projectId }) {
                     InputLabelProps={{ shrink: true }}
                     required
                     label="AMC End Date *"
-                    InputLabelProps={{ shrink: true }}
                     value={warrantyForm.amc_end_date}
                     helperText="Auto calculated 1 year"
                     onChange={(e) => setWarrantyForm({ ...warrantyForm, amc_end_date: e.target.value })}
@@ -1261,7 +1256,6 @@ export default function WarrantyAMC({ project, projectId }) {
                     slotProps={{ inputLabel: { shrink: true } }}
                     InputLabelProps={{ shrink: true }}
                     label="Next AMC Renewal Date *"
-                    InputLabelProps={{ shrink: true }}
                     value={warrantyForm.amc_renewal_date}
                     onChange={(e) => setWarrantyForm({ ...warrantyForm, amc_renewal_date: e.target.value })}
                   />
@@ -1448,7 +1442,6 @@ export default function WarrantyAMC({ project, projectId }) {
                     InputLabelProps={{ shrink: true }}
               required
               label="Visit Date *"
-              InputLabelProps={{ shrink: true }}
               value={newVisitForm.visit_date}
               onChange={(e) => setNewVisitForm({ ...newVisitForm, visit_date: e.target.value })}
             />

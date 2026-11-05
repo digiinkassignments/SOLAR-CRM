@@ -1552,7 +1552,6 @@ export default function ProjectDetail() {
                     slotProps={{ inputLabel: { shrink: true } }}
                     InputLabelProps={{ shrink: true }}
                       label="Install Start Date"
-                      InputLabelProps={{ shrink: true }}
                       value={editFormData.installation_start_date}
                       onChange={(e) =>
                         setEditFormData({
@@ -1571,7 +1570,6 @@ export default function ProjectDetail() {
                     slotProps={{ inputLabel: { shrink: true } }}
                     InputLabelProps={{ shrink: true }}
                       label="Install End Date"
-                      InputLabelProps={{ shrink: true }}
                       value={editFormData.installation_end_date}
                       onChange={(e) =>
                         setEditFormData({
@@ -1590,7 +1588,6 @@ export default function ProjectDetail() {
                     slotProps={{ inputLabel: { shrink: true } }}
                     InputLabelProps={{ shrink: true }}
                       label="Actual Handover Date"
-                      InputLabelProps={{ shrink: true }}
                       value={editFormData.completion_date}
                       onChange={(e) =>
                         setEditFormData({
