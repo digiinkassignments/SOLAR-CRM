@@ -158,6 +158,7 @@ const RecordPaymentModal = ({ open, onClose, invoice = null, onPaymentRecorded =
               type="date"
               fullWidth
               size="small"
+                    InputLabelProps={{ shrink: true }}
               value={paymentDate}
               onChange={(e) => setPaymentDate(e.target.value)}
               sx={inputSx}

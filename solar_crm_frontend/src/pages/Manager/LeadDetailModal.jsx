@@ -506,6 +506,7 @@ export default function LeadDetailModal({ open, onClose, lead, onUpdateLead }) {
                     <TextField
                       fullWidth
                       size="small"
+                    InputLabelProps={{ shrink: true }}
                       type="date"
                       value={nextDate}
                       onChange={(e) => setNextDate(e.target.value)}

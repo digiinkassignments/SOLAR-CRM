@@ -2113,6 +2113,7 @@ export default function ManagerLeads() {
                   <TextField
                     fullWidth
                     size="small"
+                    InputLabelProps={{ shrink: true }}
                     type="date"
                     value={formData.next_follow_up_date}
                     onChange={(e) =>
@@ -2127,6 +2128,7 @@ export default function ManagerLeads() {
                   <TextField
                     fullWidth
                     size="small"
+                    InputLabelProps={{ shrink: true }}
                     type="date"
                     value={formData.site_visit_date}
                     onChange={(e) =>

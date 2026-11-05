@@ -453,6 +453,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                     type="date"
                     fullWidth
                     size="small"
+                    InputLabelProps={{ shrink: true }}
                     value={formData.submission_date}
                     onChange={(e) => setFormData((p) => ({ ...p, submission_date: e.target.value }))}
                     sx={{ "& input": { fontSize: "0.82rem" } }}
@@ -467,6 +468,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                     type="date"
                     fullWidth
                     size="small"
+                    InputLabelProps={{ shrink: true }}
                     value={formData.approval_date}
                     onChange={(e) => setFormData((p) => ({ ...p, approval_date: e.target.value }))}
                     sx={{ "& input": { fontSize: "0.82rem" } }}

@@ -642,7 +642,8 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Invoice Due Date
                   </Typography>
-                  <TextField type="date" fullWidth size="small" value={dueDate} onChange={(e) => setDueDate(e.target.value)} sx={inputSx} />
+                  <TextField type="date" fullWidth size="small"
+                    InputLabelProps={{ shrink: true }} value={dueDate} onChange={(e) => setDueDate(e.target.value)} sx={inputSx} />
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>

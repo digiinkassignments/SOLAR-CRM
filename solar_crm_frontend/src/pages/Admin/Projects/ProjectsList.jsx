@@ -593,7 +593,7 @@ export default function ProjectsList() {
         {/* 3. STATS CARDS (4 KPI BOXES WITH EXACT 10-STAGE AWARENESS) */}
         <Grid container spacing={2} sx={{ mb: 2.5 }}>
           {/* Total Projects */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper
               elevation={0}
               onClick={() => {
@@ -660,7 +660,7 @@ export default function ProjectsList() {
           </Grid>
 
           {/* Execution In Progress */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper
               elevation={0}
               onClick={() => {
@@ -727,7 +727,7 @@ export default function ProjectsList() {
           </Grid>
 
           {/* Subsidy Tracking (Applied & Received) */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper
               elevation={0}
               onClick={() => {
@@ -794,7 +794,7 @@ export default function ProjectsList() {
           </Grid>
 
           {/* Handover & Warranty */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper
               elevation={0}
               onClick={() => {
@@ -1246,7 +1246,7 @@ export default function ProjectsList() {
                   {/* 4 Distinct Data Metric Cards (NO COLLISION / OVERLAP) */}
                   <Grid container spacing={1.5} sx={{ mb: 2 }}>
                     {/* Metric 1: System Capacity */}
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Box
                         sx={{
                           p: 1.4,
@@ -1291,7 +1291,7 @@ export default function ProjectsList() {
                     </Grid>
 
                     {/* Metric 2: Customer Contact */}
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Box
                         sx={{
                           p: 1.4,
@@ -1339,7 +1339,7 @@ export default function ProjectsList() {
                     </Grid>
 
                     {/* Metric 3: Assigned Rep */}
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Box
                         sx={{
                           p: 1.4,
@@ -1396,7 +1396,7 @@ export default function ProjectsList() {
                     </Grid>
 
                     {/* Metric 4: Installation Target */}
-                    <Grid item xs={12} sm={6} md={3}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Box
                         sx={{
                           p: 1.4,
@@ -1845,7 +1845,7 @@ export default function ProjectsList() {
                   Step 2: Customer & Site Location
                 </Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1858,7 +1858,7 @@ export default function ProjectsList() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1871,7 +1871,7 @@ export default function ProjectsList() {
                     />
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1884,7 +1884,7 @@ export default function ProjectsList() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1896,7 +1896,7 @@ export default function ProjectsList() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1908,7 +1908,7 @@ export default function ProjectsList() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1939,7 +1939,7 @@ export default function ProjectsList() {
                   Step 3: Solar Engineering Specs & Stage
                 </Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1957,7 +1957,7 @@ export default function ProjectsList() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1970,7 +1970,7 @@ export default function ProjectsList() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1984,7 +1984,7 @@ export default function ProjectsList() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Select
                       fullWidth
                       size="small"
@@ -2001,7 +2001,7 @@ export default function ProjectsList() {
                     </Select>
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <TextField
                       fullWidth
                       size="small"

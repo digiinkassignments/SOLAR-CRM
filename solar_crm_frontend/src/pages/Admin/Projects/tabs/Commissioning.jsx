@@ -626,7 +626,7 @@ export default function Commissioning({ project, projectId }) {
           {/* Cards Grid */}
           <Grid container spacing={2.5}>
             {/* Section 1: Electrical Generation & Net Meter Readings */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card elevation={0} sx={{ borderRadius: "12px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.cardBg, height: "100%" }}>
                 <CardContent sx={{ p: 2.5 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
@@ -638,55 +638,55 @@ export default function Commissioning({ project, projectId }) {
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "DC String Voltage",
                         commissioning.panel_output_voltage ? `${commissioning.panel_output_voltage} V` : null
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "DC String Current",
                         commissioning.dc_current_amps ? `${commissioning.dc_current_amps} A` : null
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Inverter Output Power",
                         commissioning.inverter_output_kw ? `${commissioning.inverter_output_kw} kW` : null
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Inverter Display Status",
                         commissioning.inverter_display_status
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "AC Grid Output Voltage",
                         commissioning.ac_output_voltage ? `${commissioning.ac_output_voltage} V` : null
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Meter Serial Number",
                         commissioning.meter_serial_number
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Net Meter Import",
                         commissioning.net_meter_import_kwh ? `${commissioning.net_meter_import_kwh} kWh` : null
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Net Meter Export",
                         commissioning.net_meter_export_kwh ? `${commissioning.net_meter_export_kwh} kWh` : null
                       )}
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       {renderDetailItem(
                         "Solar Generation Baseline",
                         (commissioning.generation_meter_kwh || commissioning.meter_reading_kwh)
@@ -700,7 +700,7 @@ export default function Commissioning({ project, projectId }) {
             </Grid>
 
             {/* Section 2: Safety, Anti-Islanding & Insulation Tests */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card elevation={0} sx={{ borderRadius: "12px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.cardBg, height: "100%" }}>
                 <CardContent sx={{ p: 2.5 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
@@ -712,16 +712,16 @@ export default function Commissioning({ project, projectId }) {
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Anti-Islanding Test", commissioning.anti_islanding_test)}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Emergency Shutdowns", commissioning.safety_shutdowns)}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Grounding / Earthing Continuity", commissioning.grounding_check)}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Earth Resistance",
                         commissioning.earth_resistance_ohm
@@ -729,10 +729,10 @@ export default function Commissioning({ project, projectId }) {
                           : null
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Wiring Insulation Integrity", commissioning.wiring_insulation)}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Megger Insulation Resistance",
                         commissioning.insulation_resistance_mohm
@@ -740,7 +740,7 @@ export default function Commissioning({ project, projectId }) {
                           : null
                       )}
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       {renderDetailItem("Earth Leakage Current Test", commissioning.earth_leakage)}
                     </Grid>
                   </Grid>
@@ -749,7 +749,7 @@ export default function Commissioning({ project, projectId }) {
             </Grid>
 
             {/* Section 3: Commissioning Certificate & Sign-Off */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card elevation={0} sx={{ borderRadius: "12px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.cardBg }}>
                 <CardContent sx={{ p: 2.5 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
@@ -761,7 +761,7 @@ export default function Commissioning({ project, projectId }) {
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
 
                   <Grid container spacing={2}>
-                    <Grid item xs={12} sm={3}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
                       <Box sx={{ mb: 1.5 }}>
                         <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase", mb: 0.5 }}>
                           Overall Technical Result
@@ -769,19 +769,19 @@ export default function Commissioning({ project, projectId }) {
                         <Chip {...getResultChipProps(commissioning.overall_result)} />
                       </Box>
                     </Grid>
-                    <Grid item xs={12} sm={3}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
                       {renderDetailItem("Commissioning Date", formatCleanDate(commissioning.commission_date))}
                     </Grid>
-                    <Grid item xs={12} sm={3}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
                       {renderDetailItem("Testing Engineer", commissioning.commissioning_engineer)}
                     </Grid>
-                    <Grid item xs={12} sm={3}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
                       {renderDetailItem("Certificate Number", commissioning.certificate_number)}
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       {renderDetailItem("Customer / Rep Sign-Off", commissioning.customer_signature_name)}
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <Box sx={{ mb: 1.5 }}>
                         <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase", mb: 0.3 }}>
                           Verification Status
@@ -796,7 +796,7 @@ export default function Commissioning({ project, projectId }) {
                         </Stack>
                       </Box>
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       {renderDetailItem("Technical Remarks & Observations", commissioning.remarks)}
                     </Grid>
                   </Grid>
@@ -855,7 +855,7 @@ export default function Commissioning({ project, projectId }) {
 
                 <Grid container spacing={2}>
                   {/* DC String Voltage (V) */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -870,7 +870,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* DC String Current (A) */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -885,7 +885,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Inverter Output (kW) with Limit Validation */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -905,7 +905,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Inverter Display Status */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControl fullWidth size="small">
                       <InputLabel>Inverter LCD Status Display</InputLabel>
                       <Select
@@ -922,7 +922,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* AC Output Voltage (V) with Bounds Validation */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -942,7 +942,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Meter Serial Number */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -955,7 +955,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Net Meter Import Reading (kWh) */}
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -970,7 +970,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Net Meter Export Reading (kWh) */}
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -985,7 +985,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Solar Generation Baseline Meter (kWh) */}
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1015,7 +1015,7 @@ export default function Commissioning({ project, projectId }) {
 
                 <Grid container spacing={2}>
                   {/* Anti-Islanding Test - CRUCIAL SAFETY */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${formData.anti_islanding_test === "Pass" ? "#A7F3D0" : formData.anti_islanding_test === "Fail" ? "#FECACA" : COLORS.border}`, backgroundColor: "#F8FAFC" }}>
                       <Typography sx={{ fontSize: "0.78rem", fontWeight: 800, color: COLORS.textPrimary }}>
                         Anti-Islanding Protection Test *
@@ -1035,7 +1035,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Safety Shutdowns */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, backgroundColor: "#F8FAFC" }}>
                       <Typography sx={{ fontSize: "0.78rem", fontWeight: 800, color: COLORS.textPrimary }}>
                         Emergency AC/DC Isolator Trip Test
@@ -1055,7 +1055,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Grounding / Earthing Check + Earth Resistance (Ω) */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${isEarthResistanceHigh ? "#FECACA" : COLORS.border}`, backgroundColor: "#F8FAFC" }}>
                       <Typography sx={{ fontSize: "0.78rem", fontWeight: 800, color: COLORS.textPrimary }}>
                         Grounding Continuity & Earth Resistance
@@ -1085,7 +1085,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Wiring Insulation + Megger Value (MΩ) */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, backgroundColor: "#F8FAFC" }}>
                       <Typography sx={{ fontSize: "0.78rem", fontWeight: 800, color: COLORS.textPrimary }}>
                         Wiring Insulation & Megger Resistance
@@ -1114,7 +1114,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Earth Leakage Test */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, backgroundColor: "#F8FAFC" }}>
                       <Typography sx={{ fontSize: "0.78rem", fontWeight: 800, color: COLORS.textPrimary }}>
                         Earth Leakage / Residual Current (RCD)
@@ -1146,7 +1146,7 @@ export default function Commissioning({ project, projectId }) {
 
                 <Grid container spacing={2}>
                   {/* Overall Result with Auto-Follow Safety Gate */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControl fullWidth size="small" required error={hasFailedTest && formData.overall_result === "Passed"}>
                       <InputLabel>Overall Technical Result *</InputLabel>
                       <Select
@@ -1170,7 +1170,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Commissioning Date */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1185,7 +1185,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Commissioning Engineer Name */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1198,7 +1198,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Certificate Number (Auto-Generated) */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1211,7 +1211,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Customer Sign-off Name */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1222,7 +1222,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* Checkbox Sign-Offs */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Stack spacing={0.5}>
                       <FormControlLabel
                         control={
@@ -1250,7 +1250,7 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* TALL Multi-Line Remarks */}
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <TextField
                       fullWidth
                       size="small"

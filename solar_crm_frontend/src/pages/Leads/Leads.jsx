@@ -1589,13 +1589,15 @@ export default function Leads() {
               {/* From Date */}
               <Box sx={{ flex: "0 1 130px", minWidth: 110 }}>
                 <FieldLabel>From Date</FieldLabel>
-                <TextField fullWidth size="small" type="date" value={filters.date_from} onChange={(e) => handleFilterChange("date_from", e.target.value)} sx={dateControlSx} />
+                <TextField fullWidth size="small"
+                    InputLabelProps={{ shrink: true }} type="date" value={filters.date_from} onChange={(e) => handleFilterChange("date_from", e.target.value)} sx={dateControlSx} />
               </Box>
 
               {/* To Date */}
               <Box sx={{ flex: "0 1 130px", minWidth: 110 }}>
                 <FieldLabel>To Date</FieldLabel>
-                <TextField fullWidth size="small" type="date" value={filters.date_to} onChange={(e) => handleFilterChange("date_to", e.target.value)} sx={dateControlSx} />
+                <TextField fullWidth size="small"
+                    InputLabelProps={{ shrink: true }} type="date" value={filters.date_to} onChange={(e) => handleFilterChange("date_to", e.target.value)} sx={dateControlSx} />
               </Box>
 
               {/* Sort By */}
@@ -2751,7 +2753,8 @@ export default function Leads() {
           </Box>
           <Box>
             <FieldLabel>Next Follow-up Date</FieldLabel>
-            <TextField fullWidth size="small" type="date" value={followupData.next_follow_up_date} onChange={(e) => setFollowupData((prev) => ({ ...prev, next_follow_up_date: e.target.value }))} sx={dateControlSx} />
+            <TextField fullWidth size="small"
+                    InputLabelProps={{ shrink: true }} type="date" value={followupData.next_follow_up_date} onChange={(e) => setFollowupData((prev) => ({ ...prev, next_follow_up_date: e.target.value }))} sx={dateControlSx} />
           </Box>
           <Box>
             <FieldLabel>Update Pipeline Status</FieldLabel>

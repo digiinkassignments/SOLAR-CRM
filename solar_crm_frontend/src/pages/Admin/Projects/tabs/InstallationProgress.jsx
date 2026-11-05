@@ -655,7 +655,7 @@ export default function InstallationProgress({ project, projectId }) {
       >
         <Grid container spacing={2.5} alignItems="center">
           {/* Left stats info */}
-          <Grid item xs={12} md={7}>
+          <Grid size={{ xs: 12, md: 7 }}>
             <Stack direction="row" alignItems="center" gap={1.2} sx={{ mb: 0.5 }}>
               <ConstructionIcon sx={{ color: COLORS.secondary, fontSize: 24 }} />
               <Typography sx={{ fontSize: "1.05rem", fontWeight: 800, color: COLORS.textPrimary }}>
@@ -668,7 +668,7 @@ export default function InstallationProgress({ project, projectId }) {
 
             <Grid container spacing={2}>
               {/* Start Date (Auto-filled from Log 1 if not set) */}
-              <Grid item xs={6} sm={4}>
+              <Grid size={{ xs: 6, sm: 4 }}>
                 <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Start Date
                 </Typography>
@@ -681,7 +681,7 @@ export default function InstallationProgress({ project, projectId }) {
               </Grid>
 
               {/* Expected Completion Date (Settable before work begins) */}
-              <Grid item xs={6} sm={5}>
+              <Grid size={{ xs: 6, sm: 5 }}>
                 <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Target Completion
                 </Typography>
@@ -706,7 +706,7 @@ export default function InstallationProgress({ project, projectId }) {
               </Grid>
 
               {/* Total Logs */}
-              <Grid item xs={12} sm={3}>
+              <Grid size={{ xs: 12, sm: 3 }}>
                 <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Field Logs
                 </Typography>
@@ -718,7 +718,7 @@ export default function InstallationProgress({ project, projectId }) {
           </Grid>
 
           {/* Right progress dial & add log button */}
-          <Grid item xs={12} md={5}>
+          <Grid size={{ xs: 12, md: 5 }}>
             <Box
               sx={{
                 display: "flex",
@@ -778,7 +778,7 @@ export default function InstallationProgress({ project, projectId }) {
               const isCurrent = !isCompleted && completedPhases.length === idx;
 
               return (
-                <Grid item xs={12} sm={6} md={2.4} key={phaseKey}>
+                <Grid size={{ xs: 12, sm: 6, md: 2 }} key={phaseKey}>
                   <Box
                     sx={{
                       p: 1.5,
@@ -1131,7 +1131,7 @@ export default function InstallationProgress({ project, projectId }) {
                               : `${getApiUrl("")}${photo.photo_url}`;
 
                             return (
-                              <Grid item xs={6} sm={4} md={2.4} key={pIdx}>
+                              <Grid size={{ xs: 6, sm: 4, md: 2 }} key={pIdx}>
                                 <Box
                                   onClick={() => setLightboxImg(fullUrl)}
                                   sx={{
@@ -1259,7 +1259,7 @@ export default function InstallationProgress({ project, projectId }) {
 
                 <Grid container spacing={2}>
                   {/* Log Date */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1273,7 +1273,7 @@ export default function InstallationProgress({ project, projectId }) {
                   </Grid>
 
                   {/* Installation Phase */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControl fullWidth size="small" required>
                       <InputLabel>Installation Phase *</InputLabel>
                       <Select
@@ -1291,7 +1291,7 @@ export default function InstallationProgress({ project, projectId }) {
                   </Grid>
 
                   {/* Phase Completed Checkbox */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Box
                       sx={{
                         p: 1.2,
@@ -1324,7 +1324,7 @@ export default function InstallationProgress({ project, projectId }) {
                   </Grid>
 
                   {/* Weather */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControl fullWidth size="small">
                       <InputLabel>Site Weather</InputLabel>
                       <Select
@@ -1374,7 +1374,7 @@ export default function InstallationProgress({ project, projectId }) {
                 </Typography>
                 <Grid container spacing={2}>
                   {/* Supervisor Name */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1386,7 +1386,7 @@ export default function InstallationProgress({ project, projectId }) {
                   </Grid>
 
                   {/* Workers Count */}
-                  <Grid item xs={6} sm={3}>
+                  <Grid size={{ xs: 6, sm: 3 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1400,7 +1400,7 @@ export default function InstallationProgress({ project, projectId }) {
                   </Grid>
 
                   {/* Hours Worked */}
-                  <Grid item xs={6} sm={3}>
+                  <Grid size={{ xs: 6, sm: 3 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1414,7 +1414,7 @@ export default function InstallationProgress({ project, projectId }) {
                   </Grid>
 
                   {/* Crew Names */}
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1453,7 +1453,7 @@ export default function InstallationProgress({ project, projectId }) {
                 <Stack spacing={1.2}>
                   {formData.materials_list.map((m, idx) => (
                     <Grid container spacing={1.5} alignItems="center" key={idx}>
-                      <Grid item xs={12} sm={6}>
+                      <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                           fullWidth
                           size="small"
@@ -1464,7 +1464,7 @@ export default function InstallationProgress({ project, projectId }) {
                         />
                       </Grid>
 
-                      <Grid item xs={6} sm={3}>
+                      <Grid size={{ xs: 6, sm: 3 }}>
                         <TextField
                           fullWidth
                           size="small"
@@ -1477,7 +1477,7 @@ export default function InstallationProgress({ project, projectId }) {
                         />
                       </Grid>
 
-                      <Grid item xs={4} sm={2}>
+                      <Grid size={{ xs: 4, sm: 2 }}>
                         <FormControl fullWidth size="small">
                           <InputLabel>Unit</InputLabel>
                           <Select
@@ -1496,7 +1496,7 @@ export default function InstallationProgress({ project, projectId }) {
                         </FormControl>
                       </Grid>
 
-                      <Grid item xs={2} sm={1}>
+                      <Grid size={{ xs: 2, sm: 1 }}>
                         <IconButton
                           size="small"
                           color="error"
@@ -1521,7 +1521,7 @@ export default function InstallationProgress({ project, projectId }) {
                 </Typography>
 
                 <Grid container spacing={1.5}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControlLabel
                       control={
                         <Checkbox
@@ -1535,7 +1535,7 @@ export default function InstallationProgress({ project, projectId }) {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControlLabel
                       control={
                         <Checkbox
@@ -1549,7 +1549,7 @@ export default function InstallationProgress({ project, projectId }) {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControlLabel
                       control={
                         <Checkbox
@@ -1563,7 +1563,7 @@ export default function InstallationProgress({ project, projectId }) {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControlLabel
                       control={
                         <Checkbox
@@ -1589,7 +1589,7 @@ export default function InstallationProgress({ project, projectId }) {
 
                 <Grid container spacing={2}>
                   {/* Overall Progress % */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1605,7 +1605,7 @@ export default function InstallationProgress({ project, projectId }) {
                   </Grid>
 
                   {/* Supervisor Sign-Off */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Box
                       sx={{
                         p: 1.2,
@@ -1638,7 +1638,7 @@ export default function InstallationProgress({ project, projectId }) {
                   </Grid>
 
                   {/* Issues Faced */}
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1717,7 +1717,7 @@ export default function InstallationProgress({ project, projectId }) {
                   <Box sx={{ mt: 2 }}>
                     <Grid container spacing={1.5}>
                       {photoPreviews.map((preview, idx) => (
-                        <Grid item xs={12} sm={6} key={idx}>
+                        <Grid size={{ xs: 12, sm: 6 }} key={idx}>
                           <Box
                             sx={{
                               p: 1.5,

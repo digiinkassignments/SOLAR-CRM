@@ -551,7 +551,7 @@ export default function CustomerHandover({ project, projectId }) {
         }}
       >
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={3}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <Stack direction="row" spacing={1.5} alignItems="center">
               <Box
                 sx={{
@@ -573,21 +573,21 @@ export default function CustomerHandover({ project, projectId }) {
             </Stack>
           </Grid>
 
-          <Grid item xs={6} sm={3} md={2.5}>
+          <Grid size={{ xs: 6, sm: 3, md: 2 }}>
             <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary }}>Contract Total</Typography>
             <Typography variant="body1" sx={{ fontWeight: 800, color: COLORS.textPrimary }}>
               ₹{financials.contractValue.toLocaleString("en-IN")}
             </Typography>
           </Grid>
 
-          <Grid item xs={6} sm={3} md={2.5}>
+          <Grid size={{ xs: 6, sm: 3, md: 2 }}>
             <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary }}>Amount Paid</Typography>
             <Typography variant="body1" sx={{ fontWeight: 800, color: "#16A34A" }}>
               ₹{financials.amountPaid.toLocaleString("en-IN")}
             </Typography>
           </Grid>
 
-          <Grid item xs={6} sm={3} md={2}>
+          <Grid size={{ xs: 6, sm: 3, md: 2 }}>
             <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary }}>Balance Due</Typography>
             <Typography
               variant="body1"
@@ -600,7 +600,7 @@ export default function CustomerHandover({ project, projectId }) {
             </Typography>
           </Grid>
 
-          <Grid item xs={6} sm={3} md={2} sx={{ textAlign: { xs: "left", md: "right" } }}>
+          <Grid size={{ xs: 6, sm: 3, md: 2 }} sx={{ textAlign: { xs: "left", md: "right" } }}>
             <Chip
               icon={financials.balanceDue > 0 ? <WarningAmberIcon /> : <CheckCircleIcon />}
               label={financials.balanceDue > 0 ? "Balance Pending" : "Cleared for Handover"}
@@ -638,7 +638,7 @@ export default function CustomerHandover({ project, projectId }) {
 
         <Grid container spacing={2}>
           {/* PV MODULE WARRANTY */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper
               elevation={0}
               sx={{
@@ -673,7 +673,7 @@ export default function CustomerHandover({ project, projectId }) {
           </Grid>
 
           {/* INVERTER WARRANTY */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper
               elevation={0}
               sx={{
@@ -708,7 +708,7 @@ export default function CustomerHandover({ project, projectId }) {
           </Grid>
 
           {/* WORKMANSHIP WARRANTY */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper
               elevation={0}
               sx={{
@@ -743,7 +743,7 @@ export default function CustomerHandover({ project, projectId }) {
           </Grid>
 
           {/* AMC MAINTENANCE */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper
               elevation={0}
               sx={{
@@ -782,7 +782,7 @@ export default function CustomerHandover({ project, projectId }) {
       {/* TWO COLUMN GRID: ONBOARDING & DOSSIER */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         {/* LEFT COLUMN: CUSTOMER ONBOARDING & APP DEMO */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper
             elevation={0}
             sx={{
@@ -862,7 +862,7 @@ export default function CustomerHandover({ project, projectId }) {
               </Box>
 
               <Grid container spacing={1.5}>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Box sx={{ p: 1.5, borderRadius: "8px", backgroundColor: "#F8FAFC", border: `1px solid ${COLORS.border}` }}>
                     <Typography sx={{ fontSize: "0.7rem", color: COLORS.textMuted }}>App Access Shared</Typography>
                     <Typography sx={{ fontSize: "0.85rem", fontWeight: 800, color: formData.monitoring_app_access_shared ? "#16A34A" : "#DC2626" }}>
@@ -871,7 +871,7 @@ export default function CustomerHandover({ project, projectId }) {
                   </Box>
                 </Grid>
 
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Box sx={{ p: 1.5, borderRadius: "8px", backgroundColor: "#F8FAFC", border: `1px solid ${COLORS.border}` }}>
                     <Typography sx={{ fontSize: "0.7rem", color: COLORS.textMuted }}>Emergency Helpline</Typography>
                     <Typography sx={{ fontSize: "0.85rem", fontWeight: 800, color: formData.emergency_contact_given ? "#16A34A" : "#DC2626" }}>
@@ -880,7 +880,7 @@ export default function CustomerHandover({ project, projectId }) {
                   </Box>
                 </Grid>
 
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Box sx={{ p: 1.5, borderRadius: "8px", backgroundColor: "#F8FAFC", border: `1px solid ${COLORS.border}` }}>
                     <Typography sx={{ fontSize: "0.7rem", color: COLORS.textMuted }}>Handover Date</Typography>
                     <Typography sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.textPrimary }}>
@@ -889,7 +889,7 @@ export default function CustomerHandover({ project, projectId }) {
                   </Box>
                 </Grid>
 
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Box sx={{ p: 1.5, borderRadius: "8px", backgroundColor: "#F8FAFC", border: `1px solid ${COLORS.border}` }}>
                     <Typography sx={{ fontSize: "0.7rem", color: COLORS.textMuted }}>1st Scheduled Service Due</Typography>
                     <Typography sx={{ fontSize: "0.85rem", fontWeight: 800, color: "#2563EB" }}>
@@ -910,7 +910,7 @@ export default function CustomerHandover({ project, projectId }) {
         </Grid>
 
         {/* RIGHT COLUMN: STATUTORY DOCUMENT DOSSIER */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper
             elevation={0}
             sx={{
@@ -988,7 +988,7 @@ export default function CustomerHandover({ project, projectId }) {
       >
         <Grid container spacing={3}>
           {/* SIGNATURE & EVIDENCE */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Typography
               sx={{
                 fontSize: "0.75rem",
@@ -1034,7 +1034,7 @@ export default function CustomerHandover({ project, projectId }) {
               </Box>
 
               <Grid container spacing={1.5}>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Button
                     fullWidth
                     variant="outlined"
@@ -1056,7 +1056,7 @@ export default function CustomerHandover({ project, projectId }) {
                   </Button>
                 </Grid>
 
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Button
                     fullWidth
                     variant="outlined"
@@ -1082,7 +1082,7 @@ export default function CustomerHandover({ project, projectId }) {
           </Grid>
 
           {/* CUSTOMER FEEDBACK & STAR RATING */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Typography
               sx={{
                 fontSize: "0.75rem",
@@ -1180,7 +1180,7 @@ export default function CustomerHandover({ project, projectId }) {
                 1. Handover Milestone Dates & Verification
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1194,7 +1194,7 @@ export default function CustomerHandover({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1208,7 +1208,7 @@ export default function CustomerHandover({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1221,7 +1221,7 @@ export default function CustomerHandover({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel id="handover-manager-label">Handover Manager *</InputLabel>
                     <Select
@@ -1239,7 +1239,7 @@ export default function CustomerHandover({ project, projectId }) {
                   </FormControl>
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel id="handover-status-label">Overall Handover Status *</InputLabel>
                     <Select
@@ -1282,7 +1282,7 @@ export default function CustomerHandover({ project, projectId }) {
                 2. Customer Operational Training & Mobile App
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel id="training-label">System Operations Training *</InputLabel>
                     <Select
@@ -1299,7 +1299,7 @@ export default function CustomerHandover({ project, projectId }) {
                   </FormControl>
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel id="app-demo-label">Monitoring App Demo *</InputLabel>
                     <Select
@@ -1316,7 +1316,7 @@ export default function CustomerHandover({ project, projectId }) {
                   </FormControl>
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel id="app-cred-label">Monitoring App Login Shared?</InputLabel>
                     <Select
@@ -1331,7 +1331,7 @@ export default function CustomerHandover({ project, projectId }) {
                   </FormControl>
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel id="emergency-label">Emergency Helpline Sticker Provided?</InputLabel>
                     <Select
@@ -1365,7 +1365,7 @@ export default function CustomerHandover({ project, projectId }) {
                 3. Granular Multi-Component Warranty End Dates
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1386,7 +1386,7 @@ export default function CustomerHandover({ project, projectId }) {
                   </Typography>
                 </Grid>
 
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1407,7 +1407,7 @@ export default function CustomerHandover({ project, projectId }) {
                   </Typography>
                 </Grid>
 
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1428,7 +1428,7 @@ export default function CustomerHandover({ project, projectId }) {
                   </Typography>
                 </Grid>
 
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1469,7 +1469,7 @@ export default function CustomerHandover({ project, projectId }) {
               </Typography>
               <Grid container spacing={1}>
                 {formData.documents_pack_checklist.map((doc) => (
-                  <Grid item xs={12} sm={6} key={doc.id}>
+                  <Grid size={{ xs: 12, sm: 6 }} key={doc.id}>
                     <FormControlLabel
                       control={
                         <Checkbox
@@ -1507,7 +1507,7 @@ export default function CustomerHandover({ project, projectId }) {
                 5. Customer Acceptance Signoff & Photo Evidence
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel id="cust-sig-label">Customer Signature Obtained? *</InputLabel>
                     <Select
@@ -1522,7 +1522,7 @@ export default function CustomerHandover({ project, projectId }) {
                   </FormControl>
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1532,7 +1532,7 @@ export default function CustomerHandover({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1542,7 +1542,7 @@ export default function CustomerHandover({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1553,7 +1553,7 @@ export default function CustomerHandover({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1583,7 +1583,7 @@ export default function CustomerHandover({ project, projectId }) {
                 6. Customer Feedback & Engineering Remarks
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
                     <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: COLORS.textPrimary }}>
                       Customer Star Rating:
@@ -1599,7 +1599,7 @@ export default function CustomerHandover({ project, projectId }) {
                   </Stack>
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1612,7 +1612,7 @@ export default function CustomerHandover({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     fullWidth
                     size="small"

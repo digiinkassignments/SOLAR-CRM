@@ -355,10 +355,10 @@ export default function ProjectDetail() {
         <Skeleton variant="text" width={240} height={28} sx={{ mb: 2 }} />
         <Skeleton variant="rounded" height={90} sx={{ borderRadius: "14px", mb: 3 }} />
         <Grid container spacing={3}>
-          <Grid item xs={12} md={7}>
+          <Grid size={{ xs: 12, md: 7 }}>
             <Skeleton variant="rounded" height={400} sx={{ borderRadius: "14px" }} />
           </Grid>
-          <Grid item xs={12} md={5}>
+          <Grid size={{ xs: 12, md: 5 }}>
             <Skeleton variant="rounded" height={400} sx={{ borderRadius: "14px" }} />
           </Grid>
         </Grid>
@@ -694,7 +694,7 @@ export default function ProjectDetail() {
         {activeTab === 0 && (
           <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
             {/* Left Column: Customer & System Details */}
-            <Grid item xs={12} lg={6}>
+            <Grid size={{ xs: 12, lg: 6 }}>
               <Paper
                 elevation={0}
                 sx={{
@@ -725,7 +725,7 @@ export default function ProjectDetail() {
                   </Typography>
 
                   <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         Customer Name
                       </Typography>
@@ -734,7 +734,7 @@ export default function ProjectDetail() {
                       </Typography>
                     </Grid>
 
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         Mobile Phone
                       </Typography>
@@ -756,7 +756,7 @@ export default function ProjectDetail() {
                       </Stack>
                     </Grid>
 
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         Installation Site Location
                       </Typography>
@@ -790,7 +790,7 @@ export default function ProjectDetail() {
                   </Typography>
 
                   <Grid container spacing={2}>
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         System Capacity
                       </Typography>
@@ -802,7 +802,7 @@ export default function ProjectDetail() {
                       </Stack>
                     </Grid>
 
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         Solar Modules
                       </Typography>
@@ -811,7 +811,7 @@ export default function ProjectDetail() {
                       </Typography>
                     </Grid>
 
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         Grid Inverter
                       </Typography>
@@ -840,7 +840,7 @@ export default function ProjectDetail() {
                   </Typography>
 
                   <Grid container spacing={2}>
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         Installation Start Date
                       </Typography>
@@ -849,7 +849,7 @@ export default function ProjectDetail() {
                       </Typography>
                     </Grid>
 
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         Target Completion Date
                       </Typography>
@@ -858,7 +858,7 @@ export default function ProjectDetail() {
                       </Typography>
                     </Grid>
 
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         Actual Handover Date
                       </Typography>
@@ -904,7 +904,7 @@ export default function ProjectDetail() {
             </Grid>
 
             {/* Right Column: 10-STAGE INTERACTIVE PIPELINE STEPPER */}
-            <Grid item xs={12} lg={6}>
+            <Grid size={{ xs: 12, lg: 6 }}>
               <Paper
                 elevation={0}
                 sx={{
@@ -1388,7 +1388,7 @@ export default function ProjectDetail() {
                   Customer & Contact Information
                 </Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1401,7 +1401,7 @@ export default function ProjectDetail() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1414,7 +1414,7 @@ export default function ProjectDetail() {
                     />
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1426,7 +1426,7 @@ export default function ProjectDetail() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1438,7 +1438,7 @@ export default function ProjectDetail() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1450,7 +1450,7 @@ export default function ProjectDetail() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1481,7 +1481,7 @@ export default function ProjectDetail() {
                   Technical Solar System Specifications
                 </Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1496,7 +1496,7 @@ export default function ProjectDetail() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1509,7 +1509,7 @@ export default function ProjectDetail() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1542,7 +1542,7 @@ export default function ProjectDetail() {
                   Project Execution Schedule Dates
                 </Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1559,7 +1559,7 @@ export default function ProjectDetail() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1576,7 +1576,7 @@ export default function ProjectDetail() {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <TextField
                       fullWidth
                       size="small"

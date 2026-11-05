@@ -665,7 +665,7 @@ export default function FinalInspection({ project, projectId }) {
           {/* Cards Grid */}
           <Grid container spacing={2.5}>
             {/* Section 1: Quality Checks & Sub-Checklists */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card elevation={0} sx={{ borderRadius: "12px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.cardBg, height: "100%" }}>
                 <CardContent sx={{ p: 2.5 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
@@ -677,21 +677,21 @@ export default function FinalInspection({ project, projectId }) {
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Mounting & Structural Quality", inspection.installation_quality)}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Electrical Safety Compliance", inspection.safety_compliance)}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Statutory Document Pack", inspection.document_verification)}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Performance Verification", inspection.performance_testing)}
                     </Grid>
 
                     {/* Sub-Checklist Evidence Breakdown */}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Box sx={{ p: 1.5, borderRadius: "8px", backgroundColor: "#F8FAFC", border: `1px solid ${COLORS.border}` }}>
                         <Typography sx={{ fontSize: "0.7rem", fontWeight: 800, color: COLORS.textMuted, textTransform: "uppercase", mb: 0.8 }}>
                           Audited Engineering Evidence
@@ -715,7 +715,7 @@ export default function FinalInspection({ project, projectId }) {
             </Grid>
 
             {/* Section 2: Commissioning Performance Verification (Read-Only Linking) */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card elevation={0} sx={{ borderRadius: "12px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.cardBg, height: "100%" }}>
                 <CardContent sx={{ p: 2.5 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
@@ -727,31 +727,31 @@ export default function FinalInspection({ project, projectId }) {
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "DC String Voc",
                         commissioningData?.panel_output_voltage ? `${commissioningData.panel_output_voltage} V` : "Verified (>350V)"
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Inverter Output Power",
                         commissioningData?.inverter_output_kw ? `${commissioningData.inverter_output_kw} kW` : "Active / Synchronized"
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Megger Insulation",
                         commissioningData?.insulation_resistance_mohm ? `${commissioningData.insulation_resistance_mohm} MΩ` : "Compliant (>1 MΩ)"
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Anti-Islanding Test",
                         commissioningData?.anti_islanding_test || "Pass (<2s Cutoff)"
                       )}
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <Box sx={{ p: 1.2, borderRadius: "8px", backgroundColor: "#ECFDF5", border: "1px solid #A7F3D0" }}>
                         <Stack direction="row" alignItems="center" gap={1}>
                           <CheckCircleIcon sx={{ color: "#059669", fontSize: 16 }} />
@@ -767,7 +767,7 @@ export default function FinalInspection({ project, projectId }) {
             </Grid>
 
             {/* Section 3: Rework, Corrections & Certificate Clearance */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card elevation={0} sx={{ borderRadius: "12px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.cardBg }}>
                 <CardContent sx={{ p: 2.5 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
@@ -779,7 +779,7 @@ export default function FinalInspection({ project, projectId }) {
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
 
                   <Grid container spacing={2}>
-                    <Grid item xs={12} sm={3}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
                       <Box sx={{ mb: 1.5 }}>
                         <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase", mb: 0.5 }}>
                           Final QA Status
@@ -787,19 +787,19 @@ export default function FinalInspection({ project, projectId }) {
                         <Chip {...getStatusChipProps(inspection.inspection_status)} />
                       </Box>
                     </Grid>
-                    <Grid item xs={12} sm={3}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
                       {renderDetailItem("Auditor Name", inspection.inspector_name)}
                     </Grid>
-                    <Grid item xs={12} sm={3}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
                       {renderDetailItem("Audit Class", inspection.inspector_type)}
                     </Grid>
-                    <Grid item xs={12} sm={3}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
                       {renderDetailItem("QA Approval Cert No.", inspection.certificate_number)}
                     </Grid>
 
                     {/* Rework Follow-up Status */}
                     {inspection.corrections_needed && (
-                      <Grid item xs={12} sm={6}>
+                      <Grid size={{ xs: 12, sm: 6 }}>
                         <Box sx={{ p: 1.5, borderRadius: "8px", backgroundColor: "#FFFBEB", border: "1px solid #FDE68A" }}>
                           <Typography sx={{ fontSize: "0.72rem", fontWeight: 800, color: "#92400E", textTransform: "uppercase", mb: 0.5 }}>
                             Rework & Rectification Status
@@ -815,7 +815,7 @@ export default function FinalInspection({ project, projectId }) {
                       </Grid>
                     )}
 
-                    <Grid item xs={12} sm={inspection.corrections_needed ? 6 : 12}>
+                    <Grid size={inspection.corrections_needed ? 6 : 12}>
                       {renderDetailItem("Audit Remarks", inspection.remarks)}
                       {inspection.inspection_photos && (
                         <Box sx={{ mt: 1 }}>
@@ -887,7 +887,7 @@ export default function FinalInspection({ project, projectId }) {
 
                 <Grid container spacing={2}>
                   {/* 1. Structural & Mounting Quality */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Box sx={{ p: 1.8, borderRadius: "10px", border: `1px solid ${COLORS.border}`, backgroundColor: "#F8FAFC" }}>
                       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                         <Typography sx={{ fontSize: "0.82rem", fontWeight: 800, color: COLORS.textPrimary }}>
@@ -913,7 +913,7 @@ export default function FinalInspection({ project, projectId }) {
                   </Grid>
 
                   {/* 2. Electrical & Safety Compliance */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Box sx={{ p: 1.8, borderRadius: "10px", border: `1px solid ${COLORS.border}`, backgroundColor: "#F8FAFC" }}>
                       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                         <Typography sx={{ fontSize: "0.82rem", fontWeight: 800, color: COLORS.textPrimary }}>
@@ -939,7 +939,7 @@ export default function FinalInspection({ project, projectId }) {
                   </Grid>
 
                   {/* 3. Document Verification Checklist */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Box sx={{ p: 1.8, borderRadius: "10px", border: `1px solid ${COLORS.border}`, backgroundColor: "#F8FAFC" }}>
                       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                         <Typography sx={{ fontSize: "0.82rem", fontWeight: 800, color: COLORS.textPrimary }}>
@@ -965,7 +965,7 @@ export default function FinalInspection({ project, projectId }) {
                   </Grid>
 
                   {/* 4. Performance Verification (Linked to Commissioning) */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Box sx={{ p: 1.8, borderRadius: "10px", border: `1px solid ${COLORS.border}`, backgroundColor: "#F8FAFC" }}>
                       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                         <Typography sx={{ fontSize: "0.82rem", fontWeight: 800, color: COLORS.textPrimary }}>
@@ -1008,7 +1008,7 @@ export default function FinalInspection({ project, projectId }) {
 
                 <Grid container spacing={2}>
                   {/* Inspector Name (Independent Auditor) */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1021,7 +1021,7 @@ export default function FinalInspection({ project, projectId }) {
                   </Grid>
 
                   {/* Inspector Type */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControl fullWidth size="small">
                       <InputLabel>Inspector Classification</InputLabel>
                       <Select
@@ -1037,7 +1037,7 @@ export default function FinalInspection({ project, projectId }) {
                   </Grid>
 
                   {/* Inspection Date */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1052,7 +1052,7 @@ export default function FinalInspection({ project, projectId }) {
                   </Grid>
 
                   {/* Overall Inspection Status */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControl fullWidth size="small" required error={hasFailedCheck && formData.inspection_status === "Approved"}>
                       <InputLabel>QA/QC Approval Status *</InputLabel>
                       <Select
@@ -1080,7 +1080,7 @@ export default function FinalInspection({ project, projectId }) {
                   </Grid>
 
                   {/* Approval Certificate Number (Required only when Approved) */}
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1093,7 +1093,7 @@ export default function FinalInspection({ project, projectId }) {
                   </Grid>
 
                   {/* Rework Tracking Status */}
-                  <Grid item xs={12} sm={3}>
+                  <Grid size={{ xs: 12, sm: 3 }}>
                     <FormControl fullWidth size="small">
                       <InputLabel>Rework Status</InputLabel>
                       <Select
@@ -1110,7 +1110,7 @@ export default function FinalInspection({ project, projectId }) {
                   </Grid>
 
                   {/* Re-Inspection Date */}
-                  <Grid item xs={12} sm={3}>
+                  <Grid size={{ xs: 12, sm: 3 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1123,7 +1123,7 @@ export default function FinalInspection({ project, projectId }) {
                   </Grid>
 
                   {/* Corrections Needed - TALL MULTI-LINE */}
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1140,7 +1140,7 @@ export default function FinalInspection({ project, projectId }) {
                   </Grid>
 
                   {/* Audit Photos Link */}
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1152,7 +1152,7 @@ export default function FinalInspection({ project, projectId }) {
                   </Grid>
 
                   {/* Remarks - TALL MULTI-LINE */}
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1178,7 +1178,7 @@ export default function FinalInspection({ project, projectId }) {
                 </Typography>
 
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1188,7 +1188,7 @@ export default function FinalInspection({ project, projectId }) {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Stack spacing={0.5}>
                       <FormControlLabel
                         control={

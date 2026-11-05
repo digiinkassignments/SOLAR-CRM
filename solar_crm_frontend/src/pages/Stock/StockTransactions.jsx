@@ -235,6 +235,7 @@ const StockTransactions = () => {
               onChange={(e) => setStartDate(e.target.value)}
               fullWidth
               size="small"
+                    InputLabelProps={{ shrink: true }}
               sx={{
                 "& .MuiOutlinedInput-root": {
                   borderRadius: "8px",
@@ -264,6 +265,7 @@ const StockTransactions = () => {
               onChange={(e) => setEndDate(e.target.value)}
               fullWidth
               size="small"
+                    InputLabelProps={{ shrink: true }}
               sx={{
                 "& .MuiOutlinedInput-root": {
                   borderRadius: "8px",

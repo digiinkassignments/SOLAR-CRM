@@ -561,7 +561,7 @@ export default function WarrantyAMC({ project, projectId }) {
         }}
       >
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Stack direction="row" spacing={1.5} alignItems="center">
               <Box sx={{ p: 1, borderRadius: "8px", backgroundColor: "#EFF6FF" }}>
                 <VerifiedIcon sx={{ color: "#2563EB" }} />
@@ -577,21 +577,21 @@ export default function WarrantyAMC({ project, projectId }) {
             </Stack>
           </Grid>
 
-          <Grid item xs={6} sm={6} md={3}>
+          <Grid size={{ xs: 6, sm: 6, md: 3 }}>
             <Typography sx={{ fontSize: "0.7rem", color: COLORS.textSecondary }}>Warranty Start Date</Typography>
             <Typography variant="body2" sx={{ fontWeight: 800, color: COLORS.textPrimary }}>
               {formatDate(warrantyForm.warranty_start_date)}
             </Typography>
           </Grid>
 
-          <Grid item xs={6} sm={6} md={3}>
+          <Grid size={{ xs: 6, sm: 6, md: 3 }}>
             <Typography sx={{ fontSize: "0.7rem", color: COLORS.textSecondary }}>Free 1st-Year Service</Typography>
             <Typography variant="body2" sx={{ fontWeight: 800, color: "#059669" }}>
               Ends {formatDate(warrantyForm.free_service_end_date)}
             </Typography>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3} sx={{ textAlign: { xs: "left", md: "right" } }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} sx={{ textAlign: { xs: "left", md: "right" } }}>
             <Button
               variant="outlined"
               size="small"
@@ -617,7 +617,7 @@ export default function WarrantyAMC({ project, projectId }) {
 
         {/* ASSET SERIAL NUMBERS & MONITORING PORTAL */}
         <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, mb: 0.5 }}>
               Registered Component Hardware Serial Numbers:
             </Typography>
@@ -631,7 +631,7 @@ export default function WarrantyAMC({ project, projectId }) {
             </Box>
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, mb: 0.5 }}>
               Cloud Generation Monitoring Portal:
             </Typography>
@@ -667,7 +667,7 @@ export default function WarrantyAMC({ project, projectId }) {
 
         <Grid container spacing={2}>
           {/* PANEL PRODUCT WARRANTY */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper
               elevation={0}
               sx={{
@@ -702,7 +702,7 @@ export default function WarrantyAMC({ project, projectId }) {
           </Grid>
 
           {/* PANEL PERFORMANCE WARRANTY */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper
               elevation={0}
               sx={{
@@ -737,7 +737,7 @@ export default function WarrantyAMC({ project, projectId }) {
           </Grid>
 
           {/* INVERTER REPLACEMENT WARRANTY */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper
               elevation={0}
               sx={{
@@ -772,7 +772,7 @@ export default function WarrantyAMC({ project, projectId }) {
           </Grid>
 
           {/* EPC WORKMANSHIP WARRANTY */}
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Paper
               elevation={0}
               sx={{
@@ -833,7 +833,7 @@ export default function WarrantyAMC({ project, projectId }) {
         </Typography>
 
         <Grid container spacing={2}>
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Box sx={{ p: 2, borderRadius: "10px", backgroundColor: "#F8FAFC", border: `1px solid ${COLORS.border}`, height: "100%" }}>
               <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted, textTransform: "uppercase", fontWeight: 800 }}>
                 Selected Plan
@@ -854,7 +854,7 @@ export default function WarrantyAMC({ project, projectId }) {
             </Box>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Box sx={{ p: 2, borderRadius: "10px", backgroundColor: "#F8FAFC", border: `1px solid ${COLORS.border}`, height: "100%" }}>
               <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted, textTransform: "uppercase", fontWeight: 800 }}>
                 Commercial Terms & Fee
@@ -877,7 +877,7 @@ export default function WarrantyAMC({ project, projectId }) {
             </Box>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Box sx={{ p: 2, borderRadius: "10px", backgroundColor: "#F8FAFC", border: `1px solid ${COLORS.border}`, height: "100%" }}>
               <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted, textTransform: "uppercase", fontWeight: 800 }}>
                 Contract Term & Renewal
@@ -1056,7 +1056,7 @@ export default function WarrantyAMC({ project, projectId }) {
                 1. Warranty Certificate & Free Service Period
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1066,7 +1066,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1080,7 +1080,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1113,7 +1113,7 @@ export default function WarrantyAMC({ project, projectId }) {
                 2. Multi-Component Warranty Durations (Auto-Calculates End Dates)
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1134,7 +1134,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   </Typography>
                 </Grid>
 
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1155,7 +1155,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   </Typography>
                 </Grid>
 
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1176,7 +1176,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   </Typography>
                 </Grid>
 
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1216,7 +1216,7 @@ export default function WarrantyAMC({ project, projectId }) {
                 3. Paid Annual Maintenance Contract (AMC) Setup
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1230,7 +1230,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1244,7 +1244,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1256,7 +1256,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel id="amc-plan-label">AMC Plan Coverage *</InputLabel>
                     <Select
@@ -1276,7 +1276,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   </FormControl>
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1287,7 +1287,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel id="amc-pay-label">AMC Payment Status *</InputLabel>
                     <Select
@@ -1322,7 +1322,7 @@ export default function WarrantyAMC({ project, projectId }) {
                 4. Component Serial Numbers & Monitoring Portal
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1332,7 +1332,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1342,7 +1342,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1352,7 +1352,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1362,7 +1362,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"

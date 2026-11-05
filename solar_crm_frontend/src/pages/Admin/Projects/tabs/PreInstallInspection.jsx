@@ -613,7 +613,7 @@ export default function PreInstallInspection({ project, projectId }) {
           {/* Inspection Details 4-Card Grid */}
           <Grid container spacing={2.5}>
             {/* Section 1: Roof Assessment */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card
                 elevation={0}
                 sx={{
@@ -633,28 +633,28 @@ export default function PreInstallInspection({ project, projectId }) {
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Roof Condition", inspection.roof_condition)}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Roof Type", inspection.roof_type)}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Roof Orientation", inspection.roof_orientation || "South")}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Tilt Angle",
                         inspection.roof_tilt_angle ? `${inspection.roof_tilt_angle}°` : null
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Total Roof Area",
                         inspection.roof_area_sqft ? `${inspection.roof_area_sqft} sqft` : null
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Shadow-Free Usable Area",
                         inspection.shadow_free_area_sqft
@@ -662,13 +662,13 @@ export default function PreInstallInspection({ project, projectId }) {
                           : null
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Roof Age",
                         inspection.roof_age_years ? `${inspection.roof_age_years} years` : null
                       )}
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       {renderDetailItem("Structural Concerns", inspection.structural_concerns)}
                     </Grid>
                   </Grid>
@@ -677,7 +677,7 @@ export default function PreInstallInspection({ project, projectId }) {
             </Grid>
 
             {/* Section 2: Electrical & DISCOM Grid Assessment */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card
                 elevation={0}
                 sx={{
@@ -697,13 +697,13 @@ export default function PreInstallInspection({ project, projectId }) {
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Meter Type (Phase)",
                         inspection.meter_type
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Sanctioned Load",
                         inspection.sanctioned_load_kw
@@ -711,19 +711,19 @@ export default function PreInstallInspection({ project, projectId }) {
                           : null
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "DISCOM Consumer / CA No",
                         inspection.consumer_number
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Existing Running Load",
                         inspection.existing_load_kw ? `${inspection.existing_load_kw} kW` : null
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Main Panel Capacity",
                         inspection.main_panel_capacity
@@ -731,10 +731,10 @@ export default function PreInstallInspection({ project, projectId }) {
                           : null
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Earthing Available", inspection.earthing_available)}
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       {renderDetailItem("Electrical Observations", inspection.electrical_issues)}
                     </Grid>
                   </Grid>
@@ -743,7 +743,7 @@ export default function PreInstallInspection({ project, projectId }) {
             </Grid>
 
             {/* Section 3: Site Conditions & Geolocation */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card
                 elevation={0}
                 sx={{
@@ -763,29 +763,29 @@ export default function PreInstallInspection({ project, projectId }) {
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Shading Issues", inspection.shading_issues)}
                     </Grid>
                     {inspection.shading_issues !== "None" && inspection.shading_source && (
-                      <Grid item xs={6}>
+                      <Grid size={6}>
                         {renderDetailItem("Shading Source", inspection.shading_source)}
                       </Grid>
                     )}
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Water Availability", inspection.water_availability)}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Site Access", inspection.site_access)}
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       {renderDetailItem("GPS Coordinates", inspection.gps_coordinates)}
                     </Grid>
                     {inspection.site_photos && (
-                      <Grid item xs={12}>
+                      <Grid size={12}>
                         {renderDetailItem("Site Photos / Notes", inspection.site_photos)}
                       </Grid>
                     )}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       {renderDetailItem("Additional Challenges", inspection.additional_challenges)}
                     </Grid>
                   </Grid>
@@ -794,7 +794,7 @@ export default function PreInstallInspection({ project, projectId }) {
             </Grid>
 
             {/* Section 4: Feasibility Decision & Sign-off */}
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card
                 elevation={0}
                 sx={{
@@ -814,7 +814,7 @@ export default function PreInstallInspection({ project, projectId }) {
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       <Box sx={{ mb: 1.5 }}>
                         <Typography
                           sx={{
@@ -831,27 +831,27 @@ export default function PreInstallInspection({ project, projectId }) {
                         <Chip {...getStatusChipProps(inspection.overall_status)} />
                       </Box>
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Lead Inspector Name", inspection.inspector_name)}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem(
                         "Inspection Date",
                         formatCleanDate(inspection.inspection_date)
                       )}
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       {renderDetailItem("Customer / Rep Sign-Off", inspection.customer_signature_name)}
                     </Grid>
                     {inspection.signature_date && (
-                      <Grid item xs={6}>
+                      <Grid size={6}>
                         {renderDetailItem(
                           "Sign-Off Date",
                           formatCleanDate(inspection.signature_date)
                         )}
                       </Grid>
                     )}
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       {renderDetailItem("Technical Remarks & Conditions", inspection.remarks)}
                     </Grid>
                   </Grid>
@@ -934,7 +934,7 @@ export default function PreInstallInspection({ project, projectId }) {
 
               <Grid container spacing={2}>
                 {/* Roof Condition */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.5 }}>
                     Roof Condition
                   </Typography>
@@ -955,7 +955,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Roof Type */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Roof Type</InputLabel>
                     <Select
@@ -973,7 +973,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Roof Orientation */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Roof Orientation</InputLabel>
                     <Select
@@ -993,7 +993,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Roof Tilt Angle */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1007,7 +1007,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Roof Area Available * MANDATORY */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1023,7 +1023,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Shadow-Free Area */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1038,7 +1038,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Roof Age */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1052,7 +1052,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Structural Concerns - TALL MULTI-LINE */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1091,7 +1091,7 @@ export default function PreInstallInspection({ project, projectId }) {
 
               <Grid container spacing={2}>
                 {/* Meter Type * MANDATORY with Auto-Select Logic */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth size="small" required>
                     <InputLabel>Meter Type (Grid Phase) *</InputLabel>
                     <Select
@@ -1111,7 +1111,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Sanctioned Load */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1126,7 +1126,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* DISCOM Consumer / CA Number */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1139,7 +1139,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Existing Running Load */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1153,7 +1153,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Main Panel Capacity */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1167,7 +1167,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Earthing Available */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.5 }}>
                     Dedicated Earthing Available?
                   </Typography>
@@ -1188,7 +1188,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Electrical Issues - TALL MULTI-LINE */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1227,7 +1227,7 @@ export default function PreInstallInspection({ project, projectId }) {
 
               <Grid container spacing={2}>
                 {/* Shading Issues */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.5 }}>
                     Shading Obstacles
                   </Typography>
@@ -1249,7 +1249,7 @@ export default function PreInstallInspection({ project, projectId }) {
 
                 {/* Shading Source - ONLY SHOWN IF PARTIAL OR SEVERE */}
                 {formData.shading_issues !== "None" && (
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -1263,7 +1263,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 )}
 
                 {/* Water Availability */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.5 }}>
                     Rooftop Water Tap Available? (For Panel Cleaning)
                   </Typography>
@@ -1284,7 +1284,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Site Access */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.5 }}>
                     Rooftop Accessibility
                   </Typography>
@@ -1305,7 +1305,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* GPS Coordinates with Quick-Detect Button */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1340,7 +1340,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Site Photos / Cloud Link */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1353,7 +1353,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Additional Challenges - TALL MULTI-LINE */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1392,7 +1392,7 @@ export default function PreInstallInspection({ project, projectId }) {
 
               <Grid container spacing={2}>
                 {/* Overall Status * MANDATORY (DEFAULTS TO PENDING) */}
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <FormControl fullWidth size="small" required>
                     <InputLabel>Overall Feasibility Status *</InputLabel>
                     <Select
@@ -1409,7 +1409,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Inspector Name * MANDATORY */}
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1422,7 +1422,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Inspection Date * MANDATORY */}
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1436,7 +1436,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Customer Sign-off Name */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1448,7 +1448,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Sign-off Date */}
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -1461,7 +1461,7 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Remarks - TALL MULTI-LINE */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     fullWidth
                     size="small"

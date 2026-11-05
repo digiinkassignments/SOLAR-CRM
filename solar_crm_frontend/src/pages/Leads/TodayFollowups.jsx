@@ -1046,6 +1046,7 @@ export default function TodayFollowups() {
                 </Typography>
                 <TextField
                   size="small"
+                    InputLabelProps={{ shrink: true }}
                   type="date"
                   value={selectedDate}
                   onChange={(e) => {
@@ -1710,7 +1711,8 @@ export default function TodayFollowups() {
             </Box>
             <Box>
               <FieldLabel>Next Follow-up Date *</FieldLabel>
-              <TextField fullWidth size="small" type="date" value={followupData.next_follow_up_date} onChange={(e) => setFollowupData((prev) => ({ ...prev, next_follow_up_date: e.target.value }))} sx={dateControlSx} />
+              <TextField fullWidth size="small"
+                    InputLabelProps={{ shrink: true }} type="date" value={followupData.next_follow_up_date} onChange={(e) => setFollowupData((prev) => ({ ...prev, next_follow_up_date: e.target.value }))} sx={dateControlSx} />
             </Box>
             <Box>
               <FieldLabel>Update Pipeline Status</FieldLabel>

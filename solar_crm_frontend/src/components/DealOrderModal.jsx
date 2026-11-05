@@ -295,6 +295,7 @@ export default function DealOrderModal({ open, onClose, lead, quotation, onOrder
                     type="date"
                     fullWidth
                     size="small"
+                    InputLabelProps={{ shrink: true }}
                     value={formData.advance_payment_date}
                     onChange={(e) => setFormData((p) => ({ ...p, advance_payment_date: e.target.value }))}
                     sx={{ "& input": { fontSize: "0.82rem" } }}
