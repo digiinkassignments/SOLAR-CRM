@@ -62,7 +62,7 @@ import logo from "../../assets/images/logo.png";
 // ═══════════════════════════════════════════════════════════
 const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
-  "http://localhost:5000";
+  (typeof window !== "undefined" ? window.location.origin : "");
 
 const C = {
   primary: "#0F172A",

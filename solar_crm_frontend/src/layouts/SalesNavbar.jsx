@@ -30,7 +30,7 @@ import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 
 const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
-  "http://localhost:5000";
+  (typeof window !== "undefined" ? window.location.origin : "");
 
 // Sales Dynamic Breadcrumbs and Page Title Mapping
 const getSalesPageMetadata = (pathname) => {

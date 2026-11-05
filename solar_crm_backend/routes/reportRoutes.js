@@ -27,15 +27,16 @@ router.get("/projects", verifyToken, async (req, res) => {
       ORDER BY p.id DESC
     `);
 
-    // Funnel stage distribution counts
+    // Funnel stage distribution counts (10 Real-world Solar EPC stages)
     const funnelStages = [
-      "Site Survey",
+      "Order Closed",
+      "DISCOM Application",
       "Pre-Install Inspection",
-      "Installation in Progress",
-      "Testing & Commissioning",
-      "Final Inspection",
-      "Customer Handover",
+      "Procurement",
+      "Installation In Progress",
+      "Commissioning",
       "Subsidy Applied",
+      "Subsidy Received",
       "Handover Done",
       "Warranty Period"
     ];
@@ -94,14 +95,13 @@ router.get("/financials", verifyToken, async (req, res) => {
         id,
         invoice_number,
         customer_name,
-        total_amount,
-        paid_amount,
-        balance_amount,
+        COALESCE(net_payable_amount, gross_total, 0) AS total_amount,
+        COALESCE(amount_paid, 0) AS paid_amount,
+        COALESCE(balance_due, 0) AS balance_amount,
         payment_status,
         due_date,
         created_at
       FROM invoices
-      WHERE is_deleted = 0
       ORDER BY id DESC
     `);
 

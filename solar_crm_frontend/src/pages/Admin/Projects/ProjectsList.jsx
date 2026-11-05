@@ -22,7 +22,6 @@ import {
   InputAdornment,
   MenuItem,
   Select,
-  FormControl,
   Breadcrumbs,
   ToggleButton,
   ToggleButtonGroup,
@@ -32,6 +31,9 @@ import {
   DialogContent,
   DialogActions,
   Autocomplete,
+  LinearProgress,
+  Avatar,
+  Divider,
 } from "@mui/material";
 
 // Icons
@@ -46,92 +48,40 @@ import TableChartOutlinedIcon from "@mui/icons-material/TableChartOutlined";
 import SolarPowerIcon from "@mui/icons-material/SolarPower";
 import EngineeringOutlinedIcon from "@mui/icons-material/EngineeringOutlined";
 import CheckCircleOutlinedIcon from "@mui/icons-material/CheckCircleOutlined";
-import VerifiedUserOutlinedIcon from "@mui/icons-material/VerifiedUserOutlined";
 import FolderSpecialOutlinedIcon from "@mui/icons-material/FolderSpecialOutlined";
+import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
 import PersonIcon from "@mui/icons-material/Person";
 import PhoneIcon from "@mui/icons-material/Phone";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
-import VisibilityIcon from "@mui/icons-material/Visibility";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import DeleteIcon from "@mui/icons-material/Delete";
 import InboxIcon from "@mui/icons-material/Inbox";
 import CloseIcon from "@mui/icons-material/Close";
+import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
+import ElectricBoltOutlinedIcon from "@mui/icons-material/ElectricBoltOutlined";
 
 import toast from "react-hot-toast";
 import api from "../../../utils/api";
+import {
+  STAGES,
+  STAGE_CONFIG,
+  getStageIndex,
+  getProgressPercent,
+  getStageConfig,
+} from "../../../utils/projectStages";
 
 // Theme constants
 const COLORS = {
   primary: "#0F172A",
+  primaryHover: "#020617",
   secondary: "#F59E0B",
   background: "#F8FAFC",
   card: "#FFFFFF",
   border: "#E2E8F0",
   textPrimary: "#0F172A",
-  textSecondary: "#64748B",
+  textSecondary: "#475569",
   textMuted: "#94A3B8",
-  primaryDark: "#0F172A",
 };
-
-// Stage chip color definitions
-const STAGE_CONFIG = {
-  "Order Closed": {
-    color: "#3B82F6",
-    bg: "#EFF6FF",
-    border: "#BFDBFE",
-  },
-  Procurement: {
-    color: "#F97316",
-    bg: "#FFF7ED",
-    border: "#FED7AA",
-  },
-  "Pre-Install Inspection": {
-    color: "#8B5CF6",
-    bg: "#F5F3FF",
-    border: "#DDD6FE",
-  },
-  "Installation In Progress": {
-    color: "#F59E0B",
-    bg: "#FEF3C7",
-    border: "#FDE68A",
-  },
-  Commissioning: {
-    color: "#6366F1",
-    bg: "#EEF2FF",
-    border: "#C7D2FE",
-  },
-  "DISCOM Application": {
-    color: "#06B6D4",
-    bg: "#ECFEFF",
-    border: "#A5F3FC",
-  },
-  "Subsidy Applied": {
-    color: "#10B981",
-    bg: "#ECFDF5",
-    border: "#A7F3D0",
-  },
-  "Handover Done": {
-    color: "#059669",
-    bg: "#D1FAE5",
-    border: "#6EE7B7",
-  },
-  "Warranty Period": {
-    color: "#0D9488",
-    bg: "#CCFBF1",
-    border: "#99F6E4",
-  },
-};
-
-const STAGE_OPTIONS = [
-  "Order Closed",
-  "Procurement",
-  "Pre-Install Inspection",
-  "Installation In Progress",
-  "Commissioning",
-  "DISCOM Application",
-  "Subsidy Applied",
-  "Handover Done",
-  "Warranty Period",
-];
 
 export default function ProjectsList() {
   const navigate = useNavigate();
@@ -147,8 +97,8 @@ export default function ProjectsList() {
   const [stats, setStats] = useState({
     total: 0,
     inProgress: 0,
+    subsidy: 0,
     completed: 0,
-    warranty: 0,
   });
 
   // Filters & Pagination
@@ -170,12 +120,16 @@ export default function ProjectsList() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Form State
   const [formData, setFormData] = useState({
     customer_name: "",
     customer_phone: "",
     lead_id: null,
     quotation_id: null,
     system_capacity_kw: "5.00",
+    panel_count: "",
+    inverter_kw: "",
     customer_address: "",
     city: "",
     state: "",
@@ -210,24 +164,41 @@ export default function ProjectsList() {
   // Fetch Stats from GET /api/projects/stats
   const fetchStats = useCallback(async () => {
     try {
-      const endpoint = "/projects/stats";
-      const res = await api.get(endpoint);
+      const res = await api.get("/projects/stats");
       if (res.data?.success && Array.isArray(res.data.data)) {
         const rows = res.data.data;
         let total = 0;
         let inProgress = 0;
+        let subsidy = 0;
         let completed = 0;
-        let warranty = 0;
 
         rows.forEach((item) => {
           const count = Number(item.count) || 0;
           total += count;
-          if (item.stage === "Installation In Progress") inProgress = count;
-          if (item.stage === "Handover Done") completed = count;
-          if (item.stage === "Warranty Period") warranty = count;
+          if (
+            item.stage === "DISCOM Application" ||
+            item.stage === "Pre-Install Inspection" ||
+            item.stage === "Procurement" ||
+            item.stage === "Installation In Progress" ||
+            item.stage === "Commissioning"
+          ) {
+            inProgress += count;
+          }
+          if (
+            item.stage === "Subsidy Applied" ||
+            item.stage === "Subsidy Received"
+          ) {
+            subsidy += count;
+          }
+          if (
+            item.stage === "Handover Done" ||
+            item.stage === "Warranty Period"
+          ) {
+            completed += count;
+          }
         });
 
-        setStats({ total, inProgress, completed, warranty });
+        setStats({ total, inProgress, subsidy, completed });
       }
     } catch (err) {
       console.error("fetchStats error:", err);
@@ -255,7 +226,7 @@ export default function ProjectsList() {
       }
     } catch (err) {
       console.error("fetchProjects error:", err);
-      toast.error(err.response?.data?.message || "Failed to load projects");
+      toast.error(err.response?.data?.message || "Failed to load projects.");
       setProjects([]);
       setTotalCount(0);
     } finally {
@@ -264,75 +235,21 @@ export default function ProjectsList() {
   }, [page, rowsPerPage, selectedStage, search]);
 
   useEffect(() => {
-    let ignore = false;
-    const run = async () => {
-      try {
-        const res = await api.get("/projects/stats");
-        if (!ignore && res.data?.success && Array.isArray(res.data.data)) {
-          let total = 0;
-          let inProgress = 0;
-          let completed = 0;
-          let warranty = 0;
-          res.data.data.forEach((item) => {
-            const count = Number(item.count) || 0;
-            total += count;
-            if (item.stage === "Installation In Progress") inProgress = count;
-            if (item.stage === "Handover Done") completed = count;
-            if (item.stage === "Warranty Period") warranty = count;
-          });
-          setStats({ total, inProgress, completed, warranty });
-        }
-      } catch (e) {
-        console.error("Stats load error:", e);
-      }
-    };
-    run();
-    return () => {
-      ignore = true;
-    };
-  }, []);
+    fetchProjects();
+  }, [fetchProjects]);
 
   useEffect(() => {
-    let ignore = false;
-    const run = async () => {
-      setLoading(true);
-      try {
-        const params = {
-          page: page + 1,
-          limit: rowsPerPage,
-          stage: selectedStage === "All" ? "" : selectedStage,
-          search: search.trim(),
-        };
-        const res = await api.get("/projects", { params });
-        if (!ignore && res.data?.success) {
-          setProjects(res.data.data?.projects || []);
-          setTotalCount(res.data.data?.total || 0);
-        }
-      } catch (err) {
-        if (!ignore) {
-          console.error("fetchProjects error:", err);
-          setProjects([]);
-          setTotalCount(0);
-        }
-      } finally {
-        if (!ignore) {
-          setLoading(false);
-        }
-      }
-    };
-    run();
-    return () => {
-      ignore = true;
-    };
-  }, [page, rowsPerPage, selectedStage, search]);
+    fetchStats();
+  }, [fetchStats]);
 
-  // Search handler (on Enter or Button)
+  // Search Submit
   const handleSearchSubmit = (e) => {
-    if (e) e.preventDefault();
-    setPage(0);
+    e.preventDefault();
     setSearch(searchInput);
+    setPage(0);
   };
 
+  // Clear Filters
   const handleClearFilters = () => {
     setSearch("");
     setSearchInput("");
@@ -340,11 +257,15 @@ export default function ProjectsList() {
     setPage(0);
   };
 
-  // Create Project Submit Handler
+  // Handle Create Submit
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.customer_name || !formData.customer_phone || !formData.system_capacity_kw) {
-      toast.error("Please fill all required fields (*)");
+    if (!formData.customer_name.trim()) {
+      toast.error("Customer name is required.");
+      return;
+    }
+    if (!formData.customer_phone.trim()) {
+      toast.error("Customer phone is required.");
       return;
     }
 
@@ -361,6 +282,8 @@ export default function ProjectsList() {
           lead_id: null,
           quotation_id: null,
           system_capacity_kw: "5.00",
+          panel_count: "",
+          inverter_kw: "",
           customer_address: "",
           city: "",
           state: "",
@@ -408,43 +331,56 @@ export default function ProjectsList() {
     }
   };
 
-  // Stage Chip Renderer
-  const renderStageChip = (stageName) => {
-    const config = STAGE_CONFIG[stageName] || {
-      color: COLORS.textSecondary,
-      bg: "#F1F5F9",
-      border: COLORS.border,
-    };
-
+  // Modern Stage Badge Renderer
+  const renderStageBadge = (stageName) => {
+    const config = getStageConfig(stageName);
     return (
-      <Chip
-        label={stageName || "Order Closed"}
-        size="small"
+      <Box
         sx={{
-          color: config.color,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 0.8,
+          px: 1.4,
+          py: 0.45,
+          borderRadius: "8px",
           backgroundColor: config.bg,
           border: `1px solid ${config.border}`,
+          color: config.color,
           fontWeight: 700,
-          fontSize: "0.72rem",
-          height: 24,
-          borderRadius: "6px",
+          fontSize: "0.76rem",
+          letterSpacing: "-0.01em",
+          whiteSpace: "nowrap",
         }}
-      />
+      >
+        <Box
+          sx={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            backgroundColor: config.dot,
+            flexShrink: 0,
+            boxShadow: `0 0 0 2px ${config.bg}`,
+          }}
+        />
+        <span>
+          Step {config.step}/10 • {config.label}
+        </span>
+      </Box>
     );
   };
 
   const formatDate = (dateVal) => {
-    if (!dateVal) return "—";
+    if (!dateVal) return "Not Scheduled";
     try {
       const d = new Date(dateVal);
-      if (isNaN(d.getTime())) return "—";
+      if (isNaN(d.getTime())) return "Not Scheduled";
       return d.toLocaleDateString("en-IN", {
         day: "2-digit",
         month: "short",
         year: "numeric",
       });
     } catch {
-      return "—";
+      return "Not Scheduled";
     }
   };
 
@@ -455,7 +391,7 @@ export default function ProjectsList() {
       sx={{
         backgroundColor: COLORS.background,
         minHeight: "100vh",
-        p: 2.5,
+        p: { xs: 1.5, sm: 2.5, md: 3 },
         boxSizing: "border-box",
         width: "100%",
       }}
@@ -495,102 +431,101 @@ export default function ProjectsList() {
             sx={{
               fontSize: "0.75rem",
               fontWeight: 700,
-              color: COLORS.primaryDark,
+              color: COLORS.textPrimary,
             }}
           >
             Projects
           </Typography>
         </Breadcrumbs>
 
-        {/* 2. HERO HEADER PAPER */}
+        {/* 2. HERO HEADER (RESPONSIVE NO-OVERLAP) */}
         <Paper
           elevation={0}
           sx={{
-            p: 2.2,
+            p: { xs: 2, sm: 2.5 },
             mb: 2.5,
-            borderRadius: "12px",
+            borderRadius: "14px",
             border: `1px solid ${COLORS.border}`,
             backgroundColor: COLORS.card,
             display: "flex",
-            flexDirection: { xs: "column", sm: "row" },
+            flexDirection: { xs: "column", md: "row" },
             justifyContent: "space-between",
-            alignItems: { xs: "flex-start", sm: "center" },
-            gap: 1.5,
-            width: "100%",
-            boxSizing: "border-box",
+            alignItems: { xs: "flex-start", md: "center" },
+            gap: 2,
+            boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
           }}
         >
           <Box>
             <Typography
-              variant="h6"
+              variant="h5"
               sx={{
-                fontWeight: 800,
+                fontWeight: 900,
                 color: COLORS.textPrimary,
-                fontSize: "1.15rem",
-                letterSpacing: "-0.01em",
+                fontSize: { xs: "1.15rem", sm: "1.3rem" },
+                letterSpacing: "-0.02em",
               }}
             >
-              Project Management
+              Project Execution & Handover
             </Typography>
             <Typography
               variant="body2"
               sx={{
                 color: COLORS.textSecondary,
-                fontSize: "0.78rem",
-                mt: 0.2,
+                fontSize: "0.82rem",
+                mt: 0.3,
               }}
             >
-              Track solar installation projects from order to handover
+              10-stage end-to-end solar engineering pipeline from order closure to subsidy & AMC warranty
             </Typography>
           </Box>
 
           <Stack
             direction="row"
             alignItems="center"
-            gap={1}
-            sx={{ flexShrink: 0, flexWrap: "wrap" }}
+            gap={1.2}
+            sx={{ flexWrap: "wrap", width: { xs: "100%", sm: "auto" } }}
           >
-            {/* View Toggle */}
+            {/* View Mode Toggle */}
             <ToggleButtonGroup
               value={viewMode}
               exclusive
               onChange={(e, newView) => newView && setViewMode(newView)}
               size="small"
               sx={{
-                height: 36,
+                height: 38,
                 backgroundColor: "#F1F5F9",
-                borderRadius: "6px",
+                borderRadius: "8px",
                 p: 0.3,
                 "& .MuiToggleButton-root": {
                   border: 0,
-                  borderRadius: "4px",
-                  px: 1.4,
-                  py: 0.4,
+                  borderRadius: "6px",
+                  px: 1.5,
+                  py: 0.5,
                   color: COLORS.textSecondary,
                   "&.Mui-selected": {
                     backgroundColor: COLORS.card,
                     color: COLORS.primary,
                     fontWeight: 700,
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
                   },
                 },
               }}
             >
               <ToggleButton value="box">
-                <Tooltip title="Box / Card View">
+                <Tooltip title="Modern Card View">
                   <Stack direction="row" alignItems="center" gap={0.6}>
-                    <ViewListOutlinedIcon sx={{ fontSize: 17 }} />
-                    <Typography sx={{ fontSize: "0.74rem", fontWeight: 700 }}>
-                      Box
+                    <ViewListOutlinedIcon sx={{ fontSize: 18 }} />
+                    <Typography sx={{ fontSize: "0.76rem", fontWeight: 700 }}>
+                      Cards
                     </Typography>
                   </Stack>
                 </Tooltip>
               </ToggleButton>
               <ToggleButton value="table">
-                <Tooltip title="Table View">
+                <Tooltip title="Data Table View">
                   <Stack direction="row" alignItems="center" gap={0.6}>
-                    <TableChartOutlinedIcon sx={{ fontSize: 17 }} />
-                    <Typography sx={{ fontSize: "0.74rem", fontWeight: 700 }}>
+                    <TableChartOutlinedIcon sx={{ fontSize: 18 }} />
+                    <Typography sx={{ fontSize: "0.76rem", fontWeight: 700 }}>
                       Table
                     </Typography>
                   </Stack>
@@ -598,8 +533,8 @@ export default function ProjectsList() {
               </ToggleButton>
             </ToggleButtonGroup>
 
-            {/* Refresh Button */}
-            <Tooltip title="Refresh Projects & Stats">
+            {/* Refresh */}
+            <Tooltip title="Refresh Projects">
               <span>
                 <IconButton
                   onClick={() => {
@@ -607,11 +542,10 @@ export default function ProjectsList() {
                     fetchStats();
                   }}
                   disabled={loading}
-                  size="small"
                   sx={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: "6px",
+                    width: 38,
+                    height: 38,
+                    borderRadius: "8px",
                     border: `1px solid ${COLORS.border}`,
                     backgroundColor: COLORS.card,
                     color: COLORS.textPrimary,
@@ -620,7 +554,7 @@ export default function ProjectsList() {
                 >
                   <RefreshIcon
                     sx={{
-                      fontSize: 18,
+                      fontSize: 19,
                       animation: loading ? "spin 0.8s linear infinite" : "none",
                       "@keyframes spin": {
                         from: { transform: "rotate(0deg)" },
@@ -632,23 +566,23 @@ export default function ProjectsList() {
               </span>
             </Tooltip>
 
-            {/* New Project Button */}
+            {/* Create Project Button */}
             <Button
               variant="contained"
-              size="small"
-              startIcon={<AddIcon sx={{ fontSize: 17 }} />}
+              startIcon={<AddIcon sx={{ fontSize: 19 }} />}
               onClick={() => setNewModalOpen(true)}
               sx={{
-                height: 36,
-                borderRadius: "6px",
+                height: 38,
+                borderRadius: "8px",
                 textTransform: "none",
                 fontWeight: 700,
-                fontSize: "0.8rem",
-                px: 2,
+                fontSize: "0.82rem",
+                px: 2.2,
                 backgroundColor: COLORS.primary,
                 color: "#FFFFFF",
+                boxShadow: "0 2px 8px rgba(15, 23, 42, 0.15)",
                 whiteSpace: "nowrap",
-                "&:hover": { backgroundColor: "#020617" },
+                "&:hover": { backgroundColor: COLORS.primaryHover },
               }}
             >
               New Project
@@ -656,7 +590,7 @@ export default function ProjectsList() {
           </Stack>
         </Paper>
 
-        {/* 3. STATS ROW (4 Cards) */}
+        {/* 3. STATS CARDS (4 KPI BOXES WITH EXACT 10-STAGE AWARENESS) */}
         <Grid container spacing={2} sx={{ mb: 2.5 }}>
           {/* Total Projects */}
           <Grid item xs={12} sm={6} md={3}>
@@ -667,15 +601,16 @@ export default function ProjectsList() {
                 setPage(0);
               }}
               sx={{
-                p: 2,
-                borderRadius: "12px",
+                p: 2.2,
+                borderRadius: "14px",
                 border: `1px solid ${selectedStage === "All" ? COLORS.primary : COLORS.border}`,
                 backgroundColor: COLORS.card,
                 cursor: "pointer",
-                transition: "all 0.15s ease-in-out",
+                transition: "all 0.18s ease-in-out",
                 "&:hover": {
                   borderColor: COLORS.primary,
-                  boxShadow: "0 2px 8px rgba(15, 23, 42, 0.05)",
+                  boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
+                  transform: "translateY(-1px)",
                 },
               }}
             >
@@ -683,8 +618,8 @@ export default function ProjectsList() {
                 <Box>
                   <Typography
                     sx={{
-                      fontSize: "0.72rem",
-                      fontWeight: 700,
+                      fontSize: "0.74rem",
+                      fontWeight: 800,
                       color: COLORS.textSecondary,
                       textTransform: "uppercase",
                       letterSpacing: "0.04em",
@@ -694,20 +629,23 @@ export default function ProjectsList() {
                   </Typography>
                   <Typography
                     sx={{
-                      fontSize: "1.6rem",
+                      fontSize: "1.7rem",
                       fontWeight: 900,
-                      color: COLORS.primaryDark,
+                      color: COLORS.textPrimary,
                       mt: 0.3,
                     }}
                   >
                     {stats.total}
                   </Typography>
+                  <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                    All active & historical orders
+                  </Typography>
                 </Box>
                 <Box
                   sx={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: "10px",
+                    width: 44,
+                    height: 44,
+                    borderRadius: "12px",
                     backgroundColor: "#EFF6FF",
                     color: "#2563EB",
                     display: "flex",
@@ -715,13 +653,13 @@ export default function ProjectsList() {
                     justifyContent: "center",
                   }}
                 >
-                  <FolderSpecialOutlinedIcon sx={{ fontSize: 22 }} />
+                  <FolderSpecialOutlinedIcon sx={{ fontSize: 24 }} />
                 </Box>
               </Stack>
             </Paper>
           </Grid>
 
-          {/* In Progress */}
+          {/* Execution In Progress */}
           <Grid item xs={12} sm={6} md={3}>
             <Paper
               elevation={0}
@@ -730,15 +668,16 @@ export default function ProjectsList() {
                 setPage(0);
               }}
               sx={{
-                p: 2,
-                borderRadius: "12px",
+                p: 2.2,
+                borderRadius: "14px",
                 border: `1px solid ${selectedStage === "Installation In Progress" ? "#F59E0B" : COLORS.border}`,
                 backgroundColor: COLORS.card,
                 cursor: "pointer",
-                transition: "all 0.15s ease-in-out",
+                transition: "all 0.18s ease-in-out",
                 "&:hover": {
                   borderColor: "#F59E0B",
-                  boxShadow: "0 2px 8px rgba(245, 158, 11, 0.08)",
+                  boxShadow: "0 4px 12px rgba(245, 158, 11, 0.1)",
+                  transform: "translateY(-1px)",
                 },
               }}
             >
@@ -746,18 +685,18 @@ export default function ProjectsList() {
                 <Box>
                   <Typography
                     sx={{
-                      fontSize: "0.72rem",
-                      fontWeight: 700,
+                      fontSize: "0.74rem",
+                      fontWeight: 800,
                       color: COLORS.textSecondary,
                       textTransform: "uppercase",
                       letterSpacing: "0.04em",
                     }}
                   >
-                    In Progress
+                    In Execution
                   </Typography>
                   <Typography
                     sx={{
-                      fontSize: "1.6rem",
+                      fontSize: "1.7rem",
                       fontWeight: 900,
                       color: "#D97706",
                       mt: 0.3,
@@ -765,26 +704,96 @@ export default function ProjectsList() {
                   >
                     {stats.inProgress}
                   </Typography>
+                  <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                    DISCOM, Survey, Procurement & Build
+                  </Typography>
                 </Box>
                 <Box
                   sx={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: "10px",
-                    backgroundColor: "#FEF3C7",
+                    width: 44,
+                    height: 44,
+                    borderRadius: "12px",
+                    backgroundColor: "#FFFBEB",
                     color: "#D97706",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <EngineeringOutlinedIcon sx={{ fontSize: 22 }} />
+                  <EngineeringOutlinedIcon sx={{ fontSize: 24 }} />
                 </Box>
               </Stack>
             </Paper>
           </Grid>
 
-          {/* Completed (Handover Done) */}
+          {/* Subsidy Tracking (Applied & Received) */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper
+              elevation={0}
+              onClick={() => {
+                setSelectedStage("Subsidy Received");
+                setPage(0);
+              }}
+              sx={{
+                p: 2.2,
+                borderRadius: "14px",
+                border: `1px solid ${selectedStage === "Subsidy Received" ? "#0891B2" : COLORS.border}`,
+                backgroundColor: COLORS.card,
+                cursor: "pointer",
+                transition: "all 0.18s ease-in-out",
+                "&:hover": {
+                  borderColor: "#0891B2",
+                  boxShadow: "0 4px 12px rgba(8, 145, 178, 0.1)",
+                  transform: "translateY(-1px)",
+                },
+              }}
+            >
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography
+                    sx={{
+                      fontSize: "0.74rem",
+                      fontWeight: 800,
+                      color: COLORS.textSecondary,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    Subsidy Pipeline
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontSize: "1.7rem",
+                      fontWeight: 900,
+                      color: "#0891B2",
+                      mt: 0.3,
+                    }}
+                  >
+                    {stats.subsidy}
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                    Subsidy Applied & DBT Credited
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: "12px",
+                    backgroundColor: "#ECFEFF",
+                    color: "#0891B2",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <AccountBalanceOutlinedIcon sx={{ fontSize: 24 }} />
+                </Box>
+              </Stack>
+            </Paper>
+          </Grid>
+
+          {/* Handover & Warranty */}
           <Grid item xs={12} sm={6} md={3}>
             <Paper
               elevation={0}
@@ -793,15 +802,16 @@ export default function ProjectsList() {
                 setPage(0);
               }}
               sx={{
-                p: 2,
-                borderRadius: "12px",
-                border: `1px solid ${selectedStage === "Handover Done" ? "#10B981" : COLORS.border}`,
+                p: 2.2,
+                borderRadius: "14px",
+                border: `1px solid ${selectedStage === "Handover Done" ? "#059669" : COLORS.border}`,
                 backgroundColor: COLORS.card,
                 cursor: "pointer",
-                transition: "all 0.15s ease-in-out",
+                transition: "all 0.18s ease-in-out",
                 "&:hover": {
-                  borderColor: "#10B981",
-                  boxShadow: "0 2px 8px rgba(16, 185, 129, 0.08)",
+                  borderColor: "#059669",
+                  boxShadow: "0 4px 12px rgba(5, 150, 105, 0.1)",
+                  transform: "translateY(-1px)",
                 },
               }}
             >
@@ -809,18 +819,18 @@ export default function ProjectsList() {
                 <Box>
                   <Typography
                     sx={{
-                      fontSize: "0.72rem",
-                      fontWeight: 700,
+                      fontSize: "0.74rem",
+                      fontWeight: 800,
                       color: COLORS.textSecondary,
                       textTransform: "uppercase",
                       letterSpacing: "0.04em",
                     }}
                   >
-                    Completed
+                    Handover & AMC
                   </Typography>
                   <Typography
                     sx={{
-                      fontSize: "1.6rem",
+                      fontSize: "1.7rem",
                       fontWeight: 900,
                       color: "#059669",
                       mt: 0.3,
@@ -828,90 +838,30 @@ export default function ProjectsList() {
                   >
                     {stats.completed}
                   </Typography>
+                  <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                    Delivered & 25-yr warranty period
+                  </Typography>
                 </Box>
                 <Box
                   sx={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: "10px",
-                    backgroundColor: "#D1FAE5",
+                    width: 44,
+                    height: 44,
+                    borderRadius: "12px",
+                    backgroundColor: "#ECFDF5",
                     color: "#059669",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <CheckCircleOutlinedIcon sx={{ fontSize: 22 }} />
-                </Box>
-              </Stack>
-            </Paper>
-          </Grid>
-
-          {/* Warranty Period */}
-          <Grid item xs={12} sm={6} md={3}>
-            <Paper
-              elevation={0}
-              onClick={() => {
-                setSelectedStage("Warranty Period");
-                setPage(0);
-              }}
-              sx={{
-                p: 2,
-                borderRadius: "12px",
-                border: `1px solid ${selectedStage === "Warranty Period" ? "#0D9488" : COLORS.border}`,
-                backgroundColor: COLORS.card,
-                cursor: "pointer",
-                transition: "all 0.15s ease-in-out",
-                "&:hover": {
-                  borderColor: "#0D9488",
-                  boxShadow: "0 2px 8px rgba(13, 148, 136, 0.08)",
-                },
-              }}
-            >
-              <Stack direction="row" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography
-                    sx={{
-                      fontSize: "0.72rem",
-                      fontWeight: 700,
-                      color: COLORS.textSecondary,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    Warranty
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: "1.6rem",
-                      fontWeight: 900,
-                      color: "#0D9488",
-                      mt: 0.3,
-                    }}
-                  >
-                    {stats.warranty}
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: "10px",
-                    backgroundColor: "#CCFBF1",
-                    color: "#0D9488",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <VerifiedUserOutlinedIcon sx={{ fontSize: 22 }} />
+                  <CheckCircleOutlinedIcon sx={{ fontSize: 24 }} />
                 </Box>
               </Stack>
             </Paper>
           </Grid>
         </Grid>
 
-        {/* 4. FILTER BAR */}
+        {/* 4. FILTER BAR (SEARCH + 10 STAGES DROPDOWN + RESET) */}
         <Paper
           elevation={0}
           component="form"
@@ -919,29 +869,27 @@ export default function ProjectsList() {
           sx={{
             p: 1.8,
             mb: 2.5,
-            borderRadius: "12px",
+            borderRadius: "14px",
             border: `1px solid ${COLORS.border}`,
             backgroundColor: COLORS.card,
             display: "flex",
             flexWrap: "wrap",
             alignItems: "center",
             gap: 1.5,
-            width: "100%",
-            boxSizing: "border-box",
           }}
         >
-          {/* Search Input */}
-          <Box sx={{ flex: "1 1 240px", minWidth: 200 }}>
+          {/* Search Box */}
+          <Box sx={{ flex: "1 1 280px", minWidth: 220 }}>
             <TextField
               fullWidth
               size="small"
-              placeholder="Search by project number, customer, phone, city..."
+              placeholder="Search by project #, customer name, phone, city..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon sx={{ fontSize: 18, color: COLORS.textMuted }} />
+                    <SearchIcon sx={{ fontSize: 19, color: COLORS.textMuted }} />
                   </InputAdornment>
                 ),
                 endAdornment: searchInput && (
@@ -953,112 +901,121 @@ export default function ProjectsList() {
                         setSearch("");
                         setPage(0);
                       }}
-                      sx={{ p: 0.2 }}
                     >
-                      <CloseIcon sx={{ fontSize: 15 }} />
+                      <CloseIcon fontSize="small" />
                     </IconButton>
                   </InputAdornment>
                 ),
               }}
               sx={{
                 "& .MuiOutlinedInput-root": {
-                  height: 38,
-                  borderRadius: "6px",
-                  fontSize: "0.82rem",
-                  backgroundColor: "#FFFFFF",
+                  borderRadius: "8px",
+                  backgroundColor: "#F8FAFC",
                 },
               }}
             />
           </Box>
 
-          {/* Stage Dropdown */}
-          <Box sx={{ flex: "0 0 220px", minWidth: 180 }}>
-            <FormControl fullWidth size="small">
-              <Select
-                value={selectedStage}
-                onChange={(e) => {
-                  setSelectedStage(e.target.value);
-                  setPage(0);
-                }}
-                sx={{
-                  height: 38,
-                  borderRadius: "6px",
-                  fontSize: "0.82rem",
-                  backgroundColor: "#FFFFFF",
-                }}
-              >
-                <MenuItem value="All">All Stages</MenuItem>
-                {STAGE_OPTIONS.map((stg) => (
-                  <MenuItem key={stg} value={stg}>
-                    {stg}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+          {/* Stage Dropdown (10 Stages in Sequential Order) */}
+          <Box sx={{ minWidth: 230 }}>
+            <Select
+              fullWidth
+              size="small"
+              value={selectedStage}
+              onChange={(e) => {
+                setSelectedStage(e.target.value);
+                setPage(0);
+              }}
+              sx={{
+                borderRadius: "8px",
+                backgroundColor: "#F8FAFC",
+                fontSize: "0.82rem",
+                fontWeight: 600,
+              }}
+            >
+              <MenuItem value="All">
+                <strong>All Stages (Complete Pipeline)</strong>
+              </MenuItem>
+              {STAGES.map((stg, i) => (
+                <MenuItem key={stg} value={stg} sx={{ fontSize: "0.82rem" }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Box
+                      sx={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        backgroundColor: STAGE_CONFIG[stg]?.dot || "#94A3B8",
+                      }}
+                    />
+                    <span>
+                      {i + 1}. {stg}
+                    </span>
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
           </Box>
 
-          {/* Submit Search */}
           <Button
             type="submit"
             variant="contained"
             size="small"
             sx={{
               height: 38,
-              borderRadius: "6px",
-              px: 2,
-              fontWeight: 700,
-              fontSize: "0.78rem",
-              textTransform: "none",
+              borderRadius: "8px",
+              px: 2.2,
               backgroundColor: COLORS.primary,
-              "&:hover": { backgroundColor: "#020617" },
+              textTransform: "none",
+              fontWeight: 700,
+              fontSize: "0.8rem",
+              "&:hover": { backgroundColor: COLORS.primaryHover },
             }}
           >
             Search
           </Button>
 
-          {/* Clear Filters Button */}
-          <Tooltip title="Clear all filters">
-            <span>
-              <IconButton
-                onClick={handleClearFilters}
-                disabled={!hasActiveFilters}
-                size="small"
-                sx={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: "6px",
-                  border: `1px solid ${COLORS.border}`,
-                  backgroundColor: COLORS.card,
-                  color: hasActiveFilters ? COLORS.primary : COLORS.textMuted,
-                  "&:hover": { backgroundColor: "#F8FAFC" },
-                }}
-              >
-                <FilterListOffIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-            </span>
-          </Tooltip>
+          {hasActiveFilters && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<FilterListOffIcon sx={{ fontSize: 16 }} />}
+              onClick={handleClearFilters}
+              sx={{
+                height: 38,
+                borderRadius: "8px",
+                px: 2,
+                borderColor: COLORS.border,
+                color: COLORS.textSecondary,
+                textTransform: "none",
+                fontWeight: 600,
+                fontSize: "0.8rem",
+                "&:hover": { backgroundColor: "#F1F5F9" },
+              }}
+            >
+              Reset Filters
+            </Button>
+          )}
         </Paper>
 
-        {/* 8. LOADING STATE (Skeletons) */}
+        {/* 5. CONTENT AREA: SKELETON / EMPTY / BOX / TABLE */}
         {loading ? (
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {Array.from({ length: 4 }).map((_, i) => (
+          <Stack spacing={2}>
+            {[1, 2, 3].map((n) => (
               <Skeleton
-                key={i}
+                key={n}
                 variant="rounded"
-                height={viewMode === "box" ? 130 : 54}
-                sx={{ borderRadius: "12px" }}
+                height={160}
+                sx={{ borderRadius: "14px" }}
               />
             ))}
-          </Box>
+          </Stack>
         ) : projects.length === 0 ? (
-          /* 7. EMPTY STATE */
           <Paper
             elevation={0}
             sx={{
               py: 8,
               px: 3,
-              borderRadius: "12px",
+              borderRadius: "14px",
               border: `1px solid ${COLORS.border}`,
               backgroundColor: COLORS.card,
               textAlign: "center",
@@ -1088,7 +1045,7 @@ export default function ProjectsList() {
               sx={{
                 fontWeight: 800,
                 color: COLORS.textPrimary,
-                fontSize: "1.05rem",
+                fontSize: "1.1rem",
                 mb: 0.5,
               }}
             >
@@ -1098,8 +1055,8 @@ export default function ProjectsList() {
               variant="body2"
               sx={{
                 color: COLORS.textSecondary,
-                fontSize: "0.8rem",
-                maxWidth: 420,
+                fontSize: "0.82rem",
+                maxWidth: 440,
                 mb: 2.5,
               }}
             >
@@ -1113,10 +1070,9 @@ export default function ProjectsList() {
                 size="small"
                 onClick={handleClearFilters}
                 sx={{
-                  borderRadius: "6px",
+                  borderRadius: "8px",
                   textTransform: "none",
                   fontWeight: 700,
-                  fontSize: "0.78rem",
                 }}
               >
                 Clear Filters
@@ -1128,12 +1084,11 @@ export default function ProjectsList() {
                 startIcon={<AddIcon />}
                 onClick={() => setNewModalOpen(true)}
                 sx={{
-                  borderRadius: "6px",
+                  borderRadius: "8px",
                   textTransform: "none",
                   fontWeight: 700,
-                  fontSize: "0.78rem",
                   backgroundColor: COLORS.primary,
-                  "&:hover": { backgroundColor: "#020617" },
+                  "&:hover": { backgroundColor: COLORS.primaryHover },
                 }}
               >
                 New Project
@@ -1141,253 +1096,426 @@ export default function ProjectsList() {
             )}
           </Paper>
         ) : viewMode === "box" ? (
-          /* 5. BOX VIEW (DEFAULT) */
-          <Stack spacing={1.8}>
-            {projects.map((proj) => (
-              <Paper
-                key={proj.id}
-                elevation={0}
-                sx={{
-                  p: 2.2,
-                  borderRadius: "12px",
-                  border: `1px solid ${COLORS.border}`,
-                  backgroundColor: COLORS.card,
-                  transition: "all 0.2s ease-in-out",
-                  "&:hover": {
-                    borderColor: COLORS.primary,
-                    boxShadow: "0 4px 14px rgba(15, 23, 42, 0.06)",
-                  },
-                }}
-              >
-                {/* Card Top Row: Project Number + Stage Chip */}
-                <Box
+          /* ============================================================== */
+          /* 6. REDESIGNED CARD VIEW (ZERO OVERLAPPING, MODERN SAAS GRID)   */
+          /* ============================================================== */
+          <Stack spacing={2}>
+            {projects.map((proj) => {
+              const currentStep = getStageIndex(proj.stage) + 1;
+              const progressPct = getProgressPercent(proj.stage);
+              const stageConfig = getStageConfig(proj.stage);
+
+              return (
+                <Paper
+                  key={proj.id}
+                  elevation={0}
                   sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                    gap: 1,
-                    mb: 1.5,
+                    p: { xs: 2, sm: 2.5 },
+                    borderRadius: "14px",
+                    border: `1px solid ${COLORS.border}`,
+                    backgroundColor: COLORS.card,
+                    transition: "all 0.2s ease-in-out",
+                    "&:hover": {
+                      borderColor: COLORS.primary,
+                      boxShadow: "0 6px 20px rgba(15, 23, 42, 0.08)",
+                      transform: "translateY(-1px)",
+                    },
                   }}
                 >
-                  <Stack direction="row" alignItems="center" gap={1.2}>
-                    <Box
-                      sx={{
-                        px: 1.2,
-                        py: 0.35,
-                        borderRadius: "6px",
-                        backgroundColor: "#EFF6FF",
-                        border: "1px solid #BFDBFE",
-                        color: "#1D4ED8",
-                        fontWeight: 800,
-                        fontSize: "0.82rem",
-                        fontFamily: "monospace",
-                        letterSpacing: "0.03em",
-                      }}
-                    >
-                      {proj.project_number}
-                    </Box>
-
-                    <Typography
-                      sx={{
-                        fontWeight: 800,
-                        fontSize: "1rem",
-                        color: COLORS.textPrimary,
-                      }}
-                    >
-                      {proj.customer_name}
-                    </Typography>
-                  </Stack>
-
-                  <Stack direction="row" alignItems="center" gap={1}>
-                    {renderStageChip(proj.stage)}
-                  </Stack>
-                </Box>
-
-                {/* Card Middle Grid (Customer, kW badge, Assigned Rep, Dates) */}
-                <Grid container spacing={2} sx={{ mb: 1.5 }}>
-                  {/* Col 1: Customer Contact & Location */}
-                  <Grid item xs={12} sm={4}>
-                    <Stack spacing={0.6}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
-                        <PhoneIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
-                        <Typography
-                          component="a"
-                          href={`tel:${proj.customer_phone}`}
-                          sx={{
-                            fontSize: "0.78rem",
-                            fontWeight: 600,
-                            color: COLORS.primaryDark,
-                            textDecoration: "none",
-                            "&:hover": { textDecoration: "underline" },
-                          }}
-                        >
-                          {proj.customer_phone || "—"}
-                        </Typography>
-                      </Box>
-                      <Typography
-                        sx={{
-                          fontSize: "0.74rem",
-                          color: COLORS.textSecondary,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {[proj.city, proj.state].filter(Boolean).join(", ") ||
-                          proj.customer_address ||
-                          "Site location not specified"}
-                      </Typography>
-                    </Stack>
-                  </Grid>
-
-                  {/* Col 2: System Capacity kW badge */}
-                  <Grid item xs={12} sm={4}>
-                    <Stack spacing={0.6}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
-                        <Chip
-                          icon={
-                            <SolarPowerIcon
-                              sx={{
-                                fontSize: "14px !important",
-                                color: "#B45309 !important",
-                              }}
-                            />
-                          }
-                          label={`${parseFloat(proj.system_capacity_kw || 1).toFixed(2)} kW System`}
-                          size="small"
-                          sx={{
-                            height: 24,
-                            fontSize: "0.72rem",
-                            fontWeight: 700,
-                            backgroundColor: "#FEF3C7",
-                            color: "#92400E",
-                            border: "1px solid #FDE68A",
-                            borderRadius: "6px",
-                          }}
-                        />
-                      </Box>
-                      {proj.panel_count && (
-                        <Typography
-                          sx={{ fontSize: "0.73rem", color: COLORS.textSecondary }}
-                        >
-                          Panels: {proj.panel_count} pcs • Inverter:{" "}
-                          {proj.inverter_kw ? `${proj.inverter_kw} kW` : "N/A"}
-                        </Typography>
-                      )}
-                    </Stack>
-                  </Grid>
-
-                  {/* Col 3: Assigned to & Installation Date */}
-                  <Grid item xs={12} sm={4}>
-                    <Stack spacing={0.6}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
-                        <PersonIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
-                        <Typography
-                          sx={{ fontSize: "0.78rem", color: COLORS.textSecondary }}
-                        >
-                          Assigned Rep:{" "}
-                          <Box
-                            component="span"
-                            sx={{ fontWeight: 700, color: COLORS.textPrimary }}
-                          >
-                            {proj.assigned_to_name || "Unassigned"}
-                          </Box>
-                        </Typography>
-                      </Box>
-
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
-                        <CalendarTodayIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
-                        <Typography
-                          sx={{ fontSize: "0.74rem", color: COLORS.textSecondary }}
-                        >
-                          Install Date:{" "}
-                          <Box
-                            component="span"
-                            sx={{ fontWeight: 600, color: COLORS.textPrimary }}
-                          >
-                            {formatDate(proj.installation_start_date) || "Not Scheduled"}
-                          </Box>
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Grid>
-                </Grid>
-
-                {/* Card Bottom Row: Actions */}
-                <Box
-                  sx={{
-                    pt: 1.2,
-                    borderTop: `1px solid ${COLORS.border}`,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <Typography
+                  {/* Top Header: Project Code + Customer Info & Stage Badge */}
+                  <Box
                     sx={{
-                      fontSize: "0.7rem",
-                      color: COLORS.textMuted,
-                      fontWeight: 600,
+                      display: "flex",
+                      flexDirection: { xs: "column", sm: "row" },
+                      justifyContent: "space-between",
+                      alignItems: { xs: "flex-start", sm: "center" },
+                      gap: 1.5,
+                      mb: 2,
                     }}
                   >
-                    Created {formatDate(proj.created_at)}
-                  </Typography>
+                    {/* Left: Project Number + Customer Name + Location Subtitle */}
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        gap={1.2}
+                        sx={{ flexWrap: "wrap", mb: 0.4 }}
+                      >
+                        <Box
+                          sx={{
+                            px: 1.2,
+                            py: 0.35,
+                            borderRadius: "6px",
+                            backgroundColor: "#EFF6FF",
+                            border: "1px solid #BFDBFE",
+                            color: "#1D4ED8",
+                            fontWeight: 800,
+                            fontSize: "0.82rem",
+                            fontFamily: "monospace",
+                            letterSpacing: "0.03em",
+                          }}
+                        >
+                          {proj.project_number}
+                        </Box>
 
-                  <Stack direction="row" spacing={1}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<VisibilityIcon sx={{ fontSize: 15 }} />}
-                      onClick={() => navigate(`${projectBasePath}/${proj.id}`)}
+                        <Typography
+                          variant="h6"
+                          sx={{
+                            fontWeight: 800,
+                            fontSize: "1.08rem",
+                            color: COLORS.textPrimary,
+                            letterSpacing: "-0.01em",
+                          }}
+                        >
+                          {proj.customer_name}
+                        </Typography>
+                      </Stack>
+
+                      {/* Location Subtitle */}
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        gap={0.5}
+                        sx={{ color: COLORS.textSecondary }}
+                      >
+                        <LocationOnOutlinedIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
+                        <Typography sx={{ fontSize: "0.76rem" }}>
+                          {[proj.city, proj.state].filter(Boolean).join(", ") ||
+                            proj.customer_address ||
+                            "Site location not specified"}
+                        </Typography>
+                      </Stack>
+                    </Box>
+
+                    {/* Right: Stage Badge */}
+                    <Box sx={{ flexShrink: 0 }}>
+                      {renderStageBadge(proj.stage)}
+                    </Box>
+                  </Box>
+
+                  {/* 10-Stage Milestone Progress Bar */}
+                  <Box sx={{ mb: 2 }}>
+                    <Box
                       sx={{
-                        height: 30,
-                        borderRadius: "6px",
-                        textTransform: "none",
-                        fontWeight: 700,
-                        fontSize: "0.74rem",
-                        px: 1.8,
-                        borderColor: COLORS.border,
-                        color: COLORS.textPrimary,
-                        backgroundColor: "#FFFFFF",
-                        "&:hover": {
-                          borderColor: COLORS.primary,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        mb: 0.6,
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontSize: "0.72rem",
+                          fontWeight: 700,
+                          color: COLORS.textSecondary,
+                        }}
+                      >
+                        Stage {currentStep} of 10:{" "}
+                        <Box
+                          component="span"
+                          sx={{ color: stageConfig.color, fontWeight: 800 }}
+                        >
+                          {stageConfig.label}
+                        </Box>
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: "0.72rem",
+                          fontWeight: 800,
+                          color: COLORS.textPrimary,
+                        }}
+                      >
+                        {progressPct}% Completed
+                      </Typography>
+                    </Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={progressPct}
+                      sx={{
+                        height: 6,
+                        borderRadius: 3,
+                        backgroundColor: "#F1F5F9",
+                        "& .MuiLinearProgress-bar": {
+                          borderRadius: 3,
+                          backgroundColor: stageConfig.dot,
+                        },
+                      }}
+                    />
+                  </Box>
+
+                  {/* 4 Distinct Data Metric Cards (NO COLLISION / OVERLAP) */}
+                  <Grid container spacing={1.5} sx={{ mb: 2 }}>
+                    {/* Metric 1: System Capacity */}
+                    <Grid item xs={12} sm={6} md={3}>
+                      <Box
+                        sx={{
+                          p: 1.4,
+                          borderRadius: "10px",
                           backgroundColor: "#F8FAFC",
-                        },
-                      }}
-                    >
-                      View Project
-                    </Button>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDeleteClick(proj)}
+                          border: `1px solid ${COLORS.border}`,
+                          height: "100%",
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontSize: "0.68rem",
+                            fontWeight: 800,
+                            color: COLORS.textMuted,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
+                            mb: 0.4,
+                          }}
+                        >
+                          System Capacity
+                        </Typography>
+                        <Stack direction="row" alignItems="center" gap={0.8}>
+                          <SolarPowerIcon sx={{ fontSize: 20, color: "#D97706" }} />
+                          <Typography
+                            sx={{
+                              fontSize: "0.92rem",
+                              fontWeight: 800,
+                              color: COLORS.textPrimary,
+                            }}
+                          >
+                            {parseFloat(proj.system_capacity_kw || 1).toFixed(2)} kW
+                          </Typography>
+                        </Stack>
+                        <Typography
+                          sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mt: 0.3 }}
+                        >
+                          {proj.panel_count ? `${proj.panel_count} Panels` : "Solar Array"} •{" "}
+                          {proj.inverter_kw ? `${proj.inverter_kw} kW Inverter` : "Grid Inverter"}
+                        </Typography>
+                      </Box>
+                    </Grid>
+
+                    {/* Metric 2: Customer Contact */}
+                    <Grid item xs={12} sm={6} md={3}>
+                      <Box
+                        sx={{
+                          p: 1.4,
+                          borderRadius: "10px",
+                          backgroundColor: "#F8FAFC",
+                          border: `1px solid ${COLORS.border}`,
+                          height: "100%",
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontSize: "0.68rem",
+                            fontWeight: 800,
+                            color: COLORS.textMuted,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
+                            mb: 0.4,
+                          }}
+                        >
+                          Customer Contact
+                        </Typography>
+                        <Stack direction="row" alignItems="center" gap={0.8}>
+                          <PhoneIcon sx={{ fontSize: 17, color: "#2563EB" }} />
+                          <Typography
+                            component="a"
+                            href={`tel:${proj.customer_phone}`}
+                            sx={{
+                              fontSize: "0.9rem",
+                              fontWeight: 700,
+                              color: "#2563EB",
+                              textDecoration: "none",
+                              "&:hover": { textDecoration: "underline" },
+                            }}
+                          >
+                            {proj.customer_phone || "—"}
+                          </Typography>
+                        </Stack>
+                        <Typography
+                          sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mt: 0.3 }}
+                        >
+                          Direct Customer Mobile
+                        </Typography>
+                      </Box>
+                    </Grid>
+
+                    {/* Metric 3: Assigned Rep */}
+                    <Grid item xs={12} sm={6} md={3}>
+                      <Box
+                        sx={{
+                          p: 1.4,
+                          borderRadius: "10px",
+                          backgroundColor: "#F8FAFC",
+                          border: `1px solid ${COLORS.border}`,
+                          height: "100%",
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontSize: "0.68rem",
+                            fontWeight: 800,
+                            color: COLORS.textMuted,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
+                            mb: 0.4,
+                          }}
+                        >
+                          Project Engineer
+                        </Typography>
+                        <Stack direction="row" alignItems="center" gap={0.8}>
+                          <Avatar
+                            sx={{
+                              width: 22,
+                              height: 22,
+                              fontSize: "0.68rem",
+                              backgroundColor: COLORS.primary,
+                              fontWeight: 800,
+                            }}
+                          >
+                            {(proj.assigned_to_name || "U")[0]}
+                          </Avatar>
+                          <Typography
+                            sx={{
+                              fontSize: "0.86rem",
+                              fontWeight: 700,
+                              color: COLORS.textPrimary,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {proj.assigned_to_name || "Unassigned"}
+                          </Typography>
+                        </Stack>
+                        <Typography
+                          sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mt: 0.3 }}
+                        >
+                          Lead Execution Manager
+                        </Typography>
+                      </Box>
+                    </Grid>
+
+                    {/* Metric 4: Installation Target */}
+                    <Grid item xs={12} sm={6} md={3}>
+                      <Box
+                        sx={{
+                          p: 1.4,
+                          borderRadius: "10px",
+                          backgroundColor: "#F8FAFC",
+                          border: `1px solid ${COLORS.border}`,
+                          height: "100%",
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontSize: "0.68rem",
+                            fontWeight: 800,
+                            color: COLORS.textMuted,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
+                            mb: 0.4,
+                          }}
+                        >
+                          Target Timeline
+                        </Typography>
+                        <Stack direction="row" alignItems="center" gap={0.8}>
+                          <CalendarTodayIcon sx={{ fontSize: 16, color: COLORS.textMuted }} />
+                          <Typography
+                            sx={{
+                              fontSize: "0.86rem",
+                              fontWeight: 700,
+                              color: COLORS.textPrimary,
+                            }}
+                          >
+                            {formatDate(proj.installation_start_date)}
+                          </Typography>
+                        </Stack>
+                        <Typography
+                          sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mt: 0.3 }}
+                        >
+                          {proj.completion_date
+                            ? `Done by ${formatDate(proj.completion_date)}`
+                            : "On-site construction"}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  </Grid>
+
+                  {/* Card Bottom Row: Timestamps + Action Buttons */}
+                  <Box
+                    sx={{
+                      pt: 1.5,
+                      borderTop: `1px solid ${COLORS.border}`,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: 1,
+                    }}
+                  >
+                    <Typography
                       sx={{
-                        height: 30,
-                        width: 30,
-                        borderRadius: "6px",
-                        border: `1px solid ${COLORS.border}`,
-                        color: "#EF4444",
-                        "&:hover": {
-                          backgroundColor: "#FEF2F2",
-                          borderColor: "#FCA5A5",
-                        },
+                        fontSize: "0.73rem",
+                        color: COLORS.textMuted,
                       }}
                     >
-                      <Tooltip title="Delete Project">
-                        <DeleteIcon sx={{ fontSize: 17 }} />
-                      </Tooltip>
-                    </IconButton>
-                  </Stack>
-                </Box>
-              </Paper>
-            ))}
+                      Created on {formatDate(proj.created_at)}
+                    </Typography>
+
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        endIcon={<ArrowForwardIcon sx={{ fontSize: 16 }} />}
+                        onClick={() => navigate(`${projectBasePath}/${proj.id}`)}
+                        sx={{
+                          height: 32,
+                          borderRadius: "8px",
+                          textTransform: "none",
+                          fontWeight: 700,
+                          fontSize: "0.78rem",
+                          px: 2,
+                          backgroundColor: COLORS.primary,
+                          color: "#FFFFFF",
+                          "&:hover": { backgroundColor: COLORS.primaryHover },
+                        }}
+                      >
+                        View Project Details
+                      </Button>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDeleteClick(proj)}
+                        sx={{
+                          height: 32,
+                          width: 32,
+                          borderRadius: "8px",
+                          border: `1px solid ${COLORS.border}`,
+                          color: "#EF4444",
+                          "&:hover": {
+                            backgroundColor: "#FEF2F2",
+                            borderColor: "#FCA5A5",
+                          },
+                        }}
+                      >
+                        <Tooltip title="Delete Project">
+                          <DeleteIcon sx={{ fontSize: 17 }} />
+                        </Tooltip>
+                      </IconButton>
+                    </Stack>
+                  </Box>
+                </Paper>
+              );
+            })}
           </Stack>
         ) : (
-          /* 6. TABLE VIEW */
+          /* ============================================================== */
+          /* 7. DATA TABLE VIEW                                             */
+          /* ============================================================== */
           <Paper
             elevation={0}
             sx={{
-              borderRadius: "12px",
+              borderRadius: "14px",
               border: `1px solid ${COLORS.border}`,
               backgroundColor: COLORS.card,
               overflow: "hidden",
@@ -1402,8 +1530,8 @@ export default function ProjectsList() {
                       sx={{
                         color: "#FFFFFF",
                         fontWeight: 700,
-                        fontSize: "0.75rem",
-                        py: 1.2,
+                        fontSize: "0.78rem",
+                        py: 1.4,
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -1413,8 +1541,8 @@ export default function ProjectsList() {
                       sx={{
                         color: "#FFFFFF",
                         fontWeight: 700,
-                        fontSize: "0.75rem",
-                        py: 1.2,
+                        fontSize: "0.78rem",
+                        py: 1.4,
                         whiteSpace: "nowrap",
                         minWidth: 160,
                       }}
@@ -1425,8 +1553,8 @@ export default function ProjectsList() {
                       sx={{
                         color: "#FFFFFF",
                         fontWeight: 700,
-                        fontSize: "0.75rem",
-                        py: 1.2,
+                        fontSize: "0.78rem",
+                        py: 1.4,
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -1436,43 +1564,43 @@ export default function ProjectsList() {
                       sx={{
                         color: "#FFFFFF",
                         fontWeight: 700,
-                        fontSize: "0.75rem",
-                        py: 1.2,
+                        fontSize: "0.78rem",
+                        py: 1.4,
                         whiteSpace: "nowrap",
-                        minWidth: 160,
+                        minWidth: 200,
                       }}
                     >
-                      Stage
+                      Execution Stage (1-10)
                     </TableCell>
                     <TableCell
                       sx={{
                         color: "#FFFFFF",
                         fontWeight: 700,
-                        fontSize: "0.75rem",
-                        py: 1.2,
+                        fontSize: "0.78rem",
+                        py: 1.4,
                         whiteSpace: "nowrap",
                       }}
                     >
-                      Assigned To
+                      Engineer
                     </TableCell>
                     <TableCell
                       sx={{
                         color: "#FFFFFF",
                         fontWeight: 700,
-                        fontSize: "0.75rem",
-                        py: 1.2,
+                        fontSize: "0.78rem",
+                        py: 1.4,
                         whiteSpace: "nowrap",
                       }}
                     >
-                      Start Date
+                      Install Date
                     </TableCell>
                     <TableCell
                       align="right"
                       sx={{
                         color: "#FFFFFF",
                         fontWeight: 700,
-                        fontSize: "0.75rem",
-                        py: 1.2,
+                        fontSize: "0.78rem",
+                        py: 1.4,
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -1487,20 +1615,19 @@ export default function ProjectsList() {
                       hover
                       sx={{
                         "&:last-child td, &:last-child th": { border: 0 },
-                        "& td": { py: 1.2, px: 1.8 },
+                        "& td": { py: 1.3, px: 2 },
                       }}
                     >
-                      {/* Project No */}
-                      <TableCell sx={{ fontSize: "0.76rem", fontWeight: 700 }}>
+                      <TableCell sx={{ fontSize: "0.78rem", fontWeight: 700 }}>
                         <Box
                           sx={{
                             px: 1,
-                            py: 0.25,
-                            borderRadius: "4px",
+                            py: 0.3,
+                            borderRadius: "6px",
                             backgroundColor: "#EFF6FF",
                             color: "#1D4ED8",
-                            border: "1px solid #BFDBFE",
                             fontFamily: "monospace",
+                            fontWeight: 800,
                             display: "inline-block",
                           }}
                         >
@@ -1508,89 +1635,66 @@ export default function ProjectsList() {
                         </Box>
                       </TableCell>
 
-                      {/* Customer */}
                       <TableCell>
-                        <Typography
-                          sx={{
-                            fontSize: "0.8rem",
-                            fontWeight: 700,
-                            color: COLORS.textPrimary,
-                          }}
-                        >
+                        <Typography sx={{ fontSize: "0.84rem", fontWeight: 700 }}>
                           {proj.customer_name}
                         </Typography>
-                        <Typography
-                          sx={{ fontSize: "0.72rem", color: COLORS.textSecondary }}
-                        >
-                          {proj.customer_phone}
+                        <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                          {proj.customer_phone || "—"}
                         </Typography>
                       </TableCell>
 
-                      {/* Capacity */}
-                      <TableCell sx={{ fontSize: "0.76rem", fontWeight: 700 }}>
-                        {parseFloat(proj.system_capacity_kw || 1).toFixed(2)} kW
+                      <TableCell>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          <SolarPowerIcon sx={{ fontSize: 16, color: "#D97706" }} />
+                          <Typography sx={{ fontSize: "0.82rem", fontWeight: 800 }}>
+                            {parseFloat(proj.system_capacity_kw || 1).toFixed(2)} kW
+                          </Typography>
+                        </Box>
                       </TableCell>
 
-                      {/* Stage */}
-                      <TableCell>{renderStageChip(proj.stage)}</TableCell>
+                      <TableCell>{renderStageBadge(proj.stage)}</TableCell>
 
-                      {/* Assigned To */}
-                      <TableCell
-                        sx={{ fontSize: "0.76rem", color: COLORS.textSecondary }}
-                      >
+                      <TableCell sx={{ fontSize: "0.8rem", color: COLORS.textSecondary }}>
                         {proj.assigned_to_name || "Unassigned"}
                       </TableCell>
 
-                      {/* Start Date */}
-                      <TableCell
-                        sx={{ fontSize: "0.76rem", color: COLORS.textSecondary }}
-                      >
+                      <TableCell sx={{ fontSize: "0.78rem", color: COLORS.textSecondary }}>
                         {formatDate(proj.installation_start_date)}
                       </TableCell>
 
-                      {/* Actions */}
                       <TableCell align="right">
                         <Stack direction="row" spacing={0.8} justifyContent="flex-end">
                           <Button
                             size="small"
                             variant="outlined"
-                            startIcon={<VisibilityIcon sx={{ fontSize: 14 }} />}
                             onClick={() => navigate(`${projectBasePath}/${proj.id}`)}
                             sx={{
-                              height: 28,
+                              height: 30,
                               borderRadius: "6px",
                               textTransform: "none",
                               fontWeight: 700,
-                              fontSize: "0.72rem",
-                              px: 1.4,
+                              fontSize: "0.74rem",
+                              px: 1.5,
                               borderColor: COLORS.border,
                               color: COLORS.textPrimary,
-                              "&:hover": {
-                                borderColor: COLORS.primary,
-                                backgroundColor: "#F8FAFC",
-                              },
                             }}
                           >
-                            View
+                            Details
                           </Button>
                           <IconButton
                             size="small"
                             onClick={() => handleDeleteClick(proj)}
                             sx={{
-                              height: 28,
-                              width: 28,
+                              height: 30,
+                              width: 30,
                               borderRadius: "6px",
                               border: `1px solid ${COLORS.border}`,
                               color: "#EF4444",
-                              "&:hover": {
-                                backgroundColor: "#FEF2F2",
-                                borderColor: "#FCA5A5",
-                              },
+                              "&:hover": { backgroundColor: "#FEF2F2" },
                             }}
                           >
-                            <Tooltip title="Delete Project">
-                              <DeleteIcon sx={{ fontSize: 16 }} />
-                            </Tooltip>
+                            <DeleteIcon sx={{ fontSize: 16 }} />
                           </IconButton>
                         </Stack>
                       </TableCell>
@@ -1604,7 +1708,7 @@ export default function ProjectsList() {
 
         {/* PAGINATION */}
         {totalCount > 0 && (
-          <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
+          <Box sx={{ mt: 2.5, display: "flex", justifyContent: "flex-end" }}>
             <TablePagination
               component="div"
               count={totalCount}
@@ -1619,7 +1723,7 @@ export default function ProjectsList() {
               sx={{
                 border: "none",
                 "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": {
-                  fontSize: "0.76rem",
+                  fontSize: "0.78rem",
                   color: COLORS.textSecondary,
                 },
               }}
@@ -1628,27 +1732,30 @@ export default function ProjectsList() {
         )}
       </Box>
 
-      {/* CREATE NEW PROJECT MODAL */}
+      {/* ============================================================== */}
+      {/* CREATE NEW PROJECT MODAL (SPACIOUS maxWidth="md" - NO OVERLAPPING)*/}
+      {/* ============================================================== */}
       <Dialog
         open={newModalOpen}
         onClose={() => !creating && setNewModalOpen(false)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
         PaperProps={{
-          sx: { borderRadius: "14px", p: 1 },
+          sx: { borderRadius: "16px", p: 1 },
         }}
       >
         <DialogTitle
           sx={{
-            fontWeight: 800,
-            fontSize: "1.1rem",
+            fontWeight: 900,
+            fontSize: "1.15rem",
             color: COLORS.textPrimary,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            pb: 1,
           }}
         >
-          Create New Solar Project
+          Create New Solar Installation Project
           <IconButton
             size="small"
             onClick={() => setNewModalOpen(false)}
@@ -1658,19 +1765,21 @@ export default function ProjectsList() {
           </IconButton>
         </DialogTitle>
         <Box component="form" onSubmit={handleCreateSubmit}>
-          <DialogContent dividers sx={{ borderColor: COLORS.border }}>
-            <Grid container spacing={2}>
-              {/* Select Customer / Quotation Dropdown */}
-              <Grid item xs={12}>
+          <DialogContent dividers sx={{ borderColor: COLORS.border, py: 2.5 }}>
+            <Stack spacing={3}>
+              {/* SECTION A: Quotation Link / Lead Selection */}
+              <Box>
                 <Typography
                   sx={{
-                    fontSize: "0.74rem",
-                    fontWeight: 700,
-                    color: COLORS.textSecondary,
-                    mb: 0.5,
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    color: COLORS.primary,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    mb: 1,
                   }}
                 >
-                  Select Customer from Quotations (Jinko Quotation Bheja Hai)
+                  Step 1: Select Approved Quotation / Customer
                 </Typography>
                 <Autocomplete
                   options={quotationOptions}
@@ -1678,7 +1787,7 @@ export default function ProjectsList() {
                   value={selectedQuotation}
                   getOptionLabel={(option) => {
                     if (typeof option === "string") return option;
-                    return `${option.customer_name || "Unknown"} (${option.customer_phone || "No phone"}) - [${option.quotation_number || "QUO"}] - ${option.system_capacity_kw || 0} kW (${option.status || "Sent"})`;
+                    return `${option.customer_name || "Unknown"} (${option.customer_phone || "No phone"}) • [${option.quotation_number || "QUO"}] • ${option.system_capacity_kw || 0} kW (${option.status || "Sent"})`;
                   }}
                   isOptionEqualToValue={(option, val) => option.id === val.id}
                   onChange={(e, newValue) => {
@@ -1708,211 +1817,207 @@ export default function ProjectsList() {
                     <TextField
                       {...params}
                       size="small"
-                      placeholder="Search and select customer jinko quotation bheja hai..."
+                      placeholder="Search and select approved quotation..."
                     />
                   )}
                   noOptionsText={
                     loadingQuotations
                       ? "Loading quotations..."
-                      : "Koi quotation nahi mila"
+                      : "No quotation found. You can enter details manually below."
                   }
                 />
-              </Grid>
+              </Box>
 
-              <Grid item xs={12} sm={6}>
+              <Divider />
+
+              {/* SECTION B: Customer & Site Details */}
+              <Box>
                 <Typography
                   sx={{
-                    fontSize: "0.74rem",
-                    fontWeight: 700,
-                    color: COLORS.textSecondary,
-                    mb: 0.5,
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    color: COLORS.primary,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    mb: 1.5,
                   }}
                 >
-                  Customer Name *
+                  Step 2: Customer & Site Location
                 </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  required
-                  placeholder="e.g. Ramesh Kumar"
-                  value={formData.customer_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, customer_name: e.target.value })
-                  }
-                />
-              </Grid>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      required
+                      label="Customer Full Name *"
+                      value={formData.customer_name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, customer_name: e.target.value })
+                      }
+                    />
+                  </Grid>
 
-              <Grid item xs={12} sm={6}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      required
+                      label="Customer Mobile Phone *"
+                      value={formData.customer_phone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, customer_phone: e.target.value })
+                      }
+                    />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Installation Site Address"
+                      placeholder="e.g. Plot 42, Sunrise Enclave..."
+                      value={formData.customer_address}
+                      onChange={(e) =>
+                        setFormData({ ...formData, customer_address: e.target.value })
+                      }
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="City"
+                      value={formData.city}
+                      onChange={(e) =>
+                        setFormData({ ...formData, city: e.target.value })
+                      }
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="State"
+                      value={formData.state}
+                      onChange={(e) =>
+                        setFormData({ ...formData, state: e.target.value })
+                      }
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Pincode"
+                      value={formData.pincode}
+                      onChange={(e) =>
+                        setFormData({ ...formData, pincode: e.target.value })
+                      }
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider />
+
+              {/* SECTION C: Technical System Specs & Pipeline Stage */}
+              <Box>
                 <Typography
                   sx={{
-                    fontSize: "0.74rem",
-                    fontWeight: 700,
-                    color: COLORS.textSecondary,
-                    mb: 0.5,
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    color: COLORS.primary,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    mb: 1.5,
                   }}
                 >
-                  Customer Phone *
+                  Step 3: Solar Engineering Specs & Stage
                 </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  required
-                  placeholder="e.g. 9876543210"
-                  value={formData.customer_phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, customer_phone: e.target.value })
-                  }
-                />
-              </Grid>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      step="0.1"
+                      required
+                      label="System Capacity (kW) *"
+                      value={formData.system_capacity_kw}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          system_capacity_kw: e.target.value,
+                        })
+                      }
+                    />
+                  </Grid>
 
-              <Grid item xs={12} sm={6}>
-                <Typography
-                  sx={{
-                    fontSize: "0.74rem",
-                    fontWeight: 700,
-                    color: COLORS.textSecondary,
-                    mb: 0.5,
-                  }}
-                >
-                  System Capacity (kW) *
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="number"
-                  step="0.1"
-                  required
-                  placeholder="e.g. 5.0"
-                  value={formData.system_capacity_kw}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      system_capacity_kw: e.target.value,
-                    })
-                  }
-                />
-              </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label="Solar Panel Count (pcs)"
+                      value={formData.panel_count}
+                      onChange={(e) =>
+                        setFormData({ ...formData, panel_count: e.target.value })
+                      }
+                    />
+                  </Grid>
 
-              <Grid item xs={12} sm={6}>
-                <Typography
-                  sx={{
-                    fontSize: "0.74rem",
-                    fontWeight: 700,
-                    color: COLORS.textSecondary,
-                    mb: 0.5,
-                  }}
-                >
-                  Initial Stage
-                </Typography>
-                <Select
-                  fullWidth
-                  size="small"
-                  value={formData.stage}
-                  onChange={(e) =>
-                    setFormData({ ...formData, stage: e.target.value })
-                  }
-                >
-                  {STAGE_OPTIONS.map((stg) => (
-                    <MenuItem key={stg} value={stg}>
-                      {stg}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      step="0.1"
+                      label="Inverter Size (kW)"
+                      value={formData.inverter_kw}
+                      onChange={(e) =>
+                        setFormData({ ...formData, inverter_kw: e.target.value })
+                      }
+                    />
+                  </Grid>
 
-              <Grid item xs={12} sm={6}>
-                <Typography
-                  sx={{
-                    fontSize: "0.74rem",
-                    fontWeight: 700,
-                    color: COLORS.textSecondary,
-                    mb: 0.5,
-                  }}
-                >
-                  City
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="e.g. Jaipur"
-                  value={formData.city}
-                  onChange={(e) =>
-                    setFormData({ ...formData, city: e.target.value })
-                  }
-                />
-              </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Select
+                      fullWidth
+                      size="small"
+                      value={formData.stage}
+                      onChange={(e) =>
+                        setFormData({ ...formData, stage: e.target.value })
+                      }
+                    >
+                      {STAGES.map((stg, i) => (
+                        <MenuItem key={stg} value={stg}>
+                          {i + 1}. {stg}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </Grid>
 
-              <Grid item xs={12} sm={6}>
-                <Typography
-                  sx={{
-                    fontSize: "0.74rem",
-                    fontWeight: 700,
-                    color: COLORS.textSecondary,
-                    mb: 0.5,
-                  }}
-                >
-                  State
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="e.g. Rajasthan"
-                  value={formData.state}
-                  onChange={(e) =>
-                    setFormData({ ...formData, state: e.target.value })
-                  }
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <Typography
-                  sx={{
-                    fontSize: "0.74rem",
-                    fontWeight: 700,
-                    color: COLORS.textSecondary,
-                    mb: 0.5,
-                  }}
-                >
-                  Site Address
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="e.g. Plot 42, Green Avenue..."
-                  value={formData.customer_address}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      customer_address: e.target.value,
-                    })
-                  }
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <Typography
-                  sx={{
-                    fontSize: "0.74rem",
-                    fontWeight: 700,
-                    color: COLORS.textSecondary,
-                    mb: 0.5,
-                  }}
-                >
-                  Notes / Installation Details
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  multiline
-                  rows={2}
-                  placeholder="Initial site inspection and customer notes..."
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
-                  }
-                />
-              </Grid>
-            </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      multiline
+                      rows={3}
+                      label="Project Notes / Special Site Instructions"
+                      placeholder="e.g. Structure elevated GI, shadow analysis done, meter shift required..."
+                      value={formData.notes}
+                      onChange={(e) =>
+                        setFormData({ ...formData, notes: e.target.value })
+                      }
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+            </Stack>
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
             <Button
@@ -1930,7 +2035,8 @@ export default function ProjectsList() {
                 textTransform: "none",
                 fontWeight: 700,
                 backgroundColor: COLORS.primary,
-                "&:hover": { backgroundColor: "#020617" },
+                px: 3,
+                "&:hover": { backgroundColor: COLORS.primaryHover },
               }}
             >
               {creating ? "Creating Project..." : "Create Project"}
@@ -1949,42 +2055,17 @@ export default function ProjectsList() {
           sx: { borderRadius: "14px", p: 1 },
         }}
       >
-        <DialogTitle
-          sx={{
-            fontWeight: 800,
-            fontSize: "1.05rem",
-            color: "#EF4444",
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-          }}
-        >
-          <DeleteIcon color="error" />
-          Delete Solar Project
+        <DialogTitle sx={{ fontWeight: 800, fontSize: "1.05rem" }}>
+          Delete Solar Project?
         </DialogTitle>
         <DialogContent dividers sx={{ borderColor: COLORS.border }}>
-          <Typography sx={{ fontSize: "0.85rem", color: COLORS.textPrimary, mb: 1 }}>
-            Are you sure you want to delete this project?
+          <Typography variant="body2" sx={{ color: COLORS.textSecondary, mb: 1.5 }}>
+            Are you sure you want to delete project{" "}
+            <strong>{projectToDelete?.project_number}</strong> for{" "}
+            <strong>{projectToDelete?.customer_name}</strong>?
           </Typography>
-          {projectToDelete && (
-            <Box
-              sx={{
-                p: 1.5,
-                borderRadius: "8px",
-                backgroundColor: "#FEF2F2",
-                border: "1px solid #FECACA",
-              }}
-            >
-              <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#991B1B" }}>
-                {projectToDelete.project_number} — {projectToDelete.customer_name}
-              </Typography>
-              <Typography sx={{ fontSize: "0.75rem", color: "#B91C1C", mt: 0.5 }}>
-                Capacity: {parseFloat(projectToDelete.system_capacity_kw || 0).toFixed(2)} kW • Stage: {projectToDelete.stage}
-              </Typography>
-            </Box>
-          )}
-          <Typography sx={{ fontSize: "0.75rem", color: COLORS.textSecondary, mt: 1.5 }}>
-            This will mark the project as deleted and remove it from active lists.
+          <Typography variant="caption" sx={{ color: "#DC2626", fontWeight: 600 }}>
+            This action will soft-delete the project record. Related site inspections and logs will be preserved.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 2.5, py: 1.5 }}>
@@ -1998,14 +2079,9 @@ export default function ProjectsList() {
           <Button
             variant="contained"
             color="error"
-            disabled={deleting}
             onClick={handleConfirmDelete}
-            sx={{
-              textTransform: "none",
-              fontWeight: 700,
-              backgroundColor: "#EF4444",
-              "&:hover": { backgroundColor: "#DC2626" },
-            }}
+            disabled={deleting}
+            sx={{ textTransform: "none", fontWeight: 700 }}
           >
             {deleting ? "Deleting..." : "Delete Project"}
           </Button>

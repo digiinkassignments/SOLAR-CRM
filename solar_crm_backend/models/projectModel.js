@@ -1,84 +1,72 @@
 const dbConfig = require("../config/db");
 const defaultDb = dbConfig.db || dbConfig.defaultDb;
 
-// Auto-ensure projects and project_stage_logs tables exist (matches invoiceModel pattern)
-let projectTablesEnsured = false;
-let ensuringProjectsPromise = null;
+// Auto-ensure projects and project_stage_logs tables exist (per-tenant DB tracking)
+const ensuredDbs = new Set();
 
 const ensureProjectTables = async (db = defaultDb) => {
-  if (projectTablesEnsured) return;
-  if (ensuringProjectsPromise) return ensuringProjectsPromise;
+  try {
+    const dbKey = db?.config?.database || db?.pool?.config?.connectionConfig?.database || "default";
+    if (ensuredDbs.has(dbKey)) return;
 
-  ensuringProjectsPromise = (async () => {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS projects (
+        id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        project_number VARCHAR(30) NOT NULL UNIQUE,
+        lead_id INT(11) DEFAULT NULL,
+        quotation_id INT(11) DEFAULT NULL,
+        customer_name VARCHAR(150) NOT NULL,
+        customer_phone VARCHAR(20) NOT NULL,
+        customer_address TEXT DEFAULT NULL,
+        city VARCHAR(100) DEFAULT NULL,
+        state VARCHAR(100) DEFAULT NULL,
+        pincode VARCHAR(20) DEFAULT NULL,
+        system_capacity_kw DECIMAL(6,2) NOT NULL,
+        panel_count INT(11) DEFAULT NULL,
+        inverter_kw DECIMAL(6,2) DEFAULT NULL,
+        stage VARCHAR(60) NOT NULL DEFAULT 'Order Closed',
+        stage_updated_at TIMESTAMP NULL DEFAULT NULL,
+        assigned_to INT(11) DEFAULT NULL,
+        assigned_by INT(11) DEFAULT NULL,
+        installation_start_date DATE DEFAULT NULL,
+        installation_end_date DATE DEFAULT NULL,
+        completion_date DATE DEFAULT NULL,
+        notes TEXT DEFAULT NULL,
+        is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+        created_by INT(11) DEFAULT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        KEY idx_project_lead (lead_id),
+        KEY idx_project_quotation (quotation_id),
+        KEY idx_project_stage (stage),
+        KEY idx_project_assigned_to (assigned_to),
+        KEY idx_project_is_deleted (is_deleted)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    // Ensure stage column is VARCHAR(60) so it supports the new stages smoothly
     try {
-      await db.query(`
-        CREATE TABLE IF NOT EXISTS projects (
-          id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-          project_number VARCHAR(30) NOT NULL UNIQUE,
-          lead_id INT(11) DEFAULT NULL,
-          quotation_id INT(11) DEFAULT NULL,
-          customer_name VARCHAR(150) NOT NULL,
-          customer_phone VARCHAR(20) NOT NULL,
-          customer_address TEXT DEFAULT NULL,
-          city VARCHAR(100) DEFAULT NULL,
-          state VARCHAR(100) DEFAULT NULL,
-          pincode VARCHAR(20) DEFAULT NULL,
-          system_capacity_kw DECIMAL(6,2) NOT NULL,
-          panel_count INT(11) DEFAULT NULL,
-          inverter_kw DECIMAL(6,2) DEFAULT NULL,
-          stage ENUM(
-            'Order Closed',
-            'Procurement',
-            'Pre-Install Inspection',
-            'Installation In Progress',
-            'Commissioning',
-            'DISCOM Application',
-            'Subsidy Applied',
-            'Handover Done',
-            'Warranty Period'
-          ) NOT NULL DEFAULT 'Order Closed',
-          stage_updated_at TIMESTAMP NULL DEFAULT NULL,
-          assigned_to INT(11) DEFAULT NULL,
-          assigned_by INT(11) DEFAULT NULL,
-          installation_start_date DATE DEFAULT NULL,
-          installation_end_date DATE DEFAULT NULL,
-          completion_date DATE DEFAULT NULL,
-          notes TEXT DEFAULT NULL,
-          is_deleted TINYINT(1) NOT NULL DEFAULT 0,
-          created_by INT(11) DEFAULT NULL,
-          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-          KEY idx_project_lead (lead_id),
-          KEY idx_project_quotation (quotation_id),
-          KEY idx_project_stage (stage),
-          KEY idx_project_assigned_to (assigned_to),
-          KEY idx_project_is_deleted (is_deleted)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-      `);
+      await db.query(`ALTER TABLE projects MODIFY COLUMN stage VARCHAR(60) NOT NULL DEFAULT 'Order Closed'`);
+    } catch (e) {}
 
-      await db.query(`
-        CREATE TABLE IF NOT EXISTS project_stage_logs (
-          id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-          project_id INT(11) NOT NULL,
-          from_stage VARCHAR(60) DEFAULT NULL,
-          to_stage VARCHAR(60) NOT NULL,
-          changed_by INT(11) DEFAULT NULL,
-          notes TEXT DEFAULT NULL,
-          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          KEY idx_stage_log_project (project_id),
-          KEY idx_stage_log_changed_by (changed_by)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-      `);
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS project_stage_logs (
+        id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        project_id INT(11) NOT NULL,
+        from_stage VARCHAR(60) DEFAULT NULL,
+        to_stage VARCHAR(60) NOT NULL,
+        changed_by INT(11) DEFAULT NULL,
+        notes TEXT DEFAULT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_stage_log_project (project_id),
+        KEY idx_stage_log_changed_by (changed_by)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
 
-      projectTablesEnsured = true;
-    } catch (err) {
-      console.error("ensureProjectTables error:", err.message);
-    } finally {
-      ensuringProjectsPromise = null;
-    }
-  })();
-
-  return ensuringProjectsPromise;
+    ensuredDbs.add(dbKey);
+  } catch (err) {
+    console.error("ensureProjectTables error:", err.message);
+  }
 };
 
 // Auto-run on module load

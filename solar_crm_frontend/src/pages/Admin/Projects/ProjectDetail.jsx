@@ -7,7 +7,6 @@ import {
   Typography,
   Grid,
   Button,
-  Chip,
   IconButton,
   Stack,
   Breadcrumbs,
@@ -23,6 +22,8 @@ import {
   Divider,
   Tabs,
   Tab,
+  LinearProgress,
+  Tooltip,
 } from "@mui/material";
 
 // Icons
@@ -50,6 +51,7 @@ import FactCheckIcon from "@mui/icons-material/FactCheck";
 import HandshakeIcon from "@mui/icons-material/Handshake";
 import VerifiedIcon from "@mui/icons-material/Verified";
 import DeleteIcon from "@mui/icons-material/Delete";
+import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
 
 import toast from "react-hot-toast";
 import api from "../../../utils/api";
@@ -59,84 +61,25 @@ import Commissioning from "./tabs/Commissioning";
 import FinalInspection from "./tabs/FinalInspection";
 import CustomerHandover from "./tabs/CustomerHandover";
 import WarrantyAMC from "./tabs/WarrantyAMC";
-
-
-
-
+import {
+  STAGES,
+  STAGE_CONFIG,
+  getStageIndex,
+  getProgressPercent,
+  getStageConfig,
+} from "../../../utils/projectStages";
 
 // Theme constants
 const COLORS = {
   primary: "#0F172A",
+  primaryHover: "#020617",
   secondary: "#F59E0B",
   background: "#F8FAFC",
   card: "#FFFFFF",
   border: "#E2E8F0",
   textPrimary: "#0F172A",
-  textSecondary: "#64748B",
+  textSecondary: "#475569",
   textMuted: "#94A3B8",
-  primaryDark: "#0F172A",
-};
-
-// All 9 Stages in Exact Sequential Order
-const STAGES = [
-  "Order Closed",
-  "Procurement",
-  "Pre-Install Inspection",
-  "Installation In Progress",
-  "Commissioning",
-  "DISCOM Application",
-  "Subsidy Applied",
-  "Handover Done",
-  "Warranty Period",
-];
-
-// Stage Chip Configs
-const STAGE_CONFIG = {
-  "Order Closed": {
-    color: "#3B82F6",
-    bg: "#EFF6FF",
-    border: "#BFDBFE",
-  },
-  Procurement: {
-    color: "#F97316",
-    bg: "#FFF7ED",
-    border: "#FED7AA",
-  },
-  "Pre-Install Inspection": {
-    color: "#8B5CF6",
-    bg: "#F5F3FF",
-    border: "#DDD6FE",
-  },
-  "Installation In Progress": {
-    color: "#F59E0B",
-    bg: "#FEF3C7",
-    border: "#FDE68A",
-  },
-  Commissioning: {
-    color: "#6366F1",
-    bg: "#EEF2FF",
-    border: "#C7D2FE",
-  },
-  "DISCOM Application": {
-    color: "#06B6D4",
-    bg: "#ECFEFF",
-    border: "#A5F3FC",
-  },
-  "Subsidy Applied": {
-    color: "#10B981",
-    bg: "#ECFDF5",
-    border: "#A7F3D0",
-  },
-  "Handover Done": {
-    color: "#059669",
-    bg: "#D1FAE5",
-    border: "#6EE7B7",
-  },
-  "Warranty Period": {
-    color: "#0D9488",
-    bg: "#CCFBF1",
-    border: "#99F6E4",
-  },
 };
 
 export default function ProjectDetail() {
@@ -152,6 +95,9 @@ export default function ProjectDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Tab State: 0=Overview, 1=History, 2=Pre-Install, 3=Install, 4=Commissioning, 5=FinalInspection, 6=Handover, 7=Warranty
+  const [activeTab, setActiveTab] = useState(0);
+
   // Change Stage Dialog State
   const [stageDialogOpen, setStageDialogOpen] = useState(false);
   const [nextStage, setNextStage] = useState("");
@@ -160,19 +106,31 @@ export default function ProjectDetail() {
 
   // Edit Project Dialog State
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editFormData, setEditFormData] = useState({});
   const [updatingProject, setUpdatingProject] = useState(false);
-
-  // Active Tab State (0: Overview, 1: Stage History, 2: Pre-Install Inspection)
-  const [activeTab, setActiveTab] = useState(0);
+  const [editFormData, setEditFormData] = useState({
+    customer_name: "",
+    customer_phone: "",
+    system_capacity_kw: "",
+    panel_count: "",
+    inverter_kw: "",
+    customer_address: "",
+    city: "",
+    state: "",
+    pincode: "",
+    installation_start_date: "",
+    installation_end_date: "",
+    completion_date: "",
+    notes: "",
+  });
 
   // Delete Project Dialog State
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-
-  // Fetch Project Details by ID (for manual calls like after saving)
+  // Fetch Project Details from GET /api/projects/:id
   const fetchProjectDetails = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const res = await api.get(`/projects/${id}`);
       if (res.data?.success && res.data.data) {
@@ -183,46 +141,19 @@ export default function ProjectDetail() {
     } catch (err) {
       console.error("fetchProjectDetails error:", err);
       setError(err.response?.data?.message || "Failed to load project details.");
+    } finally {
+      setLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
-    let ignore = false;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await api.get(`/projects/${id}`);
-        if (!ignore) {
-          if (res.data?.success && res.data.data) {
-            setProject(res.data.data);
-          } else {
-            setError("Project not found.");
-          }
-        }
-      } catch (err) {
-        if (!ignore) {
-          console.error("loadProject error:", err);
-          setError(err.response?.data?.message || "Failed to load project details.");
-        }
-      } finally {
-        if (!ignore) {
-          setLoading(false);
-        }
-      }
-    };
+    fetchProjectDetails();
+  }, [fetchProjectDetails]);
 
-    load();
-    return () => {
-      ignore = true;
-    };
-  }, [id]);
-
-  // Current Stage Index in the 9-stage pipeline
-  const currentStageIndex = project ? STAGES.indexOf(project.stage) : -1;
-
-  // Available stages for changing
-  const availableNextStages = STAGES.filter((stg) => stg !== project?.stage);
+  // Current stage index in 10-stage lifecycle
+  const currentStageIndex = project ? getStageIndex(project.stage) : 0;
+  const progressPct = project ? getProgressPercent(project.stage) : 10;
+  const stageConfig = project ? getStageConfig(project.stage) : getStageConfig("Order Closed");
 
   // Open Stage Change Dialog
   const handleOpenStageDialog = () => {
@@ -233,26 +164,48 @@ export default function ProjectDetail() {
     setStageDialogOpen(true);
   };
 
+  // Quick 1-Click Advance to Next Stage
+  const handleQuickAdvance = async (targetStage) => {
+    if (!targetStage) return;
+    setUpdatingStage(true);
+    try {
+      const res = await api.put(`/projects/${id}/stage`, {
+        stage: targetStage,
+        notes: `Quick advanced to ${targetStage}`,
+      });
+      if (res.data?.success) {
+        toast.success(`Project moved to: ${targetStage}`);
+        fetchProjectDetails();
+      }
+    } catch (err) {
+      console.error("Quick advance error:", err);
+      toast.error(err.response?.data?.message || "Failed to update stage.");
+    } finally {
+      setUpdatingStage(false);
+    }
+  };
+
   // Submit Stage Change
   const handleSubmitStageChange = async (e) => {
     e.preventDefault();
-    if (!nextStage) return;
-
+    if (!nextStage) {
+      toast.error("Please select a stage.");
+      return;
+    }
     setUpdatingStage(true);
     try {
       const res = await api.put(`/projects/${id}/stage`, {
         stage: nextStage,
         notes: stageNotes.trim() || undefined,
       });
-
       if (res.data?.success) {
-        toast.success(`Stage updated to ${nextStage}!`);
+        toast.success(`Project moved to: ${nextStage}`);
         setStageDialogOpen(false);
         fetchProjectDetails();
       }
     } catch (err) {
-      console.error("Change stage error:", err);
-      toast.error(err.response?.data?.message || "Failed to update project stage.");
+      console.error("Update stage error:", err);
+      toast.error(err.response?.data?.message || "Failed to update stage.");
     } finally {
       setUpdatingStage(false);
     }
@@ -304,30 +257,6 @@ export default function ProjectDetail() {
     }
   };
 
-  const renderStageChip = (stageName) => {
-    const config = STAGE_CONFIG[stageName] || {
-      color: COLORS.textSecondary,
-      bg: "#F1F5F9",
-      border: COLORS.border,
-    };
-
-    return (
-      <Chip
-        label={stageName || "Order Closed"}
-        size="small"
-        sx={{
-          color: config.color,
-          backgroundColor: config.bg,
-          border: `1px solid ${config.border}`,
-          fontWeight: 700,
-          fontSize: "0.74rem",
-          height: 26,
-          borderRadius: "6px",
-        }}
-      />
-    );
-  };
-
   // Confirm Delete Handler
   const handleConfirmDelete = async () => {
     if (!project) return;
@@ -347,6 +276,44 @@ export default function ProjectDetail() {
     } finally {
       setDeleting(false);
     }
+  };
+
+  // Modern Stage Badge
+  const renderStageBadge = (stageName) => {
+    const config = getStageConfig(stageName);
+    return (
+      <Box
+        sx={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 0.8,
+          px: 1.4,
+          py: 0.5,
+          borderRadius: "8px",
+          backgroundColor: config.bg,
+          border: `1px solid ${config.border}`,
+          color: config.color,
+          fontWeight: 700,
+          fontSize: "0.78rem",
+          letterSpacing: "-0.01em",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <Box
+          sx={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            backgroundColor: config.dot,
+            flexShrink: 0,
+            boxShadow: `0 0 0 2px ${config.bg}`,
+          }}
+        />
+        <span>
+          Step {config.step}/10 • {config.label}
+        </span>
+      </Box>
+    );
   };
 
   const formatDate = (dateVal) => {
@@ -384,25 +351,22 @@ export default function ProjectDetail() {
   // ── LOADING STATE ──
   if (loading) {
     return (
-      <Box sx={{ p: 2.5, backgroundColor: COLORS.background, minHeight: "100vh" }}>
-        <Skeleton variant="text" width={220} height={28} sx={{ mb: 1.5 }} />
-        <Skeleton variant="rounded" height={80} sx={{ borderRadius: "12px", mb: 2.5 }} />
-        <Grid container spacing={2.5}>
+      <Box sx={{ p: 3, backgroundColor: COLORS.background, minHeight: "100vh" }}>
+        <Skeleton variant="text" width={240} height={28} sx={{ mb: 2 }} />
+        <Skeleton variant="rounded" height={90} sx={{ borderRadius: "14px", mb: 3 }} />
+        <Grid container spacing={3}>
           <Grid item xs={12} md={7}>
-            <Skeleton variant="rounded" height={380} sx={{ borderRadius: "12px" }} />
+            <Skeleton variant="rounded" height={400} sx={{ borderRadius: "14px" }} />
           </Grid>
           <Grid item xs={12} md={5}>
-            <Skeleton variant="rounded" height={380} sx={{ borderRadius: "12px" }} />
-          </Grid>
-          <Grid item xs={12}>
-            <Skeleton variant="rounded" height={220} sx={{ borderRadius: "12px" }} />
+            <Skeleton variant="rounded" height={400} sx={{ borderRadius: "14px" }} />
           </Grid>
         </Grid>
       </Box>
     );
   }
 
-  // ── ERROR STATE (Project Not Found) ──
+  // ── ERROR STATE ──
   if (error || !project) {
     return (
       <Box
@@ -419,7 +383,7 @@ export default function ProjectDetail() {
           elevation={0}
           sx={{
             p: 5,
-            borderRadius: "14px",
+            borderRadius: "16px",
             border: `1px solid ${COLORS.border}`,
             textAlign: "center",
             maxWidth: 440,
@@ -441,7 +405,7 @@ export default function ProjectDetail() {
               backgroundColor: COLORS.primary,
               textTransform: "none",
               fontWeight: 700,
-              borderRadius: "6px",
+              borderRadius: "8px",
               px: 3,
             }}
           >
@@ -457,7 +421,7 @@ export default function ProjectDetail() {
       sx={{
         backgroundColor: COLORS.background,
         minHeight: "100vh",
-        p: 2.5,
+        p: { xs: 1.5, sm: 2.5, md: 3 },
         boxSizing: "border-box",
         width: "100%",
       }}
@@ -469,9 +433,9 @@ export default function ProjectDetail() {
             size="small"
             onClick={() => navigate(-1)}
             sx={{
-              width: 32,
-              height: 32,
-              borderRadius: "6px",
+              width: 34,
+              height: 34,
+              borderRadius: "8px",
               border: `1px solid ${COLORS.border}`,
               backgroundColor: COLORS.card,
               color: COLORS.textPrimary,
@@ -509,6 +473,7 @@ export default function ProjectDetail() {
                 Dashboard
               </Typography>
             </Stack>
+
             <Typography
               sx={{
                 fontSize: "0.75rem",
@@ -521,12 +486,12 @@ export default function ProjectDetail() {
             >
               Projects
             </Typography>
+
             <Typography
               sx={{
                 fontSize: "0.75rem",
                 fontWeight: 700,
-                color: COLORS.primaryDark,
-                fontFamily: "monospace",
+                color: COLORS.textPrimary,
               }}
             >
               {project.project_number}
@@ -534,24 +499,31 @@ export default function ProjectDetail() {
           </Breadcrumbs>
         </Stack>
 
-        {/* Hero Paper */}
+        {/* SECTION 2 — PROJECT HERO CARD (NO-COLLISION HEADER) */}
         <Paper
           elevation={0}
           sx={{
-            p: 2.2,
+            p: { xs: 2, sm: 2.5 },
             mb: 2.5,
-            borderRadius: "12px",
+            borderRadius: "14px",
             border: `1px solid ${COLORS.border}`,
             backgroundColor: COLORS.card,
             display: "flex",
-            flexDirection: { xs: "column", sm: "row" },
+            flexDirection: { xs: "column", md: "row" },
             justifyContent: "space-between",
-            alignItems: { xs: "flex-start", sm: "center" },
-            gap: 1.5,
+            alignItems: { xs: "flex-start", md: "center" },
+            gap: 2,
+            boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
           }}
         >
-          <Box>
-            <Stack direction="row" alignItems="center" gap={1.2}>
+          {/* Customer & Project Title */}
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              gap={1.2}
+              sx={{ flexWrap: "wrap", mb: 0.6 }}
+            >
               <Box
                 sx={{
                   px: 1.2,
@@ -561,53 +533,59 @@ export default function ProjectDetail() {
                   border: "1px solid #BFDBFE",
                   color: "#1D4ED8",
                   fontWeight: 800,
-                  fontSize: "0.92rem",
+                  fontSize: "0.82rem",
                   fontFamily: "monospace",
-                  letterSpacing: "0.03em",
                 }}
               >
                 {project.project_number}
               </Box>
 
               <Typography
-                variant="h6"
+                variant="h5"
                 sx={{
-                  fontWeight: 800,
+                  fontWeight: 900,
+                  fontSize: { xs: "1.15rem", sm: "1.3rem" },
                   color: COLORS.textPrimary,
-                  fontSize: "1.15rem",
+                  letterSpacing: "-0.01em",
                 }}
               >
                 {project.customer_name}
               </Typography>
 
-              {renderStageChip(project.stage)}
+              {renderStageBadge(project.stage)}
             </Stack>
+
             <Typography
               variant="body2"
               sx={{
                 color: COLORS.textSecondary,
-                fontSize: "0.76rem",
-                mt: 0.5,
+                fontSize: "0.78rem",
               }}
             >
-              Created on {formatDate(project.created_at)} • Last stage updated:{" "}
+              Created on {formatDate(project.created_at)} • Last stage update:{" "}
               {formatDateTime(project.stage_updated_at || project.updated_at)}
             </Typography>
           </Box>
 
-          <Stack direction="row" alignItems="center" gap={1}>
+          {/* Action Buttons (Spaced & Wrapped Cleanly) */}
+          <Stack
+            direction="row"
+            alignItems="center"
+            gap={1}
+            sx={{ flexWrap: "wrap", flexShrink: 0 }}
+          >
             <Button
               variant="outlined"
               size="small"
               startIcon={<EditIcon sx={{ fontSize: 16 }} />}
               onClick={handleOpenEditDialog}
               sx={{
-                height: 36,
-                borderRadius: "6px",
+                height: 38,
+                borderRadius: "8px",
                 textTransform: "none",
                 fontWeight: 700,
-                fontSize: "0.78rem",
-                px: 1.8,
+                fontSize: "0.8rem",
+                px: 2,
                 borderColor: COLORS.border,
                 color: COLORS.textPrimary,
                 backgroundColor: "#FFFFFF",
@@ -617,21 +595,21 @@ export default function ProjectDetail() {
                 },
               }}
             >
-              Edit Project
+              Edit Details
             </Button>
 
             <Button
               variant="contained"
               size="small"
-              startIcon={<SwapHorizIcon sx={{ fontSize: 17 }} />}
+              startIcon={<SwapHorizIcon sx={{ fontSize: 18 }} />}
               onClick={handleOpenStageDialog}
               sx={{
-                height: 36,
-                borderRadius: "6px",
+                height: 38,
+                borderRadius: "8px",
                 textTransform: "none",
                 fontWeight: 700,
-                fontSize: "0.78rem",
-                px: 2,
+                fontSize: "0.8rem",
+                px: 2.2,
                 backgroundColor: COLORS.secondary,
                 color: "#FFFFFF",
                 "&:hover": { backgroundColor: "#D97706" },
@@ -640,40 +618,35 @@ export default function ProjectDetail() {
               Change Stage
             </Button>
 
-            <Button
-              variant="outlined"
-              color="error"
+            <IconButton
               size="small"
-              startIcon={<DeleteIcon sx={{ fontSize: 17 }} />}
               onClick={() => setDeleteConfirmOpen(true)}
               sx={{
-                height: 36,
-                borderRadius: "6px",
-                textTransform: "none",
-                fontWeight: 700,
-                fontSize: "0.78rem",
-                px: 2,
-                borderColor: "#FCA5A5",
+                height: 38,
+                width: 38,
+                borderRadius: "8px",
+                border: `1px solid ${COLORS.border}`,
                 color: "#EF4444",
-                backgroundColor: "#FEF2F2",
                 "&:hover": {
-                  borderColor: "#EF4444",
-                  backgroundColor: "#FEE2E2",
+                  borderColor: "#FCA5A5",
+                  backgroundColor: "#FEF2F2",
                 },
               }}
             >
-              Delete Project
-            </Button>
+              <Tooltip title="Delete Project">
+                <DeleteIcon sx={{ fontSize: 18 }} />
+              </Tooltip>
+            </IconButton>
           </Stack>
         </Paper>
 
-        {/* TABS NAVIGATION BAR */}
+        {/* SECTION 3 — EXECUTION TABS BAR */}
         <Paper
           elevation={0}
           sx={{
             mb: 2.5,
             p: 0,
-            borderRadius: "12px",
+            borderRadius: "14px",
             border: `1px solid ${COLORS.border}`,
             backgroundColor: COLORS.card,
             overflow: "hidden",
@@ -697,7 +670,7 @@ export default function ProjectDetail() {
                 "& .MuiTabs-indicator": { backgroundColor: COLORS.primary, height: 3 },
               }}
             >
-              <Tab label="Overview" iconPosition="start" />
+              <Tab label="Overview & Stages" iconPosition="start" />
               <Tab label="Stage History" iconPosition="start" />
               <Tab
                 label="Pre-Install Inspection"
@@ -714,280 +687,300 @@ export default function ProjectDetail() {
               <Tab icon={<HandshakeIcon />} label="Customer Handover" iconPosition="start" />
               <Tab icon={<VerifiedIcon />} label="Warranty & AMC" iconPosition="start" />
             </Tabs>
-
-
-
           </Box>
         </Paper>
 
-        {/* TAB 0: OVERVIEW (INFO GRID) */}
+        {/* TAB 0: OVERVIEW (INFO GRID + 10-STAGE PIPELINE STEPPER) */}
         {activeTab === 0 && (
           <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
-            {/* Left Column — Customer & System Info */}
-            <Grid item xs={12} md={7}>
+            {/* Left Column: Customer & System Details */}
+            <Grid item xs={12} lg={6}>
               <Paper
                 elevation={0}
                 sx={{
                   p: 2.5,
-                  borderRadius: "12px",
+                  borderRadius: "14px",
                   border: `1px solid ${COLORS.border}`,
                   backgroundColor: COLORS.card,
                   height: "100%",
                   boxSizing: "border-box",
                   display: "flex",
                   flexDirection: "column",
-                  gap: 2,
+                  gap: 2.5,
                 }}
               >
                 {/* Customer Profile */}
                 <Box>
                   <Typography
                     sx={{
-                      fontSize: "0.78rem",
+                      fontSize: "0.75rem",
                       fontWeight: 800,
-                      color: COLORS.textSecondary,
+                      color: COLORS.primary,
                       textTransform: "uppercase",
                       letterSpacing: "0.04em",
                       mb: 1.5,
                     }}
                   >
-                    Customer & Site Details
+                    Customer & Site Profile
                   </Typography>
 
-                  <Grid container spacing={1.8}>
+                  <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         Customer Name
                       </Typography>
-                      <Typography sx={{ fontSize: "0.86rem", fontWeight: 700, color: COLORS.textPrimary }}>
+                      <Typography sx={{ fontSize: "0.9rem", fontWeight: 700, color: COLORS.textPrimary }}>
                         {project.customer_name}
                       </Typography>
                     </Grid>
 
                     <Grid item xs={12} sm={6}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                        Mobile Contact
+                        Mobile Phone
                       </Typography>
                       <Stack direction="row" alignItems="center" gap={0.5}>
-                        <PhoneIcon sx={{ fontSize: 14, color: COLORS.textMuted }} />
+                        <PhoneIcon sx={{ fontSize: 15, color: "#2563EB" }} />
                         <Typography
                           component="a"
                           href={`tel:${project.customer_phone}`}
                           sx={{
-                            fontSize: "0.86rem",
+                            fontSize: "0.9rem",
                             fontWeight: 700,
-                            color: "#1D4ED8",
+                            color: "#2563EB",
                             textDecoration: "none",
                             "&:hover": { textDecoration: "underline" },
                           }}
                         >
-                          {project.customer_phone}
+                          {project.customer_phone || "—"}
                         </Typography>
                       </Stack>
                     </Grid>
 
                     <Grid item xs={12}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                        Installation Site Address
+                        Installation Site Location
                       </Typography>
-                      <Stack direction="row" alignItems="center" gap={0.5}>
-                        <LocationOnIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
-                        <Typography sx={{ fontSize: "0.82rem", color: COLORS.textPrimary }}>
-                          {[
-                            project.customer_address,
-                            project.city,
-                            project.state,
-                            project.pincode,
-                          ]
+                      <Stack direction="row" alignItems="flex-start" gap={0.6} sx={{ mt: 0.2 }}>
+                        <LocationOnIcon sx={{ fontSize: 17, color: COLORS.textMuted, mt: 0.2 }} />
+                        <Typography sx={{ fontSize: "0.85rem", color: COLORS.textPrimary }}>
+                          {[project.customer_address, project.city, project.state, project.pincode]
                             .filter(Boolean)
-                            .join(", ") || "No address provided"}
+                            .join(", ") || "Site address not specified"}
                         </Typography>
                       </Stack>
                     </Grid>
                   </Grid>
                 </Box>
 
-                <Divider sx={{ borderColor: COLORS.border }} />
+                <Divider />
 
-                {/* Technical Solar System Info */}
+                {/* Solar Engineering Specs */}
                 <Box>
                   <Typography
                     sx={{
-                      fontSize: "0.78rem",
+                      fontSize: "0.75rem",
                       fontWeight: 800,
-                      color: COLORS.textSecondary,
+                      color: COLORS.primary,
                       textTransform: "uppercase",
                       letterSpacing: "0.04em",
                       mb: 1.5,
                     }}
                   >
-                    Solar System Configuration
+                    Solar Technical Specifications
                   </Typography>
 
-                  <Grid container spacing={1.8}>
+                  <Grid container spacing={2}>
                     <Grid item xs={12} sm={4}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                        Capacity kW
+                        System Capacity
                       </Typography>
-                      <Chip
-                        icon={<SolarPowerIcon sx={{ fontSize: "14px !important", color: "#B45309 !important" }} />}
-                        label={`${parseFloat(project.system_capacity_kw || 1).toFixed(2)} kW`}
-                        size="small"
-                        sx={{
-                          mt: 0.3,
-                          fontWeight: 800,
-                          fontSize: "0.76rem",
-                          backgroundColor: "#FEF3C7",
-                          color: "#92400E",
-                          border: "1px solid #FDE68A",
-                          borderRadius: "6px",
-                        }}
-                      />
+                      <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.2 }}>
+                        <SolarPowerIcon sx={{ fontSize: 20, color: "#D97706" }} />
+                        <Typography sx={{ fontSize: "0.95rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                          {parseFloat(project.system_capacity_kw || 1).toFixed(2)} kW
+                        </Typography>
+                      </Stack>
                     </Grid>
 
                     <Grid item xs={12} sm={4}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                        Panel Count
+                        Solar Modules
                       </Typography>
-                      <Typography sx={{ fontSize: "0.86rem", fontWeight: 700, color: COLORS.textPrimary, mt: 0.3 }}>
-                        {project.panel_count ? `${project.panel_count} Panels` : "—"}
+                      <Typography sx={{ fontSize: "0.9rem", fontWeight: 700, color: COLORS.textPrimary, mt: 0.2 }}>
+                        {project.panel_count ? `${project.panel_count} Panels` : "Standard Array"}
                       </Typography>
                     </Grid>
 
                     <Grid item xs={12} sm={4}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                        Inverter Capacity
+                        Grid Inverter
                       </Typography>
-                      <Typography sx={{ fontSize: "0.86rem", fontWeight: 700, color: COLORS.textPrimary, mt: 0.3 }}>
-                        {project.inverter_kw ? `${parseFloat(project.inverter_kw).toFixed(2)} kW` : "—"}
+                      <Typography sx={{ fontSize: "0.9rem", fontWeight: 700, color: COLORS.textPrimary, mt: 0.2 }}>
+                        {project.inverter_kw ? `${project.inverter_kw} kW Smart` : "Grid-Tied"}
                       </Typography>
                     </Grid>
                   </Grid>
                 </Box>
 
-                <Divider sx={{ borderColor: COLORS.border }} />
+                <Divider />
 
-                {/* Assignment & Key Dates */}
+                {/* Project Execution Timeline */}
                 <Box>
                   <Typography
                     sx={{
-                      fontSize: "0.78rem",
+                      fontSize: "0.75rem",
                       fontWeight: 800,
-                      color: COLORS.textSecondary,
+                      color: COLORS.primary,
                       textTransform: "uppercase",
                       letterSpacing: "0.04em",
                       mb: 1.5,
                     }}
                   >
-                    Project Operations & Schedule
+                    Project Execution Schedule
                   </Typography>
 
-                  <Grid container spacing={1.8}>
-                    <Grid item xs={12} sm={6}>
-                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                        Assigned Representative
-                      </Typography>
-                      <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.3 }}>
-                        <PersonIcon sx={{ fontSize: 16, color: COLORS.textMuted }} />
-                        <Typography sx={{ fontSize: "0.84rem", fontWeight: 700, color: COLORS.textPrimary }}>
-                          {project.assigned_to_name || "Unassigned"}
-                        </Typography>
-                      </Stack>
-                    </Grid>
-
-                    <Grid item xs={12} sm={6}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={4}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         Installation Start Date
                       </Typography>
-                      <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.3 }}>
-                        <CalendarTodayIcon sx={{ fontSize: 14, color: COLORS.textMuted }} />
-                        <Typography sx={{ fontSize: "0.84rem", fontWeight: 600, color: COLORS.textPrimary }}>
-                          {formatDate(project.installation_start_date)}
-                        </Typography>
-                      </Stack>
-                    </Grid>
-
-                    <Grid item xs={12} sm={6}>
-                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                        Installation End Date
+                      <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: COLORS.textPrimary, mt: 0.2 }}>
+                        {formatDate(project.installation_start_date)}
                       </Typography>
-                      <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.3 }}>
-                        <CalendarTodayIcon sx={{ fontSize: 14, color: COLORS.textMuted }} />
-                        <Typography sx={{ fontSize: "0.84rem", fontWeight: 600, color: COLORS.textPrimary }}>
-                          {formatDate(project.installation_end_date)}
-                        </Typography>
-                      </Stack>
                     </Grid>
 
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12} sm={4}>
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                        Project Completion Date
+                        Target Completion Date
                       </Typography>
-                      <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.3 }}>
-                        <CalendarTodayIcon sx={{ fontSize: 14, color: COLORS.textMuted }} />
-                        <Typography sx={{ fontSize: "0.84rem", fontWeight: 700, color: "#16A34A" }}>
-                          {formatDate(project.completion_date)}
-                        </Typography>
-                      </Stack>
+                      <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: COLORS.textPrimary, mt: 0.2 }}>
+                        {formatDate(project.installation_end_date)}
+                      </Typography>
                     </Grid>
 
-                    {project.notes && (
-                      <Grid item xs={12}>
-                        <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                          Installation Notes
-                        </Typography>
-                        <Paper
-                          elevation={0}
-                          sx={{
-                            p: 1.5,
-                            mt: 0.4,
-                            borderRadius: "8px",
-                            backgroundColor: "#F8FAFC",
-                            border: `1px solid ${COLORS.border}`,
-                            fontSize: "0.78rem",
-                            color: COLORS.textSecondary,
-                          }}
-                        >
-                          {project.notes}
-                        </Paper>
-                      </Grid>
-                    )}
+                    <Grid item xs={12} sm={4}>
+                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
+                        Actual Handover Date
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#16A34A", mt: 0.2 }}>
+                        {formatDate(project.completion_date)}
+                      </Typography>
+                    </Grid>
                   </Grid>
                 </Box>
+
+                {project.notes && (
+                  <>
+                    <Divider />
+                    <Box>
+                      <Typography
+                        sx={{
+                          fontSize: "0.75rem",
+                          fontWeight: 800,
+                          color: COLORS.primary,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.04em",
+                          mb: 0.6,
+                        }}
+                      >
+                        Project Notes
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: "0.82rem",
+                          color: COLORS.textSecondary,
+                          backgroundColor: "#F8FAFC",
+                          p: 1.5,
+                          borderRadius: "8px",
+                          border: `1px solid ${COLORS.border}`,
+                        }}
+                      >
+                        {project.notes}
+                      </Typography>
+                    </Box>
+                  </>
+                )}
               </Paper>
             </Grid>
 
-            {/* Right Column — Project Timeline (Vertical Stepper) */}
-            <Grid item xs={12} md={5}>
+            {/* Right Column: 10-STAGE INTERACTIVE PIPELINE STEPPER */}
+            <Grid item xs={12} lg={6}>
               <Paper
                 elevation={0}
                 sx={{
                   p: 2.5,
-                  borderRadius: "12px",
+                  borderRadius: "14px",
                   border: `1px solid ${COLORS.border}`,
                   backgroundColor: COLORS.card,
                   height: "100%",
                   boxSizing: "border-box",
                 }}
               >
-                <Typography
-                  sx={{
-                    fontSize: "0.78rem",
-                    fontWeight: 800,
-                    color: COLORS.textSecondary,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    mb: 2.5,
-                  }}
-                >
-                  Project Pipeline Stages
-                </Typography>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                  <Box>
+                    <Typography
+                      sx={{
+                        fontSize: "0.85rem",
+                        fontWeight: 900,
+                        color: COLORS.textPrimary,
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      Solar Project Execution Stepper
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.74rem", color: COLORS.textSecondary, mt: 0.2 }}>
+                      10 sequential phases under PM Surya Ghar & DISCOM net-metering
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<SwapHorizIcon sx={{ fontSize: 16 }} />}
+                    onClick={handleOpenStageDialog}
+                    sx={{
+                      height: 30,
+                      borderRadius: "6px",
+                      textTransform: "none",
+                      fontWeight: 700,
+                      fontSize: "0.74rem",
+                    }}
+                  >
+                    Change Stage
+                  </Button>
+                </Box>
 
-                <Box sx={{ position: "relative", pl: 1 }}>
+                {/* Stepper Progress Bar */}
+                <Box sx={{ mb: 2.5 }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                    <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textSecondary }}>
+                      Stage {currentStageIndex + 1} of 10: {stageConfig.label}
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.72rem", fontWeight: 800, color: stageConfig.color }}>
+                      {progressPct}% Done
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={progressPct}
+                    sx={{
+                      height: 7,
+                      borderRadius: 4,
+                      backgroundColor: "#F1F5F9",
+                      "& .MuiLinearProgress-bar": {
+                        borderRadius: 4,
+                        backgroundColor: stageConfig.dot,
+                      },
+                    }}
+                  />
+                </Box>
+
+                {/* 10 Vertical Milestones */}
+                <Stack spacing={1.5}>
                   {STAGES.map((stageName, index) => {
                     const isCompleted = index < currentStageIndex;
                     const isCurrent = index === currentStageIndex;
-                    const isLast = index === STAGES.length - 1;
+                    const itemConfig = getStageConfig(stageName);
+                    const nextStageCandidate = index + 1 < STAGES.length ? STAGES[index + 1] : null;
 
                     const matchingLog = project.stage_logs?.find(
                       (l) => l.to_stage === stageName
@@ -997,265 +990,180 @@ export default function ProjectDetail() {
                       <Box
                         key={stageName}
                         sx={{
-                          position: "relative",
-                          display: "flex",
-                          alignItems: "flex-start",
-                          gap: 1.8,
-                          pb: isLast ? 0 : 2.5,
+                          p: 1.5,
+                          borderRadius: "10px",
+                          border: `1px solid ${
+                            isCurrent
+                              ? itemConfig.border
+                              : isCompleted
+                              ? "#DCFCE7"
+                              : COLORS.border
+                          }`,
+                          backgroundColor: isCurrent
+                            ? itemConfig.bg
+                            : isCompleted
+                            ? "#F0FDF4"
+                            : "#F8FAFC",
+                          transition: "all 0.18s ease-in-out",
                         }}
                       >
-                        {/* Vertical Connecting Line */}
-                        {!isLast && (
-                          <Box
-                            sx={{
-                              position: "absolute",
-                              left: 11,
-                              top: 24,
-                              bottom: 0,
-                              width: 2,
-                              backgroundColor: isCompleted
-                                ? "#16A34A"
-                                : isCurrent
-                                  ? "#FDE68A"
-                                  : "#E2E8F0",
-                              transition: "background-color 0.2s ease",
-                            }}
-                          />
-                        )}
+                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.2 }}>
+                          {/* Step Icon */}
+                          <Box sx={{ mt: 0.2 }}>
+                            {isCompleted ? (
+                              <CheckCircleIcon sx={{ fontSize: 20, color: "#16A34A" }} />
+                            ) : isCurrent ? (
+                              <RadioButtonCheckedIcon
+                                sx={{
+                                  fontSize: 20,
+                                  color: itemConfig.dot,
+                                  animation: "pulse 1.8s infinite",
+                                  "@keyframes pulse": {
+                                    "0%": { transform: "scale(0.95)" },
+                                    "50%": { transform: "scale(1.15)" },
+                                    "100%": { transform: "scale(0.95)" },
+                                  },
+                                }}
+                              />
+                            ) : (
+                              <RadioButtonUncheckedIcon sx={{ fontSize: 20, color: "#94A3B8" }} />
+                            )}
+                          </Box>
 
-                        {/* Stage Node Icon */}
-                        <Box
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: "50%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            zIndex: 1,
-                            backgroundColor: "#FFFFFF",
-                          }}
-                        >
-                          {isCompleted ? (
-                            <CheckCircleIcon sx={{ fontSize: 22, color: "#16A34A" }} />
-                          ) : isCurrent ? (
-                            <RadioButtonCheckedIcon
-                              sx={{
-                                fontSize: 22,
-                                color: "#F59E0B",
-                                animation: "pulse 1.8s infinite",
-                                "@keyframes pulse": {
-                                  "0%": { transform: "scale(0.95)" },
-                                  "50%": { transform: "scale(1.15)" },
-                                  "100%": { transform: "scale(0.95)" },
-                                },
-                              }}
-                            />
-                          ) : (
-                            <RadioButtonUncheckedIcon sx={{ fontSize: 22, color: "#CBD5E1" }} />
-                          )}
-                        </Box>
+                          {/* Content */}
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 0.5 }}>
+                              <Typography
+                                sx={{
+                                  fontSize: "0.82rem",
+                                  fontWeight: isCurrent ? 800 : isCompleted ? 700 : 600,
+                                  color: isCurrent
+                                    ? itemConfig.color
+                                    : isCompleted
+                                    ? "#16A34A"
+                                    : COLORS.textPrimary,
+                                }}
+                              >
+                                {index + 1}. {stageName}
+                              </Typography>
 
-                        {/* Stage Content */}
-                        <Box sx={{ flex: 1, pt: 0.2 }}>
-                          <Typography
-                            sx={{
-                              fontSize: "0.82rem",
-                              fontWeight: isCurrent ? 800 : isCompleted ? 700 : 500,
-                              color: isCurrent
-                                ? "#D97706"
-                                : isCompleted
-                                  ? COLORS.textPrimary
-                                  : COLORS.textMuted,
-                            }}
-                          >
-                            {stageName}
-                          </Typography>
+                              {isCurrent && (
+                                <Box
+                                  sx={{
+                                    px: 1,
+                                    py: 0.2,
+                                    borderRadius: "4px",
+                                    backgroundColor: itemConfig.dot,
+                                    color: "#FFFFFF",
+                                    fontSize: "0.68rem",
+                                    fontWeight: 800,
+                                    letterSpacing: "0.02em",
+                                  }}
+                                >
+                                  CURRENT ACTIVE STAGE
+                                </Box>
+                              )}
+                            </Box>
 
-                          {/* Stage Timestamp if available */}
-                          {isCurrent ? (
-                            <Typography
-                              sx={{
-                                fontSize: "0.7rem",
-                                fontWeight: 600,
-                                color: "#F59E0B",
-                                mt: 0.2,
-                              }}
-                            >
-                              Active Stage • Updated{" "}
-                              {formatDateTime(project.stage_updated_at || project.updated_at)}
+                            <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mt: 0.3 }}>
+                              {itemConfig.description}
                             </Typography>
-                          ) : matchingLog?.created_at ? (
-                            <Typography
-                              sx={{
-                                fontSize: "0.7rem",
-                                color: COLORS.textMuted,
-                                mt: 0.2,
-                              }}
-                            >
-                              Reached on {formatDateTime(matchingLog.created_at)}
-                            </Typography>
-                          ) : isCompleted ? (
-                            <Typography
-                              sx={{
-                                fontSize: "0.7rem",
-                                color: "#16A34A",
-                                mt: 0.2,
-                              }}
-                            >
-                              Completed
-                            </Typography>
-                          ) : (
-                            <Typography
-                              sx={{
-                                fontSize: "0.7rem",
-                                color: COLORS.textMuted,
-                                mt: 0.2,
-                              }}
-                            >
-                              Pending
-                            </Typography>
-                          )}
+
+                            {/* Completed Timestamp or 1-Click Advance Button */}
+                            {isCompleted && matchingLog?.created_at && (
+                              <Typography sx={{ fontSize: "0.68rem", color: "#15803D", mt: 0.4 }}>
+                                Completed on {formatDateTime(matchingLog.created_at)}
+                              </Typography>
+                            )}
+
+                            {isCurrent && nextStageCandidate && (
+                              <Box sx={{ mt: 1.2 }}>
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />}
+                                  onClick={() => handleQuickAdvance(nextStageCandidate)}
+                                  disabled={updatingStage}
+                                  sx={{
+                                    height: 28,
+                                    borderRadius: "6px",
+                                    textTransform: "none",
+                                    fontWeight: 700,
+                                    fontSize: "0.74rem",
+                                    px: 1.8,
+                                    backgroundColor: itemConfig.color,
+                                    color: "#FFFFFF",
+                                    "&:hover": { opacity: 0.9 },
+                                  }}
+                                >
+                                  Advance to: {nextStageCandidate}
+                                </Button>
+                              </Box>
+                            )}
+                          </Box>
                         </Box>
                       </Box>
                     );
                   })}
-                </Box>
+                </Stack>
               </Paper>
             </Grid>
           </Grid>
         )}
 
-        {/* TAB 1: STAGE LOGS HISTORY */}
+        {/* TAB 1: STAGE HISTORY */}
         {activeTab === 1 && (
           <Paper
             elevation={0}
             sx={{
               p: 2.5,
-              borderRadius: "12px",
+              borderRadius: "14px",
               border: `1px solid ${COLORS.border}`,
               backgroundColor: COLORS.card,
-              width: "100%",
-              boxSizing: "border-box",
+              mb: 2.5,
             }}
           >
-            <Stack
-              direction="row"
-              alignItems="center"
-              justifyContent="space-between"
-              sx={{ mb: 2 }}
-            >
-              <Stack direction="row" alignItems="center" gap={1}>
-                <HistoryIcon sx={{ fontSize: 20, color: COLORS.textSecondary }} />
-                <Typography
-                  sx={{
-                    fontWeight: 800,
-                    fontSize: "0.95rem",
-                    color: COLORS.textPrimary,
-                  }}
-                >
-                  Stage Change History
-                </Typography>
-                <Chip
-                  label={`${project.stage_logs?.length || 0} logs`}
-                  size="small"
-                  sx={{
-                    height: 20,
-                    fontSize: "0.68rem",
-                    fontWeight: 700,
-                    bgcolor: "#F1F5F9",
-                  }}
-                />
-              </Stack>
-            </Stack>
-
-            {!project.stage_logs || project.stage_logs.length === 0 ? (
-              <Box
-                sx={{
-                  py: 4,
-                  textAlign: "center",
-                  color: COLORS.textMuted,
-                }}
-              >
-                <Typography sx={{ fontSize: "0.82rem" }}>
-                  No stage change logs recorded yet for this project.
-                </Typography>
-              </Box>
+            <Typography variant="h6" sx={{ fontWeight: 800, fontSize: "1.05rem", mb: 2 }}>
+              Stage Transition Audit Trail
+            </Typography>
+            {project.stage_logs?.length === 0 ? (
+              <Typography sx={{ fontSize: "0.82rem", color: COLORS.textMuted }}>
+                No stage changes logged yet.
+              </Typography>
             ) : (
               <Stack spacing={1.5}>
-                {project.stage_logs.map((log) => (
-                  <Paper
+                {project.stage_logs?.map((log) => (
+                  <Box
                     key={log.id}
-                    elevation={0}
                     sx={{
-                      p: 1.8,
-                      borderRadius: "8px",
-                      border: `1px solid ${COLORS.border}`,
+                      p: 1.5,
+                      borderRadius: "10px",
                       backgroundColor: "#F8FAFC",
-                      display: "flex",
-                      flexDirection: { xs: "column", sm: "row" },
-                      justifyContent: "space-between",
-                      alignItems: { xs: "flex-start", sm: "center" },
-                      gap: 1.2,
+                      border: `1px solid ${COLORS.border}`,
                     }}
                   >
-                    <Box>
-                      <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
-                        {log.from_stage ? (
-                          <>
-                            {renderStageChip(log.from_stage)}
-                            <ArrowForwardIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
-                          </>
-                        ) : (
-                          <Chip
-                            label="Initial Stage"
-                            size="small"
-                            sx={{
-                              fontSize: "0.68rem",
-                              height: 22,
-                              bgcolor: "#E2E8F0",
-                              color: COLORS.textSecondary,
-                              fontWeight: 700,
-                            }}
-                          />
-                        )}
-                        {renderStageChip(log.to_stage)}
-                      </Stack>
-
-                      {log.notes && (
-                        <Typography
-                          sx={{
-                            fontSize: "0.78rem",
-                            color: COLORS.textSecondary,
-                            mt: 0.8,
-                            fontStyle: "italic",
-                          }}
-                        >
-                          "{log.notes}"
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
+                      <Stack direction="row" alignItems="center" gap={1}>
+                        <Typography sx={{ fontSize: "0.82rem", fontWeight: 700 }}>
+                          {log.from_stage ? `${log.from_stage} → ` : ""}
+                          <Box component="span" sx={{ color: "#2563EB" }}>
+                            {log.to_stage}
+                          </Box>
                         </Typography>
-                      )}
-                    </Box>
-
-                    <Box sx={{ textAlign: { xs: "left", sm: "right" } }}>
-                      <Typography
-                        sx={{
-                          fontSize: "0.75rem",
-                          fontWeight: 700,
-                          color: COLORS.textPrimary,
-                        }}
-                      >
-                        {log.changed_by_name || log.name || "System Rep"}
-                      </Typography>
-                      <Typography
-                        sx={{
-                          fontSize: "0.7rem",
-                          color: COLORS.textMuted,
-                        }}
-                      >
+                      </Stack>
+                      <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         {formatDateTime(log.created_at)}
                       </Typography>
                     </Box>
-                  </Paper>
+                    <Typography sx={{ fontSize: "0.74rem", color: COLORS.textSecondary }}>
+                      Changed by: <strong>{log.changed_by_name || "System"}</strong>
+                    </Typography>
+                    {log.notes && (
+                      <Typography sx={{ fontSize: "0.74rem", color: COLORS.textPrimary, mt: 0.5, fontStyle: "italic" }}>
+                        "{log.notes}"
+                      </Typography>
+                    )}
+                  </Box>
                 ))}
               </Stack>
             )}
@@ -1264,64 +1172,63 @@ export default function ProjectDetail() {
 
         {/* TAB 2: PRE-INSTALL INSPECTION */}
         {activeTab === 2 && (
-          <Box sx={{ width: "100%" }}>
+          <Box sx={{ mt: 1 }}>
             <PreInstallInspection project={project} projectId={id} />
           </Box>
         )}
 
         {/* TAB 3: INSTALLATION PROGRESS */}
         {activeTab === 3 && (
-          <Box sx={{ width: "100%" }}>
+          <Box sx={{ mt: 1 }}>
             <InstallationProgress project={project} projectId={id} />
           </Box>
         )}
 
-        {/* Tab 4 - Commissioning */}
+        {/* TAB 4: COMMISSIONING */}
         {activeTab === 4 && (
-          <Box sx={{ mt: 2 }}>
+          <Box sx={{ mt: 1 }}>
             <Commissioning project={project} projectId={id} />
           </Box>
         )}
 
-        {/* Tab 5 - Final Inspection */}
+        {/* TAB 5: FINAL INSPECTION */}
         {activeTab === 5 && (
-          <Box sx={{ mt: 2 }}>
+          <Box sx={{ mt: 1 }}>
             <FinalInspection project={project} projectId={id} />
           </Box>
         )}
 
-        {/* Tab 6 - Customer Handover */}
+        {/* TAB 6: CUSTOMER HANDOVER */}
         {activeTab === 6 && (
-          <Box sx={{ mt: 2 }}>
+          <Box sx={{ mt: 1 }}>
             <CustomerHandover project={project} projectId={id} />
           </Box>
         )}
 
-        {/* Tab 7 - Warranty & AMC */}
+        {/* TAB 7: WARRANTY & AMC */}
         {activeTab === 7 && (
-          <Box sx={{ mt: 2 }}>
+          <Box sx={{ mt: 1 }}>
             <WarrantyAMC project={project} projectId={id} />
           </Box>
         )}
       </Box>
 
-
-
-
-      {/* SECTION 4 — CHANGE STAGE DIALOG */}
+      {/* ============================================================== */}
+      {/* CHANGE STAGE DIALOG                                            */}
+      {/* ============================================================== */}
       <Dialog
         open={stageDialogOpen}
         onClose={() => !updatingStage && setStageDialogOpen(false)}
-        maxWidth="xs"
+        maxWidth="sm"
         fullWidth
         PaperProps={{
-          sx: { borderRadius: "14px", p: 1 },
+          sx: { borderRadius: "16px", p: 1 },
         }}
       >
         <DialogTitle
           sx={{
             fontWeight: 800,
-            fontSize: "1.05rem",
+            fontSize: "1.1rem",
             color: COLORS.textPrimary,
             display: "flex",
             justifyContent: "space-between",
@@ -1338,34 +1245,46 @@ export default function ProjectDetail() {
           </IconButton>
         </DialogTitle>
         <Box component="form" onSubmit={handleSubmitStageChange}>
-          <DialogContent dividers sx={{ borderColor: COLORS.border }}>
-            <Box sx={{ mb: 2 }}>
+          <DialogContent dividers sx={{ borderColor: COLORS.border, py: 2.5 }}>
+            <Box sx={{ mb: 2.5 }}>
               <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted, mb: 0.5 }}>
-                Current Stage
+                Current Active Stage
               </Typography>
-              {renderStageChip(project.stage)}
+              {renderStageBadge(project.stage)}
             </Box>
 
-            <Box sx={{ mb: 2 }}>
+            <Box sx={{ mb: 2.5 }}>
               <Typography
                 sx={{
-                  fontSize: "0.74rem",
-                  fontWeight: 700,
-                  color: COLORS.textSecondary,
-                  mb: 0.5,
+                  fontSize: "0.75rem",
+                  fontWeight: 800,
+                  color: COLORS.primary,
+                  mb: 0.8,
                 }}
               >
-                Select New Stage *
+                Select New Execution Stage (1-10) *
               </Typography>
               <FormControl fullWidth size="small">
                 <Select
                   value={nextStage}
                   onChange={(e) => setNextStage(e.target.value)}
-                  sx={{ borderRadius: "6px" }}
+                  sx={{ borderRadius: "8px" }}
                 >
-                  {availableNextStages.map((stg) => (
-                    <MenuItem key={stg} value={stg}>
-                      {stg}
+                  {STAGES.map((stg, i) => (
+                    <MenuItem key={stg} value={stg} sx={{ fontSize: "0.82rem" }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Box
+                          sx={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            backgroundColor: STAGE_CONFIG[stg]?.dot || "#94A3B8",
+                          }}
+                        />
+                        <span>
+                          {i + 1}. {stg}
+                        </span>
+                      </Box>
                     </MenuItem>
                   ))}
                 </Select>
@@ -1375,26 +1294,26 @@ export default function ProjectDetail() {
             <Box>
               <Typography
                 sx={{
-                  fontSize: "0.74rem",
-                  fontWeight: 700,
-                  color: COLORS.textSecondary,
-                  mb: 0.5,
+                  fontSize: "0.75rem",
+                  fontWeight: 800,
+                  color: COLORS.primary,
+                  mb: 0.8,
                 }}
               >
-                Remarks / Stage Notes (Optional)
+                Remarks / Stage Transition Audit Notes
               </Typography>
               <TextField
                 fullWidth
                 size="small"
                 multiline
                 rows={3}
-                placeholder="Reason for change or update notes..."
+                placeholder="Reason for change, approvals received, or milestone status..."
                 value={stageNotes}
                 onChange={(e) => setStageNotes(e.target.value)}
               />
             </Box>
           </DialogContent>
-          <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <DialogActions sx={{ px: 3, py: 2 }}>
             <Button
               onClick={() => setStageDialogOpen(false)}
               disabled={updatingStage}
@@ -1410,6 +1329,7 @@ export default function ProjectDetail() {
                 textTransform: "none",
                 fontWeight: 700,
                 backgroundColor: COLORS.secondary,
+                px: 3,
                 "&:hover": { backgroundColor: "#D97706" },
               }}
             >
@@ -1419,27 +1339,29 @@ export default function ProjectDetail() {
         </Box>
       </Dialog>
 
-      {/* EDIT PROJECT DIALOG */}
+      {/* ============================================================== */}
+      {/* EDIT PROJECT DIALOG (FIXED IMAGE 2 SQUISHING - SPACIOUS maxWidth="md") */}
+      {/* ============================================================== */}
       <Dialog
         open={editDialogOpen}
         onClose={() => !updatingProject && setEditDialogOpen(false)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
         PaperProps={{
-          sx: { borderRadius: "14px", p: 1 },
+          sx: { borderRadius: "16px", p: 1 },
         }}
       >
         <DialogTitle
           sx={{
-            fontWeight: 800,
-            fontSize: "1.05rem",
+            fontWeight: 900,
+            fontSize: "1.15rem",
             color: COLORS.textPrimary,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
           }}
         >
-          Edit Project Details
+          Edit Solar Project Details
           <IconButton
             size="small"
             onClick={() => setEditDialogOpen(false)}
@@ -1449,207 +1371,262 @@ export default function ProjectDetail() {
           </IconButton>
         </DialogTitle>
         <Box component="form" onSubmit={handleSubmitEdit}>
-          <DialogContent dividers sx={{ borderColor: COLORS.border }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.4 }}>
-                  Customer Name *
+          <DialogContent dividers sx={{ borderColor: COLORS.border, py: 2.5 }}>
+            <Stack spacing={3}>
+              {/* Group 1: Customer Profile */}
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    color: COLORS.primary,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    mb: 1.5,
+                  }}
+                >
+                  Customer & Contact Information
                 </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  required
-                  value={editFormData.customer_name || ""}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, customer_name: e.target.value })
-                  }
-                />
-              </Grid>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      required
+                      label="Customer Full Name *"
+                      value={editFormData.customer_name}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, customer_name: e.target.value })
+                      }
+                    />
+                  </Grid>
 
-              <Grid item xs={12} sm={6}>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.4 }}>
-                  Customer Phone *
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      required
+                      label="Customer Mobile Phone *"
+                      value={editFormData.customer_phone}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, customer_phone: e.target.value })
+                      }
+                    />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Site Installation Address"
+                      value={editFormData.customer_address}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, customer_address: e.target.value })
+                      }
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="City"
+                      value={editFormData.city}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, city: e.target.value })
+                      }
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="State"
+                      value={editFormData.state}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, state: e.target.value })
+                      }
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Pincode"
+                      value={editFormData.pincode}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, pincode: e.target.value })
+                      }
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider />
+
+              {/* Group 2: Solar Technical Specs */}
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    color: COLORS.primary,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    mb: 1.5,
+                  }}
+                >
+                  Technical Solar System Specifications
                 </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  required
-                  value={editFormData.customer_phone || ""}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, customer_phone: e.target.value })
-                  }
-                />
-              </Grid>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      step="0.1"
+                      required
+                      label="System Capacity (kW) *"
+                      value={editFormData.system_capacity_kw}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, system_capacity_kw: e.target.value })
+                      }
+                    />
+                  </Grid>
 
-              <Grid item xs={12} sm={4}>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.4 }}>
-                  System Capacity (kW)
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label="Panel Count (pcs)"
+                      value={editFormData.panel_count}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, panel_count: e.target.value })
+                      }
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      step="0.1"
+                      label="Inverter Size (kW)"
+                      value={editFormData.inverter_kw}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, inverter_kw: e.target.value })
+                      }
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider />
+
+              {/* Group 3: Schedule Dates */}
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    color: COLORS.primary,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    mb: 1.5,
+                  }}
+                >
+                  Project Execution Schedule Dates
                 </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="number"
-                  step="0.1"
-                  value={editFormData.system_capacity_kw || ""}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, system_capacity_kw: e.target.value })
-                  }
-                />
-              </Grid>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="date"
+                      label="Install Start Date"
+                      InputLabelProps={{ shrink: true }}
+                      value={editFormData.installation_start_date}
+                      onChange={(e) =>
+                        setEditFormData({
+                          ...editFormData,
+                          installation_start_date: e.target.value,
+                        })
+                      }
+                    />
+                  </Grid>
 
-              <Grid item xs={12} sm={4}>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.4 }}>
-                  Panel Count
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="number"
-                  value={editFormData.panel_count || ""}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, panel_count: e.target.value })
-                  }
-                />
-              </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="date"
+                      label="Install End Date"
+                      InputLabelProps={{ shrink: true }}
+                      value={editFormData.installation_end_date}
+                      onChange={(e) =>
+                        setEditFormData({
+                          ...editFormData,
+                          installation_end_date: e.target.value,
+                        })
+                      }
+                    />
+                  </Grid>
 
-              <Grid item xs={12} sm={4}>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.4 }}>
-                  Inverter (kW)
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="number"
-                  step="0.1"
-                  value={editFormData.inverter_kw || ""}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, inverter_kw: e.target.value })
-                  }
-                />
-              </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="date"
+                      label="Actual Handover Date"
+                      InputLabelProps={{ shrink: true }}
+                      value={editFormData.completion_date}
+                      onChange={(e) =>
+                        setEditFormData({
+                          ...editFormData,
+                          completion_date: e.target.value,
+                        })
+                      }
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
 
-              <Grid item xs={12} sm={4}>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.4 }}>
-                  City
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={editFormData.city || ""}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, city: e.target.value })
-                  }
-                />
-              </Grid>
+              <Divider />
 
-              <Grid item xs={12} sm={4}>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.4 }}>
-                  State
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={editFormData.state || ""}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, state: e.target.value })
-                  }
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={4}>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.4 }}>
-                  Pincode
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={editFormData.pincode || ""}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, pincode: e.target.value })
-                  }
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.4 }}>
-                  Site Address
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={editFormData.customer_address || ""}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, customer_address: e.target.value })
-                  }
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={4}>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.4 }}>
-                  Install Start Date
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={editFormData.installation_start_date || ""}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, installation_start_date: e.target.value })
-                  }
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={4}>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.4 }}>
-                  Install End Date
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={editFormData.installation_end_date || ""}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, installation_end_date: e.target.value })
-                  }
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={4}>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.4 }}>
-                  Completion Date
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  InputLabelProps={{ shrink: true }}
-                  value={editFormData.completion_date || ""}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, completion_date: e.target.value })
-                  }
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.4 }}>
-                  Notes
+              {/* Group 4: Notes (FULL WIDTH - NEVER SQUISHED) */}
+              <Box>
+                <Typography
+                  sx={{
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    color: COLORS.primary,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    mb: 1.5,
+                  }}
+                >
+                  Project Notes & Special Instructions
                 </Typography>
                 <TextField
                   fullWidth
                   size="small"
                   multiline
-                  rows={2}
-                  value={editFormData.notes || ""}
+                  rows={3}
+                  label="Notes"
+                  placeholder="Installation notes, customer requests, or site hurdles..."
+                  value={editFormData.notes}
                   onChange={(e) =>
                     setEditFormData({ ...editFormData, notes: e.target.value })
                   }
                 />
-              </Grid>
-            </Grid>
+              </Box>
+            </Stack>
           </DialogContent>
-          <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <DialogActions sx={{ px: 3, py: 2 }}>
             <Button
               onClick={() => setEditDialogOpen(false)}
               disabled={updatingProject}
@@ -1665,7 +1642,8 @@ export default function ProjectDetail() {
                 textTransform: "none",
                 fontWeight: 700,
                 backgroundColor: COLORS.primary,
-                "&:hover": { backgroundColor: "#020617" },
+                px: 3,
+                "&:hover": { backgroundColor: COLORS.primaryHover },
               }}
             >
               {updatingProject ? "Saving..." : "Save Changes"}
@@ -1684,42 +1662,17 @@ export default function ProjectDetail() {
           sx: { borderRadius: "14px", p: 1 },
         }}
       >
-        <DialogTitle
-          sx={{
-            fontWeight: 800,
-            fontSize: "1.05rem",
-            color: "#EF4444",
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-          }}
-        >
-          <DeleteIcon color="error" />
-          Delete Solar Project
+        <DialogTitle sx={{ fontWeight: 800, fontSize: "1.05rem" }}>
+          Delete Solar Project?
         </DialogTitle>
         <DialogContent dividers sx={{ borderColor: COLORS.border }}>
-          <Typography sx={{ fontSize: "0.85rem", color: COLORS.textPrimary, mb: 1 }}>
-            Are you sure you want to delete this project?
+          <Typography variant="body2" sx={{ color: COLORS.textSecondary, mb: 1.5 }}>
+            Are you sure you want to delete project{" "}
+            <strong>{project?.project_number}</strong> for{" "}
+            <strong>{project?.customer_name}</strong>?
           </Typography>
-          {project && (
-            <Box
-              sx={{
-                p: 1.5,
-                borderRadius: "8px",
-                backgroundColor: "#FEF2F2",
-                border: "1px solid #FECACA",
-              }}
-            >
-              <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#991B1B" }}>
-                {project.project_number} — {project.customer_name}
-              </Typography>
-              <Typography sx={{ fontSize: "0.75rem", color: "#B91C1C", mt: 0.5 }}>
-                Capacity: {parseFloat(project.system_capacity_kw || 0).toFixed(2)} kW • Stage: {project.stage}
-              </Typography>
-            </Box>
-          )}
-          <Typography sx={{ fontSize: "0.75rem", color: COLORS.textSecondary, mt: 1.5 }}>
-            This will mark the project as deleted and remove it from active lists. You will be redirected to the projects list.
+          <Typography variant="caption" sx={{ color: "#DC2626", fontWeight: 600 }}>
+            This action will soft-delete the project record. Related site inspections and logs will be preserved.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 2.5, py: 1.5 }}>
@@ -1733,14 +1686,9 @@ export default function ProjectDetail() {
           <Button
             variant="contained"
             color="error"
-            disabled={deleting}
             onClick={handleConfirmDelete}
-            sx={{
-              textTransform: "none",
-              fontWeight: 700,
-              backgroundColor: "#EF4444",
-              "&:hover": { backgroundColor: "#DC2626" },
-            }}
+            disabled={deleting}
+            sx={{ textTransform: "none", fontWeight: 700 }}
           >
             {deleting ? "Deleting..." : "Delete Project"}
           </Button>
