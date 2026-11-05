@@ -1347,7 +1347,12 @@ const StockList = () => {
       <ImportStockModal
         open={importModalOpen}
         onClose={() => setImportModalOpen(false)}
-        onSuccess={fetchData}
+        onSuccess={() => {
+          setSelectedCategory("");
+          setSelectedStatus("all");
+          setSearch("");
+          fetchData();
+        }}
         categories={categories}
       />
 

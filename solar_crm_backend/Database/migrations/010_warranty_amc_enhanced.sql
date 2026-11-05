@@ -19,3 +19,4 @@ ALTER TABLE project_warranty_amc
   ADD COLUMN IF NOT EXISTS monitoring_username VARCHAR(100) DEFAULT 'rajesh.sharma@solax',
   ADD COLUMN IF NOT EXISTS warranty_docket_url TEXT DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS scheduled_visits JSON DEFAULT NULL;
+

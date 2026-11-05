@@ -203,14 +203,26 @@ const ImportStockModal = ({ open, onClose, onSuccess, categories = [] }) => {
             errors.push("Missing Item Name");
           }
 
-          const parsedPrice = parseFloat(mappedRow.unit_price);
-          if (mappedRow.unit_price !== "" && isNaN(parsedPrice)) {
-            errors.push("Invalid Unit Price");
+          // Clean currency & commas from unit price
+          if (mappedRow.unit_price !== undefined && mappedRow.unit_price !== "") {
+            const cleanPriceStr = String(mappedRow.unit_price).replace(/[₹$,\s]/g, "");
+            const parsedPrice = parseFloat(cleanPriceStr);
+            if (isNaN(parsedPrice)) {
+              errors.push("Invalid Unit Price");
+            } else {
+              mappedRow.unit_price = parsedPrice;
+            }
           }
 
-          const parsedStock = parseInt(mappedRow.current_stock, 10);
-          if (mappedRow.current_stock !== "" && isNaN(parsedStock)) {
-            errors.push("Invalid Stock Qty");
+          // Clean commas & spaces from current stock
+          if (mappedRow.current_stock !== undefined && mappedRow.current_stock !== "") {
+            const cleanStockStr = String(mappedRow.current_stock).replace(/[,\s]/g, "");
+            const parsedStock = parseInt(cleanStockStr, 10);
+            if (isNaN(parsedStock)) {
+              errors.push("Invalid Stock Qty");
+            } else {
+              mappedRow.current_stock = parsedStock;
+            }
           }
 
           return {

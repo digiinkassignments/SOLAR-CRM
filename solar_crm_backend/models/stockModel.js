@@ -2,6 +2,22 @@ const ensuredDbs = new Set();
 const ensuringPromises = new Map();
 
 // Auto-ensure stock tables exist for the current tenant db
+const cleanUnit = (u) => {
+  if (!u || !String(u).trim()) return "Piece";
+  const val = String(u).trim();
+  const low = val.toLowerCase();
+  if (low === "pc" || low === "pcs" || low === "piece" || low === "pieces" || low === "nos" || low === "no" || low === "units" || low === "unit") return "Piece";
+  if (low === "pack" || low === "packet" || low === "pkt" || low === "packs") return "Pack";
+  if (low === "set" || low === "sets") return "Set";
+  if (low === "meter" || low === "meters" || low === "mtr" || low === "m") return "Meter";
+  if (low === "kg" || low === "kgs" || low === "kilogram") return "Kg";
+  if (low === "roll" || low === "rolls") return "Roll";
+  if (low === "box" || low === "boxes") return "Box";
+  if (low === "pair" || low === "pairs") return "Pair";
+  if (low === "litre" || low === "litres" || low === "liter" || low === "l") return "Litre";
+  return val.charAt(0).toUpperCase() + val.slice(1);
+};
+
 const ensureStockTables = async (db = defaultDb) => {
   let dbName = "default";
   try {
@@ -87,7 +103,7 @@ const ensureStockTables = async (db = defaultDb) => {
           description TEXT DEFAULT NULL,
           specifications JSON DEFAULT NULL,
           image_url VARCHAR(500) DEFAULT NULL,
-          unit ENUM('Piece','Set','Meter','Kg','Litre','Roll','Pair','Box') NOT NULL DEFAULT 'Piece',
+          unit VARCHAR(50) NOT NULL DEFAULT 'Piece',
           unit_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
           gst_rate DECIMAL(5,2) NOT NULL DEFAULT 18.00,
           hsn_code VARCHAR(20) DEFAULT NULL,
@@ -108,6 +124,11 @@ const ensureStockTables = async (db = defaultDb) => {
           KEY idx_item_active (is_active)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
+
+      // Ensure unit column is VARCHAR(50) so varied units (Pack, Nos, etc.) never truncate
+      try {
+        await db.query("ALTER TABLE stock_items MODIFY COLUMN unit VARCHAR(50) NOT NULL DEFAULT 'Piece'");
+      } catch (unitErr) {}
 
       // Ensure barcode column exists for existing tables
       try {
@@ -535,6 +556,8 @@ const createItem = async (db = defaultDb, itemData, userId) => {
     item_code = await generateItemCode(db, category_id);
   }
 
+  unit = cleanUnit(unit);
+
   let specsJson = null;
   if (specifications) {
     specsJson = typeof specifications === "string" ? specifications : JSON.stringify(specifications);
@@ -545,8 +568,8 @@ const createItem = async (db = defaultDb, itemData, userId) => {
       category_id, item_code, barcode, name, brand, model, description,
       specifications, image_url, unit, unit_price, gst_rate,
       hsn_code, min_stock_level, reorder_level, current_stock,
-      reserved_stock, created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      reserved_stock, is_active, created_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
   `;
 
   const [result] = await db.query(sql, [
@@ -1177,7 +1200,7 @@ const bulkImportItems = async (db = defaultDb, items = [], userId) => {
       const currentStock = parseInt(raw.current_stock || raw.quantity || raw.qty || 0, 10) || 0;
       const unitPrice = parseFloat(raw.unit_price || raw.price || raw.cost_price || 0) || 0;
 
-      // Check if item with this item_code already exists -> Update stock instead of erroring out
+      // Check if item with this item_code already exists -> Update stock instead of erroring out & ensure is_active = 1
       if (itemCode) {
         const [existingItemRows] = await db.query(
           "SELECT id, current_stock, unit_price FROM stock_items WHERE item_code = ? LIMIT 1",
@@ -1190,8 +1213,27 @@ const bulkImportItems = async (db = defaultDb, items = [], userId) => {
           const updatedPrice = unitPrice > 0 ? unitPrice : existing.unit_price;
 
           await db.query(
-            "UPDATE stock_items SET current_stock = ?, unit_price = ?, updated_at = NOW() WHERE id = ?",
-            [updatedStock, updatedPrice, existing.id]
+            `UPDATE stock_items SET 
+              is_active = 1, 
+              current_stock = ?, 
+              unit_price = ?, 
+              name = COALESCE(NULLIF(?, ''), name),
+              category_id = COALESCE(?, category_id),
+              brand = COALESCE(NULLIF(?, ''), brand),
+              model = COALESCE(NULLIF(?, ''), model),
+              unit = COALESCE(NULLIF(?, ''), unit),
+              updated_at = NOW() 
+             WHERE id = ?`,
+            [
+              updatedStock,
+              updatedPrice,
+              String(raw.name || "").trim(),
+              categoryId,
+              raw.brand || null,
+              raw.model || null,
+              cleanUnit(raw.unit),
+              existing.id,
+            ]
           );
 
           if (currentStock > 0) {
@@ -1221,7 +1263,7 @@ const bulkImportItems = async (db = defaultDb, items = [], userId) => {
         brand: raw.brand || "",
         model: raw.model || "",
         description: raw.description || raw.remarks || "",
-        unit: raw.unit || "Piece",
+        unit: cleanUnit(raw.unit),
         unit_price: unitPrice,
         gst_rate: parseFloat(raw.gst_rate || 18.0) || 18.0,
         hsn_code: raw.hsn_code || "",
