@@ -5,3 +5,4 @@ ALTER TABLE project_commissioning
   MODIFY COLUMN overall_result VARCHAR(50) DEFAULT 'Pending';
 
 -- Columns added safely across tenant DBs
+
