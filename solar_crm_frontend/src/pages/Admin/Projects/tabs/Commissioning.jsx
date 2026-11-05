@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import {
   Box,
@@ -22,8 +22,12 @@ import {
   Divider,
   Chip,
   CircularProgress,
-  Snackbar,
+  IconButton,
+  Tooltip,
   Alert,
+  Stack,
+  Checkbox,
+  FormHelperText,
 } from "@mui/material";
 
 // Icons from @mui/icons-material
@@ -34,6 +38,14 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import SpeedIcon from "@mui/icons-material/Speed";
 import SecurityIcon from "@mui/icons-material/Security";
 import VerifiedIcon from "@mui/icons-material/Verified";
+import CloseIcon from "@mui/icons-material/Close";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
+import AutorenewIcon from "@mui/icons-material/Autorenew";
 
 const COLORS = {
   primary: "#0F172A",
@@ -44,8 +56,25 @@ const COLORS = {
   bg: "#F8FAFC",
   cardBg: "#FFFFFF",
   border: "#E2E8F0",
-  textPrimary: "#1E293B",
-  textSecondary: "#64748B",
+  textPrimary: "#0F172A",
+  textSecondary: "#475569",
+  textMuted: "#94A3B8",
+};
+
+// Date Formatter: "04 Nov 2026"
+const formatCleanDate = (dateVal) => {
+  if (!dateVal) return "—";
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "—";
+  }
 };
 
 const useSnackbar = () => {
@@ -66,30 +95,71 @@ const useSnackbar = () => {
   return { snackbar, showSnackbar, hideSnackbar };
 };
 
-const initialFormData = {
-  panel_output_voltage: "",
-  inverter_output_kw: "",
-  ac_output_voltage: "",
-  meter_reading_kwh: "",
-  safety_shutdowns: "Pass",
-  grounding_check: "Pass",
-  wiring_insulation: "Pass",
-  earth_leakage: "Pass",
-  overall_result: "Passed",
-  commission_date: new Date().toISOString().split("T")[0],
-  commissioning_engineer: "",
-  certificate_number: "",
-  remarks: "",
-};
-
 export default function Commissioning({ project, projectId }) {
   const targetProjectId = projectId || project?.id;
+  const systemKw = Number(project?.system_capacity_kw || 0);
+  const inverterRatingKw = Number(project?.inverter_kw || systemKw || 5);
+
+  // Compute sensible default commissioning date (on or after installation end date)
+  const defaultCommissionDate = useMemo(() => {
+    if (project?.installation_end_date) {
+      const d = new Date(project.installation_end_date);
+      d.setDate(d.getDate() + 1);
+      return d.toISOString().split("T")[0];
+    }
+    return new Date().toISOString().split("T")[0];
+  }, [project?.installation_end_date]);
+
+  // Auto-generate Certificate Number
+  const autoCertificateNumber = useMemo(() => {
+    const projNum = project?.project_number ? project.project_number.replace(/[^A-Za-z0-9]/g, "") : "SOLAR";
+    const yr = new Date().getFullYear();
+    return `COMM-${projNum}-${yr}`;
+  }, [project?.project_number]);
 
   const [commissioning, setCommissioning] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [formData, setFormData] = useState(initialFormData);
+
+  // Initial Form State - Tests unselected & status Pending by default
+  const [formData, setFormData] = useState({
+    // Section 1: System Electrical Measurements
+    panel_output_voltage: "", // DC string voltage
+    dc_current_amps: "",
+    inverter_output_kw: "",
+    inverter_display_status: "Normal / Generating",
+    ac_output_voltage: "",
+
+    // Net Metering
+    meter_serial_number: "",
+    net_meter_import_kwh: "",
+    net_meter_export_kwh: "",
+    generation_meter_kwh: "",
+
+    // Section 2: Safety & Protection Tests (Unselected by default)
+    anti_islanding_test: "", // Anti-islanding grid cutoff
+    safety_shutdowns: "",
+    grounding_check: "",
+    earth_resistance_ohm: "", // normally < 5 ohm
+    wiring_insulation: "",
+    insulation_resistance_mohm: "", // Megger test in MΩ
+    earth_leakage: "",
+
+    // Section 3: Commissioning Result
+    overall_result: "Pending", // Strictly Pending by default
+    commission_date: defaultCommissionDate,
+    commissioning_engineer: "",
+    certificate_number: autoCertificateNumber,
+    remarks: "",
+
+    // Section 4: Attachments & Sign-off
+    meter_photo_url: "",
+    inverter_photo_url: "",
+    customer_signature_name: project?.customer_name || "",
+    customer_acknowledged: false,
+    engineer_signoff: false,
+  });
 
   const { snackbar, showSnackbar, hideSnackbar } = useSnackbar();
 
@@ -153,25 +223,70 @@ export default function Commissioning({ project, projectId }) {
     if (commissioning) {
       setFormData({
         panel_output_voltage: commissioning.panel_output_voltage ?? "",
+        dc_current_amps: commissioning.dc_current_amps ?? "",
         inverter_output_kw: commissioning.inverter_output_kw ?? "",
+        inverter_display_status: commissioning.inverter_display_status || "Normal / Generating",
         ac_output_voltage: commissioning.ac_output_voltage ?? "",
-        meter_reading_kwh: commissioning.meter_reading_kwh ?? "",
-        safety_shutdowns: commissioning.safety_shutdowns || "Pass",
-        grounding_check: commissioning.grounding_check || "Pass",
-        wiring_insulation: commissioning.wiring_insulation || "Pass",
-        earth_leakage: commissioning.earth_leakage || "Pass",
-        overall_result: commissioning.overall_result || "Passed",
+
+        meter_serial_number: commissioning.meter_serial_number || "",
+        net_meter_import_kwh: commissioning.net_meter_import_kwh ?? "",
+        net_meter_export_kwh: commissioning.net_meter_export_kwh ?? "",
+        generation_meter_kwh: commissioning.generation_meter_kwh ?? commissioning.meter_reading_kwh ?? "",
+
+        anti_islanding_test: commissioning.anti_islanding_test || "",
+        safety_shutdowns: commissioning.safety_shutdowns || "",
+        grounding_check: commissioning.grounding_check || "",
+        earth_resistance_ohm: commissioning.earth_resistance_ohm ?? "",
+        wiring_insulation: commissioning.wiring_insulation || "",
+        insulation_resistance_mohm: commissioning.insulation_resistance_mohm ?? "",
+        earth_leakage: commissioning.earth_leakage || "",
+
+        overall_result: commissioning.overall_result || "Pending",
         commission_date: commissioning.commission_date
           ? String(commissioning.commission_date).split("T")[0]
-          : new Date().toISOString().split("T")[0],
+          : defaultCommissionDate,
         commissioning_engineer: commissioning.commissioning_engineer || "",
-        certificate_number: commissioning.certificate_number || "",
+        certificate_number: commissioning.certificate_number || autoCertificateNumber,
         remarks: commissioning.remarks || "",
+
+        meter_photo_url: commissioning.meter_photo_url || "",
+        inverter_photo_url: commissioning.inverter_photo_url || "",
+        customer_signature_name: commissioning.customer_signature_name || project?.customer_name || "",
+        customer_acknowledged: Boolean(commissioning.customer_acknowledged),
+        engineer_signoff: Boolean(commissioning.engineer_signoff),
       });
     } else {
       setFormData({
-        ...initialFormData,
-        commission_date: new Date().toISOString().split("T")[0],
+        panel_output_voltage: "",
+        dc_current_amps: "",
+        inverter_output_kw: "",
+        inverter_display_status: "Normal / Generating",
+        ac_output_voltage: "",
+
+        meter_serial_number: "",
+        net_meter_import_kwh: "",
+        net_meter_export_kwh: "",
+        generation_meter_kwh: "",
+
+        anti_islanding_test: "",
+        safety_shutdowns: "",
+        grounding_check: "",
+        earth_resistance_ohm: "",
+        wiring_insulation: "",
+        insulation_resistance_mohm: "",
+        earth_leakage: "",
+
+        overall_result: "Pending", // Strictly Pending
+        commission_date: defaultCommissionDate,
+        commissioning_engineer: "",
+        certificate_number: autoCertificateNumber,
+        remarks: "",
+
+        meter_photo_url: "",
+        inverter_photo_url: "",
+        customer_signature_name: project?.customer_name || "",
+        customer_acknowledged: false,
+        engineer_signoff: false,
       });
     }
     setDialogOpen(true);
@@ -183,12 +298,63 @@ export default function Commissioning({ project, projectId }) {
     }
   };
 
+  // Smart field change with auto-follow logic
   const handleInputChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setFormData((prev) => {
+      const updated = { ...prev, [field]: value };
+
+      // Tests list
+      const safetyTests = [
+        updated.anti_islanding_test,
+        updated.safety_shutdowns,
+        updated.grounding_check,
+        updated.wiring_insulation,
+        updated.earth_leakage,
+      ];
+
+      // Auto-follow rule: If ANY test fails, overall_result must be Failed
+      const hasFailedTest = safetyTests.some((t) => t === "Fail");
+      const allTestsPassed = safetyTests.every((t) => t === "Pass");
+      const hasUnselectedTest = safetyTests.some((t) => !t);
+
+      if (hasFailedTest) {
+        updated.overall_result = "Failed";
+      } else if (allTestsPassed && (prev.overall_result === "Pending" || prev.overall_result === "Failed")) {
+        updated.overall_result = "Passed";
+      } else if (hasUnselectedTest && updated.overall_result === "Passed") {
+        updated.overall_result = "Pending";
+      }
+
+      return updated;
+    });
   };
+
+  // Test validation warnings
+  const testsList = [
+    formData.anti_islanding_test,
+    formData.safety_shutdowns,
+    formData.grounding_check,
+    formData.wiring_insulation,
+    formData.earth_leakage,
+  ];
+  const hasFailedTest = testsList.some((t) => t === "Fail");
+
+  // Inverter power limit check (> inverter rating or system kW + 10%)
+  const inverterKwNum = Number(formData.inverter_output_kw);
+  const exceedsInverterLimit = inverterKwNum > (inverterRatingKw * 1.15) && inverterKwNum > 0;
+
+  // AC Voltage bounds check (Single Phase: 210-250V, Three Phase: 380-440V)
+  const acVoltNum = Number(formData.ac_output_voltage);
+  const isThreePhase = project?.meter_type === "Three Phase" || systemKw > 5;
+  const acVoltageOutRange = acVoltNum > 0 && (
+    isThreePhase
+      ? (acVoltNum < 360 || acVoltNum > 460)
+      : (acVoltNum < 195 || acVoltNum > 260)
+  );
+
+  // Earth resistance check (> 5 ohm is unsafe)
+  const earthResistanceNum = Number(formData.earth_resistance_ohm);
+  const isEarthResistanceHigh = earthResistanceNum > 5.0;
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -198,38 +364,50 @@ export default function Commissioning({ project, projectId }) {
       return;
     }
 
+    // Required fields check
+    if (!formData.commission_date) {
+      showSnackbar("Please select Commissioning Date.", "warning");
+      return;
+    }
+    if (!formData.commissioning_engineer || !formData.commissioning_engineer.trim()) {
+      showSnackbar("Please enter Commissioning Engineer Name.", "warning");
+      return;
+    }
+    if (!formData.certificate_number || !formData.certificate_number.trim()) {
+      showSnackbar("Please provide Certificate Number.", "warning");
+      return;
+    }
+
+    // Block Passed if any test is Fail
+    if (formData.overall_result === "Passed" && hasFailedTest) {
+      showSnackbar("Cannot approve as 'Passed': One or more safety tests have Failed.", "error");
+      return;
+    }
+
     try {
       setSaving(true);
       const url = getApiUrl(`/projects/${targetProjectId}/commissioning`);
       const payload = {
         ...formData,
-        panel_output_voltage:
-          formData.panel_output_voltage === "" ? null : Number(formData.panel_output_voltage),
-        inverter_output_kw:
-          formData.inverter_output_kw === "" ? null : Number(formData.inverter_output_kw),
-        ac_output_voltage:
-          formData.ac_output_voltage === "" ? null : Number(formData.ac_output_voltage),
-        meter_reading_kwh:
-          formData.meter_reading_kwh === "" ? null : Number(formData.meter_reading_kwh),
+        panel_output_voltage: formData.panel_output_voltage === "" ? null : Number(formData.panel_output_voltage),
+        dc_current_amps: formData.dc_current_amps === "" ? null : Number(formData.dc_current_amps),
+        inverter_output_kw: formData.inverter_output_kw === "" ? null : Number(formData.inverter_output_kw),
+        ac_output_voltage: formData.ac_output_voltage === "" ? null : Number(formData.ac_output_voltage),
+        net_meter_import_kwh: formData.net_meter_import_kwh === "" ? null : Number(formData.net_meter_import_kwh),
+        net_meter_export_kwh: formData.net_meter_export_kwh === "" ? null : Number(formData.net_meter_export_kwh),
+        generation_meter_kwh: formData.generation_meter_kwh === "" ? null : Number(formData.generation_meter_kwh),
+        meter_reading_kwh: formData.generation_meter_kwh === "" ? null : Number(formData.generation_meter_kwh),
+        earth_resistance_ohm: formData.earth_resistance_ohm === "" ? null : Number(formData.earth_resistance_ohm),
+        insulation_resistance_mohm: formData.insulation_resistance_mohm === "" ? null : Number(formData.insulation_resistance_mohm),
       };
 
-      let res;
       if (commissioning && commissioning.id) {
-        res = await axios.put(url, payload, { headers: getAuthHeader() });
+        await axios.put(url, payload, { headers: getAuthHeader() });
       } else {
-        res = await axios.post(url, payload, { headers: getAuthHeader() });
+        await axios.post(url, payload, { headers: getAuthHeader() });
       }
 
-      const raw = res.data;
-      const saved =
-        raw?.commissioning !== undefined
-          ? raw.commissioning
-          : raw?.data !== undefined
-          ? raw.data
-          : raw;
-
-      setCommissioning(saved || payload);
-      showSnackbar("Commissioning & testing data saved successfully!", "success");
+      showSnackbar("Technical commissioning report saved successfully!", "success");
       setDialogOpen(false);
       fetchCommissioning();
     } catch (err) {
@@ -246,24 +424,24 @@ export default function Commissioning({ project, projectId }) {
     switch (result) {
       case "Passed":
         return {
-          label: "Passed",
+          label: "Passed & Synchronized",
           sx: {
             backgroundColor: "#ECFDF5",
-            color: COLORS.success,
-            border: `1px solid ${COLORS.success}`,
-            fontWeight: 700,
-            fontFamily: "Inter, sans-serif",
+            color: "#059669",
+            border: "1px solid #A7F3D0",
+            fontWeight: 800,
+            fontSize: "0.8rem",
           },
         };
       case "Failed":
         return {
-          label: "Failed",
+          label: "Failed (Rectification Required)",
           sx: {
             backgroundColor: "#FEF2F2",
-            color: COLORS.error,
-            border: `1px solid ${COLORS.error}`,
-            fontWeight: 700,
-            fontFamily: "Inter, sans-serif",
+            color: "#DC2626",
+            border: "1px solid #FECACA",
+            fontWeight: 800,
+            fontSize: "0.8rem",
           },
         };
       case "Conditional Pass":
@@ -271,21 +449,22 @@ export default function Commissioning({ project, projectId }) {
           label: "Conditional Pass",
           sx: {
             backgroundColor: "#FFFBEB",
-            color: COLORS.secondary,
-            border: `1px solid ${COLORS.secondary}`,
-            fontWeight: 700,
-            fontFamily: "Inter, sans-serif",
+            color: "#D97706",
+            border: "1px solid #FDE68A",
+            fontWeight: 800,
+            fontSize: "0.8rem",
           },
         };
+      case "Pending":
       default:
         return {
           label: result || "Pending",
           sx: {
             backgroundColor: "#F1F5F9",
-            color: COLORS.textSecondary,
-            border: `1px solid ${COLORS.border}`,
-            fontWeight: 700,
-            fontFamily: "Inter, sans-serif",
+            color: "#475569",
+            border: "1px solid #CBD5E1",
+            fontWeight: 800,
+            fontSize: "0.8rem",
           },
         };
     }
@@ -295,10 +474,9 @@ export default function Commissioning({ project, projectId }) {
     <Box sx={{ mb: 1.5 }}>
       <Typography
         sx={{
-          fontSize: "0.74rem",
-          fontWeight: 600,
-          color: COLORS.textSecondary,
-          fontFamily: "Inter, sans-serif",
+          fontSize: "0.72rem",
+          fontWeight: 700,
+          color: COLORS.textMuted,
           textTransform: "uppercase",
           letterSpacing: "0.03em",
           mb: 0.25,
@@ -306,45 +484,40 @@ export default function Commissioning({ project, projectId }) {
       >
         {label}
       </Typography>
-      <Typography
-        sx={{
-          fontSize: "0.9rem",
-          fontWeight: 600,
-          color: COLORS.textPrimary,
-          fontFamily: "Inter, sans-serif",
-        }}
-      >
+      <Typography sx={{ fontSize: "0.88rem", fontWeight: 600, color: COLORS.textPrimary }}>
         {value !== null && value !== undefined && value !== "" ? String(value) : "—"}
       </Typography>
     </Box>
   );
 
   return (
-    <Box sx={{ fontFamily: "Inter, sans-serif" }}>
+    <Box>
+      {/* Informative Stage Clarity Banner */}
+      <Alert
+        severity="info"
+        icon={<InfoOutlinedIcon sx={{ fontSize: 18 }} />}
+        sx={{
+          mb: 2.5,
+          borderRadius: "10px",
+          fontSize: "0.8rem",
+          backgroundColor: "#EFF6FF",
+          color: "#1E40AF",
+          border: "1px solid #BFDBFE",
+          "& .MuiAlert-icon": { color: "#2563EB" },
+        }}
+      >
+        <strong>Technical & Functional Commissioning:</strong> This stage confirms anti-islanding safety shutoff, inverter synchronisation, insulation Megger resistance, and net-meter readings before customer handover and DISCOM subsidy inspection.
+      </Alert>
+
       {loading ? (
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            py: 8,
-            gap: 2,
-          }}
-        >
-          <CircularProgress size={36} sx={{ color: COLORS.primary }} />
-          <Typography
-            sx={{
-              fontSize: "0.86rem",
-              fontWeight: 500,
-              color: COLORS.textSecondary,
-              fontFamily: "Inter, sans-serif",
-            }}
-          >
-            Loading commissioning data...
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", py: 8, gap: 2 }}>
+          <CircularProgress size={34} sx={{ color: COLORS.primary }} />
+          <Typography sx={{ fontSize: "0.85rem", color: COLORS.textSecondary }}>
+            Loading commissioning validation records...
           </Typography>
         </Box>
       ) : !commissioning ? (
+        /* Empty State */
         <Card
           elevation={0}
           sx={{
@@ -356,7 +529,6 @@ export default function Commissioning({ project, projectId }) {
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
           }}
         >
           <Box
@@ -369,32 +541,16 @@ export default function Commissioning({ project, projectId }) {
               alignItems: "center",
               justifyContent: "center",
               mb: 2,
-              color: "#3B82F6",
+              color: "#2563EB",
             }}
           >
             <ElectricBoltIcon sx={{ fontSize: 34 }} />
           </Box>
-          <Typography
-            variant="h6"
-            sx={{
-              fontWeight: 700,
-              color: COLORS.textPrimary,
-              fontFamily: "Inter, sans-serif",
-              mb: 1,
-            }}
-          >
+          <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.textPrimary, mb: 1 }}>
             Commissioning Not Conducted Yet
           </Typography>
-          <Typography
-            sx={{
-              fontSize: "0.88rem",
-              color: COLORS.textSecondary,
-              fontFamily: "Inter, sans-serif",
-              maxWidth: 480,
-              mb: 3,
-            }}
-          >
-            Perform system output validations, electrical insulation tests, and record engineering sign-off for safety.
+          <Typography sx={{ fontSize: "0.85rem", color: COLORS.textSecondary, maxWidth: 500, mb: 3 }}>
+            Validate DC string voltage, anti-islanding protection cutoff, Megger insulation resistance, earth resistance, and net meter baseline readings.
           </Typography>
           <Button
             variant="contained"
@@ -402,25 +558,20 @@ export default function Commissioning({ project, projectId }) {
             onClick={handleOpenDialog}
             sx={{
               backgroundColor: COLORS.primary,
-              color: "#FFFFFF",
               textTransform: "none",
-              fontWeight: 600,
-              fontFamily: "Inter, sans-serif",
+              fontWeight: 700,
               fontSize: "0.88rem",
               px: 3,
-              py: 1,
+              py: 1.1,
               borderRadius: "8px",
-              boxShadow: "none",
-              "&:hover": {
-                backgroundColor: "#020617",
-                boxShadow: "none",
-              },
+              "&:hover": { backgroundColor: "#020617" },
             }}
           >
-            Start Commissioning
+            Begin Functional Commissioning
           </Button>
         </Card>
       ) : (
+        /* Filled State */
         <Box>
           {/* Header Action Bar */}
           <Box
@@ -438,30 +589,15 @@ export default function Commissioning({ project, projectId }) {
             }}
           >
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-              <VerifiedIcon sx={{ color: COLORS.success, fontSize: 28 }} />
+              <VerifiedIcon sx={{ color: "#16A34A", fontSize: 28 }} />
               <Box>
-                <Typography
-                  sx={{
-                    fontSize: "1rem",
-                    fontWeight: 700,
-                    color: COLORS.textPrimary,
-                    fontFamily: "Inter, sans-serif",
-                  }}
-                >
-                  Commissioning & Testing Certificate
+                <Typography sx={{ fontSize: "1rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                  Commissioning & Functional Testing Certificate
                 </Typography>
-                <Typography
-                  sx={{
-                    fontSize: "0.78rem",
-                    color: COLORS.textSecondary,
-                    fontFamily: "Inter, sans-serif",
-                  }}
-                >
+                <Typography sx={{ fontSize: "0.78rem", color: COLORS.textSecondary }}>
                   Engineer: <strong>{commissioning.commissioning_engineer || "N/A"}</strong> • Date:{" "}
-                  {commissioning.commission_date
-                    ? String(commissioning.commission_date).split("T")[0]
-                    : "N/A"}{" "}
-                  {commissioning.certificate_number && `• Cert: #${commissioning.certificate_number}`}
+                  <strong>{formatCleanDate(commissioning.commission_date)}</strong>
+                  {commissioning.certificate_number && ` • Cert #${commissioning.certificate_number}`}
                 </Typography>
               </Box>
             </Box>
@@ -477,45 +613,26 @@ export default function Commissioning({ project, projectId }) {
                   borderColor: COLORS.border,
                   color: COLORS.textPrimary,
                   textTransform: "none",
-                  fontWeight: 600,
-                  fontFamily: "Inter, sans-serif",
+                  fontWeight: 700,
                   borderRadius: "8px",
-                  "&:hover": {
-                    borderColor: COLORS.primary,
-                    backgroundColor: COLORS.bg,
-                  },
+                  "&:hover": { borderColor: COLORS.primary, backgroundColor: COLORS.bg },
                 }}
               >
-                Edit
+                Edit Commissioning
               </Button>
             </Box>
           </Box>
 
           {/* Cards Grid */}
           <Grid container spacing={2.5}>
-            {/* Section 1: System Output Test */}
+            {/* Section 1: Electrical Generation & Net Meter Readings */}
             <Grid item xs={12} md={6}>
-              <Card
-                elevation={0}
-                sx={{
-                  borderRadius: "12px",
-                  border: `1px solid ${COLORS.border}`,
-                  backgroundColor: COLORS.cardBg,
-                  height: "100%",
-                }}
-              >
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 2 }}>
+              <Card elevation={0} sx={{ borderRadius: "12px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.cardBg, height: "100%" }}>
+                <CardContent sx={{ p: 2.5 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
                     <SpeedIcon sx={{ color: COLORS.secondary, fontSize: 22 }} />
-                    <Typography
-                      sx={{
-                        fontSize: "0.95rem",
-                        fontWeight: 700,
-                        color: COLORS.textPrimary,
-                        fontFamily: "Inter, sans-serif",
-                      }}
-                    >
-                      System Output Test
+                    <Typography sx={{ fontSize: "0.95rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                      Section 1: Electrical & Net Meter Readings
                     </Typography>
                   </Box>
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
@@ -523,26 +640,58 @@ export default function Commissioning({ project, projectId }) {
                   <Grid container spacing={1.5}>
                     <Grid item xs={6}>
                       {renderDetailItem(
-                        "Panel Output Voltage",
+                        "DC String Voltage",
                         commissioning.panel_output_voltage ? `${commissioning.panel_output_voltage} V` : null
                       )}
                     </Grid>
                     <Grid item xs={6}>
                       {renderDetailItem(
-                        "Inverter Output",
+                        "DC String Current",
+                        commissioning.dc_current_amps ? `${commissioning.dc_current_amps} A` : null
+                      )}
+                    </Grid>
+                    <Grid item xs={6}>
+                      {renderDetailItem(
+                        "Inverter Output Power",
                         commissioning.inverter_output_kw ? `${commissioning.inverter_output_kw} kW` : null
                       )}
                     </Grid>
                     <Grid item xs={6}>
                       {renderDetailItem(
-                        "AC Output Voltage",
+                        "Inverter Display Status",
+                        commissioning.inverter_display_status
+                      )}
+                    </Grid>
+                    <Grid item xs={6}>
+                      {renderDetailItem(
+                        "AC Grid Output Voltage",
                         commissioning.ac_output_voltage ? `${commissioning.ac_output_voltage} V` : null
                       )}
                     </Grid>
                     <Grid item xs={6}>
                       {renderDetailItem(
-                        "Meter Reading",
-                        commissioning.meter_reading_kwh ? `${commissioning.meter_reading_kwh} kWh` : null
+                        "Meter Serial Number",
+                        commissioning.meter_serial_number
+                      )}
+                    </Grid>
+                    <Grid item xs={6}>
+                      {renderDetailItem(
+                        "Net Meter Import",
+                        commissioning.net_meter_import_kwh ? `${commissioning.net_meter_import_kwh} kWh` : null
+                      )}
+                    </Grid>
+                    <Grid item xs={6}>
+                      {renderDetailItem(
+                        "Net Meter Export",
+                        commissioning.net_meter_export_kwh ? `${commissioning.net_meter_export_kwh} kWh` : null
+                      )}
+                    </Grid>
+                    <Grid item xs={12}>
+                      {renderDetailItem(
+                        "Solar Generation Baseline",
+                        (commissioning.generation_meter_kwh || commissioning.meter_reading_kwh)
+                          ? `${commissioning.generation_meter_kwh || commissioning.meter_reading_kwh} kWh`
+                          : null
                       )}
                     </Grid>
                   </Grid>
@@ -550,73 +699,63 @@ export default function Commissioning({ project, projectId }) {
               </Card>
             </Grid>
 
-            {/* Section 2: Safety Checks */}
+            {/* Section 2: Safety, Anti-Islanding & Insulation Tests */}
             <Grid item xs={12} md={6}>
-              <Card
-                elevation={0}
-                sx={{
-                  borderRadius: "12px",
-                  border: `1px solid ${COLORS.border}`,
-                  backgroundColor: COLORS.cardBg,
-                  height: "100%",
-                }}
-              >
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 2 }}>
+              <Card elevation={0} sx={{ borderRadius: "12px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.cardBg, height: "100%" }}>
+                <CardContent sx={{ p: 2.5 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
                     <SecurityIcon sx={{ color: COLORS.warning, fontSize: 22 }} />
-                    <Typography
-                      sx={{
-                        fontSize: "0.95rem",
-                        fontWeight: 700,
-                        color: COLORS.textPrimary,
-                        fontFamily: "Inter, sans-serif",
-                      }}
-                    >
-                      Safety Checks & Protection
+                    <Typography sx={{ fontSize: "0.95rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                      Section 2: Anti-Islanding & Insulation Protection
                     </Typography>
                   </Box>
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
 
                   <Grid container spacing={1.5}>
                     <Grid item xs={6}>
-                      {renderDetailItem("Safety Shutdowns Test", commissioning.safety_shutdowns)}
+                      {renderDetailItem("Anti-Islanding Test", commissioning.anti_islanding_test)}
                     </Grid>
                     <Grid item xs={6}>
-                      {renderDetailItem("Grounding Check", commissioning.grounding_check)}
+                      {renderDetailItem("Emergency Shutdowns", commissioning.safety_shutdowns)}
                     </Grid>
                     <Grid item xs={6}>
-                      {renderDetailItem("Wiring Insulation Test", commissioning.wiring_insulation)}
+                      {renderDetailItem("Grounding / Earthing Continuity", commissioning.grounding_check)}
                     </Grid>
                     <Grid item xs={6}>
-                      {renderDetailItem("Earth Leakage Test", commissioning.earth_leakage)}
+                      {renderDetailItem(
+                        "Earth Resistance",
+                        commissioning.earth_resistance_ohm
+                          ? `${commissioning.earth_resistance_ohm} Ω (Req: < 5 Ω)`
+                          : null
+                      )}
+                    </Grid>
+                    <Grid item xs={6}>
+                      {renderDetailItem("Wiring Insulation Integrity", commissioning.wiring_insulation)}
+                    </Grid>
+                    <Grid item xs={6}>
+                      {renderDetailItem(
+                        "Megger Insulation Resistance",
+                        commissioning.insulation_resistance_mohm
+                          ? `${commissioning.insulation_resistance_mohm} MΩ (Req: > 1 MΩ)`
+                          : null
+                      )}
+                    </Grid>
+                    <Grid item xs={12}>
+                      {renderDetailItem("Earth Leakage Current Test", commissioning.earth_leakage)}
                     </Grid>
                   </Grid>
                 </CardContent>
               </Card>
             </Grid>
 
-            {/* Section 3: Commissioning Result Details */}
+            {/* Section 3: Commissioning Certificate & Sign-Off */}
             <Grid item xs={12}>
-              <Card
-                elevation={0}
-                sx={{
-                  borderRadius: "12px",
-                  border: `1px solid ${COLORS.border}`,
-                  backgroundColor: COLORS.cardBg,
-                }}
-              >
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 2 }}>
-                    <VerifiedIcon sx={{ color: COLORS.success, fontSize: 22 }} />
-                    <Typography
-                      sx={{
-                        fontSize: "0.95rem",
-                        fontWeight: 700,
-                        color: COLORS.textPrimary,
-                        fontFamily: "Inter, sans-serif",
-                      }}
-                    >
-                      Commissioning Result & Sign-Off
+              <Card elevation={0} sx={{ borderRadius: "12px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.cardBg }}>
+                <CardContent sx={{ p: 2.5 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
+                    <AssignmentTurnedInIcon sx={{ color: COLORS.success, fontSize: 22 }} />
+                    <Typography sx={{ fontSize: "0.95rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                      Section 3: Commissioning Decision & Formal Sign-Off
                     </Typography>
                   </Box>
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
@@ -624,38 +763,41 @@ export default function Commissioning({ project, projectId }) {
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={3}>
                       <Box sx={{ mb: 1.5 }}>
-                        <Typography
-                          sx={{
-                            fontSize: "0.74rem",
-                            fontWeight: 600,
-                            color: COLORS.textSecondary,
-                            fontFamily: "Inter, sans-serif",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.03em",
-                            mb: 0.5,
-                          }}
-                        >
-                          Overall Result
+                        <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase", mb: 0.5 }}>
+                          Overall Technical Result
                         </Typography>
                         <Chip {...getResultChipProps(commissioning.overall_result)} />
                       </Box>
                     </Grid>
                     <Grid item xs={12} sm={3}>
-                      {renderDetailItem(
-                        "Commission Date",
-                        commissioning.commission_date
-                          ? String(commissioning.commission_date).split("T")[0]
-                          : null
-                      )}
+                      {renderDetailItem("Commissioning Date", formatCleanDate(commissioning.commission_date))}
                     </Grid>
                     <Grid item xs={12} sm={3}>
-                      {renderDetailItem("Commissioning Engineer", commissioning.commissioning_engineer)}
+                      {renderDetailItem("Testing Engineer", commissioning.commissioning_engineer)}
                     </Grid>
                     <Grid item xs={12} sm={3}>
                       {renderDetailItem("Certificate Number", commissioning.certificate_number)}
                     </Grid>
+                    <Grid item xs={12} sm={6}>
+                      {renderDetailItem("Customer / Rep Sign-Off", commissioning.customer_signature_name)}
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Box sx={{ mb: 1.5 }}>
+                        <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase", mb: 0.3 }}>
+                          Verification Status
+                        </Typography>
+                        <Stack direction="row" gap={1} flexWrap="wrap">
+                          {commissioning.customer_acknowledged === 1 && (
+                            <Chip size="small" icon={<CheckCircleIcon />} label="Customer Acknowledged" color="success" />
+                          )}
+                          {commissioning.engineer_signoff === 1 && (
+                            <Chip size="small" icon={<VerifiedIcon />} label="Engineer Signed Off" color="primary" />
+                          )}
+                        </Stack>
+                      </Box>
+                    </Grid>
                     <Grid item xs={12}>
-                      {renderDetailItem("Remarks", commissioning.remarks)}
+                      {renderDetailItem("Technical Remarks & Observations", commissioning.remarks)}
                     </Grid>
                   </Grid>
                 </CardContent>
@@ -665,18 +807,16 @@ export default function Commissioning({ project, projectId }) {
         </Box>
       )}
 
-      {/* MODAL DIALOG */}
+      {/* ============================================================== */}
+      {/* COMMISSIONING MODAL FORM DIALOG                                */}
+      {/* ============================================================== */}
       <Dialog
         open={dialogOpen}
         onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
         PaperProps={{
-          sx: {
-            borderRadius: "14px",
-            backgroundColor: COLORS.cardBg,
-            fontFamily: "Inter, sans-serif",
-          },
+          sx: { borderRadius: "16px", backgroundColor: COLORS.cardBg },
         }}
       >
         <DialogTitle
@@ -684,250 +824,448 @@ export default function Commissioning({ project, projectId }) {
             px: 3,
             py: 2,
             borderBottom: `1px solid ${COLORS.border}`,
-            fontSize: "1.1rem",
-            fontWeight: 700,
-            color: COLORS.textPrimary,
-            fontFamily: "Inter, sans-serif",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
           }}
         >
-          Commissioning & Testing
-          {commissioning && <Chip size="small" {...getResultChipProps(formData.overall_result)} />}
+          <Box>
+            <Typography sx={{ fontSize: "1.15rem", fontWeight: 900, color: COLORS.textPrimary }}>
+              Functional & Electrical Commissioning Form
+            </Typography>
+            <Typography sx={{ fontSize: "0.75rem", color: COLORS.textSecondary, mt: 0.2 }}>
+              Project: {project?.project_number} • System: {project?.system_capacity_kw || "N/A"} kW • Inverter: {inverterRatingKw} kW
+            </Typography>
+          </Box>
+          <IconButton size="small" onClick={handleCloseDialog} disabled={saving}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
         </DialogTitle>
 
         <DialogContent sx={{ p: 3 }}>
           <Box component="form" id="commissioning-form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-            {/* Section 1: System Output Test */}
-            <Typography
-              sx={{
-                fontSize: "0.95rem",
-                fontWeight: 700,
-                color: COLORS.textPrimary,
-                fontFamily: "Inter, sans-serif",
-                mb: 1.5,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <SpeedIcon sx={{ color: COLORS.secondary, fontSize: 20 }} />
-              Section 1: System Output Test
-            </Typography>
+            <Stack spacing={3}>
 
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="number"
-                  label="Panel Output Voltage (V)"
-                  inputProps={{ step: "any" }}
-                  value={formData.panel_output_voltage}
-                  onChange={(e) => handleInputChange("panel_output_voltage", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="number"
-                  label="Inverter Output (kW)"
-                  inputProps={{ step: "any" }}
-                  value={formData.inverter_output_kw}
-                  onChange={(e) => handleInputChange("inverter_output_kw", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="number"
-                  label="AC Output Voltage (V)"
-                  inputProps={{ step: "any" }}
-                  value={formData.ac_output_voltage}
-                  onChange={(e) => handleInputChange("ac_output_voltage", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="number"
-                  label="Meter Reading (kWh)"
-                  inputProps={{ step: "any" }}
-                  value={formData.meter_reading_kwh}
-                  onChange={(e) => handleInputChange("meter_reading_kwh", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
-            </Grid>
+              {/* SECTION 1: ELECTRICAL READINGS & NET METERING */}
+              <Box>
+                <Typography sx={{ fontSize: "0.8rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase", letterSpacing: "0.04em", mb: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
+                  <SpeedIcon sx={{ color: COLORS.secondary, fontSize: 18 }} />
+                  Section 1: DC/AC Electrical Readings & Net Meter
+                </Typography>
 
-            <Divider sx={{ my: 2.5, borderColor: COLORS.border }} />
+                <Grid container spacing={2}>
+                  {/* DC String Voltage (V) */}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label="DC String Voltage (V) *"
+                      placeholder="e.g. 380"
+                      inputProps={{ step: "any" }}
+                      value={formData.panel_output_voltage}
+                      onChange={(e) => handleInputChange("panel_output_voltage", e.target.value)}
+                      helperText="Total open circuit voltage Voc of module strings"
+                    />
+                  </Grid>
 
-            {/* Section 2: Safety Checks */}
-            <Typography
-              sx={{
-                fontSize: "0.95rem",
-                fontWeight: 700,
-                color: COLORS.textPrimary,
-                fontFamily: "Inter, sans-serif",
-                mb: 1.5,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <SecurityIcon sx={{ color: COLORS.warning, fontSize: 20 }} />
-              Section 2: Safety Checks
-            </Typography>
+                  {/* DC String Current (A) */}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label="DC String Current (A)"
+                      placeholder="e.g. 11.8"
+                      inputProps={{ step: "any" }}
+                      value={formData.dc_current_amps}
+                      onChange={(e) => handleInputChange("dc_current_amps", e.target.value)}
+                      helperText="Operating DC current during peak sunlight"
+                    />
+                  </Grid>
 
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              {[
-                { field: "safety_shutdowns", label: "Safety Shutdowns Test" },
-                { field: "grounding_check", label: "Grounding Check" },
-                { field: "wiring_insulation", label: "Wiring Insulation Test" },
-                { field: "earth_leakage", label: "Earth Leakage Test" },
-              ].map((item) => (
-                <Grid item xs={12} sm={6} key={item.field}>
-                  <Typography
-                    sx={{
-                      fontSize: "0.78rem",
-                      fontWeight: 600,
-                      color: COLORS.textSecondary,
-                      fontFamily: "Inter, sans-serif",
-                      mb: 0.5,
-                    }}
-                  >
-                    {item.label}
-                  </Typography>
-                  <RadioGroup
-                    row
-                    value={formData[item.field]}
-                    onChange={(e) => handleInputChange(item.field, e.target.value)}
-                  >
-                    {["Pass", "Fail"].map((val) => (
+                  {/* Inverter Output (kW) with Limit Validation */}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label="Inverter Output Power (kW)"
+                      placeholder="e.g. 4.8"
+                      inputProps={{ step: "any", min: 0 }}
+                      value={formData.inverter_output_kw}
+                      onChange={(e) => handleInputChange("inverter_output_kw", e.target.value)}
+                      error={exceedsInverterLimit}
+                      helperText={
+                        exceedsInverterLimit
+                          ? `Warning: Output exceeds inverter rated limit (${inverterRatingKw} kW)`
+                          : `Inverter rating: ${inverterRatingKw} kW`
+                      }
+                    />
+                  </Grid>
+
+                  {/* Inverter Display Status */}
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Inverter LCD Status Display</InputLabel>
+                      <Select
+                        value={formData.inverter_display_status}
+                        label="Inverter LCD Status Display"
+                        onChange={(e) => handleInputChange("inverter_display_status", e.target.value)}
+                      >
+                        <MenuItem value="Normal / Generating">Normal / Generating (Green LED)</MenuItem>
+                        <MenuItem value="Grid Synchronized">Grid Synchronized / Feeding</MenuItem>
+                        <MenuItem value="Waiting / Connecting">Waiting / Standby Mode</MenuItem>
+                        <MenuItem value="Fault / Error Code">Fault / Error Code Present</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  {/* AC Output Voltage (V) with Bounds Validation */}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label="AC Grid Output Voltage (V) *"
+                      placeholder={isThreePhase ? "e.g. 415" : "e.g. 230"}
+                      inputProps={{ step: "any" }}
+                      value={formData.ac_output_voltage}
+                      onChange={(e) => handleInputChange("ac_output_voltage", e.target.value)}
+                      error={acVoltageOutRange}
+                      helperText={
+                        acVoltageOutRange
+                          ? `Warning: Voltage is outside normal bounds (${isThreePhase ? "380V - 440V" : "210V - 250V"})`
+                          : `Normal: ${isThreePhase ? "380V - 440V (Three Phase)" : "210V - 250V (Single Phase)"}`
+                      }
+                    />
+                  </Grid>
+
+                  {/* Meter Serial Number */}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Net Meter Serial Number"
+                      placeholder="e.g. DISCOM-NM-882910"
+                      value={formData.meter_serial_number}
+                      onChange={(e) => handleInputChange("meter_serial_number", e.target.value)}
+                      helperText="Serial printed on DISCOM net meter plate"
+                    />
+                  </Grid>
+
+                  {/* Net Meter Import Reading (kWh) */}
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label="Net Meter Import (kWh)"
+                      placeholder="e.g. 10.5"
+                      inputProps={{ step: "any" }}
+                      value={formData.net_meter_import_kwh}
+                      onChange={(e) => handleInputChange("net_meter_import_kwh", e.target.value)}
+                      helperText="Energy consumed from grid"
+                    />
+                  </Grid>
+
+                  {/* Net Meter Export Reading (kWh) */}
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label="Net Meter Export (kWh)"
+                      placeholder="e.g. 0.0"
+                      inputProps={{ step: "any" }}
+                      value={formData.net_meter_export_kwh}
+                      onChange={(e) => handleInputChange("net_meter_export_kwh", e.target.value)}
+                      helperText="Solar energy sent to grid"
+                    />
+                  </Grid>
+
+                  {/* Solar Generation Baseline Meter (kWh) */}
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label="Solar Generation (kWh)"
+                      placeholder="e.g. 2.4"
+                      inputProps={{ step: "any" }}
+                      value={formData.generation_meter_kwh}
+                      onChange={(e) => handleInputChange("generation_meter_kwh", e.target.value)}
+                      helperText="Cumulative solar generation"
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider />
+
+              {/* SECTION 2: SAFETY & ELECTRICAL PROTECTION TESTS */}
+              <Box>
+                <Typography sx={{ fontSize: "0.8rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase", letterSpacing: "0.04em", mb: 1, display: "flex", alignItems: "center", gap: 1 }}>
+                  <SecurityIcon sx={{ color: COLORS.warning, fontSize: 18 }} />
+                  Section 2: Anti-Islanding & Safety Protection Tests
+                </Typography>
+                <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mb: 2 }}>
+                  Verify electrical cutoff thresholds and insulation readings. Tests default to unselected to prevent accidental approval.
+                </Typography>
+
+                <Grid container spacing={2}>
+                  {/* Anti-Islanding Test - CRUCIAL SAFETY */}
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${formData.anti_islanding_test === "Pass" ? "#A7F3D0" : formData.anti_islanding_test === "Fail" ? "#FECACA" : COLORS.border}`, backgroundColor: "#F8FAFC" }}>
+                      <Typography sx={{ fontSize: "0.78rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                        Anti-Islanding Protection Test *
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.68rem", color: COLORS.textSecondary, mb: 0.8 }}>
+                        Inverter switches off within 2 seconds upon grid power failure (IEEE 1547 / CEA)
+                      </Typography>
+                      <RadioGroup
+                        row
+                        value={formData.anti_islanding_test}
+                        onChange={(e) => handleInputChange("anti_islanding_test", e.target.value)}
+                      >
+                        <FormControlLabel value="Pass" control={<Radio size="small" color="success" />} label={<Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#16A34A" }}>Pass</Typography>} />
+                        <FormControlLabel value="Fail" control={<Radio size="small" color="error" />} label={<Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#DC2626" }}>Fail</Typography>} />
+                      </RadioGroup>
+                    </Box>
+                  </Grid>
+
+                  {/* Safety Shutdowns */}
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, backgroundColor: "#F8FAFC" }}>
+                      <Typography sx={{ fontSize: "0.78rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                        Emergency AC/DC Isolator Trip Test
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.68rem", color: COLORS.textSecondary, mb: 0.8 }}>
+                        Manual rotary isolators trip and disconnect cleanly
+                      </Typography>
+                      <RadioGroup
+                        row
+                        value={formData.safety_shutdowns}
+                        onChange={(e) => handleInputChange("safety_shutdowns", e.target.value)}
+                      >
+                        <FormControlLabel value="Pass" control={<Radio size="small" color="success" />} label={<Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#16A34A" }}>Pass</Typography>} />
+                        <FormControlLabel value="Fail" control={<Radio size="small" color="error" />} label={<Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#DC2626" }}>Fail</Typography>} />
+                      </RadioGroup>
+                    </Box>
+                  </Grid>
+
+                  {/* Grounding / Earthing Check + Earth Resistance (Ω) */}
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${isEarthResistanceHigh ? "#FECACA" : COLORS.border}`, backgroundColor: "#F8FAFC" }}>
+                      <Typography sx={{ fontSize: "0.78rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                        Grounding Continuity & Earth Resistance
+                      </Typography>
+                      <RadioGroup
+                        row
+                        value={formData.grounding_check}
+                        onChange={(e) => handleInputChange("grounding_check", e.target.value)}
+                        sx={{ mb: 1 }}
+                      >
+                        <FormControlLabel value="Pass" control={<Radio size="small" color="success" />} label={<Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#16A34A" }}>Pass</Typography>} />
+                        <FormControlLabel value="Fail" control={<Radio size="small" color="error" />} label={<Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#DC2626" }}>Fail</Typography>} />
+                      </RadioGroup>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        type="number"
+                        label="Measured Earth Resistance (Ω)"
+                        placeholder="e.g. 2.8"
+                        inputProps={{ step: "0.1", min: 0 }}
+                        value={formData.earth_resistance_ohm}
+                        onChange={(e) => handleInputChange("earth_resistance_ohm", e.target.value)}
+                        error={isEarthResistanceHigh}
+                        helperText={isEarthResistanceHigh ? "Warning: Earth resistance exceeds 5 Ω safety threshold" : "Standard requirement: < 5.0 Ω"}
+                      />
+                    </Box>
+                  </Grid>
+
+                  {/* Wiring Insulation + Megger Value (MΩ) */}
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, backgroundColor: "#F8FAFC" }}>
+                      <Typography sx={{ fontSize: "0.78rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                        Wiring Insulation & Megger Resistance
+                      </Typography>
+                      <RadioGroup
+                        row
+                        value={formData.wiring_insulation}
+                        onChange={(e) => handleInputChange("wiring_insulation", e.target.value)}
+                        sx={{ mb: 1 }}
+                      >
+                        <FormControlLabel value="Pass" control={<Radio size="small" color="success" />} label={<Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#16A34A" }}>Pass</Typography>} />
+                        <FormControlLabel value="Fail" control={<Radio size="small" color="error" />} label={<Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#DC2626" }}>Fail</Typography>} />
+                      </RadioGroup>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        type="number"
+                        label="Insulation Resistance (MΩ)"
+                        placeholder="e.g. 50"
+                        inputProps={{ step: "any", min: 0 }}
+                        value={formData.insulation_resistance_mohm}
+                        onChange={(e) => handleInputChange("insulation_resistance_mohm", e.target.value)}
+                        helperText="Standard requirement: > 1.0 MΩ (Megger test)"
+                      />
+                    </Box>
+                  </Grid>
+
+                  {/* Earth Leakage Test */}
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, backgroundColor: "#F8FAFC" }}>
+                      <Typography sx={{ fontSize: "0.78rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                        Earth Leakage / Residual Current (RCD)
+                      </Typography>
+                      <Typography sx={{ fontSize: "0.68rem", color: COLORS.textSecondary, mb: 0.8 }}>
+                        RCD trips within 300ms on residual current leakage
+                      </Typography>
+                      <RadioGroup
+                        row
+                        value={formData.earth_leakage}
+                        onChange={(e) => handleInputChange("earth_leakage", e.target.value)}
+                      >
+                        <FormControlLabel value="Pass" control={<Radio size="small" color="success" />} label={<Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#16A34A" }}>Pass</Typography>} />
+                        <FormControlLabel value="Fail" control={<Radio size="small" color="error" />} label={<Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#DC2626" }}>Fail</Typography>} />
+                      </RadioGroup>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider />
+
+              {/* SECTION 3: DECISION, CERTIFICATE & SIGN-OFF */}
+              <Box>
+                <Typography sx={{ fontSize: "0.8rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase", letterSpacing: "0.04em", mb: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
+                  <VerifiedIcon sx={{ color: COLORS.success, fontSize: 18 }} />
+                  Section 3: Commissioning Result & Engineering Sign-Off
+                </Typography>
+
+                <Grid container spacing={2}>
+                  {/* Overall Result with Auto-Follow Safety Gate */}
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth size="small" required error={hasFailedTest && formData.overall_result === "Passed"}>
+                      <InputLabel>Overall Technical Result *</InputLabel>
+                      <Select
+                        value={formData.overall_result}
+                        label="Overall Technical Result *"
+                        onChange={(e) => handleInputChange("overall_result", e.target.value)}
+                      >
+                        <MenuItem value="Pending">Pending (Testing Incomplete)</MenuItem>
+                        <MenuItem value="Passed" disabled={hasFailedTest}>
+                          Passed & Synchronized {hasFailedTest ? "(Blocked: Test Failed)" : ""}
+                        </MenuItem>
+                        <MenuItem value="Conditional Pass">Conditional Pass (Minor Fixes Needed)</MenuItem>
+                        <MenuItem value="Failed">Failed (Safety Rectification Required)</MenuItem>
+                      </Select>
+                      {hasFailedTest && (
+                        <FormHelperText error>
+                          Cannot mark as Passed because one or more safety tests have Failed.
+                        </FormHelperText>
+                      )}
+                    </FormControl>
+                  </Grid>
+
+                  {/* Commissioning Date */}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      required
+                      type="date"
+                      label="Commissioning Date *"
+                      InputLabelProps={{ shrink: true }}
+                      value={formData.commission_date}
+                      onChange={(e) => handleInputChange("commission_date", e.target.value)}
+                      helperText="Must be on or after installation finish date"
+                    />
+                  </Grid>
+
+                  {/* Commissioning Engineer Name */}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      required
+                      label="Commissioning Engineer Name *"
+                      placeholder="e.g. Er. Vikram Singh"
+                      value={formData.commissioning_engineer}
+                      onChange={(e) => handleInputChange("commissioning_engineer", e.target.value)}
+                    />
+                  </Grid>
+
+                  {/* Certificate Number (Auto-Generated) */}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      required
+                      label="Certificate Number *"
+                      value={formData.certificate_number}
+                      onChange={(e) => handleInputChange("certificate_number", e.target.value)}
+                      helperText="Auto-generated unique serial number"
+                    />
+                  </Grid>
+
+                  {/* Customer Sign-off Name */}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Customer / Representative Sign-Off"
+                      value={formData.customer_signature_name}
+                      onChange={(e) => handleInputChange("customer_signature_name", e.target.value)}
+                    />
+                  </Grid>
+
+                  {/* Checkbox Sign-Offs */}
+                  <Grid item xs={12} sm={6}>
+                    <Stack spacing={0.5}>
                       <FormControlLabel
-                        key={val}
-                        value={val}
                         control={
-                          <Radio
+                          <Checkbox
+                            checked={formData.customer_acknowledged}
+                            onChange={(e) => handleInputChange("customer_acknowledged", e.target.checked)}
+                            color="success"
                             size="small"
-                            sx={{
-                              color: COLORS.border,
-                              "&.Mui-checked": {
-                                color: val === "Pass" ? COLORS.success : COLORS.error,
-                              },
-                            }}
                           />
                         }
-                        label={
-                          <Typography
-                            sx={{
-                              fontSize: "0.85rem",
-                              fontFamily: "Inter, sans-serif",
-                              color: COLORS.textPrimary,
-                            }}
-                          >
-                            {val}
-                          </Typography>
-                        }
+                        label={<Typography sx={{ fontSize: "0.78rem" }}>Customer witnessed generation demonstration</Typography>}
                       />
-                    ))}
-                  </RadioGroup>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={formData.engineer_signoff}
+                            onChange={(e) => handleInputChange("engineer_signoff", e.target.checked)}
+                            color="success"
+                            size="small"
+                          />
+                        }
+                        label={<Typography sx={{ fontSize: "0.78rem", fontWeight: 700 }}>Engineer verifies compliance with CEA / DISCOM rules</Typography>}
+                      />
+                    </Stack>
+                  </Grid>
+
+                  {/* TALL Multi-Line Remarks */}
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      multiline
+                      minRows={3}
+                      maxRows={6}
+                      label="Commissioning Remarks & Engineering Observations"
+                      placeholder="Observations on grid voltage harmonics, inverter synchronization time, anti-islanding test result, customer briefing notes..."
+                      value={formData.remarks}
+                      onChange={(e) => handleInputChange("remarks", e.target.value)}
+                    />
+                  </Grid>
                 </Grid>
-              ))}
-            </Grid>
-
-            <Divider sx={{ my: 2.5, borderColor: COLORS.border }} />
-
-            {/* Section 3: Commissioning Result */}
-            <Typography
-              sx={{
-                fontSize: "0.95rem",
-                fontWeight: 700,
-                color: COLORS.textPrimary,
-                fontFamily: "Inter, sans-serif",
-                mb: 1.5,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <VerifiedIcon sx={{ color: COLORS.success, fontSize: 20 }} />
-              Section 3: Commissioning Result
-            </Typography>
-
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel sx={{ fontFamily: "Inter, sans-serif" }}>Overall Result</InputLabel>
-                  <Select
-                    value={formData.overall_result}
-                    label="Overall Result"
-                    onChange={(e) => handleInputChange("overall_result", e.target.value)}
-                    sx={{ fontFamily: "Inter, sans-serif" }}
-                  >
-                    <MenuItem value="Passed">Passed</MenuItem>
-                    <MenuItem value="Failed">Failed</MenuItem>
-                    <MenuItem value="Conditional Pass">Conditional Pass</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label="Commission Date"
-                  InputLabelProps={{ shrink: true }}
-                  value={formData.commission_date}
-                  onChange={(e) => handleInputChange("commission_date", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Commissioning Engineer"
-                  value={formData.commissioning_engineer}
-                  onChange={(e) => handleInputChange("commissioning_engineer", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Certificate Number"
-                  value={formData.certificate_number}
-                  onChange={(e) => handleInputChange("certificate_number", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  multiline
-                  rows={3}
-                  label="Remarks"
-                  placeholder="Additional commissioning notes, readings, recommendations..."
-                  value={formData.remarks}
-                  onChange={(e) => handleInputChange("remarks", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
-            </Grid>
+              </Box>
+            </Stack>
           </Box>
         </DialogContent>
 
@@ -935,13 +1273,7 @@ export default function Commissioning({ project, projectId }) {
           <Button
             onClick={handleCloseDialog}
             disabled={saving}
-            startIcon={<CancelIcon />}
-            sx={{
-              color: COLORS.textSecondary,
-              textTransform: "none",
-              fontWeight: 600,
-              fontFamily: "Inter, sans-serif",
-            }}
+            sx={{ textTransform: "none", fontWeight: 600, color: COLORS.textSecondary }}
           >
             Cancel
           </Button>
@@ -953,44 +1285,17 @@ export default function Commissioning({ project, projectId }) {
             startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
             sx={{
               backgroundColor: COLORS.primary,
-              color: "#FFFFFF",
               textTransform: "none",
-              fontWeight: 600,
-              fontFamily: "Inter, sans-serif",
+              fontWeight: 700,
+              px: 3,
               borderRadius: "8px",
-              px: 2.5,
-              boxShadow: "none",
-              "&:hover": {
-                backgroundColor: "#020617",
-                boxShadow: "none",
-              },
+              "&:hover": { backgroundColor: "#020617" },
             }}
           >
-            {saving ? "Saving..." : "Save Commissioning"}
+            {saving ? "Saving Certificate..." : "Save Commissioning"}
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={hideSnackbar}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          onClose={hideSnackbar}
-          severity={snackbar.severity}
-          sx={{
-            width: "100%",
-            fontFamily: "Inter, sans-serif",
-            fontWeight: 500,
-            borderRadius: "8px",
-          }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }

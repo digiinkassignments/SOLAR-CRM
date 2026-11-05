@@ -5,3 +5,4 @@ ALTER TABLE installation_logs
   MODIFY COLUMN phase VARCHAR(80) NOT NULL;
 
 -- Safe column additions for MySQL 8 (executed via migration script)
+

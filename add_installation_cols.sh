@@ -28,3 +28,4 @@ done
 
 echo "Done! Verifying db_client_003:"
 mysql -e "DESCRIBE db_client_003.installation_logs; DESCRIBE db_client_003.installation_log_photos;"
+
