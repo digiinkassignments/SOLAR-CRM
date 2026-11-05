@@ -39,7 +39,10 @@ import {
   ElectricBoltOutlined as ElectricBoltIcon,
   AccountBalanceOutlined as AccountBalanceIcon,
   CameraAltOutlined as CameraAltIcon,
+  PhotoCamera as PhotoCameraIcon,
 } from "@mui/icons-material";
+
+import DocumentCaptureModal from "./DocumentCaptureModal";
 
 import {
   applySubsidy,
@@ -111,6 +114,11 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingType, setUploadingType] = useState(null);
+
+  // Camera Capture State
+  const [captureModalOpen, setCaptureModalOpen] = useState(false);
+  const [captureDocType, setCaptureDocType] = useState(null);
+  const [captureDocLabel, setCaptureDocLabel] = useState("");
 
   const [subsidyApp, setSubsidyApp] = useState(null);
   const [documents, setDocuments] = useState([]);
@@ -208,6 +216,34 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
     } catch (err) {
       console.error("Doc upload error:", err);
       showSnackbar && showSnackbar("Failed to upload document.", "error");
+    } finally {
+      setUploadingType(null);
+    }
+  };
+
+  const handleOpenCapture = (docType, docLabel) => {
+    setCaptureDocType(docType);
+    setCaptureDocLabel(docLabel);
+    setCaptureModalOpen(true);
+  };
+
+  const handleCaptureSuccess = async (file, docType) => {
+    if (!file || !lead?.id) return;
+    setUploadingType(docType);
+    try {
+      const data = new FormData();
+      data.append("document", file);
+      data.append("lead_id", lead.id);
+      data.append("document_type", docType);
+
+      const res = await uploadCustomerDoc(data);
+      if (res.success && res.data) {
+        setDocuments(res.data);
+        showSnackbar && showSnackbar("Document photo captured & uploaded to vault!", "success");
+      }
+    } catch (err) {
+      console.error("Capture upload error:", err);
+      showSnackbar && showSnackbar("Failed to upload captured photo.", "error");
     } finally {
       setUploadingType(null);
     }
@@ -531,29 +567,50 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                             </Box>
                           </Stack>
 
-                          <Button
-                            component="label"
-                            variant="outlined"
-                            size="small"
-                            startIcon={isUploading ? <CircularProgress size={14} /> : <UploadIcon />}
-                            disabled={isUploading}
-                            sx={{
-                              textTransform: "none",
-                              fontWeight: 700,
-                              fontSize: "0.75rem",
-                              borderRadius: "8px",
-                              borderColor: COLORS.primary,
-                              color: COLORS.primary,
-                            }}
-                          >
-                            Upload File
-                            <input
-                              type="file"
-                              hidden
-                              accept="image/*,application/pdf"
-                              onChange={(e) => handleFileUpload(e, docDef.type)}
-                            />
-                          </Button>
+                          <Stack direction="row" spacing={1}>
+                            <Button
+                              component="label"
+                              variant="outlined"
+                              size="small"
+                              startIcon={isUploading ? <CircularProgress size={14} /> : <UploadIcon />}
+                              disabled={isUploading}
+                              sx={{
+                                textTransform: "none",
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                borderRadius: "8px",
+                                borderColor: COLORS.border,
+                                color: COLORS.primary,
+                              }}
+                            >
+                              Upload
+                              <input
+                                type="file"
+                                hidden
+                                accept="image/*,application/pdf"
+                                onChange={(e) => handleFileUpload(e, docDef.type)}
+                              />
+                            </Button>
+
+                            <Button
+                              variant="contained"
+                              size="small"
+                              startIcon={<PhotoCameraIcon sx={{ fontSize: 13 }} />}
+                              disabled={isUploading}
+                              onClick={() => handleOpenCapture(docDef.type, docDef.label)}
+                              sx={{
+                                textTransform: "none",
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                borderRadius: "8px",
+                                backgroundColor: COLORS.accent,
+                                color: "#FFFFFF",
+                                "&:hover": { backgroundColor: "#D97706" },
+                              }}
+                            >
+                              Capture
+                            </Button>
+                          </Stack>
                         </Stack>
 
                         {/* LIST ATTACHED FILES FOR THIS TYPE */}
@@ -610,6 +667,15 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
           </Stack>
         )}
       </Box>
+
+      {/* DOCUMENT CAMERA CAPTURE MODAL */}
+      <DocumentCaptureModal
+        open={captureModalOpen}
+        onClose={() => setCaptureModalOpen(false)}
+        onCapture={handleCaptureSuccess}
+        documentType={captureDocType}
+        documentLabel={captureDocLabel}
+      />
     </Drawer>
   );
 }

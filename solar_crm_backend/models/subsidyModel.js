@@ -140,14 +140,36 @@ const applySubsidy = async (data, db = defaultDb) => {
     } catch (e) {}
   }
 
+  // Sync to linked project audit log
+  try {
+    const [projs] = await db.query(
+      `SELECT id, stage FROM projects WHERE lead_id = ? AND is_deleted = 0 LIMIT 1`,
+      [lead_id]
+    );
+    if (projs.length > 0) {
+      const projId = projs[0].id;
+      let stageNote = `Subsidy Portal Updated: ${status}. Consumer No: ${consumer_number}, App No: ${application_number || "N/A"}.`;
+      if (portal_notes) {
+        stageNote += ` Notes: ${portal_notes}`;
+      }
+      await db.query(
+        `INSERT INTO project_stage_logs (project_id, previous_stage, new_stage, changed_by, notes)
+         VALUES (?, ?, ?, 1, ?)`,
+        [projId, projs[0].stage, projs[0].stage, stageNote]
+      ).catch(() => {});
+    }
+  } catch (projErr) {
+    console.error("Project sync error in applySubsidy:", projErr);
+  }
+
   // Log activity
   try {
     await db.query(
-      `INSERT INTO lead_activity_logs (lead_id, action_type, new_value, remark) VALUES (?, 'Status Changed', ?, ?)`,
+      `INSERT INTO lead_activity_logs (lead_id, action_type, new_value, remark) VALUES (?, 'Subsidy Portal Updated', ?, ?)`,
       [
         lead_id,
-        `Subsidy Portal: ${status}`,
-        `Consumer No: ${consumer_number} · App No: ${application_number || "Pending"} · Scheme: ${scheme_name || "PM Surya Ghar"}`,
+        `Portal Status: ${status}`,
+        `Consumer No: ${consumer_number} · App No: ${application_number || "Pending"} · Scheme: ${scheme_name || "PM Surya Ghar"} · DBT: ₹${subsidyAmt}`,
       ]
     );
   } catch (e) {}
@@ -160,9 +182,11 @@ const getSubsidyByLeadId = async (leadId, db = defaultDb) => {
   await ensureSubsidyTables(db);
   const [appRows] = await db.query(
     `
-    SELECT s.*, l.customer_name, l.lead_code, l.mobile_number
+    SELECT s.*, l.customer_name, l.lead_code, l.mobile_number, l.city, l.state,
+           p.id AS project_id, p.project_number, p.stage AS project_stage, p.system_capacity_kw
     FROM subsidy_applications s
     LEFT JOIN leads l ON s.lead_id = l.id
+    LEFT JOIN projects p ON p.lead_id = l.id AND p.is_deleted = 0
     WHERE s.lead_id = ?
     LIMIT 1
     `,
@@ -174,9 +198,19 @@ const getSubsidyByLeadId = async (leadId, db = defaultDb) => {
     [leadId]
   );
 
+  let logs = [];
+  try {
+    const [logRows] = await db.query(
+      `SELECT * FROM lead_activity_logs WHERE lead_id = ? AND (action_type LIKE '%Subsidy%' OR remark LIKE '%Consumer%' OR remark LIKE '%Portal%') ORDER BY id DESC LIMIT 10`,
+      [leadId]
+    );
+    logs = logRows;
+  } catch (e) {}
+
   return {
     application: appRows.length > 0 ? appRows[0] : null,
     documents: docsRows,
+    logs,
   };
 };
 

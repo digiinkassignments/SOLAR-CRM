@@ -45,6 +45,10 @@ import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 
+import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
+import HistoryIcon from "@mui/icons-material/History";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import DocumentCaptureModal from "../../../components/DocumentCaptureModal";
 import toast from "react-hot-toast";
 import api from "../../../utils/api";
 import {
@@ -129,10 +133,17 @@ export default function SubsidyDetail() {
 
   // Data states
   const [lead, setLead] = useState(null);
+  const [projectInfo, setProjectInfo] = useState(null);
+  const [portalLogs, setPortalLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingType, setUploadingType] = useState(null);
   const [documents, setDocuments] = useState([]);
+
+  // Camera Capture State
+  const [captureModalOpen, setCaptureModalOpen] = useState(false);
+  const [captureDocType, setCaptureDocType] = useState(null);
+  const [captureDocLabel, setCaptureDocLabel] = useState("");
 
   // Form State
   const [formData, setFormData] = useState({
@@ -179,8 +190,18 @@ export default function SubsidyDetail() {
       if (subRes.success && subRes.data) {
         const app = subRes.data.application;
         setDocuments(subRes.data.documents || []);
+        setPortalLogs(subRes.data.logs || []);
 
         if (app) {
+          if (app.project_id || app.project_number) {
+            setProjectInfo({
+              id: app.project_id,
+              number: app.project_number,
+              stage: app.project_stage,
+              capacity: app.system_capacity_kw,
+            });
+          }
+
           setFormData({
             consumer_number: app.consumer_number || "",
             application_number: app.application_number || "",
@@ -208,6 +229,39 @@ export default function SubsidyDetail() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Open Document Camera Capture
+  const handleOpenCapture = (docType, docLabel) => {
+    setCaptureDocType(docType);
+    setCaptureDocLabel(docLabel);
+    setCaptureModalOpen(true);
+  };
+
+  // Handle Photo Captured from Modal
+  const handleCaptureSuccess = async (file, docType) => {
+    if (!file) return;
+    setUploadingType(docType);
+    try {
+      const data = new FormData();
+      data.append("document", file);
+      data.append("lead_id", leadId);
+      data.append("document_type", docType);
+
+      const res = await uploadCustomerDoc(data);
+      if (res.success && res.data) {
+        setDocuments(res.data);
+        toast.success("Document photo captured and saved into Customer Vault!");
+        fetchData();
+      } else {
+        toast.error(res.message || "Failed to save captured photo.");
+      }
+    } catch (err) {
+      console.error("Capture upload error:", err);
+      toast.error("Error uploading captured document.");
+    } finally {
+      setUploadingType(null);
+    }
+  };
 
   // Save Portal Application Details
   const handleSaveApplication = async () => {
@@ -805,50 +859,70 @@ export default function SubsidyDetail() {
                   </Box>
 
                   {/* Subsidy Benefit Banner */}
-                  <Box
-                    sx={{
-                      p: 1.8,
-                      borderRadius: "10px",
-                      backgroundColor: "#ECFDF5",
-                      border: "1px solid #A7F3D0",
-                    }}
-                  >
-                    <Typography
-                      sx={{
-                        fontSize: "0.7rem",
-                        fontWeight: 700,
-                        color: "#047857",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      Central Government DBT Subsidy
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: "1.3rem",
-                        fontWeight: 900,
-                        color: "#065F46",
-                        mt: 0.2,
-                      }}
-                    >
-                      ₹78,000 (Direct to Bank)
-                    </Typography>
-                    <Typography
-                      sx={{ fontSize: "0.72rem", color: "#047857", mt: 0.3 }}
-                    >
-                      Transferred directly to consumer's Aadhaar-linked bank account
-                    </Typography>
-                  </Box>
+                  {(() => {
+                    const capacityVal = parseFloat(projectInfo?.capacity || lead?.system_capacity || lead?.capacity_kw || 5.45);
+                    const dbtAmount = capacityVal <= 1 ? 30000 : capacityVal <= 2 ? 60000 : 78000;
+                    return (
+                      <Box
+                        sx={{
+                          p: 2,
+                          borderRadius: "12px",
+                          backgroundColor: "#ECFDF5",
+                          border: "1px solid #A7F3D0",
+                        }}
+                      >
+                        <Stack direction="row" alignItems="center" justifyContent="space-between">
+                          <Typography
+                            sx={{
+                              fontSize: "0.72rem",
+                              fontWeight: 800,
+                              color: "#047857",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.04em",
+                            }}
+                          >
+                            Central Government DBT Subsidy
+                          </Typography>
+                          <Chip
+                            label={`${capacityVal} kW Solar Array`}
+                            size="small"
+                            sx={{
+                              height: 22,
+                              fontSize: "0.68rem",
+                              fontWeight: 700,
+                              backgroundColor: "#D1FAE5",
+                              color: "#065F46",
+                            }}
+                          />
+                        </Stack>
+                        <Typography
+                          sx={{
+                            fontSize: "1.45rem",
+                            fontWeight: 900,
+                            color: "#065F46",
+                            mt: 0.5,
+                          }}
+                        >
+                          ₹{dbtAmount.toLocaleString("en-IN")} <span style={{ fontSize: "0.82rem", fontWeight: 700 }}>(Direct to Bank)</span>
+                        </Typography>
+                        <Typography
+                          sx={{ fontSize: "0.74rem", color: "#047857", mt: 0.5, lineHeight: 1.4 }}
+                        >
+                          Transferred directly to consumer's Aadhaar-linked bank account upon commissioning & bi-directional meter synchronization.
+                        </Typography>
+                      </Box>
+                    );
+                  })()}
 
-                  {/* Dates */}
-                  <Grid container spacing={1.5}>
+                  {/* Dates with Generous Spacing and Outside Labels */}
+                  <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
                       <Typography
                         sx={{
-                          fontSize: "0.75rem",
+                          fontSize: "0.76rem",
                           fontWeight: 700,
                           color: COLORS.textPrimary,
-                          mb: 0.5,
+                          mb: 0.6,
                         }}
                       >
                         Submission Date
@@ -864,7 +938,6 @@ export default function SubsidyDetail() {
                             submission_date: e.target.value,
                           }))
                         }
-                        InputLabelProps={{ shrink: true }}
                         sx={{
                           "& .MuiOutlinedInput-root": {
                             borderRadius: "8px",
@@ -877,10 +950,10 @@ export default function SubsidyDetail() {
                     <Grid item xs={12} sm={6}>
                       <Typography
                         sx={{
-                          fontSize: "0.75rem",
+                          fontSize: "0.76rem",
                           fontWeight: 700,
                           color: COLORS.textPrimary,
-                          mb: 0.5,
+                          mb: 0.6,
                         }}
                       >
                         Approval Date
@@ -896,7 +969,6 @@ export default function SubsidyDetail() {
                             approval_date: e.target.value,
                           }))
                         }
-                        InputLabelProps={{ shrink: true }}
                         sx={{
                           "& .MuiOutlinedInput-root": {
                             borderRadius: "8px",
@@ -907,14 +979,14 @@ export default function SubsidyDetail() {
                     </Grid>
                   </Grid>
 
-                  {/* Portal Remarks / Notes */}
+                  {/* Portal Remarks / Notes - TALL MULTI-LINE */}
                   <Box>
                     <Typography
                       sx={{
-                        fontSize: "0.75rem",
+                        fontSize: "0.76rem",
                         fontWeight: 700,
                         color: COLORS.textPrimary,
-                        mb: 0.5,
+                        mb: 0.6,
                       }}
                     >
                       Portal Remarks & Notes
@@ -922,8 +994,8 @@ export default function SubsidyDetail() {
                     <TextField
                       fullWidth
                       multiline
-                      rows={3}
-                      placeholder="Remarks from DISCOM portal, inspection officer notes..."
+                      rows={4}
+                      placeholder="Remarks from DISCOM portal, inspection officer notes, meter replacement tracking..."
                       value={formData.portal_notes}
                       onChange={(e) =>
                         setFormData((p) => ({
@@ -935,6 +1007,8 @@ export default function SubsidyDetail() {
                         "& .MuiOutlinedInput-root": {
                           borderRadius: "8px",
                           fontSize: "0.82rem",
+                          minHeight: "100px",
+                          alignItems: "flex-start",
                         },
                       }}
                     />
@@ -949,11 +1023,11 @@ export default function SubsidyDetail() {
                     onClick={handleSaveApplication}
                     disabled={saving}
                     sx={{
-                      height: 42,
+                      height: 44,
                       borderRadius: "8px",
                       textTransform: "none",
-                      fontWeight: 700,
-                      fontSize: "0.85rem",
+                      fontWeight: 800,
+                      fontSize: "0.88rem",
                       backgroundColor: COLORS.primary,
                       color: "#FFFFFF",
                       "&:hover": { backgroundColor: "#020617" },
@@ -961,6 +1035,78 @@ export default function SubsidyDetail() {
                   >
                     {saving ? "Saving Details..." : "Save Application Details"}
                   </Button>
+
+                  {/* WHERE DOES THIS DATA GO / PORTAL INTEGRATION STATUS */}
+                  <Box
+                    sx={{
+                      mt: 1,
+                      p: 2,
+                      borderRadius: "10px",
+                      backgroundColor: "#F8FAFC",
+                      border: `1px solid ${COLORS.border}`,
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 1.2 }}>
+                      <AccountBalanceOutlinedIcon sx={{ fontSize: 18, color: COLORS.secondary }} />
+                      <Typography sx={{ fontSize: "0.78rem", fontWeight: 800, color: COLORS.primaryDark }}>
+                        Where Does This Data Go & Operational Flow
+                      </Typography>
+                    </Stack>
+
+                    <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mb: 1.5, lineHeight: 1.5 }}>
+                      Saving this record registers and synchronizes your solar installation across national & DISCOM databases:
+                    </Typography>
+
+                    <Stack spacing={1}>
+                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+                        <CheckCircleOutlinedIcon sx={{ fontSize: 15, color: "#10B981", mt: "2px", flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: "0.72rem", color: COLORS.textPrimary }}>
+                          <strong>1. National Portal Database:</strong> Mapped to PM Surya Ghar portal under Consumer No. <code>{formData.consumer_number || "Pending"}</code>.
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+                        <CheckCircleOutlinedIcon sx={{ fontSize: 15, color: "#10B981", mt: "2px", flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: "0.72rem", color: COLORS.textPrimary }}>
+                          <strong>2. Project Execution Sync:</strong> Connected to Project Stepper (Stage 2: DISCOM Feasibility & Stage 9: Subsidy Disbursement).
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+                        <CheckCircleOutlinedIcon sx={{ fontSize: 15, color: "#10B981", mt: "2px", flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: "0.72rem", color: COLORS.textPrimary }}>
+                          <strong>3. DBT Direct Benefit Transfer:</strong> Central subsidy credited directly to consumer's Aadhaar bank account upon DISCOM inspection & net metering.
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+                        <CheckCircleOutlinedIcon sx={{ fontSize: 15, color: "#10B981", mt: "2px", flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: "0.72rem", color: COLORS.textPrimary }}>
+                          <strong>4. Customer Audit History:</strong> All changes, documents, and inspection notes permanently archived in the customer's timeline.
+                        </Typography>
+                      </Box>
+                    </Stack>
+
+                    {projectInfo && (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
+                        onClick={() => navigate(`/projects/${projectInfo.id}`)}
+                        sx={{
+                          mt: 1.8,
+                          borderRadius: "6px",
+                          textTransform: "none",
+                          fontSize: "0.74rem",
+                          fontWeight: 700,
+                          borderColor: COLORS.border,
+                          color: COLORS.primary,
+                        }}
+                      >
+                        Open Linked Project: {projectInfo.number} ({projectInfo.stage})
+                      </Button>
+                    )}
+                  </Box>
                 </Stack>
               </Paper>
             </Grid>
@@ -1218,6 +1364,27 @@ export default function SubsidyDetail() {
                               />
                             </Button>
 
+                            {/* Camera Capture Button */}
+                            <Button
+                              variant="contained"
+                              size="small"
+                              startIcon={<PhotoCameraIcon sx={{ fontSize: 14 }} />}
+                              disabled={isUploading}
+                              onClick={() => handleOpenCapture(docDef.type, docDef.label)}
+                              sx={{
+                                height: 30,
+                                borderRadius: "6px",
+                                textTransform: "none",
+                                fontSize: "0.74rem",
+                                fontWeight: 700,
+                                backgroundColor: COLORS.secondary,
+                                color: "#FFFFFF",
+                                "&:hover": { backgroundColor: "#D97706" },
+                              }}
+                            >
+                              Capture
+                            </Button>
+
                             {/* Verification Actions (Verify / Reject) */}
                             {uploaded && isPending && (
                               <Stack direction="row" gap={0.5}>
@@ -1299,7 +1466,74 @@ export default function SubsidyDetail() {
             </Grid>
           </Grid>
         )}
+
+        {/* SECTION 4: PORTAL AUDIT TRAIL & SYSTEM TRANSITIONS */}
+        <Paper
+          elevation={0}
+          sx={{
+            mt: 3,
+            p: 2.5,
+            borderRadius: "14px",
+            border: `1px solid ${COLORS.border}`,
+            backgroundColor: COLORS.card,
+          }}
+        >
+          <Stack direction="row" alignItems="center" gap={1.2} sx={{ mb: 2 }}>
+            <HistoryIcon sx={{ color: COLORS.secondary, fontSize: 20 }} />
+            <Typography sx={{ fontWeight: 800, fontSize: "0.95rem", color: COLORS.primaryDark }}>
+              National Portal Updates & Verification Audit History
+            </Typography>
+          </Stack>
+
+          {portalLogs.length === 0 ? (
+            <Box sx={{ p: 2, textAlign: "center", backgroundColor: "#F8FAFC", borderRadius: "10px", border: `1px dashed ${COLORS.border}` }}>
+              <Typography sx={{ fontSize: "0.8rem", color: COLORS.textMuted }}>
+                No portal transitions logged yet. Any updates to Consumer No, PM Surya Ghar App No, or Portal Status will be permanently recorded here.
+              </Typography>
+            </Box>
+          ) : (
+            <Stack spacing={1.5}>
+              {portalLogs.map((log, idx) => (
+                <Box
+                  key={log.id || idx}
+                  sx={{
+                    p: 1.6,
+                    borderRadius: "8px",
+                    backgroundColor: "#F8FAFC",
+                    border: `1px solid ${COLORS.border}`,
+                    display: "flex",
+                    flexDirection: { xs: "column", sm: "row" },
+                    justifyContent: "space-between",
+                    alignItems: { xs: "flex-start", sm: "center" },
+                    gap: 1,
+                  }}
+                >
+                  <Box>
+                    <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: COLORS.primaryDark }}>
+                      {log.action_type || "Portal Update"} &bull; <span style={{ color: COLORS.secondary }}>{log.new_value}</span>
+                    </Typography>
+                    <Typography sx={{ fontSize: "0.74rem", color: COLORS.textSecondary, mt: 0.3 }}>
+                      {log.remark}
+                    </Typography>
+                  </Box>
+                  <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted, whiteSpace: "nowrap" }}>
+                    {log.created_at ? new Date(log.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "Recently"}
+                  </Typography>
+                </Box>
+              ))}
+            </Stack>
+          )}
+        </Paper>
       </Box>
+
+      {/* DOCUMENT CAMERA CAPTURE MODAL */}
+      <DocumentCaptureModal
+        open={captureModalOpen}
+        onClose={() => setCaptureModalOpen(false)}
+        onCapture={handleCaptureSuccess}
+        documentType={captureDocType}
+        documentLabel={captureDocLabel}
+      />
 
       {/* REJECTION REASON DIALOG */}
       <Dialog
