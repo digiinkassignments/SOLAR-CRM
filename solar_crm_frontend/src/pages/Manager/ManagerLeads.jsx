@@ -521,6 +521,7 @@ export default function ManagerLeads() {
   const resetForm = useCallback(() => {
     setSelectedLead(null);
     setFormData(INITIAL_FORM_STATE);
+    setCustomValues({});
     setFormErrors({});
     const rajState = indianStates.find((s) => s.name === "Rajasthan");
     setCityOptions(rajState ? City.getCitiesOfState("IN", rajState.isoCode) : []);
@@ -661,8 +662,8 @@ export default function ManagerLeads() {
 
       setSaving(true);
       try {
-        if (selectedLead) await updateLead(selectedLead.id, formData);
-        else await createLead(formData);
+        if (selectedLead) await updateLead(selectedLead.id, { ...formData, custom_fields: customValues });
+        else await createLead({ ...formData, custom_fields: customValues });
         showSnackbar(selectedLead ? "Lead updated successfully." : "Lead created successfully.");
         setFormDialogOpen(false);
         resetForm();

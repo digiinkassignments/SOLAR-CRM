@@ -187,6 +187,7 @@ const INITIAL_FORM_STATE = {
   quotation_amount: "",
   dob: "",
   anniversary_date: "",
+  custom_fields: {},
 };
 
 const INITIAL_FILTERS = {
@@ -728,6 +729,23 @@ export default function Leads() {
   const [dynamicStatuses, setDynamicStatuses] = useState(STATUS_OPTIONS);
   const [statusColorMap, setStatusColorMap] = useState({});
 
+  // Dynamic Custom Form Fields (From Admin Settings)
+  const [customFields, setCustomFields] = useState([]);
+
+  useEffect(() => {
+    const fetchCF = async () => {
+      try {
+        const res = await api.get("/custom-fields");
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          setCustomFields(res.data.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch custom fields:", err);
+      }
+    };
+    fetchCF();
+  }, []);
+
   // View Lead Modal Popup State (Centered Modal Popup)
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [viewLead, setViewLead] = useState(null);
@@ -1016,10 +1034,18 @@ export default function Leads() {
     }
   }, [location.search, openCreateDialog]);
 
-  const openEditDialog = useCallback((lead) => {
+  const openEditDialog = useCallback(async (lead) => {
     const target = lead || activeLead;
     if (!target) return;
     setSelectedLead(target);
+
+    let initialCustomFields = target.custom_fields || {};
+    try {
+      const details = await getLeadById(target.id);
+      if (details?.data?.custom_fields) {
+        initialCustomFields = details.data.custom_fields;
+      }
+    } catch (_) {}
     if (target.state) {
       const stateObj = indianStates.find((s) => s.name === target.state);
       setCityOptions(stateObj ? City.getCitiesOfState("IN", stateObj.isoCode) : []);
@@ -1049,6 +1075,7 @@ export default function Leads() {
       quotation_amount: target.quotation_amount || "",
       dob: target.dob ? target.dob.slice(0, 10) : "",
       anniversary_date: target.anniversary_date ? target.anniversary_date.slice(0, 10) : "",
+      custom_fields: initialCustomFields,
     });
     setFormErrors({});
     setDuplicateWarning(null);
@@ -1092,9 +1119,18 @@ export default function Leads() {
       errors.email = "Enter valid email address";
     }
 
+    customFields.forEach((cf) => {
+      if (cf.is_required) {
+        const val = formData.custom_fields?.[cf.id];
+        if (val === undefined || val === null || String(val).trim() === "") {
+          errors[`cf_${cf.id}`] = `${cf.field_name} is required`;
+        }
+      }
+    });
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
-  }, [formData]);
+  }, [formData, customFields]);
 
   const handleFormSubmit = useCallback(async () => {
     if (!validateForm()) return;
@@ -1106,6 +1142,7 @@ export default function Leads() {
       if (!payload.site_visit_date) delete payload.site_visit_date;
       if (!payload.dob) delete payload.dob;
       if (!payload.anniversary_date) delete payload.anniversary_date;
+      payload.custom_fields = formData.custom_fields || {};
 
       if (selectedLead) {
         await updateLead(selectedLead.id, payload);
@@ -2624,6 +2661,16 @@ export default function Leads() {
                   </Typography>
                 </Grid>
               )}
+              {Array.isArray(viewLead.custom_field_details) && viewLead.custom_field_details.length > 0 && (
+                viewLead.custom_field_details.map((cf, idx) => (
+                  <Grid item xs={6} key={idx}>
+                    <FieldLabel>{cf.field_name}</FieldLabel>
+                    <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: COLORS.textPrimary }}>
+                      {cf.value || "—"}
+                    </Typography>
+                  </Grid>
+                ))
+              )}
             </Grid>
 
             <Divider sx={{ my: 2 }} />
@@ -2851,6 +2898,65 @@ export default function Leads() {
                 <TextField fullWidth size="small" placeholder="Pincode" value={formData.pincode} onChange={(e) => handleFormFieldChange("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))} sx={controlSx} />
               </Grid>
             </Grid>
+
+            {/* ================= DYNAMIC CUSTOM FIELDS SECTION ================= */}
+            {customFields.length > 0 && (
+              <>
+                <Typography sx={{ fontSize: "0.72rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase", letterSpacing: "0.04em", pb: 0.5, borderBottom: `1px solid ${COLORS.border}`, mt: 2, mb: 1.5 }}>
+                  Custom Fields (Configured from Settings)
+                </Typography>
+                <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
+                  {customFields.map((field) => (
+                    <Grid item xs={12} sm={6} key={field.id}>
+                      <FieldLabel>{field.field_name}{field.is_required ? " *" : ""}</FieldLabel>
+                      {field.field_type === "dropdown" ? (
+                        <FormControl fullWidth size="small" error={Boolean(formErrors[`cf_${field.id}`])}>
+                          <Select
+                            value={formData.custom_fields?.[field.id] || ""}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                custom_fields: { ...prev.custom_fields, [field.id]: e.target.value },
+                              }))
+                            }
+                            displayEmpty
+                            sx={controlSx}
+                          >
+                            <MenuItem value="" disabled>Select {field.field_name}</MenuItem>
+                            {(Array.isArray(field.options) ? field.options : (field.options || "").split(",")).map((opt, idx) => {
+                              const val = typeof opt === "string" ? opt.trim() : String(opt);
+                              return val ? <MenuItem key={idx} value={val}>{val}</MenuItem> : null;
+                            })}
+                          </Select>
+                          {formErrors[`cf_${field.id}`] && (
+                            <FormHelperText error>{formErrors[`cf_${field.id}`]}</FormHelperText>
+                          )}
+                        </FormControl>
+                      ) : (
+                        <TextField
+                          fullWidth
+                          size="small"
+                          type={field.field_type === "number" ? "number" : field.field_type === "date" ? "date" : "text"}
+                          placeholder={`Enter ${field.field_name}`}
+                          value={formData.custom_fields?.[field.id] || ""}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              custom_fields: { ...prev.custom_fields, [field.id]: e.target.value },
+                            }))
+                          }
+                          slotProps={field.field_type === "date" ? { inputLabel: { shrink: true } } : undefined}
+                          InputLabelProps={field.field_type === "date" ? { shrink: true } : undefined}
+                          error={Boolean(formErrors[`cf_${field.id}`])}
+                          helperText={formErrors[`cf_${field.id}`]}
+                          sx={field.field_type === "date" ? dateControlSx : controlSx}
+                        />
+                      )}
+                    </Grid>
+                  ))}
+                </Grid>
+              </>
+            )}
 
             <Typography sx={{ fontSize: "0.72rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase", letterSpacing: "0.04em", pb: 0.5, borderBottom: `1px solid ${COLORS.border}`, mt: 1 }}>
               Solar System Specifications &amp; Assignment

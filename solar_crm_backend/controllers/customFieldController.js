@@ -1,9 +1,20 @@
 const getCustomFields = async (req, res) => {
   try {
     const [fields] = await req.db.query(
-      `SELECT * FROM custom_fields WHERE is_active = 1 ORDER BY sort_order ASC`
+      `SELECT * FROM custom_fields WHERE is_active = 1 ORDER BY sort_order ASC, id ASC`
     );
-    return res.status(200).json({ success: true, data: fields });
+    const parsed = fields.map((f) => {
+      let opts = f.options;
+      if (typeof opts === "string") {
+        try {
+          opts = JSON.parse(opts);
+        } catch {
+          opts = opts.split(",").map((s) => s.trim());
+        }
+      }
+      return { ...f, options: opts };
+    });
+    return res.status(200).json({ success: true, data: parsed });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

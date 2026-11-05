@@ -666,7 +666,7 @@ const SalesLeads = () => {
 
     try {
       setCreateSaving(true);
-      await createLead(createForm);
+      await createLead({ ...createForm, custom_fields: customValues });
       showNotification("Lead created and assigned to you.");
       setCreateDialogOpen(false);
       resetCreateForm();

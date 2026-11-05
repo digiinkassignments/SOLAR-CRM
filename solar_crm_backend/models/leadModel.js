@@ -118,6 +118,22 @@ const createLead = async (data, createdBy, db = defaultDb) => {
     }
   }
 
+  // 🎯 SAVE DYNAMIC CUSTOM FIELDS
+  if (data.custom_fields && typeof data.custom_fields === "object") {
+    for (const [fieldId, val] of Object.entries(data.custom_fields)) {
+      if (val !== null && val !== undefined && String(val).trim() !== "") {
+        try {
+          await db.query(
+            `INSERT INTO lead_custom_values (lead_id, field_id, value) VALUES (?, ?, ?)`,
+            [leadId, Number(fieldId), String(val).trim()]
+          );
+        } catch (cfErr) {
+          console.error("[createLead] Error saving custom field:", cfErr.message);
+        }
+      }
+    }
+  }
+
   return { id: leadId, lead_code: leadCode };
 };
 
@@ -254,6 +270,24 @@ const getLeadById = async (id, db = defaultDb) => {
     `,
     [id]
   );
+
+  if (rows && rows[0]) {
+    try {
+      const [customVals] = await db.query(
+        `SELECT lcv.field_id, lcv.value, cf.field_name, cf.field_type
+         FROM lead_custom_values lcv
+         JOIN custom_fields cf ON cf.id = lcv.field_id
+         WHERE lcv.lead_id = ?`,
+        [id]
+      );
+      rows[0].custom_fields = {};
+      customVals.forEach((cv) => {
+        rows[0].custom_fields[cv.field_id] = cv.value;
+      });
+      rows[0].custom_field_details = customVals;
+    } catch (_) {}
+  }
+
   return rows;
 };
 
@@ -447,6 +481,26 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
       await customerModel.createOrLinkCustomerFromLead(id, updatedBy, db);
     } catch (custErr) {
       console.error("[updateLead] Auto customer creation on Won error:", custErr);
+    }
+  }
+
+  // 🎯 SAVE/UPDATE DYNAMIC CUSTOM FIELDS
+  if (data.custom_fields && typeof data.custom_fields === "object") {
+    for (const [fieldId, val] of Object.entries(data.custom_fields)) {
+      try {
+        await db.query(
+          `DELETE FROM lead_custom_values WHERE lead_id = ? AND field_id = ?`,
+          [id, Number(fieldId)]
+        );
+        if (val !== null && val !== undefined && String(val).trim() !== "") {
+          await db.query(
+            `INSERT INTO lead_custom_values (lead_id, field_id, value) VALUES (?, ?, ?)`,
+            [id, Number(fieldId), String(val).trim()]
+          );
+        }
+      } catch (cfErr) {
+        console.error("[updateLead] Error updating custom field:", cfErr.message);
+      }
     }
   }
 
