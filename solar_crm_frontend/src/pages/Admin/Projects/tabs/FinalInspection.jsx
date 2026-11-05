@@ -1054,14 +1054,14 @@ export default function FinalInspection({ project, projectId }) {
 
                   {/* Inspection Date */}
                   <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                      Inspection Date *
+                    </Typography>
                     <TextField
                       fullWidth
                       size="small"
                       required
                       type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
-                      label="Inspection Date *"
                       value={formData.inspection_date}
                       onChange={(e) => handleInputChange("inspection_date", e.target.value)}
                       helperText="Conducted after commissioning completion"
@@ -1128,13 +1128,13 @@ export default function FinalInspection({ project, projectId }) {
 
                   {/* Re-Inspection Date */}
                   <Grid size={{ xs: 12, sm: 3 }}>
+                    <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                      Re-inspection Date
+                    </Typography>
                     <TextField
                       fullWidth
                       size="small"
                       type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
-                      label="Re-inspection Date"
                       value={formData.reinspection_date}
                       onChange={(e) => handleInputChange("reinspection_date", e.target.value)}
                     />
@@ -1142,19 +1142,25 @@ export default function FinalInspection({ project, projectId }) {
 
                   {/* Corrections Needed - TALL MULTI-LINE */}
                   <Grid size={12}>
+                    <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                      {isCorrectionsRequired ? "Corrections Needed (Rework Action Items) *" : "Corrections Needed"}
+                    </Typography>
                     <TextField
                       fullWidth
-                      size="small"
                       multiline
-                      minRows={3.5}
-                      InputLabelProps={{ shrink: true }}
-                      maxRows={6}
+                      rows={4}
                       required={isCorrectionsRequired}
-                      label={isCorrectionsRequired ? "Corrections Needed (Rework Action Items) *" : "Corrections Needed"}
                       placeholder="Specify punch list items: e.g. tighten clamp bolts on row 3, add conduit saddle near inverter ACDB, replace damaged DC label..."
                       value={formData.corrections_needed}
                       onChange={(e) => handleInputChange("corrections_needed", e.target.value)}
                       helperText={isCorrectionsRequired ? "Mandatory: detail required rectifications before final handover" : ""}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "8px",
+                          minHeight: "100px",
+                          alignItems: "flex-start",
+                        },
+                      }}
                     />
                   </Grid>
 
@@ -1172,18 +1178,23 @@ export default function FinalInspection({ project, projectId }) {
 
                   {/* Remarks - TALL MULTI-LINE */}
                   <Grid size={12}>
+                    <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                      General Audit Remarks & Engineering Evaluation
+                    </Typography>
                     <TextField
                       fullWidth
-                      size="small"
                       multiline
-                    slotProps={{ inputLabel: { shrink: true } }}
-                      minRows={3.5}
-                      InputLabelProps={{ shrink: true }}
-                      maxRows={6}
-                      label="General Audit Remarks & Engineering Evaluation"
+                      rows={4}
                       placeholder="Overall installation quality appraisal, rooftop civil conditions, client handover readiness..."
                       value={formData.remarks}
                       onChange={(e) => handleInputChange("remarks", e.target.value)}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "8px",
+                          minHeight: "100px",
+                          alignItems: "flex-start",
+                        },
+                      }}
                     />
                   </Grid>
                 </Grid>

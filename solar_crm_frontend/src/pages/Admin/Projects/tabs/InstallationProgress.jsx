@@ -1260,14 +1260,14 @@ export default function InstallationProgress({ project, projectId }) {
                 <Grid container spacing={2}>
                   {/* Log Date */}
                   <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                      Log Date *
+                    </Typography>
                     <TextField
                       fullWidth
                       size="small"
                       required
                       type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
-                      label="Log Date *"
                       value={formData.log_date}
                       onChange={(e) => handleInputChange("log_date", e.target.value)}
                     />
@@ -1349,21 +1349,24 @@ export default function InstallationProgress({ project, projectId }) {
 
               {/* SECTION B: WORK DONE TODAY */}
               <Box>
-                <Typography sx={{ fontSize: "0.75rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase", letterSpacing: "0.04em", mb: 1.5 }}>
+                <Typography sx={{ fontSize: "0.75rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase", letterSpacing: "0.04em", mb: 1 }}>
                   Work Done Today (Detailed Description) *
                 </Typography>
                 <TextField
                   fullWidth
                   required
-                  size="small"
                   multiline
-                  minRows={3.5}
-                  InputLabelProps={{ shrink: true }}
-                  maxRows={6}
-                  label="Work Done Today *"
+                  rows={4}
                   placeholder="Describe exact rooftop tasks: number of structure legs grouted, torque tightness checked, panels bolted, DC stringing, conduit piping, earthing pit excavation..."
                   value={formData.work_done}
                   onChange={(e) => handleInputChange("work_done", e.target.value)}
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "8px",
+                      minHeight: "100px",
+                      alignItems: "flex-start",
+                    },
+                  }}
                 />
               </Box>
 
@@ -1641,18 +1644,23 @@ export default function InstallationProgress({ project, projectId }) {
 
                   {/* Issues Faced */}
                   <Grid size={12}>
+                    <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                      Issues Faced / Field Roadblocks
+                    </Typography>
                     <TextField
                       fullWidth
-                      size="small"
                       multiline
-                    slotProps={{ inputLabel: { shrink: true } }}
-                      minRows={3}
-                      InputLabelProps={{ shrink: true }}
-                      maxRows={4}
-                      label="Issues Faced / Field Roadblocks"
+                      rows={4}
                       placeholder="e.g. Delayed panel crane lifting, parapet wall drilling issue, inverter breaker tripping..."
                       value={formData.issues_faced}
                       onChange={(e) => handleInputChange("issues_faced", e.target.value)}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "8px",
+                          minHeight: "100px",
+                          alignItems: "flex-start",
+                        },
+                      }}
                     />
                   </Grid>
                 </Grid>
@@ -1840,16 +1848,18 @@ export default function InstallationProgress({ project, projectId }) {
           <Typography sx={{ fontSize: "0.78rem", color: COLORS.textSecondary, mb: 2 }}>
             Specify the scheduled installation completion date before commencing rooftop work.
           </Typography>
-          <TextField
-            fullWidth
-            size="small"
-            type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
-            label="Target Completion Date"
-            value={newTargetDate}
-            onChange={(e) => setNewTargetDate(e.target.value)}
-          />
+          <Box>
+            <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+              Target Completion Date
+            </Typography>
+            <TextField
+              fullWidth
+              size="small"
+              type="date"
+              value={newTargetDate}
+              onChange={(e) => setNewTargetDate(e.target.value)}
+            />
+          </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setDateDialogOpen(false)} disabled={savingDate} sx={{ textTransform: "none" }}>

@@ -1057,18 +1057,23 @@ export default function PreInstallInspection({ project, projectId }) {
 
                 {/* Structural Concerns - TALL MULTI-LINE */}
                 <Grid size={{ xs: 12 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    Structural Concerns & Rooftop Observations
+                  </Typography>
                   <TextField
                     fullWidth
-                    size="small"
                     multiline
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    minRows={3.5}
-                    maxRows={8}
-                    InputLabelProps={{ shrink: true }}
-                    label="Structural Concerns"
+                    rows={4}
                     placeholder="Waterproofing status, crack formations, parapet height, structural load capacity observations..."
                     value={formData.structural_concerns}
                     onChange={(e) => handleInputChange("structural_concerns", e.target.value)}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "8px",
+                        minHeight: "100px",
+                        alignItems: "flex-start",
+                      },
+                    }}
                   />
                 </Grid>
               </Grid>
@@ -1194,19 +1199,24 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Electrical Issues - TALL MULTI-LINE */}
-                <Grid size={12}>
+                <Grid size={{ xs: 12 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    Electrical Issues & Grid Notes
+                  </Typography>
                   <TextField
                     fullWidth
-                    size="small"
                     multiline
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    minRows={3.5}
-                    InputLabelProps={{ shrink: true }}
-                    maxRows={6}
-                    label="Electrical Issues & Notes"
+                    rows={4}
                     placeholder="Voltage fluctuation history, distance from LT transformer, wiring quality, cable route distance to inverter..."
                     value={formData.electrical_issues}
                     onChange={(e) => handleInputChange("electrical_issues", e.target.value)}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "8px",
+                        minHeight: "100px",
+                        alignItems: "flex-start",
+                      },
+                    }}
                   />
                 </Grid>
               </Grid>
@@ -1361,19 +1371,24 @@ export default function PreInstallInspection({ project, projectId }) {
                 </Grid>
 
                 {/* Additional Challenges - TALL MULTI-LINE */}
-                <Grid size={12}>
+                <Grid size={{ xs: 12 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    Additional Challenges & Logistics Notes
+                  </Typography>
                   <TextField
                     fullWidth
-                    size="small"
                     multiline
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    minRows={3.5}
-                    InputLabelProps={{ shrink: true }}
-                    maxRows={6}
-                    label="Additional Challenges"
+                    rows={4}
                     placeholder="Narrow staircase for lifting solar panels, crane required, high wind zone, animal nuisance..."
                     value={formData.additional_challenges}
                     onChange={(e) => handleInputChange("additional_challenges", e.target.value)}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "8px",
+                        minHeight: "100px",
+                        alignItems: "flex-start",
+                      },
+                    }}
                   />
                 </Grid>
               </Grid>
@@ -1433,14 +1448,14 @@ export default function PreInstallInspection({ project, projectId }) {
 
                 {/* Inspection Date * MANDATORY */}
                 <Grid size={{ xs: 12, sm: 4 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    Inspection Date *
+                  </Typography>
                   <TextField
                     fullWidth
                     size="small"
                     required
                     type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
-                    label="Inspection Date *"
                     value={formData.inspection_date}
                     onChange={(e) => handleInputChange("inspection_date", e.target.value)}
                   />
@@ -1448,10 +1463,12 @@ export default function PreInstallInspection({ project, projectId }) {
 
                 {/* Customer Sign-off Name */}
                 <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    Customer / Representative Sign-Off
+                  </Typography>
                   <TextField
                     fullWidth
                     size="small"
-                    label="Customer / Representative Sign-Off"
                     placeholder="Name of homeowner or site manager present"
                     value={formData.customer_signature_name}
                     onChange={(e) => handleInputChange("customer_signature_name", e.target.value)}
@@ -1460,31 +1477,37 @@ export default function PreInstallInspection({ project, projectId }) {
 
                 {/* Sign-off Date */}
                 <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    Sign-Off Date
+                  </Typography>
                   <TextField
                     fullWidth
                     size="small"
                     type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
-                    label="Sign-Off Date"
                     value={formData.signature_date}
                     onChange={(e) => handleInputChange("signature_date", e.target.value)}
                   />
                 </Grid>
 
                 {/* Remarks - TALL MULTI-LINE */}
-                <Grid size={12}>
+                <Grid size={{ xs: 12 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    Remarks & Feasibility Recommendations
+                  </Typography>
                   <TextField
                     fullWidth
-                    size="small"
                     multiline
-                    minRows={3.5}
-                    InputLabelProps={{ shrink: true }}
-                    maxRows={6}
-                    label="Remarks & Feasibility Recommendations"
+                    rows={4}
                     placeholder="Key observations, BOM recommendations, structure height recommendations, condition clauses..."
                     value={formData.remarks}
                     onChange={(e) => handleInputChange("remarks", e.target.value)}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "8px",
+                        minHeight: "100px",
+                        alignItems: "flex-start",
+                      },
+                    }}
                   />
                 </Grid>
               </Grid>

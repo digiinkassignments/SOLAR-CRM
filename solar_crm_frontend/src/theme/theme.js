@@ -133,8 +133,8 @@ const theme = createTheme({
           },
           "&.MuiInputBase-multiline": {
             height: "auto",
-            minHeight: 88,
-            padding: "10px 14px",
+            minHeight: 100,
+            padding: "12px 14px",
             alignItems: "flex-start",
           },
           "& fieldset": {
@@ -155,7 +155,7 @@ const theme = createTheme({
           padding: "10px 14px",
           "&.MuiInputBase-inputMultiline": {
             padding: 0,
-            lineHeight: 1.5,
+            lineHeight: 1.6,
           },
         },
       },
@@ -173,8 +173,9 @@ const theme = createTheme({
         },
         shrink: {
           backgroundColor: "#FFFFFF",
-          padding: "0 4px",
-          borderRadius: 2,
+          padding: "0 6px",
+          borderRadius: 3,
+          zIndex: 5,
         },
       },
     },

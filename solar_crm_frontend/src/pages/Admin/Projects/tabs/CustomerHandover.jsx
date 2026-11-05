@@ -1181,14 +1181,14 @@ export default function CustomerHandover({ project, projectId }) {
               </Typography>
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 4 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    Customer Handover Date *
+                  </Typography>
                   <TextField
                     fullWidth
                     size="small"
                     type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
                     required
-                    label="Customer Handover Date *"
                     value={formData.handover_date}
                     helperText={`Final Inspection was on ${formatDate(finalInspectionDate)}`}
                     onChange={(e) => handleHandoverDateChange(e.target.value)}
@@ -1196,14 +1196,14 @@ export default function CustomerHandover({ project, projectId }) {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 4 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    Warranty Start Date *
+                  </Typography>
                   <TextField
                     fullWidth
                     size="small"
                     type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
                     required
-                    label="Warranty Start Date *"
                     value={formData.warranty_start_date}
                     helperText="Must be on or after Handover Date"
                     onChange={(e) => handleWarrantyStartDateChange(e.target.value)}
@@ -1211,13 +1211,13 @@ export default function CustomerHandover({ project, projectId }) {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 4 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    1st Routine Service Date
+                  </Typography>
                   <TextField
                     fullWidth
                     size="small"
                     type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
-                    label="1st Routine Service Date"
                     value={formData.first_service_due_date}
                     helperText="Auto 90 days after Handover"
                     onChange={(e) => setFormData({ ...formData, first_service_due_date: e.target.value })}
@@ -1603,31 +1603,44 @@ export default function CustomerHandover({ project, projectId }) {
                 </Grid>
 
                 <Grid size={{ xs: 12 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    Customer Feedback / Testimonial *
+                  </Typography>
                   <TextField
                     fullWidth
-                    size="small"
                     multiline
-                    minRows={3.5}
-                    InputLabelProps={{ shrink: true }}
-                    label="Customer Feedback / Testimonial *"
+                    rows={4}
                     placeholder="Record customer experience, feedback on crew timeliness, quality, etc."
                     value={formData.customer_feedback}
                     onChange={(e) => setFormData({ ...formData, customer_feedback: e.target.value })}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "8px",
+                        minHeight: "100px",
+                        alignItems: "flex-start",
+                      },
+                    }}
                   />
                 </Grid>
 
                 <Grid size={12}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    Supervisor Handover Remarks
+                  </Typography>
                   <TextField
                     fullWidth
-                    size="small"
                     multiline
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    minRows={3.5}
-                    InputLabelProps={{ shrink: true }}
-                    label="Supervisor Handover Remarks"
+                    rows={4}
                     placeholder="Internal audit notes, spare parts left on site, client special requests..."
                     value={formData.remarks}
                     onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        borderRadius: "8px",
+                        minHeight: "100px",
+                        alignItems: "flex-start",
+                      },
+                    }}
                   />
                 </Grid>
               </Grid>

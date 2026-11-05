@@ -1067,14 +1067,14 @@ export default function WarrantyAMC({ project, projectId }) {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 4 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    Warranty Start Date *
+                  </Typography>
                   <TextField
                     fullWidth
                     size="small"
                     type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
                     required
-                    label="Warranty Start Date *"
                     value={warrantyForm.warranty_start_date}
                     helperText="Starts on Handover Date (12 Nov 2026)"
                     onChange={(e) => handleWarrantyStartDateChange(e.target.value)}
@@ -1082,14 +1082,14 @@ export default function WarrantyAMC({ project, projectId }) {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 4 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    Free 1st-Year Service Ends *
+                  </Typography>
                   <TextField
                     fullWidth
                     size="small"
                     type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
                     required
-                    label="Free 1st-Year Service Ends *"
                     value={warrantyForm.free_service_end_date}
                     helperText="1 Year from Handover (11 Nov 2027)"
                     onChange={(e) => setWarrantyForm({ ...warrantyForm, free_service_end_date: e.target.value })}
@@ -1219,14 +1219,14 @@ export default function WarrantyAMC({ project, projectId }) {
               </Typography>
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 4 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    AMC Start Date *
+                  </Typography>
                   <TextField
                     fullWidth
                     size="small"
                     type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
                     required
-                    label="AMC Start Date *"
                     value={warrantyForm.amc_start_date}
                     helperText="Starts day after free service ends"
                     onChange={(e) => handleAmcStartDateChange(e.target.value)}
@@ -1234,14 +1234,14 @@ export default function WarrantyAMC({ project, projectId }) {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 4 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    AMC End Date *
+                  </Typography>
                   <TextField
                     fullWidth
                     size="small"
                     type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
                     required
-                    label="AMC End Date *"
                     value={warrantyForm.amc_end_date}
                     helperText="Auto calculated 1 year"
                     onChange={(e) => setWarrantyForm({ ...warrantyForm, amc_end_date: e.target.value })}
@@ -1249,13 +1249,13 @@ export default function WarrantyAMC({ project, projectId }) {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 4 }}>
+                  <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                    Next AMC Renewal Date *
+                  </Typography>
                   <TextField
                     fullWidth
                     size="small"
                     type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
-                    label="Next AMC Renewal Date *"
                     value={warrantyForm.amc_renewal_date}
                     onChange={(e) => setWarrantyForm({ ...warrantyForm, amc_renewal_date: e.target.value })}
                   />
@@ -1434,17 +1434,19 @@ export default function WarrantyAMC({ project, projectId }) {
 
         <DialogContent dividers sx={{ borderColor: COLORS.border, py: 2.5 }}>
           <Stack spacing={2.5}>
-            <TextField
-              fullWidth
-              size="small"
-              type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
-              required
-              label="Visit Date *"
-              value={newVisitForm.visit_date}
-              onChange={(e) => setNewVisitForm({ ...newVisitForm, visit_date: e.target.value })}
-            />
+            <Box>
+              <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                Visit Date *
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                type="date"
+                required
+                value={newVisitForm.visit_date}
+                onChange={(e) => setNewVisitForm({ ...newVisitForm, visit_date: e.target.value })}
+              />
+            </Box>
 
             <TextField
               fullWidth
@@ -1454,28 +1456,47 @@ export default function WarrantyAMC({ project, projectId }) {
               onChange={(e) => setNewVisitForm({ ...newVisitForm, technician: e.target.value })}
             />
 
-            <TextField
-              fullWidth
-              size="small"
-              multiline
-              minRows={3}
-              InputLabelProps={{ shrink: true }}
-              label="Issue Reported / Scope of Work *"
-              value={newVisitForm.issue_reported}
-              onChange={(e) => setNewVisitForm({ ...newVisitForm, issue_reported: e.target.value })}
-            />
+            <Box>
+              <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                Issue Reported / Scope of Work *
+              </Typography>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                placeholder="Describe issue reported or maintenance scope..."
+                value={newVisitForm.issue_reported}
+                onChange={(e) => setNewVisitForm({ ...newVisitForm, issue_reported: e.target.value })}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "8px",
+                    minHeight: "80px",
+                    alignItems: "flex-start",
+                  },
+                }}
+              />
+            </Box>
 
-            <TextField
-              fullWidth
-              size="small"
-              multiline
-                    slotProps={{ inputLabel: { shrink: true } }}
-              minRows={3}
-              InputLabelProps={{ shrink: true }}
-              label="Action Taken / Resolution *"
-              value={newVisitForm.resolution}
-              onChange={(e) => setNewVisitForm({ ...newVisitForm, resolution: e.target.value })}
-            />
+            <Box>
+              <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                Action Taken / Resolution *
+              </Typography>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                placeholder="Describe rectifications performed, parts replaced, or inspection findings..."
+                value={newVisitForm.resolution}
+                onChange={(e) => setNewVisitForm({ ...newVisitForm, resolution: e.target.value })}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "8px",
+                    minHeight: "80px",
+                    alignItems: "flex-start",
+                  },
+                }}
+              />
+            </Box>
 
             <FormControl fullWidth size="small">
               <InputLabel id="visit-status-label">Visit Status *</InputLabel>

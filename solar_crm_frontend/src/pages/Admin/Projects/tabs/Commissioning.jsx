@@ -1171,14 +1171,14 @@ export default function Commissioning({ project, projectId }) {
 
                   {/* Commissioning Date */}
                   <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                      Commissioning Date *
+                    </Typography>
                     <TextField
                       fullWidth
                       size="small"
                       required
                       type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
-                      label="Commissioning Date *"
                       value={formData.commission_date}
                       onChange={(e) => handleInputChange("commission_date", e.target.value)}
                       helperText="Must be on or after installation finish date"
@@ -1251,18 +1251,24 @@ export default function Commissioning({ project, projectId }) {
                   </Grid>
 
                   {/* TALL Multi-Line Remarks */}
-                  <Grid size={12}>
+                  <Grid size={{ xs: 12 }}>
+                    <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
+                      Commissioning Remarks & Engineering Observations
+                    </Typography>
                     <TextField
                       fullWidth
-                      size="small"
                       multiline
-                      minRows={3.5}
-                      InputLabelProps={{ shrink: true }}
-                      maxRows={6}
-                      label="Commissioning Remarks & Engineering Observations"
+                      rows={4}
                       placeholder="Observations on grid voltage harmonics, inverter synchronization time, anti-islanding test result, customer briefing notes..."
                       value={formData.remarks}
                       onChange={(e) => handleInputChange("remarks", e.target.value)}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          borderRadius: "8px",
+                          minHeight: "100px",
+                          alignItems: "flex-start",
+                        },
+                      }}
                     />
                   </Grid>
                 </Grid>

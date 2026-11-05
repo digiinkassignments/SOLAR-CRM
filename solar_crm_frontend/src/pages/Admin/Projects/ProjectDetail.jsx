@@ -1304,14 +1304,18 @@ export default function ProjectDetail() {
               </Typography>
               <TextField
                 fullWidth
-                size="small"
                 multiline
-                    slotProps={{ inputLabel: { shrink: true } }}
-                minRows={3.5}
-                InputLabelProps={{ shrink: true }}
+                rows={4}
                 placeholder="Reason for change, approvals received, or milestone status..."
                 value={stageNotes}
                 onChange={(e) => setStageNotes(e.target.value)}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "8px",
+                    minHeight: "100px",
+                    alignItems: "flex-start",
+                  },
+                }}
               />
             </Box>
           </DialogContent>
@@ -1549,8 +1553,7 @@ export default function ProjectDetail() {
                       fullWidth
                       size="small"
                       type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
+                      InputLabelProps={{ shrink: true }}
                       label="Install Start Date"
                       value={editFormData.installation_start_date}
                       onChange={(e) =>
@@ -1567,8 +1570,7 @@ export default function ProjectDetail() {
                       fullWidth
                       size="small"
                       type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
+                      InputLabelProps={{ shrink: true }}
                       label="Install End Date"
                       value={editFormData.installation_end_date}
                       onChange={(e) =>
@@ -1585,8 +1587,7 @@ export default function ProjectDetail() {
                       fullWidth
                       size="small"
                       type="date"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    InputLabelProps={{ shrink: true }}
+                      InputLabelProps={{ shrink: true }}
                       label="Actual Handover Date"
                       value={editFormData.completion_date}
                       onChange={(e) =>
@@ -1618,16 +1619,20 @@ export default function ProjectDetail() {
                 </Typography>
                 <TextField
                   fullWidth
-                  size="small"
                   multiline
-                  minRows={3.5}
-                  InputLabelProps={{ shrink: true }}
-                  label="Notes"
+                  rows={4}
                   placeholder="Installation notes, customer requests, or site hurdles..."
                   value={editFormData.notes}
                   onChange={(e) =>
                     setEditFormData({ ...editFormData, notes: e.target.value })
                   }
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      borderRadius: "8px",
+                      minHeight: "100px",
+                      alignItems: "flex-start",
+                    },
+                  }}
                 />
               </Box>
             </Stack>
