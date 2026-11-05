@@ -199,7 +199,14 @@ export default function FinalInspection({ project, projectId }) {
         headers: getAuthHeader(),
       });
       const raw = res.data;
-      const data = raw?.inspection !== undefined ? raw.inspection : (raw?.data !== undefined ? raw.data : raw);
+      const data =
+        raw?.finalInspection !== undefined
+          ? raw.finalInspection
+          : raw?.inspection !== undefined
+          ? raw.inspection
+          : raw?.data !== undefined
+          ? raw.data
+          : raw;
 
       if (data && (data.id || data.project_id || data.inspection_status)) {
         setInspection(data);
@@ -441,10 +448,19 @@ export default function FinalInspection({ project, projectId }) {
         rework_status: hasFailedCheck && formData.rework_status === "Not Applicable" ? "Open / In-Progress" : formData.rework_status,
       };
 
+      let saveRes;
       if (inspection && inspection.id) {
-        await axios.put(url, payload, { headers: getAuthHeader() });
+        saveRes = await axios.put(url, payload, { headers: getAuthHeader() });
       } else {
-        await axios.post(url, payload, { headers: getAuthHeader() });
+        saveRes = await axios.post(url, payload, { headers: getAuthHeader() });
+      }
+
+      const savedData =
+        saveRes?.data?.finalInspection ||
+        saveRes?.data?.inspection ||
+        saveRes?.data?.data;
+      if (savedData && (savedData.id || savedData.project_id)) {
+        setInspection(savedData);
       }
 
       showSnackbar("Final QA Inspection saved successfully!", "success");
