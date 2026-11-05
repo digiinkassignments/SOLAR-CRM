@@ -36,3 +36,4 @@ npm run build
 
 echo "=== [4. VERIFYING PM2 STATUS] ==="
 pm2 status solar-crm-backend
+

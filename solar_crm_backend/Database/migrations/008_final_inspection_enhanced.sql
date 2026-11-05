@@ -6,3 +6,4 @@ ALTER TABLE project_final_inspection
   MODIFY COLUMN inspector_type VARCHAR(60) DEFAULT 'Internal QA / QC';
 
 -- Columns added safely across tenant DBs via add_final_inspection_cols.sh
+
