@@ -22,8 +22,11 @@ import {
   Divider,
   Chip,
   CircularProgress,
-  Snackbar,
+  IconButton,
+  Tooltip,
   Alert,
+  FormHelperText,
+  InputAdornment,
 } from "@mui/material";
 
 // Icons from @mui/icons-material
@@ -35,6 +38,13 @@ import HomeRepairServiceIcon from "@mui/icons-material/HomeRepairService";
 import ElectricBoltIcon from "@mui/icons-material/ElectricBolt";
 import WbSunnyIcon from "@mui/icons-material/WbSunny";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
+import MyLocationIcon from "@mui/icons-material/MyLocation";
+import CloseIcon from "@mui/icons-material/Close";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import AddPhotoAlternateOutlinedIcon from "@mui/icons-material/AddPhotoAlternateOutlined";
+import ExploreOutlinedIcon from "@mui/icons-material/ExploreOutlined";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import PersonIcon from "@mui/icons-material/Person";
 
 // Design Palette
 const COLORS = {
@@ -46,8 +56,25 @@ const COLORS = {
   bg: "#F8FAFC",
   cardBg: "#FFFFFF",
   border: "#E2E8F0",
-  textPrimary: "#1E293B",
-  textSecondary: "#64748B",
+  textPrimary: "#0F172A",
+  textSecondary: "#475569",
+  textMuted: "#94A3B8",
+};
+
+// Date Formatter: "04 Nov 2026"
+const formatCleanDate = (dateVal) => {
+  if (!dateVal) return "—";
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "—";
+  }
 };
 
 // Custom lightweight hook for snackbar alerts
@@ -69,41 +96,61 @@ const useSnackbar = () => {
   return { snackbar, showSnackbar, hideSnackbar };
 };
 
-// Initial form state definition
-const initialFormData = {
-  roof_condition: "Good",
-  roof_type: "RCC Flat",
-  roof_area_sqft: "",
-  roof_age_years: "",
-  structural_concerns: "",
-  existing_load_kw: "",
-  meter_type: "Single Phase",
-  main_panel_capacity: "",
-  earthing_available: "Yes",
-  electrical_issues: "",
-  shading_issues: "None",
-  shading_source: "",
-  water_availability: "Yes",
-  site_access: "Easy",
-  additional_challenges: "",
-  overall_status: "Approved",
-  inspector_name: "",
-  inspection_date: new Date().toISOString().split("T")[0],
-  remarks: "",
-};
-
 export default function PreInstallInspection({ project, projectId }) {
   const targetProjectId = projectId || project?.id;
+  const systemKw = Number(project?.system_capacity_kw || 0);
+
+  // Smart recommended meter type based on DISCOM limits (>5 kW requires Three Phase)
+  const recommendedMeter = systemKw > 5.0 ? "Three Phase" : "Single Phase";
 
   const [inspection, setInspection] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [formData, setFormData] = useState(initialFormData);
+  const [fetchingGps, setFetchingGps] = useState(false);
+
+  // Form State
+  const [formData, setFormData] = useState({
+    // Section 1: Roof Assessment
+    roof_condition: "Good",
+    roof_type: "RCC Flat",
+    roof_orientation: "South",
+    roof_tilt_angle: "",
+    roof_area_sqft: "",
+    shadow_free_area_sqft: "",
+    roof_age_years: "",
+    structural_concerns: "",
+
+    // Section 2: Electrical & DISCOM Grid Assessment
+    existing_load_kw: "",
+    sanctioned_load_kw: "",
+    consumer_number: "",
+    meter_type: recommendedMeter,
+    main_panel_capacity: "",
+    earthing_available: "Yes",
+    electrical_issues: "",
+
+    // Section 3: Site Conditions & Geolocation
+    shading_issues: "None",
+    shading_source: "",
+    water_availability: "Yes",
+    site_access: "Easy",
+    gps_coordinates: "",
+    additional_challenges: "",
+    site_photos: "",
+
+    // Section 4: Inspection Decision & Sign-Off
+    overall_status: "Pending", // Default is strictly Pending
+    inspector_name: "",
+    inspection_date: new Date().toISOString().split("T")[0],
+    remarks: "",
+    customer_signature_name: "",
+    signature_date: "",
+  });
 
   const { snackbar, showSnackbar, hideSnackbar } = useSnackbar();
 
-  // Axios helper with Auth header and baseURL fallback
+  // Axios helper with Auth header
   const getAuthHeader = () => {
     const token = localStorage.getItem("token");
     return {
@@ -139,7 +186,6 @@ export default function PreInstallInspection({ project, projectId }) {
         setInspection(null);
       }
     } catch (err) {
-      // 404 means no inspection recorded yet
       if (err.response?.status !== 404) {
         showSnackbar(
           err.response?.data?.message || "Failed to load pre-installation inspection data.",
@@ -156,36 +202,79 @@ export default function PreInstallInspection({ project, projectId }) {
     fetchInspection();
   }, [fetchInspection]);
 
-  // Handle open dialog for Begin or Edit
+  // Handle open dialog
   const handleOpenDialog = () => {
     if (inspection) {
       setFormData({
         roof_condition: inspection.roof_condition || "Good",
         roof_type: inspection.roof_type || "RCC Flat",
+        roof_orientation: inspection.roof_orientation || "South",
+        roof_tilt_angle: inspection.roof_tilt_angle ?? "",
         roof_area_sqft: inspection.roof_area_sqft ?? "",
+        shadow_free_area_sqft: inspection.shadow_free_area_sqft ?? "",
         roof_age_years: inspection.roof_age_years ?? "",
         structural_concerns: inspection.structural_concerns || "",
+
         existing_load_kw: inspection.existing_load_kw ?? "",
-        meter_type: inspection.meter_type || "Single Phase",
+        sanctioned_load_kw: inspection.sanctioned_load_kw ?? "",
+        consumer_number: inspection.consumer_number || "",
+        meter_type: inspection.meter_type || recommendedMeter,
         main_panel_capacity: inspection.main_panel_capacity ?? "",
-        earthing_available: inspection.earthing_available || "Yes",
+        earthing_available: inspection.earthing_available === "No" || inspection.earthing_available === 0 ? "No" : "Yes",
         electrical_issues: inspection.electrical_issues || "",
+
         shading_issues: inspection.shading_issues || "None",
         shading_source: inspection.shading_source || "",
-        water_availability: inspection.water_availability || "Yes",
+        water_availability: inspection.water_availability === "No" || inspection.water_availability === 0 ? "No" : "Yes",
         site_access: inspection.site_access || "Easy",
+        gps_coordinates: inspection.gps_coordinates || "",
         additional_challenges: inspection.additional_challenges || "",
-        overall_status: inspection.overall_status || "Approved",
+        site_photos: inspection.site_photos || "",
+
+        overall_status: inspection.overall_status || "Pending",
         inspector_name: inspection.inspector_name || "",
         inspection_date: inspection.inspection_date
           ? String(inspection.inspection_date).split("T")[0]
           : new Date().toISOString().split("T")[0],
         remarks: inspection.remarks || "",
+        customer_signature_name: inspection.customer_signature_name || "",
+        signature_date: inspection.signature_date
+          ? String(inspection.signature_date).split("T")[0]
+          : "",
       });
     } else {
       setFormData({
-        ...initialFormData,
+        roof_condition: "Good",
+        roof_type: "RCC Flat",
+        roof_orientation: "South",
+        roof_tilt_angle: "",
+        roof_area_sqft: "",
+        shadow_free_area_sqft: "",
+        roof_age_years: "",
+        structural_concerns: "",
+
+        existing_load_kw: "",
+        sanctioned_load_kw: "",
+        consumer_number: "",
+        meter_type: recommendedMeter,
+        main_panel_capacity: "",
+        earthing_available: "Yes",
+        electrical_issues: "",
+
+        shading_issues: "None",
+        shading_source: "",
+        water_availability: "Yes",
+        site_access: "Easy",
+        gps_coordinates: "",
+        additional_challenges: "",
+        site_photos: "",
+
+        overall_status: "Pending", // Strictly Pending
+        inspector_name: "",
         inspection_date: new Date().toISOString().split("T")[0],
+        remarks: "",
+        customer_signature_name: "",
+        signature_date: "",
       });
     }
     setDialogOpen(true);
@@ -204,12 +293,52 @@ export default function PreInstallInspection({ project, projectId }) {
     }));
   };
 
-  // Submit Inspection Form (Create or Update)
+  // Quick GPS capture
+  const handleCaptureGps = () => {
+    if (!navigator.geolocation) {
+      showSnackbar("Geolocation is not supported by your browser.", "error");
+      return;
+    }
+    setFetchingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+        handleInputChange("gps_coordinates", coords);
+        setFetchingGps(false);
+        showSnackbar(`Location captured: ${coords}`, "success");
+      },
+      (err) => {
+        setFetchingGps(false);
+        showSnackbar(`Unable to fetch location: ${err.message}`, "warning");
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
+
+  // Submit Inspection Form
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
 
     if (!targetProjectId) {
       showSnackbar("Missing Project ID. Cannot save inspection.", "error");
+      return;
+    }
+
+    // Required Field Validations
+    if (!formData.roof_area_sqft) {
+      showSnackbar("Please enter Roof Area Available (sqft).", "error");
+      return;
+    }
+    if (!formData.meter_type) {
+      showSnackbar("Please select Meter Type.", "error");
+      return;
+    }
+    if (!formData.inspector_name || !formData.inspector_name.trim()) {
+      showSnackbar("Please enter Inspector Name.", "error");
+      return;
+    }
+    if (!formData.overall_status) {
+      showSnackbar("Please select Overall Status.", "error");
       return;
     }
 
@@ -219,27 +348,24 @@ export default function PreInstallInspection({ project, projectId }) {
       const payload = {
         ...formData,
         roof_area_sqft: formData.roof_area_sqft === "" ? null : Number(formData.roof_area_sqft),
+        shadow_free_area_sqft: formData.shadow_free_area_sqft === "" ? null : Number(formData.shadow_free_area_sqft),
+        roof_tilt_angle: formData.roof_tilt_angle === "" ? null : Number(formData.roof_tilt_angle),
         roof_age_years: formData.roof_age_years === "" ? null : Number(formData.roof_age_years),
         existing_load_kw: formData.existing_load_kw === "" ? null : Number(formData.existing_load_kw),
+        sanctioned_load_kw: formData.sanctioned_load_kw === "" ? null : Number(formData.sanctioned_load_kw),
         main_panel_capacity: formData.main_panel_capacity === "" ? null : Number(formData.main_panel_capacity),
+        shading_source: formData.shading_issues === "None" ? "" : formData.shading_source,
       };
 
-      let res;
       if (inspection && inspection.id) {
-        // PUT update
-        res = await axios.put(url, payload, { headers: getAuthHeader() });
+        await axios.put(url, payload, { headers: getAuthHeader() });
       } else {
-        // POST create
-        res = await axios.post(url, payload, { headers: getAuthHeader() });
+        await axios.post(url, payload, { headers: getAuthHeader() });
       }
 
-      const raw = res.data;
-      const savedData = raw?.inspection !== undefined ? raw.inspection : (raw?.data !== undefined ? raw.data : raw);
-      setInspection(savedData || payload);
       showSnackbar("Pre-Installation Inspection saved successfully!", "success");
       setDialogOpen(false);
       fetchInspection();
-
     } catch (err) {
       showSnackbar(
         err.response?.data?.message || "Failed to save pre-installation inspection.",
@@ -258,10 +384,10 @@ export default function PreInstallInspection({ project, projectId }) {
           label: "Approved",
           sx: {
             backgroundColor: "#ECFDF5",
-            color: COLORS.success,
-            border: `1px solid ${COLORS.success}`,
-            fontWeight: 700,
-            fontFamily: "Inter, sans-serif",
+            color: "#059669",
+            border: "1px solid #A7F3D0",
+            fontWeight: 800,
+            fontSize: "0.8rem",
           },
         };
       case "Conditional Approval":
@@ -269,10 +395,10 @@ export default function PreInstallInspection({ project, projectId }) {
           label: "Conditional Approval",
           sx: {
             backgroundColor: "#FFFBEB",
-            color: COLORS.secondary,
-            border: `1px solid ${COLORS.secondary}`,
-            fontWeight: 700,
-            fontFamily: "Inter, sans-serif",
+            color: "#D97706",
+            border: "1px solid #FDE68A",
+            fontWeight: 800,
+            fontSize: "0.8rem",
           },
         };
       case "Rejected":
@@ -280,21 +406,22 @@ export default function PreInstallInspection({ project, projectId }) {
           label: "Rejected",
           sx: {
             backgroundColor: "#FEF2F2",
-            color: COLORS.error,
-            border: `1px solid ${COLORS.error}`,
-            fontWeight: 700,
-            fontFamily: "Inter, sans-serif",
+            color: "#DC2626",
+            border: "1px solid #FECACA",
+            fontWeight: 800,
+            fontSize: "0.8rem",
           },
         };
+      case "Pending":
       default:
         return {
           label: status || "Pending",
           sx: {
             backgroundColor: "#F1F5F9",
-            color: COLORS.textSecondary,
-            border: `1px solid ${COLORS.border}`,
-            fontWeight: 700,
-            fontFamily: "Inter, sans-serif",
+            color: "#475569",
+            border: "1px solid #CBD5E1",
+            fontWeight: 800,
+            fontSize: "0.8rem",
           },
         };
     }
@@ -305,10 +432,9 @@ export default function PreInstallInspection({ project, projectId }) {
     <Box sx={{ mb: 1.5 }}>
       <Typography
         sx={{
-          fontSize: "0.74rem",
-          fontWeight: 600,
-          color: COLORS.textSecondary,
-          fontFamily: "Inter, sans-serif",
+          fontSize: "0.72rem",
+          fontWeight: 700,
+          color: COLORS.textMuted,
           textTransform: "uppercase",
           letterSpacing: "0.03em",
           mb: 0.25,
@@ -318,10 +444,9 @@ export default function PreInstallInspection({ project, projectId }) {
       </Typography>
       <Typography
         sx={{
-          fontSize: "0.9rem",
+          fontSize: "0.88rem",
           fontWeight: 600,
           color: COLORS.textPrimary,
-          fontFamily: "Inter, sans-serif",
         }}
       >
         {value !== null && value !== undefined && value !== "" ? String(value) : "—"}
@@ -330,7 +455,7 @@ export default function PreInstallInspection({ project, projectId }) {
   );
 
   return (
-    <Box sx={{ fontFamily: "Inter, sans-serif" }}>
+    <Box>
       {/* Loading Indicator */}
       {loading ? (
         <Box
@@ -344,19 +469,12 @@ export default function PreInstallInspection({ project, projectId }) {
           }}
         >
           <CircularProgress size={36} sx={{ color: COLORS.primary }} />
-          <Typography
-            sx={{
-              fontSize: "0.86rem",
-              fontWeight: 500,
-              color: COLORS.textSecondary,
-              fontFamily: "Inter, sans-serif",
-            }}
-          >
-            Loading inspection details...
+          <Typography sx={{ fontSize: "0.86rem", fontWeight: 500, color: COLORS.textSecondary }}>
+            Loading inspection feasibility data...
           </Typography>
         </Box>
       ) : !inspection ? (
-        /* Empty State: Inspection Not Done Yet */
+        /* Empty State */
         <Card
           elevation={0}
           sx={{
@@ -376,12 +494,12 @@ export default function PreInstallInspection({ project, projectId }) {
               width: 64,
               height: 64,
               borderRadius: "50%",
-              backgroundColor: "#F1F5F9",
+              backgroundColor: "#EFF6FF",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               mb: 2,
-              color: COLORS.primary,
+              color: "#2563EB",
             }}
           >
             <ChecklistIcon sx={{ fontSize: 34 }} />
@@ -389,9 +507,8 @@ export default function PreInstallInspection({ project, projectId }) {
           <Typography
             variant="h6"
             sx={{
-              fontWeight: 700,
+              fontWeight: 800,
               color: COLORS.textPrimary,
-              fontFamily: "Inter, sans-serif",
               mb: 1,
             }}
           >
@@ -401,13 +518,12 @@ export default function PreInstallInspection({ project, projectId }) {
             sx={{
               fontSize: "0.88rem",
               color: COLORS.textSecondary,
-              fontFamily: "Inter, sans-serif",
-              maxWidth: 480,
+              maxWidth: 520,
               mb: 3,
             }}
           >
-            Evaluate roof feasibility, electrical loads, and site conditions before beginning
-            solar system installation.
+            Verify roof tilt & orientation, shadow-free area, DISCOM sanctioned load, and grid meter
+            phase compatibility before purchasing materials and commencing installation.
           </Typography>
           <Button
             variant="contained"
@@ -417,11 +533,10 @@ export default function PreInstallInspection({ project, projectId }) {
               backgroundColor: COLORS.primary,
               color: "#FFFFFF",
               textTransform: "none",
-              fontWeight: 600,
-              fontFamily: "Inter, sans-serif",
+              fontWeight: 700,
               fontSize: "0.88rem",
               px: 3,
-              py: 1,
+              py: 1.1,
               borderRadius: "8px",
               boxShadow: "none",
               "&:hover": {
@@ -434,7 +549,7 @@ export default function PreInstallInspection({ project, projectId }) {
           </Button>
         </Card>
       ) : (
-        /* Filled State: Read-Only Cards with Edit Action */
+        /* Filled State: Read-Only Cards with Clean 04 Nov 2026 Dates */
         <Box>
           {/* Header Action Bar */}
           <Box
@@ -452,29 +567,21 @@ export default function PreInstallInspection({ project, projectId }) {
             }}
           >
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-              <AssignmentTurnedInIcon sx={{ color: COLORS.primary, fontSize: 28 }} />
+              <AssignmentTurnedInIcon sx={{ color: "#2563EB", fontSize: 28 }} />
               <Box>
                 <Typography
                   sx={{
                     fontSize: "1rem",
-                    fontWeight: 700,
+                    fontWeight: 800,
                     color: COLORS.textPrimary,
-                    fontFamily: "Inter, sans-serif",
                   }}
                 >
-                  Pre-Installation Inspection Record
+                  Pre-Installation Technical Feasibility Record
                 </Typography>
-                <Typography
-                  sx={{
-                    fontSize: "0.78rem",
-                    color: COLORS.textSecondary,
-                    fontFamily: "Inter, sans-serif",
-                  }}
-                >
+                <Typography sx={{ fontSize: "0.78rem", color: COLORS.textSecondary }}>
                   Inspected by <strong>{inspection.inspector_name || "N/A"}</strong> on{" "}
-                  {inspection.inspection_date
-                    ? String(inspection.inspection_date).split("T")[0]
-                    : "N/A"}
+                  <strong>{formatCleanDate(inspection.inspection_date)}</strong>
+                  {inspection.gps_coordinates && ` • GPS: ${inspection.gps_coordinates}`}
                 </Typography>
               </Box>
             </Box>
@@ -490,8 +597,7 @@ export default function PreInstallInspection({ project, projectId }) {
                   borderColor: COLORS.border,
                   color: COLORS.textPrimary,
                   textTransform: "none",
-                  fontWeight: 600,
-                  fontFamily: "Inter, sans-serif",
+                  fontWeight: 700,
                   borderRadius: "8px",
                   "&:hover": {
                     borderColor: COLORS.primary,
@@ -499,12 +605,12 @@ export default function PreInstallInspection({ project, projectId }) {
                   },
                 }}
               >
-                Edit
+                Edit Inspection
               </Button>
             </Box>
           </Box>
 
-          {/* Inspection Details Grid */}
+          {/* Inspection Details 4-Card Grid */}
           <Grid container spacing={2.5}>
             {/* Section 1: Roof Assessment */}
             <Grid item xs={12} md={6}>
@@ -518,17 +624,10 @@ export default function PreInstallInspection({ project, projectId }) {
                 }}
               >
                 <CardContent sx={{ p: 2.5 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 2 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
                     <HomeRepairServiceIcon sx={{ color: COLORS.secondary, fontSize: 22 }} />
-                    <Typography
-                      sx={{
-                        fontSize: "0.95rem",
-                        fontWeight: 700,
-                        color: COLORS.textPrimary,
-                        fontFamily: "Inter, sans-serif",
-                      }}
-                    >
-                      Roof Assessment
+                    <Typography sx={{ fontSize: "0.95rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                      Section 1: Roof & Solar Geometry
                     </Typography>
                   </Box>
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
@@ -541,9 +640,26 @@ export default function PreInstallInspection({ project, projectId }) {
                       {renderDetailItem("Roof Type", inspection.roof_type)}
                     </Grid>
                     <Grid item xs={6}>
+                      {renderDetailItem("Roof Orientation", inspection.roof_orientation || "South")}
+                    </Grid>
+                    <Grid item xs={6}>
                       {renderDetailItem(
-                        "Roof Area Available",
+                        "Tilt Angle",
+                        inspection.roof_tilt_angle ? `${inspection.roof_tilt_angle}°` : null
+                      )}
+                    </Grid>
+                    <Grid item xs={6}>
+                      {renderDetailItem(
+                        "Total Roof Area",
                         inspection.roof_area_sqft ? `${inspection.roof_area_sqft} sqft` : null
+                      )}
+                    </Grid>
+                    <Grid item xs={6}>
+                      {renderDetailItem(
+                        "Shadow-Free Usable Area",
+                        inspection.shadow_free_area_sqft
+                          ? `${inspection.shadow_free_area_sqft} sqft`
+                          : null
                       )}
                     </Grid>
                     <Grid item xs={6}>
@@ -560,7 +676,7 @@ export default function PreInstallInspection({ project, projectId }) {
               </Card>
             </Grid>
 
-            {/* Section 2: Electrical Assessment */}
+            {/* Section 2: Electrical & DISCOM Grid Assessment */}
             <Grid item xs={12} md={6}>
               <Card
                 elevation={0}
@@ -572,17 +688,10 @@ export default function PreInstallInspection({ project, projectId }) {
                 }}
               >
                 <CardContent sx={{ p: 2.5 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 2 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
                     <ElectricBoltIcon sx={{ color: COLORS.warning, fontSize: 22 }} />
-                    <Typography
-                      sx={{
-                        fontSize: "0.95rem",
-                        fontWeight: 700,
-                        color: COLORS.textPrimary,
-                        fontFamily: "Inter, sans-serif",
-                      }}
-                    >
-                      Electrical Assessment
+                    <Typography sx={{ fontSize: "0.95rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                      Section 2: Electrical & DISCOM Grid Connection
                     </Typography>
                   </Box>
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
@@ -590,12 +699,29 @@ export default function PreInstallInspection({ project, projectId }) {
                   <Grid container spacing={1.5}>
                     <Grid item xs={6}>
                       {renderDetailItem(
-                        "Existing Load",
-                        inspection.existing_load_kw ? `${inspection.existing_load_kw} kW` : null
+                        "Meter Type (Phase)",
+                        inspection.meter_type
                       )}
                     </Grid>
                     <Grid item xs={6}>
-                      {renderDetailItem("Meter Type", inspection.meter_type)}
+                      {renderDetailItem(
+                        "Sanctioned Load",
+                        inspection.sanctioned_load_kw
+                          ? `${inspection.sanctioned_load_kw} kW`
+                          : null
+                      )}
+                    </Grid>
+                    <Grid item xs={6}>
+                      {renderDetailItem(
+                        "DISCOM Consumer / CA No",
+                        inspection.consumer_number
+                      )}
+                    </Grid>
+                    <Grid item xs={6}>
+                      {renderDetailItem(
+                        "Existing Running Load",
+                        inspection.existing_load_kw ? `${inspection.existing_load_kw} kW` : null
+                      )}
                     </Grid>
                     <Grid item xs={6}>
                       {renderDetailItem(
@@ -609,14 +735,14 @@ export default function PreInstallInspection({ project, projectId }) {
                       {renderDetailItem("Earthing Available", inspection.earthing_available)}
                     </Grid>
                     <Grid item xs={12}>
-                      {renderDetailItem("Electrical Issues", inspection.electrical_issues)}
+                      {renderDetailItem("Electrical Observations", inspection.electrical_issues)}
                     </Grid>
                   </Grid>
                 </CardContent>
               </Card>
             </Grid>
 
-            {/* Section 3: Site Conditions */}
+            {/* Section 3: Site Conditions & Geolocation */}
             <Grid item xs={12} md={6}>
               <Card
                 elevation={0}
@@ -628,17 +754,10 @@ export default function PreInstallInspection({ project, projectId }) {
                 }}
               >
                 <CardContent sx={{ p: 2.5 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 2 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
                     <WbSunnyIcon sx={{ color: COLORS.secondary, fontSize: 22 }} />
-                    <Typography
-                      sx={{
-                        fontSize: "0.95rem",
-                        fontWeight: 700,
-                        color: COLORS.textPrimary,
-                        fontFamily: "Inter, sans-serif",
-                      }}
-                    >
-                      Site Conditions
+                    <Typography sx={{ fontSize: "0.95rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                      Section 3: Site Conditions & Geolocation
                     </Typography>
                   </Box>
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
@@ -647,15 +766,25 @@ export default function PreInstallInspection({ project, projectId }) {
                     <Grid item xs={6}>
                       {renderDetailItem("Shading Issues", inspection.shading_issues)}
                     </Grid>
-                    <Grid item xs={6}>
-                      {renderDetailItem("Shading Source", inspection.shading_source)}
-                    </Grid>
+                    {inspection.shading_issues !== "None" && inspection.shading_source && (
+                      <Grid item xs={6}>
+                        {renderDetailItem("Shading Source", inspection.shading_source)}
+                      </Grid>
+                    )}
                     <Grid item xs={6}>
                       {renderDetailItem("Water Availability", inspection.water_availability)}
                     </Grid>
                     <Grid item xs={6}>
                       {renderDetailItem("Site Access", inspection.site_access)}
                     </Grid>
+                    <Grid item xs={12}>
+                      {renderDetailItem("GPS Coordinates", inspection.gps_coordinates)}
+                    </Grid>
+                    {inspection.site_photos && (
+                      <Grid item xs={12}>
+                        {renderDetailItem("Site Photos / Notes", inspection.site_photos)}
+                      </Grid>
+                    )}
                     <Grid item xs={12}>
                       {renderDetailItem("Additional Challenges", inspection.additional_challenges)}
                     </Grid>
@@ -664,7 +793,7 @@ export default function PreInstallInspection({ project, projectId }) {
               </Card>
             </Grid>
 
-            {/* Section 4: Inspection Decision */}
+            {/* Section 4: Feasibility Decision & Sign-off */}
             <Grid item xs={12} md={6}>
               <Card
                 elevation={0}
@@ -676,17 +805,10 @@ export default function PreInstallInspection({ project, projectId }) {
                 }}
               >
                 <CardContent sx={{ p: 2.5 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 2 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.8 }}>
                     <AssignmentTurnedInIcon sx={{ color: COLORS.success, fontSize: 22 }} />
-                    <Typography
-                      sx={{
-                        fontSize: "0.95rem",
-                        fontWeight: 700,
-                        color: COLORS.textPrimary,
-                        fontFamily: "Inter, sans-serif",
-                      }}
-                    >
-                      Inspection Decision
+                    <Typography sx={{ fontSize: "0.95rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                      Section 4: Inspection Decision & Sign-Off
                     </Typography>
                   </Box>
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
@@ -696,33 +818,41 @@ export default function PreInstallInspection({ project, projectId }) {
                       <Box sx={{ mb: 1.5 }}>
                         <Typography
                           sx={{
-                            fontSize: "0.74rem",
-                            fontWeight: 600,
-                            color: COLORS.textSecondary,
-                            fontFamily: "Inter, sans-serif",
+                            fontSize: "0.72rem",
+                            fontWeight: 700,
+                            color: COLORS.textMuted,
                             textTransform: "uppercase",
                             letterSpacing: "0.03em",
                             mb: 0.5,
                           }}
                         >
-                          Overall Status
+                          Overall Feasibility Status
                         </Typography>
                         <Chip {...getStatusChipProps(inspection.overall_status)} />
                       </Box>
                     </Grid>
                     <Grid item xs={6}>
-                      {renderDetailItem("Inspector Name", inspection.inspector_name)}
+                      {renderDetailItem("Lead Inspector Name", inspection.inspector_name)}
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid item xs={6}>
                       {renderDetailItem(
                         "Inspection Date",
-                        inspection.inspection_date
-                          ? String(inspection.inspection_date).split("T")[0]
-                          : null
+                        formatCleanDate(inspection.inspection_date)
                       )}
                     </Grid>
+                    <Grid item xs={6}>
+                      {renderDetailItem("Customer / Rep Sign-Off", inspection.customer_signature_name)}
+                    </Grid>
+                    {inspection.signature_date && (
+                      <Grid item xs={6}>
+                        {renderDetailItem(
+                          "Sign-Off Date",
+                          formatCleanDate(inspection.signature_date)
+                        )}
+                      </Grid>
+                    )}
                     <Grid item xs={12}>
-                      {renderDetailItem("Remarks", inspection.remarks)}
+                      {renderDetailItem("Technical Remarks & Conditions", inspection.remarks)}
                     </Grid>
                   </Grid>
                 </CardContent>
@@ -732,7 +862,9 @@ export default function PreInstallInspection({ project, projectId }) {
         </Box>
       )}
 
-      {/* INSPECTION FORM MODAL DIALOG */}
+      {/* ============================================================== */}
+      {/* INSPECTION FORM MODAL DIALOG (SPACIOUS, NO OVERLAPPING)       */}
+      {/* ============================================================== */}
       <Dialog
         open={dialogOpen}
         onClose={handleCloseDialog}
@@ -740,9 +872,8 @@ export default function PreInstallInspection({ project, projectId }) {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: "14px",
+            borderRadius: "16px",
             backgroundColor: COLORS.cardBg,
-            fontFamily: "Inter, sans-serif",
           },
         }}
       >
@@ -756,545 +887,595 @@ export default function PreInstallInspection({ project, projectId }) {
             justifyContent: "space-between",
           }}
         >
-          <Typography
-            sx={{
-              fontSize: "1.1rem",
-              fontWeight: 700,
-              color: COLORS.textPrimary,
-              fontFamily: "Inter, sans-serif",
-            }}
-          >
-            Pre-Installation Inspection
-          </Typography>
-          {inspection && (
-            <Chip size="small" {...getStatusChipProps(formData.overall_status)} />
-          )}
+          <Box>
+            <Typography sx={{ fontSize: "1.15rem", fontWeight: 900, color: COLORS.textPrimary }}>
+              Pre-Installation Technical Site Inspection
+            </Typography>
+            <Typography sx={{ fontSize: "0.75rem", color: COLORS.textSecondary, mt: 0.2 }}>
+              Project: {project?.project_number} • System: {project?.system_capacity_kw || "N/A"} kW
+            </Typography>
+          </Box>
+          <IconButton size="small" onClick={handleCloseDialog} disabled={saving}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
         </DialogTitle>
 
         <DialogContent sx={{ p: 3 }}>
           <Box component="form" id="inspection-form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-            {/* Section 1: Roof Assessment */}
-            <Typography
-              sx={{
-                fontSize: "0.95rem",
-                fontWeight: 700,
-                color: COLORS.textPrimary,
-                fontFamily: "Inter, sans-serif",
-                mb: 1.5,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <HomeRepairServiceIcon sx={{ color: COLORS.secondary, fontSize: 20 }} />
-              Section 1: Roof Assessment
-            </Typography>
+            
+            {/* CAPACITY / PHASE CONFLICT ADVISORY BANNER */}
+            {systemKw > 5.0 && formData.meter_type === "Single Phase" && (
+              <Alert
+                severity="warning"
+                sx={{ mb: 3, borderRadius: "10px", fontSize: "0.82rem", fontWeight: 500 }}
+              >
+                <strong>Phase Notice:</strong> System capacity is <strong>{systemKw} kW</strong>. Most DISCOMs (e.g. JVVNL) limit Single Phase to 5 kW. A <strong>Three Phase</strong> meter is strongly recommended for feasibility approval.
+              </Alert>
+            )}
 
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              {/* Roof Condition */}
-              <Grid item xs={12} sm={6}>
-                <Typography
-                  sx={{
-                    fontSize: "0.78rem",
-                    fontWeight: 600,
-                    color: COLORS.textSecondary,
-                    fontFamily: "Inter, sans-serif",
-                    mb: 0.5,
-                  }}
-                >
-                  Roof Condition
-                </Typography>
-                <RadioGroup
-                  row
-                  value={formData.roof_condition}
-                  onChange={(e) => handleInputChange("roof_condition", e.target.value)}
-                >
-                  {["Good", "Fair", "Poor"].map((option) => (
-                    <FormControlLabel
-                      key={option}
-                      value={option}
-                      control={
-                        <Radio
-                          size="small"
-                          sx={{
-                            color: COLORS.border,
-                            "&.Mui-checked": { color: COLORS.primary },
-                          }}
-                        />
-                      }
-                      label={
-                        <Typography
-                          sx={{
-                            fontSize: "0.85rem",
-                            fontFamily: "Inter, sans-serif",
-                            color: COLORS.textPrimary,
-                          }}
-                        >
-                          {option}
-                        </Typography>
-                      }
-                    />
-                  ))}
-                </RadioGroup>
-              </Grid>
+            {/* SECTION 1: ROOF ASSESSMENT */}
+            <Box sx={{ mb: 3 }}>
+              <Typography
+                sx={{
+                  fontSize: "0.82rem",
+                  fontWeight: 800,
+                  color: COLORS.primary,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  mb: 1.5,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
+                <HomeRepairServiceIcon sx={{ color: COLORS.secondary, fontSize: 18 }} />
+                Section 1: Roof Assessment & Geometry
+              </Typography>
 
-              {/* Roof Type */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel sx={{ fontFamily: "Inter, sans-serif" }}>Roof Type</InputLabel>
-                  <Select
-                    value={formData.roof_type}
-                    label="Roof Type"
-                    onChange={(e) => handleInputChange("roof_type", e.target.value)}
-                    sx={{ fontFamily: "Inter, sans-serif" }}
+              <Grid container spacing={2}>
+                {/* Roof Condition */}
+                <Grid item xs={12} sm={6}>
+                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.5 }}>
+                    Roof Condition
+                  </Typography>
+                  <RadioGroup
+                    row
+                    value={formData.roof_condition}
+                    onChange={(e) => handleInputChange("roof_condition", e.target.value)}
                   >
-                    <MenuItem value="RCC Flat">RCC Flat</MenuItem>
-                    <MenuItem value="Sloped Tin">Sloped Tin</MenuItem>
-                    <MenuItem value="Sloped Tile">Sloped Tile</MenuItem>
-                    <MenuItem value="Other">Other</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
+                    {["Good", "Fair", "Poor"].map((option) => (
+                      <FormControlLabel
+                        key={option}
+                        value={option}
+                        control={<Radio size="small" />}
+                        label={<Typography sx={{ fontSize: "0.82rem" }}>{option}</Typography>}
+                      />
+                    ))}
+                  </RadioGroup>
+                </Grid>
 
-              {/* Roof Area Available */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Roof Area Available (sqft)"
-                  type="number"
-                  inputProps={{ min: 0, step: "any" }}
-                  value={formData.roof_area_sqft}
-                  onChange={(e) => handleInputChange("roof_area_sqft", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
+                {/* Roof Type */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Roof Type</InputLabel>
+                    <Select
+                      value={formData.roof_type}
+                      label="Roof Type"
+                      onChange={(e) => handleInputChange("roof_type", e.target.value)}
+                    >
+                      <MenuItem value="RCC Flat">RCC Flat (Concrete)</MenuItem>
+                      <MenuItem value="Sloped Tin">Sloped Tin / Metal Sheet</MenuItem>
+                      <MenuItem value="Sloped Tile">Sloped Tile</MenuItem>
+                      <MenuItem value="Elevated Super-Structure">Elevated Super-Structure</MenuItem>
+                      <MenuItem value="Other">Other</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
 
-              {/* Roof Age */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Roof Age (years)"
-                  type="number"
-                  inputProps={{ min: 0, step: "any" }}
-                  value={formData.roof_age_years}
-                  onChange={(e) => handleInputChange("roof_age_years", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
+                {/* Roof Orientation */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Roof Orientation</InputLabel>
+                    <Select
+                      value={formData.roof_orientation}
+                      label="Roof Orientation"
+                      onChange={(e) => handleInputChange("roof_orientation", e.target.value)}
+                    >
+                      <MenuItem value="South">South (Optimal for India)</MenuItem>
+                      <MenuItem value="South-West">South-West</MenuItem>
+                      <MenuItem value="South-East">South-East</MenuItem>
+                      <MenuItem value="East">East</MenuItem>
+                      <MenuItem value="West">West</MenuItem>
+                      <MenuItem value="North">North (Not Recommended)</MenuItem>
+                      <MenuItem value="Flat / Nil">Flat / Nil</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
 
-              {/* Structural Concerns */}
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  multiline
-                  rows={2}
-                  label="Structural Concerns"
-                  placeholder="Notes on cracks, water-proofing, load-bearing ability..."
-                  value={formData.structural_concerns}
-                  onChange={(e) => handleInputChange("structural_concerns", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
+                {/* Roof Tilt Angle */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Tilt Angle (Degrees °)"
+                    type="number"
+                    placeholder="e.g. 15, 20 or 25"
+                    inputProps={{ min: 0, max: 90, step: "any" }}
+                    value={formData.roof_tilt_angle}
+                    onChange={(e) => handleInputChange("roof_tilt_angle", e.target.value)}
+                  />
+                </Grid>
+
+                {/* Roof Area Available * MANDATORY */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    required
+                    label="Total Roof Area (sqft) *"
+                    type="number"
+                    placeholder="e.g. 800"
+                    inputProps={{ min: 0, step: "any" }}
+                    value={formData.roof_area_sqft}
+                    onChange={(e) => handleInputChange("roof_area_sqft", e.target.value)}
+                    helperText="Total physical footprint of the rooftop"
+                  />
+                </Grid>
+
+                {/* Shadow-Free Area */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Shadow-Free Usable Area (sqft)"
+                    type="number"
+                    placeholder="e.g. 600"
+                    inputProps={{ min: 0, step: "any" }}
+                    value={formData.shadow_free_area_sqft}
+                    onChange={(e) => handleInputChange("shadow_free_area_sqft", e.target.value)}
+                    helperText="Area receiving unobstructed sunlight (9am - 4pm)"
+                  />
+                </Grid>
+
+                {/* Roof Age */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Roof Age (years)"
+                    type="number"
+                    placeholder="e.g. 5"
+                    inputProps={{ min: 0, step: "any" }}
+                    value={formData.roof_age_years}
+                    onChange={(e) => handleInputChange("roof_age_years", e.target.value)}
+                  />
+                </Grid>
+
+                {/* Structural Concerns - TALL MULTI-LINE */}
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    multiline
+                    minRows={3}
+                    maxRows={6}
+                    label="Structural Concerns"
+                    placeholder="Waterproofing status, crack formations, parapet height, structural load capacity observations..."
+                    value={formData.structural_concerns}
+                    onChange={(e) => handleInputChange("structural_concerns", e.target.value)}
+                  />
+                </Grid>
               </Grid>
-            </Grid>
+            </Box>
 
             <Divider sx={{ my: 2.5, borderColor: COLORS.border }} />
 
-            {/* Section 2: Electrical Assessment */}
-            <Typography
-              sx={{
-                fontSize: "0.95rem",
-                fontWeight: 700,
-                color: COLORS.textPrimary,
-                fontFamily: "Inter, sans-serif",
-                mb: 1.5,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <ElectricBoltIcon sx={{ color: COLORS.warning, fontSize: 20 }} />
-              Section 2: Electrical Assessment
-            </Typography>
+            {/* SECTION 2: ELECTRICAL ASSESSMENT */}
+            <Box sx={{ mb: 3 }}>
+              <Typography
+                sx={{
+                  fontSize: "0.82rem",
+                  fontWeight: 800,
+                  color: COLORS.primary,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  mb: 1.5,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
+                <ElectricBoltIcon sx={{ color: COLORS.warning, fontSize: 18 }} />
+                Section 2: Electrical & DISCOM Grid Connection
+              </Typography>
 
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              {/* Existing Load */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Existing Load (kW)"
-                  type="number"
-                  inputProps={{ min: 0, step: "any" }}
-                  value={formData.existing_load_kw}
-                  onChange={(e) => handleInputChange("existing_load_kw", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
+              <Grid container spacing={2}>
+                {/* Meter Type * MANDATORY with Auto-Select Logic */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small" required>
+                    <InputLabel>Meter Type (Grid Phase) *</InputLabel>
+                    <Select
+                      value={formData.meter_type}
+                      label="Meter Type (Grid Phase) *"
+                      onChange={(e) => handleInputChange("meter_type", e.target.value)}
+                    >
+                      <MenuItem value="Single Phase">Single Phase (Up to 5 kW)</MenuItem>
+                      <MenuItem value="Three Phase">Three Phase (&gt; 5 kW DISCOM Requirement)</MenuItem>
+                    </Select>
+                    <FormHelperText>
+                      {systemKw > 5
+                        ? "Recommended: Three Phase (System capacity is > 5 kW)"
+                        : "Recommended: Single Phase (System capacity ≤ 5 kW)"}
+                    </FormHelperText>
+                  </FormControl>
+                </Grid>
 
-              {/* Meter Type */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel sx={{ fontFamily: "Inter, sans-serif" }}>Meter Type</InputLabel>
-                  <Select
-                    value={formData.meter_type}
-                    label="Meter Type"
-                    onChange={(e) => handleInputChange("meter_type", e.target.value)}
-                    sx={{ fontFamily: "Inter, sans-serif" }}
+                {/* Sanctioned Load */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="DISCOM Sanctioned Load (kW)"
+                    type="number"
+                    placeholder="e.g. 5"
+                    inputProps={{ min: 0, step: "any" }}
+                    value={formData.sanctioned_load_kw}
+                    onChange={(e) => handleInputChange("sanctioned_load_kw", e.target.value)}
+                    helperText="From customer's recent electricity bill"
+                  />
+                </Grid>
+
+                {/* DISCOM Consumer / CA Number */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="DISCOM Consumer / CA / K Number"
+                    placeholder="e.g. 210103489201"
+                    value={formData.consumer_number}
+                    onChange={(e) => handleInputChange("consumer_number", e.target.value)}
+                    helperText="Required for DISCOM net metering & feasibility form"
+                  />
+                </Grid>
+
+                {/* Existing Running Load */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Existing Running Load (kW)"
+                    type="number"
+                    placeholder="e.g. 3.5"
+                    inputProps={{ min: 0, step: "any" }}
+                    value={formData.existing_load_kw}
+                    onChange={(e) => handleInputChange("existing_load_kw", e.target.value)}
+                  />
+                </Grid>
+
+                {/* Main Panel Capacity */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Main Panel Capacity (Amps)"
+                    type="number"
+                    placeholder="e.g. 32 or 63"
+                    inputProps={{ min: 0, step: "any" }}
+                    value={formData.main_panel_capacity}
+                    onChange={(e) => handleInputChange("main_panel_capacity", e.target.value)}
+                  />
+                </Grid>
+
+                {/* Earthing Available */}
+                <Grid item xs={12} sm={6}>
+                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.5 }}>
+                    Dedicated Earthing Available?
+                  </Typography>
+                  <RadioGroup
+                    row
+                    value={formData.earthing_available}
+                    onChange={(e) => handleInputChange("earthing_available", e.target.value)}
                   >
-                    <MenuItem value="Single Phase">Single Phase</MenuItem>
-                    <MenuItem value="Three Phase">Three Phase</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
+                    {["Yes", "No"].map((option) => (
+                      <FormControlLabel
+                        key={option}
+                        value={option}
+                        control={<Radio size="small" />}
+                        label={<Typography sx={{ fontSize: "0.82rem" }}>{option}</Typography>}
+                      />
+                    ))}
+                  </RadioGroup>
+                </Grid>
 
-              {/* Main Panel Capacity */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Main Panel Capacity (Amps)"
-                  type="number"
-                  inputProps={{ min: 0, step: "any" }}
-                  value={formData.main_panel_capacity}
-                  onChange={(e) => handleInputChange("main_panel_capacity", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
+                {/* Electrical Issues - TALL MULTI-LINE */}
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    multiline
+                    minRows={3}
+                    maxRows={6}
+                    label="Electrical Issues & Notes"
+                    placeholder="Voltage fluctuation history, distance from LT transformer, wiring quality, cable route distance to inverter..."
+                    value={formData.electrical_issues}
+                    onChange={(e) => handleInputChange("electrical_issues", e.target.value)}
+                  />
+                </Grid>
               </Grid>
-
-              {/* Earthing Available */}
-              <Grid item xs={12} sm={6}>
-                <Typography
-                  sx={{
-                    fontSize: "0.78rem",
-                    fontWeight: 600,
-                    color: COLORS.textSecondary,
-                    fontFamily: "Inter, sans-serif",
-                    mb: 0.5,
-                  }}
-                >
-                  Earthing Available
-                </Typography>
-                <RadioGroup
-                  row
-                  value={formData.earthing_available}
-                  onChange={(e) => handleInputChange("earthing_available", e.target.value)}
-                >
-                  {["Yes", "No"].map((option) => (
-                    <FormControlLabel
-                      key={option}
-                      value={option}
-                      control={
-                        <Radio
-                          size="small"
-                          sx={{
-                            color: COLORS.border,
-                            "&.Mui-checked": { color: COLORS.primary },
-                          }}
-                        />
-                      }
-                      label={
-                        <Typography
-                          sx={{
-                            fontSize: "0.85rem",
-                            fontFamily: "Inter, sans-serif",
-                            color: COLORS.textPrimary,
-                          }}
-                        >
-                          {option}
-                        </Typography>
-                      }
-                    />
-                  ))}
-                </RadioGroup>
-              </Grid>
-
-              {/* Electrical Issues */}
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  multiline
-                  rows={2}
-                  label="Electrical Issues"
-                  placeholder="Notes on wiring quality, voltage fluctuations, transformer distance..."
-                  value={formData.electrical_issues}
-                  onChange={(e) => handleInputChange("electrical_issues", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
-            </Grid>
+            </Box>
 
             <Divider sx={{ my: 2.5, borderColor: COLORS.border }} />
 
-            {/* Section 3: Site Conditions */}
-            <Typography
-              sx={{
-                fontSize: "0.95rem",
-                fontWeight: 700,
-                color: COLORS.textPrimary,
-                fontFamily: "Inter, sans-serif",
-                mb: 1.5,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <WbSunnyIcon sx={{ color: COLORS.secondary, fontSize: 20 }} />
-              Section 3: Site Conditions
-            </Typography>
+            {/* SECTION 3: SITE CONDITIONS */}
+            <Box sx={{ mb: 3 }}>
+              <Typography
+                sx={{
+                  fontSize: "0.82rem",
+                  fontWeight: 800,
+                  color: COLORS.primary,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  mb: 1.5,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
+                <WbSunnyIcon sx={{ color: COLORS.secondary, fontSize: 18 }} />
+                Section 3: Site Conditions & Geolocation
+              </Typography>
 
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-              {/* Shading Issues */}
-              <Grid item xs={12} sm={6}>
-                <Typography
-                  sx={{
-                    fontSize: "0.78rem",
-                    fontWeight: 600,
-                    color: COLORS.textSecondary,
-                    fontFamily: "Inter, sans-serif",
-                    mb: 0.5,
-                  }}
-                >
-                  Shading Issues
-                </Typography>
-                <RadioGroup
-                  row
-                  value={formData.shading_issues}
-                  onChange={(e) => handleInputChange("shading_issues", e.target.value)}
-                >
-                  {["None", "Partial", "Severe"].map((option) => (
-                    <FormControlLabel
-                      key={option}
-                      value={option}
-                      control={
-                        <Radio
-                          size="small"
-                          sx={{
-                            color: COLORS.border,
-                            "&.Mui-checked": { color: COLORS.primary },
-                          }}
-                        />
-                      }
-                      label={
-                        <Typography
-                          sx={{
-                            fontSize: "0.85rem",
-                            fontFamily: "Inter, sans-serif",
-                            color: COLORS.textPrimary,
-                          }}
-                        >
-                          {option}
-                        </Typography>
-                      }
+              <Grid container spacing={2}>
+                {/* Shading Issues */}
+                <Grid item xs={12} sm={6}>
+                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.5 }}>
+                    Shading Obstacles
+                  </Typography>
+                  <RadioGroup
+                    row
+                    value={formData.shading_issues}
+                    onChange={(e) => handleInputChange("shading_issues", e.target.value)}
+                  >
+                    {["None", "Partial", "Severe"].map((option) => (
+                      <FormControlLabel
+                        key={option}
+                        value={option}
+                        control={<Radio size="small" />}
+                        label={<Typography sx={{ fontSize: "0.82rem" }}>{option}</Typography>}
+                      />
+                    ))}
+                  </RadioGroup>
+                </Grid>
+
+                {/* Shading Source - ONLY SHOWN IF PARTIAL OR SEVERE */}
+                {formData.shading_issues !== "None" && (
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Shading Source *"
+                      placeholder="Nearby multi-story building, trees, water tank, dish antenna..."
+                      value={formData.shading_source}
+                      onChange={(e) => handleInputChange("shading_source", e.target.value)}
+                      helperText="Specify object causing shadow"
                     />
-                  ))}
-                </RadioGroup>
-              </Grid>
+                  </Grid>
+                )}
 
-              {/* Shading Source */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Shading Source"
-                  placeholder="Trees, nearby building, parapet wall, water tank..."
-                  value={formData.shading_source}
-                  onChange={(e) => handleInputChange("shading_source", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
+                {/* Water Availability */}
+                <Grid item xs={12} sm={6}>
+                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.5 }}>
+                    Rooftop Water Tap Available? (For Panel Cleaning)
+                  </Typography>
+                  <RadioGroup
+                    row
+                    value={formData.water_availability}
+                    onChange={(e) => handleInputChange("water_availability", e.target.value)}
+                  >
+                    {["Yes", "No"].map((option) => (
+                      <FormControlLabel
+                        key={option}
+                        value={option}
+                        control={<Radio size="small" />}
+                        label={<Typography sx={{ fontSize: "0.82rem" }}>{option}</Typography>}
+                      />
+                    ))}
+                  </RadioGroup>
+                </Grid>
 
-              {/* Water Availability */}
-              <Grid item xs={12} sm={6}>
-                <Typography
-                  sx={{
-                    fontSize: "0.78rem",
-                    fontWeight: 600,
-                    color: COLORS.textSecondary,
-                    fontFamily: "Inter, sans-serif",
-                    mb: 0.5,
-                  }}
-                >
-                  Water Availability
-                </Typography>
-                <RadioGroup
-                  row
-                  value={formData.water_availability}
-                  onChange={(e) => handleInputChange("water_availability", e.target.value)}
-                >
-                  {["Yes", "No"].map((option) => (
-                    <FormControlLabel
-                      key={option}
-                      value={option}
-                      control={
-                        <Radio
-                          size="small"
-                          sx={{
-                            color: COLORS.border,
-                            "&.Mui-checked": { color: COLORS.primary },
-                          }}
-                        />
-                      }
-                      label={
-                        <Typography
-                          sx={{
-                            fontSize: "0.85rem",
-                            fontFamily: "Inter, sans-serif",
-                            color: COLORS.textPrimary,
-                          }}
-                        >
-                          {option}
-                        </Typography>
-                      }
-                    />
-                  ))}
-                </RadioGroup>
-              </Grid>
+                {/* Site Access */}
+                <Grid item xs={12} sm={6}>
+                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.5 }}>
+                    Rooftop Accessibility
+                  </Typography>
+                  <RadioGroup
+                    row
+                    value={formData.site_access}
+                    onChange={(e) => handleInputChange("site_access", e.target.value)}
+                  >
+                    {["Easy", "Moderate", "Difficult"].map((option) => (
+                      <FormControlLabel
+                        key={option}
+                        value={option}
+                        control={<Radio size="small" />}
+                        label={<Typography sx={{ fontSize: "0.82rem" }}>{option}</Typography>}
+                      />
+                    ))}
+                  </RadioGroup>
+                </Grid>
 
-              {/* Site Access */}
-              <Grid item xs={12} sm={6}>
-                <Typography
-                  sx={{
-                    fontSize: "0.78rem",
-                    fontWeight: 600,
-                    color: COLORS.textSecondary,
-                    fontFamily: "Inter, sans-serif",
-                    mb: 0.5,
-                  }}
-                >
-                  Site Access
-                </Typography>
-                <RadioGroup
-                  row
-                  value={formData.site_access}
-                  onChange={(e) => handleInputChange("site_access", e.target.value)}
-                >
-                  {["Easy", "Moderate", "Difficult"].map((option) => (
-                    <FormControlLabel
-                      key={option}
-                      value={option}
-                      control={
-                        <Radio
-                          size="small"
-                          sx={{
-                            color: COLORS.border,
-                            "&.Mui-checked": { color: COLORS.primary },
-                          }}
-                        />
-                      }
-                      label={
-                        <Typography
-                          sx={{
-                            fontSize: "0.85rem",
-                            fontFamily: "Inter, sans-serif",
-                            color: COLORS.textPrimary,
-                          }}
-                        >
-                          {option}
-                        </Typography>
-                      }
-                    />
-                  ))}
-                </RadioGroup>
-              </Grid>
+                {/* GPS Coordinates with Quick-Detect Button */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="GPS Coordinates (Lat, Long)"
+                    placeholder="e.g. 26.912434, 75.787271"
+                    value={formData.gps_coordinates}
+                    onChange={(e) => handleInputChange("gps_coordinates", e.target.value)}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <Tooltip title="Capture current device GPS location">
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={handleCaptureGps}
+                                disabled={fetchingGps}
+                                sx={{ color: "#2563EB" }}
+                              >
+                                {fetchingGps ? (
+                                  <CircularProgress size={18} />
+                                ) : (
+                                  <MyLocationIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </InputAdornment>
+                      ),
+                    }}
+                    helperText="Click icon to auto-capture current GPS position"
+                  />
+                </Grid>
 
-              {/* Additional Challenges */}
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  multiline
-                  rows={2}
-                  label="Additional Challenges"
-                  placeholder="Narrow staircase, high wind zone, animal nuisance..."
-                  value={formData.additional_challenges}
-                  onChange={(e) => handleInputChange("additional_challenges", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
+                {/* Site Photos / Cloud Link */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Site Photos / Drive Links"
+                    placeholder="Google Drive link or photo notes"
+                    value={formData.site_photos}
+                    onChange={(e) => handleInputChange("site_photos", e.target.value)}
+                    helperText="Paste cloud folder URL or photos summary"
+                  />
+                </Grid>
+
+                {/* Additional Challenges - TALL MULTI-LINE */}
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    multiline
+                    minRows={3}
+                    maxRows={6}
+                    label="Additional Challenges"
+                    placeholder="Narrow staircase for lifting solar panels, crane required, high wind zone, animal nuisance..."
+                    value={formData.additional_challenges}
+                    onChange={(e) => handleInputChange("additional_challenges", e.target.value)}
+                  />
+                </Grid>
               </Grid>
-            </Grid>
+            </Box>
 
             <Divider sx={{ my: 2.5, borderColor: COLORS.border }} />
 
-            {/* Section 4: Inspection Decision */}
-            <Typography
-              sx={{
-                fontSize: "0.95rem",
-                fontWeight: 700,
-                color: COLORS.textPrimary,
-                fontFamily: "Inter, sans-serif",
-                mb: 1.5,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <AssignmentTurnedInIcon sx={{ color: COLORS.success, fontSize: 20 }} />
-              Section 4: Inspection Decision
-            </Typography>
+            {/* SECTION 4: INSPECTION DECISION & SIGN-OFF */}
+            <Box>
+              <Typography
+                sx={{
+                  fontSize: "0.82rem",
+                  fontWeight: 800,
+                  color: COLORS.primary,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  mb: 1.5,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
+                <AssignmentTurnedInIcon sx={{ color: COLORS.success, fontSize: 18 }} />
+                Section 4: Inspection Decision & Customer Sign-Off
+              </Typography>
 
-            <Grid container spacing={2}>
-              {/* Overall Status */}
-              <Grid item xs={12} sm={4}>
-                <FormControl fullWidth size="small">
-                  <InputLabel sx={{ fontFamily: "Inter, sans-serif" }}>Overall Status</InputLabel>
-                  <Select
-                    value={formData.overall_status}
-                    label="Overall Status"
-                    onChange={(e) => handleInputChange("overall_status", e.target.value)}
-                    sx={{ fontFamily: "Inter, sans-serif" }}
-                  >
-                    <MenuItem value="Approved">Approved</MenuItem>
-                    <MenuItem value="Conditional Approval">Conditional Approval</MenuItem>
-                    <MenuItem value="Rejected">Rejected</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
+              <Grid container spacing={2}>
+                {/* Overall Status * MANDATORY (DEFAULTS TO PENDING) */}
+                <Grid item xs={12} sm={4}>
+                  <FormControl fullWidth size="small" required>
+                    <InputLabel>Overall Feasibility Status *</InputLabel>
+                    <Select
+                      value={formData.overall_status}
+                      label="Overall Feasibility Status *"
+                      onChange={(e) => handleInputChange("overall_status", e.target.value)}
+                    >
+                      <MenuItem value="Pending">Pending (Inspection In-Progress)</MenuItem>
+                      <MenuItem value="Approved">Approved (Site Feasible)</MenuItem>
+                      <MenuItem value="Conditional Approval">Conditional Approval (Changes Needed)</MenuItem>
+                      <MenuItem value="Rejected">Rejected (Unfeasible)</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
 
-              {/* Inspector Name */}
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label="Inspector Name"
-                  value={formData.inspector_name}
-                  onChange={(e) => handleInputChange("inspector_name", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
+                {/* Inspector Name * MANDATORY */}
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    required
+                    label="Inspector Name *"
+                    placeholder="e.g. Er. Vikram Singh"
+                    value={formData.inspector_name}
+                    onChange={(e) => handleInputChange("inspector_name", e.target.value)}
+                  />
+                </Grid>
 
-              {/* Inspection Date */}
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label="Inspection Date"
-                  InputLabelProps={{ shrink: true }}
-                  value={formData.inspection_date}
-                  onChange={(e) => handleInputChange("inspection_date", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
-              </Grid>
+                {/* Inspection Date * MANDATORY */}
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    required
+                    type="date"
+                    label="Inspection Date *"
+                    InputLabelProps={{ shrink: true }}
+                    value={formData.inspection_date}
+                    onChange={(e) => handleInputChange("inspection_date", e.target.value)}
+                  />
+                </Grid>
 
-              {/* Remarks */}
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  multiline
-                  rows={3}
-                  label="Remarks"
-                  placeholder="Key recommendations, observations, condition clauses..."
-                  value={formData.remarks}
-                  onChange={(e) => handleInputChange("remarks", e.target.value)}
-                  sx={{ fontFamily: "Inter, sans-serif" }}
-                />
+                {/* Customer Sign-off Name */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Customer / Representative Sign-Off"
+                    placeholder="Name of homeowner or site manager present"
+                    value={formData.customer_signature_name}
+                    onChange={(e) => handleInputChange("customer_signature_name", e.target.value)}
+                  />
+                </Grid>
+
+                {/* Sign-off Date */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="date"
+                    label="Sign-Off Date"
+                    InputLabelProps={{ shrink: true }}
+                    value={formData.signature_date}
+                    onChange={(e) => handleInputChange("signature_date", e.target.value)}
+                  />
+                </Grid>
+
+                {/* Remarks - TALL MULTI-LINE */}
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    multiline
+                    minRows={3}
+                    maxRows={6}
+                    label="Remarks & Feasibility Recommendations"
+                    placeholder="Key observations, BOM recommendations, structure height recommendations, condition clauses..."
+                    value={formData.remarks}
+                    onChange={(e) => handleInputChange("remarks", e.target.value)}
+                  />
+                </Grid>
               </Grid>
-            </Grid>
+            </Box>
           </Box>
         </DialogContent>
 
@@ -1302,13 +1483,7 @@ export default function PreInstallInspection({ project, projectId }) {
           <Button
             onClick={handleCloseDialog}
             disabled={saving}
-            startIcon={<CancelIcon />}
-            sx={{
-              color: COLORS.textSecondary,
-              textTransform: "none",
-              fontWeight: 600,
-              fontFamily: "Inter, sans-serif",
-            }}
+            sx={{ textTransform: "none", fontWeight: 600, color: COLORS.textSecondary }}
           >
             Cancel
           </Button>
@@ -1320,44 +1495,17 @@ export default function PreInstallInspection({ project, projectId }) {
             startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
             sx={{
               backgroundColor: COLORS.primary,
-              color: "#FFFFFF",
               textTransform: "none",
-              fontWeight: 600,
-              fontFamily: "Inter, sans-serif",
+              fontWeight: 700,
+              px: 3,
               borderRadius: "8px",
-              px: 2.5,
-              boxShadow: "none",
-              "&:hover": {
-                backgroundColor: "#020617",
-                boxShadow: "none",
-              },
+              "&:hover": { backgroundColor: "#020617" },
             }}
           >
-            {saving ? "Saving..." : "Save Inspection"}
+            {saving ? "Saving Feasibility..." : "Save Inspection"}
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Toast Notification Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={hideSnackbar}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          onClose={hideSnackbar}
-          severity={snackbar.severity}
-          sx={{
-            width: "100%",
-            fontFamily: "Inter, sans-serif",
-            fontWeight: 500,
-            borderRadius: "8px",
-          }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }

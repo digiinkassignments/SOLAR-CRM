@@ -9,3 +9,4 @@ ALTER TABLE `projects` MODIFY COLUMN `stage` VARCHAR(60) NOT NULL DEFAULT 'Order
 -- 2. Update any legacy stage names if needed
 UPDATE `projects` SET `stage` = 'Pre-Install Inspection' WHERE `stage` = 'Site Survey';
 UPDATE `projects` SET `stage` = 'Commissioning' WHERE `stage` = 'Testing & Commissioning';
+

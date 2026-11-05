@@ -141,3 +141,4 @@ export const getStageConfig = (stageName) => {
     description: "Project execution stage",
   };
 };
+
