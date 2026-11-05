@@ -1265,6 +1265,8 @@ export default function InstallationProgress({ project, projectId }) {
                       size="small"
                       required
                       type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                       label="Log Date *"
                       InputLabelProps={{ shrink: true }}
                       value={formData.log_date}
@@ -1644,6 +1646,7 @@ export default function InstallationProgress({ project, projectId }) {
                       fullWidth
                       size="small"
                       multiline
+                    slotProps={{ inputLabel: { shrink: true } }}
                       minRows={3}
                       InputLabelProps={{ shrink: true }}
                       maxRows={4}
@@ -1842,6 +1845,8 @@ export default function InstallationProgress({ project, projectId }) {
             fullWidth
             size="small"
             type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
             label="Target Completion Date"
             InputLabelProps={{ shrink: true }}
             value={newTargetDate}

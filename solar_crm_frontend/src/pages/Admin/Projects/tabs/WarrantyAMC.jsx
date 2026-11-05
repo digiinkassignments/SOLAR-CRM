@@ -1071,6 +1071,8 @@ export default function WarrantyAMC({ project, projectId }) {
                     fullWidth
                     size="small"
                     type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                     required
                     InputLabelProps={{ shrink: true }}
                     label="Warranty Start Date *"
@@ -1086,6 +1088,8 @@ export default function WarrantyAMC({ project, projectId }) {
                     fullWidth
                     size="small"
                     type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                     required
                     label="Free 1st-Year Service Ends *"
                     InputLabelProps={{ shrink: true }}
@@ -1222,6 +1226,8 @@ export default function WarrantyAMC({ project, projectId }) {
                     fullWidth
                     size="small"
                     type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                     required
                     label="AMC Start Date *"
                     InputLabelProps={{ shrink: true }}
@@ -1236,6 +1242,8 @@ export default function WarrantyAMC({ project, projectId }) {
                     fullWidth
                     size="small"
                     type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                     required
                     label="AMC End Date *"
                     InputLabelProps={{ shrink: true }}
@@ -1250,6 +1258,8 @@ export default function WarrantyAMC({ project, projectId }) {
                     fullWidth
                     size="small"
                     type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                     label="Next AMC Renewal Date *"
                     InputLabelProps={{ shrink: true }}
                     value={warrantyForm.amc_renewal_date}
@@ -1434,6 +1444,8 @@ export default function WarrantyAMC({ project, projectId }) {
               fullWidth
               size="small"
               type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
               required
               label="Visit Date *"
               InputLabelProps={{ shrink: true }}
@@ -1464,6 +1476,7 @@ export default function WarrantyAMC({ project, projectId }) {
               fullWidth
               size="small"
               multiline
+                    slotProps={{ inputLabel: { shrink: true } }}
               minRows={3}
               InputLabelProps={{ shrink: true }}
               label="Action Taken / Resolution *"

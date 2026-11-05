@@ -1306,6 +1306,7 @@ export default function ProjectDetail() {
                 fullWidth
                 size="small"
                 multiline
+                    slotProps={{ inputLabel: { shrink: true } }}
                 minRows={3.5}
                 InputLabelProps={{ shrink: true }}
                 placeholder="Reason for change, approvals received, or milestone status..."
@@ -1548,6 +1549,8 @@ export default function ProjectDetail() {
                       fullWidth
                       size="small"
                       type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                       label="Install Start Date"
                       InputLabelProps={{ shrink: true }}
                       value={editFormData.installation_start_date}
@@ -1565,6 +1568,8 @@ export default function ProjectDetail() {
                       fullWidth
                       size="small"
                       type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                       label="Install End Date"
                       InputLabelProps={{ shrink: true }}
                       value={editFormData.installation_end_date}
@@ -1582,6 +1587,8 @@ export default function ProjectDetail() {
                       fullWidth
                       size="small"
                       type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                       label="Actual Handover Date"
                       InputLabelProps={{ shrink: true }}
                       value={editFormData.completion_date}

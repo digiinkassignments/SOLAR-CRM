@@ -451,6 +451,8 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                   </Typography>
                   <TextField
                     type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                     fullWidth
                     size="small"
                     InputLabelProps={{ shrink: true }}
@@ -466,6 +468,8 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                   </Typography>
                   <TextField
                     type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                     fullWidth
                     size="small"
                     InputLabelProps={{ shrink: true }}

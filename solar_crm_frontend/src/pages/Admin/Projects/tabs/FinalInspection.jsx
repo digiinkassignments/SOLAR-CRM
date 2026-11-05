@@ -1043,6 +1043,8 @@ export default function FinalInspection({ project, projectId }) {
                       size="small"
                       required
                       type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                       label="Inspection Date *"
                       InputLabelProps={{ shrink: true }}
                       value={formData.inspection_date}
@@ -1115,6 +1117,8 @@ export default function FinalInspection({ project, projectId }) {
                       fullWidth
                       size="small"
                       type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                       label="Re-inspection Date"
                       InputLabelProps={{ shrink: true }}
                       value={formData.reinspection_date}
@@ -1158,6 +1162,7 @@ export default function FinalInspection({ project, projectId }) {
                       fullWidth
                       size="small"
                       multiline
+                    slotProps={{ inputLabel: { shrink: true } }}
                       minRows={3.5}
                       InputLabelProps={{ shrink: true }}
                       maxRows={6}

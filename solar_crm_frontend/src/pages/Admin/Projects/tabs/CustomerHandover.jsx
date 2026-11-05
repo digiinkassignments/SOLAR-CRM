@@ -1185,6 +1185,8 @@ export default function CustomerHandover({ project, projectId }) {
                     fullWidth
                     size="small"
                     type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                     required
                     InputLabelProps={{ shrink: true }}
                     label="Customer Handover Date *"
@@ -1200,6 +1202,8 @@ export default function CustomerHandover({ project, projectId }) {
                     fullWidth
                     size="small"
                     type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                     required
                     label="Warranty Start Date *"
                     InputLabelProps={{ shrink: true }}
@@ -1214,6 +1218,8 @@ export default function CustomerHandover({ project, projectId }) {
                     fullWidth
                     size="small"
                     type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                     label="1st Routine Service Date"
                     InputLabelProps={{ shrink: true }}
                     value={formData.first_service_due_date}
@@ -1619,6 +1625,7 @@ export default function CustomerHandover({ project, projectId }) {
                     fullWidth
                     size="small"
                     multiline
+                    slotProps={{ inputLabel: { shrink: true } }}
                     minRows={3.5}
                     InputLabelProps={{ shrink: true }}
                     label="Supervisor Handover Remarks"

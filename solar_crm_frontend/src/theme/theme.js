@@ -181,6 +181,11 @@ const theme = createTheme({
 
     MuiTextField: {
       defaultProps: {
+        slotProps: {
+          inputLabel: {
+            shrink: true,
+          },
+        },
         InputLabelProps: {
           shrink: true,
         },

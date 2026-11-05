@@ -293,6 +293,8 @@ export default function DealOrderModal({ open, onClose, lead, quotation, onOrder
                   </Typography>
                   <TextField
                     type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                     fullWidth
                     size="small"
                     InputLabelProps={{ shrink: true }}

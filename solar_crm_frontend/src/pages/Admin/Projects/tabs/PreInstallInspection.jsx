@@ -1061,6 +1061,7 @@ export default function PreInstallInspection({ project, projectId }) {
                     fullWidth
                     size="small"
                     multiline
+                    slotProps={{ inputLabel: { shrink: true } }}
                     minRows={3.5}
                     maxRows={8}
                     InputLabelProps={{ shrink: true }}
@@ -1198,6 +1199,7 @@ export default function PreInstallInspection({ project, projectId }) {
                     fullWidth
                     size="small"
                     multiline
+                    slotProps={{ inputLabel: { shrink: true } }}
                     minRows={3.5}
                     InputLabelProps={{ shrink: true }}
                     maxRows={6}
@@ -1364,6 +1366,7 @@ export default function PreInstallInspection({ project, projectId }) {
                     fullWidth
                     size="small"
                     multiline
+                    slotProps={{ inputLabel: { shrink: true } }}
                     minRows={3.5}
                     InputLabelProps={{ shrink: true }}
                     maxRows={6}
@@ -1435,6 +1438,8 @@ export default function PreInstallInspection({ project, projectId }) {
                     size="small"
                     required
                     type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                     label="Inspection Date *"
                     InputLabelProps={{ shrink: true }}
                     value={formData.inspection_date}
@@ -1460,8 +1465,9 @@ export default function PreInstallInspection({ project, projectId }) {
                     fullWidth
                     size="small"
                     type="date"
-                    label="Sign-Off Date"
+                    slotProps={{ inputLabel: { shrink: true } }}
                     InputLabelProps={{ shrink: true }}
+                    label="Sign-Off Date"
                     value={formData.signature_date}
                     onChange={(e) => handleInputChange("signature_date", e.target.value)}
                   />

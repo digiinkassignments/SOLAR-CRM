@@ -261,6 +261,8 @@ export default function ScheduleSurveyModal({ open, onClose, lead, onScheduled, 
             </Typography>
             <TextField
               type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
               fullWidth
               size="small"
               value={formData.scheduled_date}

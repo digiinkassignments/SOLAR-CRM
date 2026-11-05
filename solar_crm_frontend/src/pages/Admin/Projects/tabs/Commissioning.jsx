@@ -1176,6 +1176,8 @@ export default function Commissioning({ project, projectId }) {
                       size="small"
                       required
                       type="date"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    InputLabelProps={{ shrink: true }}
                       label="Commissioning Date *"
                       InputLabelProps={{ shrink: true }}
                       value={formData.commission_date}
