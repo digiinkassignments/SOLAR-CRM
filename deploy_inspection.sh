@@ -25,3 +25,4 @@ npm run build
 echo ""
 echo "=== [DEPLOYMENT SUCCESSFUL] ==="
 pm2 status solar-crm-backend
+

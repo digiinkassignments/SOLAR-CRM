@@ -50,11 +50,25 @@ exports.uploadPhotos = async (req, res) => {
       return res.status(400).json({ message: 'No photos uploaded.' });
     }
 
-    const photoRecords = files.map((f) => ({
-      photo_url: `/uploads/installation/${f.filename}`,
-      file_name: f.originalname,
-      file_size: f.size,
-    }));
+    let meta = [];
+    if (req.body.captions) {
+      try {
+        meta = typeof req.body.captions === 'string' ? JSON.parse(req.body.captions) : req.body.captions;
+      } catch {
+        meta = [];
+      }
+    }
+
+    const photoRecords = files.map((f, idx) => {
+      const itemMeta = Array.isArray(meta) && meta[idx] ? meta[idx] : {};
+      return {
+        photo_url: `/uploads/installation/${f.filename}`,
+        caption: itemMeta.caption || req.body[`caption_${idx}`] || null,
+        photo_tag: itemMeta.tag || req.body[`tag_${idx}`] || 'Work Progress',
+        file_name: f.originalname,
+        file_size: f.size,
+      };
+    });
 
     await saveLogPhotos(req.db, req.params.logId, photoRecords);
     const data = await getAllLogs(req.db, req.params.id);

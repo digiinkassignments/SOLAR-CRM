@@ -14,3 +14,4 @@ ALTER TABLE project_inspections
   ADD COLUMN IF NOT EXISTS site_photos TEXT DEFAULT NULL AFTER additional_challenges,
   ADD COLUMN IF NOT EXISTS customer_signature_name VARCHAR(100) DEFAULT NULL AFTER remarks,
   ADD COLUMN IF NOT EXISTS signature_date DATE DEFAULT NULL AFTER customer_signature_name;
+

@@ -36,7 +36,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024, files: 5 }, // max 10MB per file, max 5 files
+  limits: { fileSize: 10 * 1024 * 1024, files: 10 }, // max 10MB per file, max 10 files
 });
 
 router.use(authMiddleware, clientDbMiddleware);
@@ -44,6 +44,6 @@ router.use(authMiddleware, clientDbMiddleware);
 router.get('/', getLogs);
 router.post('/', createLog);
 router.put('/:logId', updateLog);
-router.post('/:logId/photos', upload.array('photos', 5), uploadPhotos);
+router.post('/:logId/photos', upload.array('photos', 10), uploadPhotos);
 
 module.exports = router;
