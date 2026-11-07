@@ -68,6 +68,9 @@ const ensureFinalInspectionTable = async (db) => {
     if (!existingCols.has('inspector_signoff')) {
       await db.query(`ALTER TABLE project_final_inspection ADD COLUMN inspector_signoff TINYINT(1) DEFAULT 0`);
     }
+    if (!existingCols.has('signature_data')) {
+      await db.query(`ALTER TABLE project_final_inspection ADD COLUMN signature_data LONGTEXT DEFAULT NULL`);
+    }
     await db.query(`ALTER TABLE project_final_inspection MODIFY COLUMN inspection_status VARCHAR(60) DEFAULT 'Pending'`);
     await db.query(`ALTER TABLE project_final_inspection MODIFY COLUMN inspector_type VARCHAR(60) DEFAULT 'Internal QA / QC'`);
   } catch (err) {
@@ -113,7 +116,7 @@ const createFinalInspection = async (db, projectId, data, userId) => {
     'documents_checklist', 'performance_testing', 'inspector_name', 'inspector_type',
     'inspection_date', 'inspection_status', 'corrections_needed', 'rework_status',
     'reinspection_date', 'certificate_number', 'remarks', 'inspection_photos',
-    'customer_signature_name', 'customer_acknowledged', 'inspector_signoff', 'created_by'
+    'customer_signature_name', 'customer_acknowledged', 'inspector_signoff', 'signature_data', 'created_by'
   ];
 
   const values = [
@@ -139,6 +142,7 @@ const createFinalInspection = async (db, projectId, data, userId) => {
     data.customer_signature_name || null,
     data.customer_acknowledged ? 1 : 0,
     data.inspector_signoff ? 1 : 0,
+    data.signature_data || null,
     userId || null
   ];
 
@@ -172,7 +176,8 @@ const updateFinalInspection = async (db, projectId, data) => {
       inspection_photos = ?,
       customer_signature_name = ?,
       customer_acknowledged = ?,
-      inspector_signoff = ?
+      inspector_signoff = ?,
+      signature_data = ?
     WHERE project_id = ? AND is_deleted = 0`,
     [
       data.installation_quality || null,
@@ -196,6 +201,7 @@ const updateFinalInspection = async (db, projectId, data) => {
       data.customer_signature_name || null,
       data.customer_acknowledged ? 1 : 0,
       data.inspector_signoff ? 1 : 0,
+      data.signature_data !== undefined ? data.signature_data : null,
       projectId
     ]
   );

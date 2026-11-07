@@ -48,6 +48,7 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CloseIcon from "@mui/icons-material/Close";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import WbSunnyIcon from "@mui/icons-material/WbSunny";
+import SignatureCapture from "../../../../components/SignatureCapture";
 import SecurityIcon from "@mui/icons-material/Security";
 import VerifiedIcon from "@mui/icons-material/Verified";
 import ElectricBoltIcon from "@mui/icons-material/ElectricBolt";
@@ -349,6 +350,7 @@ export default function InstallationProgress({ project, projectId }) {
       lifeline: false,
     },
     supervisor_signoff: false,
+    signature_data: "",
   });
 
   // Modal schedule calculation
@@ -515,6 +517,7 @@ export default function InstallationProgress({ project, projectId }) {
         lifeline: true,
       },
       supervisor_signoff: true,
+      signature_data: "",
     });
     setModalOpen(true);
   };
@@ -607,6 +610,7 @@ export default function InstallationProgress({ project, projectId }) {
         lifeline: Boolean(sc.lifeline),
       },
       supervisor_signoff: log.supervisor_signoff === 1 || log.supervisor_signoff === true,
+      signature_data: log.signature_data || "",
     });
     setModalOpen(true);
   };
@@ -835,6 +839,7 @@ export default function InstallationProgress({ project, projectId }) {
         supervisor_signoff_time: formData.supervisor_signoff
           ? new Date().toISOString().slice(0, 19).replace("T", " ")
           : null,
+        signature_data: formData.signature_data || null,
       };
 
       let targetLogId = editingLogId;
@@ -1467,6 +1472,13 @@ export default function InstallationProgress({ project, projectId }) {
                             Supervisor Verified
                           </Typography>
                         </Stack>
+                      )}
+
+                      {log.signature_data && (
+                        <Box sx={{ mt: 1, display: "flex", alignItems: "center", gap: 1 }}>
+                          <Chip size="small" icon={<VerifiedIcon sx={{ fontSize: "14px !important" }} />} label="✓ Signature Verified" color="success" sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700 }} />
+                          <Box component="img" src={log.signature_data} alt="Supervisor Signature" sx={{ maxHeight: 32, maxWidth: 100, objectFit: "contain", border: "1px solid #CBD5E1", borderRadius: "4px", p: 0.3, backgroundColor: "#FFFFFF" }} />
+                        </Box>
                       )}
                     </Box>
 
@@ -2179,6 +2191,20 @@ export default function InstallationProgress({ project, projectId }) {
                         }
                       />
                     </Box>
+                  </Grid>
+
+                  {/* Supervisor Signature Capture */}
+                  <Grid size={{ xs: 12 }}>
+                    <SignatureCapture
+                      label="Supervisor Digital Signature (Draw or Upload)"
+                      value={formData.signature_data}
+                      signatoryName={formData.supervisor_name || "Site Supervisor"}
+                      onChange={(sig) => {
+                        handleInputChange("signature_data", sig);
+                        if (sig) handleInputChange("supervisor_signoff", true);
+                      }}
+                      helperText="Sign with mouse/touchpad/finger or upload signature image for site sign-off"
+                    />
                   </Grid>
 
                   {/* Issues Faced */}

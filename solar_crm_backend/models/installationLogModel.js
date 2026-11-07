@@ -72,6 +72,9 @@ const ensureInstallationLogsTable = async (db) => {
     if (!existingCols.has('supervisor_signoff_time')) {
       await db.query(`ALTER TABLE installation_logs ADD COLUMN supervisor_signoff_time DATETIME DEFAULT NULL`);
     }
+    if (!existingCols.has('signature_data')) {
+      await db.query(`ALTER TABLE installation_logs ADD COLUMN signature_data LONGTEXT DEFAULT NULL`);
+    }
     await db.query(`ALTER TABLE installation_logs MODIFY COLUMN phase VARCHAR(80) NOT NULL`);
 
     const [pcols] = await db.query(`SHOW COLUMNS FROM installation_log_photos`);
@@ -170,8 +173,8 @@ const createLog = async (db, projectId, data, userId) => {
       project_id, log_date, phase, is_phase_completed, work_done,
       workers_count, hours_worked, supervisor_name, crew_names,
       materials_used, materials_json, issues_faced, progress_percent,
-      weather, safety_checklist, supervisor_signoff, supervisor_signoff_time, created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      weather, safety_checklist, supervisor_signoff, supervisor_signoff_time, signature_data, created_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       projectId,
       data.log_date,
@@ -190,6 +193,7 @@ const createLog = async (db, projectId, data, userId) => {
       safetyJson,
       isSignoff,
       signoffTime,
+      data.signature_data || null,
       userId
     ]
   );
@@ -238,7 +242,8 @@ const updateLog = async (db, logId, projectId, data) => {
       weather = ?,
       safety_checklist = ?,
       supervisor_signoff = ?,
-      supervisor_signoff_time = ?
+      supervisor_signoff_time = ?,
+      signature_data = COALESCE(?, signature_data)
      WHERE id = ? AND project_id = ? AND is_deleted = 0`,
     [
       data.log_date,
@@ -257,6 +262,7 @@ const updateLog = async (db, logId, projectId, data) => {
       safetyJson,
       isSignoff,
       signoffTime,
+      data.signature_data !== undefined ? data.signature_data : null,
       logId,
       projectId
     ]

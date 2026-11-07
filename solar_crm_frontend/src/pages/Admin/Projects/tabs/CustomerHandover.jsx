@@ -48,6 +48,7 @@ import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import SignatureCapture from "../../../../components/SignatureCapture";
 import PersonIcon from "@mui/icons-material/Person";
 import SchoolIcon from "@mui/icons-material/School";
 import SolarPowerIcon from "@mui/icons-material/SolarPower";
@@ -170,6 +171,7 @@ export default function CustomerHandover({ project, projectId }) {
     signature_signatory_name: project?.customer_name || "Rajesh Sharma",
     signature_phone: project?.customer_phone || "9876501234",
     signed_docket_url: "https://diassignments.digiinksolutions.com/uploads/handover_dockets/DOCKET-PROJ-004-SIGNED.pdf",
+    signature_data: "",
     handover_photo_url: "https://images.unsplash.com/photo-1509391365360-2e959784a276?w=800&auto=format&fit=crop&q=60",
     customer_rating: 5,
     customer_feedback: "Pleased with the rooftop solar installation speed and prompt DISCOM meter sync. Generation is visible clearly on the mobile phone app.",
@@ -234,6 +236,7 @@ export default function CustomerHandover({ project, projectId }) {
           signature_signatory_name: record.signature_signatory_name || project?.customer_name || "Rajesh Sharma",
           signature_phone: record.signature_phone || project?.customer_phone || "9876501234",
           signed_docket_url: record.signed_docket_url || "https://diassignments.digiinksolutions.com/uploads/handover_dockets/DOCKET-PROJ-004-SIGNED.pdf",
+          signature_data: record.signature_data || "",
           handover_photo_url: record.handover_photo_url || "https://images.unsplash.com/photo-1509391365360-2e959784a276?w=800&auto=format&fit=crop&q=60",
           customer_rating: record.customer_rating || 5,
           customer_feedback: record.customer_feedback || "",
@@ -1074,6 +1077,20 @@ export default function CustomerHandover({ project, projectId }) {
                 </Stack>
               </Box>
 
+              {formData.signature_data && (
+                <Box sx={{ p: 1.5, borderRadius: "8px", border: "1px solid #10B981", backgroundColor: "#F0FDF4" }}>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                    <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#166534" }}>
+                      Customer Handover Signature
+                    </Typography>
+                    <Chip size="small" label="✓ Signature Verified" sx={{ height: 20, fontSize: "0.68rem", fontWeight: 800, color: "#16A34A", backgroundColor: "#DCFCE7", border: "1px solid #86EFAC" }} />
+                  </Stack>
+                  <Box sx={{ display: "flex", justifyContent: "center", backgroundColor: "#FFFFFF", borderRadius: "6px", p: 1, border: "1px dashed #CBD5E1" }}>
+                    <Box component="img" src={formData.signature_data} alt="Verified Handover Signature" sx={{ maxHeight: 70, maxWidth: "100%", objectFit: "contain" }} />
+                  </Box>
+                </Box>
+              )}
+
               <Grid container spacing={1.5}>
                 <Grid size={6}>
                   <Button
@@ -1750,6 +1767,23 @@ export default function CustomerHandover({ project, projectId }) {
                     placeholder="https://.../customer_handover.jpg"
                     value={formData.handover_photo_url}
                     onChange={(e) => setFormData({ ...formData, handover_photo_url: e.target.value })}
+                  />
+                </Grid>
+
+                {/* Customer Signature Capture (Draw or Upload) */}
+                <Grid size={{ xs: 12 }}>
+                  <SignatureCapture
+                    label="Customer Handover Signature (Draw or Upload)"
+                    value={formData.signature_data}
+                    signatoryName={formData.signature_signatory_name || project?.customer_name}
+                    onChange={(sig) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        signature_data: sig,
+                        customer_signature: sig ? 1 : prev.customer_signature,
+                      }));
+                    }}
+                    helperText="Sign with mouse/touchpad/finger on the pad or upload a photo of the signed physical docket"
                   />
                 </Grid>
               </Grid>

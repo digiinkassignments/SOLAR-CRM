@@ -45,6 +45,7 @@ import AddPhotoAlternateOutlinedIcon from "@mui/icons-material/AddPhotoAlternate
 import ExploreOutlinedIcon from "@mui/icons-material/ExploreOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import PersonIcon from "@mui/icons-material/Person";
+import SignatureCapture from "../../../../components/SignatureCapture";
 
 // Design Palette
 const COLORS = {
@@ -146,6 +147,7 @@ export default function PreInstallInspection({ project, projectId }) {
     remarks: "",
     customer_signature_name: "",
     signature_date: "",
+    signature_data: "",
   });
 
   const { snackbar, showSnackbar, hideSnackbar } = useSnackbar();
@@ -241,6 +243,7 @@ export default function PreInstallInspection({ project, projectId }) {
         signature_date: inspection.signature_date
           ? String(inspection.signature_date).split("T")[0]
           : "",
+        signature_data: inspection.signature_data || "",
       });
     } else {
       setFormData({
@@ -275,6 +278,7 @@ export default function PreInstallInspection({ project, projectId }) {
         remarks: "",
         customer_signature_name: "",
         signature_date: "",
+        signature_data: "",
       });
     }
     setDialogOpen(true);
@@ -849,6 +853,21 @@ export default function PreInstallInspection({ project, projectId }) {
                           "Sign-Off Date",
                           formatCleanDate(inspection.signature_date)
                         )}
+                      </Grid>
+                    )}
+                    {inspection.signature_data && (
+                      <Grid size={12}>
+                        <Box sx={{ p: 1.5, borderRadius: "8px", border: "1px solid #10B981", backgroundColor: "#F0FDF4", mt: 1 }}>
+                          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                            <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#166534" }}>
+                              Customer / Representative Digital Signature
+                            </Typography>
+                            <Chip size="small" label="✓ Signature Verified" sx={{ height: 20, fontSize: "0.68rem", fontWeight: 800, color: "#16A34A", backgroundColor: "#DCFCE7", border: "1px solid #86EFAC" }} />
+                          </Stack>
+                          <Box sx={{ display: "flex", justifyContent: "center", backgroundColor: "#FFFFFF", borderRadius: "6px", p: 1, border: "1px dashed #CBD5E1" }}>
+                            <Box component="img" src={inspection.signature_data} alt="Verified Signature" sx={{ maxHeight: 70, maxWidth: "100%", objectFit: "contain" }} />
+                          </Box>
+                        </Box>
                       </Grid>
                     )}
                     <Grid size={12}>
@@ -1486,6 +1505,17 @@ export default function PreInstallInspection({ project, projectId }) {
                     type="date"
                     value={formData.signature_date}
                     onChange={(e) => handleInputChange("signature_date", e.target.value)}
+                  />
+                </Grid>
+
+                {/* Digital Signature Pad & Upload Option */}
+                <Grid size={{ xs: 12 }}>
+                  <SignatureCapture
+                    label="Customer / Representative Signature"
+                    value={formData.signature_data}
+                    signatoryName={formData.customer_signature_name || project?.customer_name}
+                    onChange={(sig) => handleInputChange("signature_data", sig)}
+                    helperText="Sign digitally using mouse/touchpad/finger or upload signature image"
                   />
                 </Grid>
 

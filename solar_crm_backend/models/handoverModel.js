@@ -111,6 +111,9 @@ const ensureHandoverTable = async (db) => {
     if (!existingCols.has('customer_reviewer_name')) {
       await db.query(`ALTER TABLE project_handover ADD COLUMN customer_reviewer_name VARCHAR(150) DEFAULT NULL`);
     }
+    if (!existingCols.has('signature_data')) {
+      await db.query(`ALTER TABLE project_handover ADD COLUMN signature_data LONGTEXT DEFAULT NULL`);
+    }
 
     await db.query(`ALTER TABLE project_handover MODIFY COLUMN handover_status VARCHAR(60) DEFAULT 'Pending'`);
     await db.query(`ALTER TABLE project_handover MODIFY COLUMN training_completed VARCHAR(30) DEFAULT NULL`);
@@ -169,7 +172,7 @@ const createHandover = async (db, projectId, data, userId) => {
     'first_service_due_date', 'customer_signature', 'signed_docket_url',
     'signature_signatory_name', 'signature_phone', 'handover_photo_url',
     'customer_feedback', 'customer_rating', 'review_token', 'review_status',
-    'review_submitted_at', 'customer_reviewer_name', 'handover_status', 'remarks', 'created_by'
+    'review_submitted_at', 'customer_reviewer_name', 'handover_status', 'remarks', 'signature_data', 'created_by'
   ];
 
   const values = [
@@ -208,6 +211,7 @@ const createHandover = async (db, projectId, data, userId) => {
     data.customer_reviewer_name || null,
     data.handover_status || 'Pending',
     data.remarks || null,
+    data.signature_data || null,
     userId || null
   ];
 
@@ -258,6 +262,7 @@ const updateHandover = async (db, projectId, data) => {
       handover_photo_url = ?,
       customer_feedback = COALESCE(?, customer_feedback),
       customer_rating = COALESCE(?, customer_rating),
+      signature_data = COALESCE(?, signature_data),
       handover_status = ?,
       remarks = ?
     WHERE project_id = ? AND is_deleted = 0`,
@@ -290,6 +295,7 @@ const updateHandover = async (db, projectId, data) => {
       data.handover_photo_url || null,
       data.customer_feedback !== undefined ? data.customer_feedback : null,
       data.customer_rating !== undefined ? data.customer_rating : null,
+      data.signature_data !== undefined ? data.signature_data : null,
       data.handover_status || 'Pending',
       data.remarks || null,
       projectId

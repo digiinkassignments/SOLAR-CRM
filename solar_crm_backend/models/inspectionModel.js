@@ -72,6 +72,9 @@ const ensureInspectionTable = async (db) => {
     if (!existingCols.has('signature_date')) {
       await db.query(`ALTER TABLE project_inspections ADD COLUMN signature_date DATE DEFAULT NULL`);
     }
+    if (!existingCols.has('signature_data')) {
+      await db.query(`ALTER TABLE project_inspections ADD COLUMN signature_data LONGTEXT DEFAULT NULL`);
+    }
     await db.query(`ALTER TABLE project_inspections MODIFY COLUMN overall_status VARCHAR(50) DEFAULT 'Pending'`);
   } catch (err) {
     // Ignore schema check errors
@@ -111,7 +114,7 @@ const createInspection = async (db, projectId, data, userId) => {
     'existing_load_kw', 'sanctioned_load_kw', 'consumer_number', 'meter_type', 'main_panel_capacity',
     'earthing_available', 'electrical_issues', 'shading_issues', 'shading_source',
     'water_availability', 'site_access', 'gps_coordinates', 'additional_challenges', 'site_photos',
-    'overall_status', 'inspector_name', 'inspection_date', 'remarks', 'customer_signature_name', 'signature_date', 'created_by'
+    'overall_status', 'inspector_name', 'inspection_date', 'remarks', 'customer_signature_name', 'signature_date', 'signature_data', 'created_by'
   ];
 
   const values = [
@@ -144,6 +147,7 @@ const createInspection = async (db, projectId, data, userId) => {
     data.remarks || null,
     data.customer_signature_name || null,
     data.signature_date || null,
+    data.signature_data || null,
     userId || null
   ];
 
@@ -187,7 +191,8 @@ const updateInspection = async (db, projectId, data) => {
       inspection_date = ?,
       remarks = ?,
       customer_signature_name = ?,
-      signature_date = ?
+      signature_date = ?,
+      signature_data = ?
     WHERE project_id = ? AND is_deleted = 0`,
     [
       data.roof_condition || 'Good',
@@ -218,6 +223,7 @@ const updateInspection = async (db, projectId, data) => {
       data.remarks || null,
       data.customer_signature_name || null,
       data.signature_date || null,
+      data.signature_data !== undefined ? data.signature_data : null,
       projectId
     ]
   );

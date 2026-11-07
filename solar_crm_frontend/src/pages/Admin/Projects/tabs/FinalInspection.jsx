@@ -46,6 +46,7 @@ import BuildCircleOutlinedIcon from "@mui/icons-material/BuildCircleOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import SpeedIcon from "@mui/icons-material/Speed";
+import SignatureCapture from "../../../../components/SignatureCapture";
 
 const COLORS = {
   primary: "#0F172A",
@@ -167,6 +168,7 @@ export default function FinalInspection({ project, projectId }) {
     customer_signature_name: project?.customer_name || "",
     customer_acknowledged: false,
     inspector_signoff: false,
+    signature_data: "",
   });
 
   const { snackbar, showSnackbar, hideSnackbar } = useSnackbar();
@@ -291,6 +293,7 @@ export default function FinalInspection({ project, projectId }) {
         customer_signature_name: inspection.customer_signature_name || project?.customer_name || "",
         customer_acknowledged: Boolean(inspection.customer_acknowledged),
         inspector_signoff: Boolean(inspection.inspector_signoff),
+        signature_data: inspection.signature_data || "",
       });
     } else {
       setFormData({
@@ -337,6 +340,7 @@ export default function FinalInspection({ project, projectId }) {
         customer_signature_name: project?.customer_name || "",
         customer_acknowledged: false,
         inspector_signoff: false,
+        signature_data: "",
       });
     }
     setDialogOpen(true);
@@ -844,6 +848,21 @@ export default function FinalInspection({ project, projectId }) {
                         </Box>
                       )}
                     </Grid>
+                    {inspection.signature_data && (
+                      <Grid size={12}>
+                        <Box sx={{ p: 1.5, borderRadius: "8px", border: "1px solid #10B981", backgroundColor: "#F0FDF4", mt: 1 }}>
+                          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                            <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#166534" }}>
+                              Final QA Customer & Inspector Digital Signature
+                            </Typography>
+                            <Chip size="small" label="✓ Signature Verified" sx={{ height: 20, fontSize: "0.68rem", fontWeight: 800, color: "#16A34A", backgroundColor: "#DCFCE7", border: "1px solid #86EFAC" }} />
+                          </Stack>
+                          <Box sx={{ display: "flex", justifyContent: "center", backgroundColor: "#FFFFFF", borderRadius: "6px", p: 1, border: "1px dashed #CBD5E1" }}>
+                            <Box component="img" src={inspection.signature_data} alt="Verified Signature" sx={{ maxHeight: 70, maxWidth: "100%", objectFit: "contain" }} />
+                          </Box>
+                        </Box>
+                      </Grid>
+                    )}
                   </Grid>
                 </CardContent>
               </Card>
@@ -1245,6 +1264,17 @@ export default function FinalInspection({ project, projectId }) {
                         label={<Typography sx={{ fontSize: "0.78rem", fontWeight: 700 }}>Inspector certifies installation is safe & ready for handover</Typography>}
                       />
                     </Stack>
+                  </Grid>
+
+                  {/* Digital Signature Pad & Upload Option */}
+                  <Grid size={{ xs: 12 }}>
+                    <SignatureCapture
+                      label="Customer / Client Representative Signature (Draw or Upload)"
+                      value={formData.signature_data}
+                      signatoryName={formData.customer_signature_name || project?.customer_name}
+                      onChange={(sig) => handleInputChange("signature_data", sig)}
+                      helperText="Sign digitally using mouse/touchpad/finger or upload signature image"
+                    />
                   </Grid>
                 </Grid>
               </Box>

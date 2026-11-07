@@ -86,6 +86,9 @@ const ensureCommissioningTable = async (db) => {
     if (!existingCols.has('engineer_signoff')) {
       await db.query(`ALTER TABLE project_commissioning ADD COLUMN engineer_signoff TINYINT(1) DEFAULT 0`);
     }
+    if (!existingCols.has('signature_data')) {
+      await db.query(`ALTER TABLE project_commissioning ADD COLUMN signature_data LONGTEXT DEFAULT NULL`);
+    }
     await db.query(`ALTER TABLE project_commissioning MODIFY COLUMN overall_result VARCHAR(50) DEFAULT 'Pending'`);
   } catch (err) {
     // Non-fatal
@@ -109,7 +112,7 @@ const createCommissioning = async (db, projectId, data, userId) => {
     'wiring_insulation', 'insulation_resistance_mohm', 'earth_leakage',
     'overall_result', 'commission_date', 'commissioning_engineer', 'certificate_number',
     'remarks', 'meter_photo_url', 'inverter_photo_url', 'customer_signature_name',
-    'customer_acknowledged', 'engineer_signoff', 'created_by'
+    'customer_acknowledged', 'engineer_signoff', 'signature_data', 'created_by'
   ];
 
   const values = [
@@ -141,6 +144,7 @@ const createCommissioning = async (db, projectId, data, userId) => {
     data.customer_signature_name || null,
     data.customer_acknowledged ? 1 : 0,
     data.engineer_signoff ? 1 : 0,
+    data.signature_data || null,
     userId || null
   ];
 
@@ -180,7 +184,8 @@ const updateCommissioning = async (db, projectId, data) => {
       inverter_photo_url = ?,
       customer_signature_name = ?,
       customer_acknowledged = ?,
-      engineer_signoff = ?
+      engineer_signoff = ?,
+      signature_data = ?
     WHERE project_id = ? AND is_deleted = 0`,
     [
       data.panel_output_voltage ?? null,
@@ -210,6 +215,7 @@ const updateCommissioning = async (db, projectId, data) => {
       data.customer_signature_name || null,
       data.customer_acknowledged ? 1 : 0,
       data.engineer_signoff ? 1 : 0,
+      data.signature_data !== undefined ? data.signature_data : null,
       projectId
     ]
   );
