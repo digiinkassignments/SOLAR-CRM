@@ -46,6 +46,7 @@ import {
   FormControlLabel,
   FormControl,
   FormLabel,
+  FormHelperText,
   Checkbox,
 } from "@mui/material";
 
@@ -117,6 +118,7 @@ import {
   getPipelineStatuses,
 } from "../../services/leadConfigService";
 import BulkDeleteBar from "../../components/BulkDeleteBar";
+import api from "../../api/axios";
 
 /* ============================================================
    DESIGN TOKENS
@@ -732,19 +734,20 @@ export default function Leads() {
   // Dynamic Custom Form Fields (From Admin Settings)
   const [customFields, setCustomFields] = useState([]);
 
-  useEffect(() => {
-    const fetchCF = async () => {
-      try {
-        const res = await api.get("/custom-fields");
-        if (res.data?.success && Array.isArray(res.data.data)) {
-          setCustomFields(res.data.data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch custom fields:", err);
+  const fetchCF = useCallback(async () => {
+    try {
+      const res = await api.get("/custom-fields");
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setCustomFields(res.data.data);
       }
-    };
-    fetchCF();
+    } catch (err) {
+      console.error("Failed to fetch custom fields:", err);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchCF();
+  }, [fetchCF, formDialogOpen]);
 
   // View Lead Modal Popup State (Centered Modal Popup)
   const [viewModalOpen, setViewModalOpen] = useState(false);
