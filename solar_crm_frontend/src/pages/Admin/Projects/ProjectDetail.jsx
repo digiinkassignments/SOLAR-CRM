@@ -137,7 +137,13 @@ export default function ProjectDetail() {
     try {
       const res = await api.get(`/projects/${id}`);
       if (res.data?.success && res.data.data) {
-        setProject(res.data.data);
+        const pData = res.data.data;
+        setProject(pData);
+        // Secure URL mask: Automatically replace sequential numeric ID with unguessable project_uuid
+        if (pData.project_uuid && id !== pData.project_uuid) {
+          const basePath = location.pathname.startsWith("/manager") ? "/manager/projects" : "/projects";
+          navigate(`${basePath}/${pData.project_uuid}`, { replace: true });
+        }
       } else {
         setError("Project not found.");
       }
@@ -527,20 +533,23 @@ export default function ProjectDetail() {
             <Stack
               direction="row"
               alignItems="center"
-              gap={1.2}
-              sx={{ flexWrap: "wrap", mb: 0.6 }}
+              spacing={1.5}
+              sx={{ flexWrap: "wrap", gap: 1.5, mb: 1 }}
             >
               <Box
                 sx={{
-                  px: 1.2,
-                  py: 0.35,
-                  borderRadius: "6px",
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: "8px",
                   backgroundColor: "#EFF6FF",
                   border: "1px solid #BFDBFE",
                   color: "#1D4ED8",
                   fontWeight: 800,
-                  fontSize: "0.82rem",
+                  fontSize: "0.85rem",
                   fontFamily: "monospace",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  flexShrink: 0,
                 }}
               >
                 {project.project_number}
@@ -550,9 +559,10 @@ export default function ProjectDetail() {
                 variant="h5"
                 sx={{
                   fontWeight: 900,
-                  fontSize: { xs: "1.15rem", sm: "1.3rem" },
+                  fontSize: { xs: "1.2rem", sm: "1.35rem" },
                   color: COLORS.textPrimary,
                   letterSpacing: "-0.01em",
+                  mr: 0.5,
                 }}
               >
                 {project.customer_name}
@@ -565,7 +575,9 @@ export default function ProjectDetail() {
               variant="body2"
               sx={{
                 color: COLORS.textSecondary,
-                fontSize: "0.78rem",
+                fontSize: "0.8rem",
+                mb: 1.2,
+                mt: 0.5,
               }}
             >
               Created on {formatDate(project.created_at)} • Last stage update:{" "}
@@ -574,7 +586,7 @@ export default function ProjectDetail() {
 
             {/* Commercial Contract & Payment Sync Overview */}
             {project.total_cost != null && Number(project.total_cost) > 0 && (
-              <Stack direction="row" alignItems="center" gap={0.8} sx={{ mt: 0.8, flexWrap: "wrap" }}>
+              <Stack direction="row" alignItems="center" spacing={1.2} sx={{ mt: 1.2, flexWrap: "wrap", gap: 1 }}>
                 <Chip
                   size="small"
                   label={`Contract: ₹${Number(project.total_cost).toLocaleString("en-IN")}`}

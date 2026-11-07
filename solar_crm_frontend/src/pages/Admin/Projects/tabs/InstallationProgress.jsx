@@ -1106,10 +1106,15 @@ export default function InstallationProgress({ project, projectId }) {
                   color: "#FFFFFF",
                   textTransform: "none",
                   fontWeight: 700,
-                  fontSize: "0.82rem",
-                  px: 2.5,
-                  py: 1,
+                  fontSize: "0.85rem",
+                  px: 3,
+                  py: 1.2,
+                  height: 42,
                   borderRadius: "8px",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  minWidth: 175,
+                  boxShadow: "0 2px 6px rgba(15, 23, 42, 0.15)",
                   "&:hover": { backgroundColor: "#020617" },
                 }}
               >
@@ -1127,7 +1132,7 @@ export default function InstallationProgress({ project, projectId }) {
             5-Stage Solar Engineering Sequence
           </Typography>
 
-          <Grid container spacing={1.5}>
+          <Grid container spacing={2}>
             {INSTALLATION_PHASES.map((phaseKey, idx) => {
               const cfg = PHASE_CONFIG[phaseKey];
               const isCompleted = completedPhases.includes(phaseKey);
@@ -1135,69 +1140,78 @@ export default function InstallationProgress({ project, projectId }) {
               const isCurrent = !isCompleted && completedPhases.length === idx;
 
               return (
-                <Grid size={{ xs: 12, sm: 6, md: 2 }} key={phaseKey}>
+                <Grid size={{ xs: 12, sm: 6, md: 2.4 }} key={phaseKey} sx={{ display: "flex" }}>
                   <Box
                     sx={{
-                      p: 1.5,
-                      borderRadius: "10px",
+                      p: 2,
+                      borderRadius: "12px",
                       backgroundColor: isCompleted ? "#ECFDF5" : isCurrent ? cfg.bg : "#F8FAFC",
-                      border: `1px solid ${isCompleted ? "#A7F3D0" : isCurrent ? cfg.border : COLORS.border}`,
+                      border: `1.5px solid ${isCompleted ? "#A7F3D0" : isCurrent ? cfg.border : COLORS.border}`,
+                      width: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      minHeight: 140,
+                      boxShadow: isCurrent ? "0 4px 12px rgba(245, 158, 11, 0.12)" : "none",
                       transition: "all 0.2s ease",
                     }}
                   >
-                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.8 }}>
-                      <Box
-                        sx={{
-                          width: 22,
-                          height: 22,
-                          borderRadius: "50%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          backgroundColor: isCompleted ? "#10B981" : isCurrent ? cfg.color : "#E2E8F0",
-                          color: "#FFFFFF",
-                          fontSize: "0.7rem",
-                          fontWeight: 800,
-                        }}
-                      >
-                        {isCompleted ? <CheckCircleIcon sx={{ fontSize: 16 }} /> : idx + 1}
-                      </Box>
-
-                      {isCompleted ? (
-                        <Chip
-                          label="Completed"
-                          size="small"
+                    <Box>
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.2 }}>
+                        <Box
                           sx={{
-                            height: 18,
-                            fontSize: "0.65rem",
-                            fontWeight: 800,
-                            backgroundColor: "#D1FAE5",
-                            color: "#065F46",
-                          }}
-                        />
-                      ) : isCurrent ? (
-                        <Chip
-                          label="In Progress"
-                          size="small"
-                          sx={{
-                            height: 18,
-                            fontSize: "0.65rem",
-                            fontWeight: 800,
-                            backgroundColor: cfg.color,
+                            width: 26,
+                            height: 26,
+                            borderRadius: "50%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: isCompleted ? "#10B981" : isCurrent ? cfg.color : "#E2E8F0",
                             color: "#FFFFFF",
+                            fontSize: "0.75rem",
+                            fontWeight: 800,
                           }}
-                        />
-                      ) : (
-                        <Typography sx={{ fontSize: "0.68rem", color: COLORS.textMuted, fontWeight: 600 }}>
-                          Pending
-                        </Typography>
-                      )}
-                    </Stack>
+                        >
+                          {isCompleted ? <CheckCircleIcon sx={{ fontSize: 18 }} /> : idx + 1}
+                        </Box>
 
-                    <Typography sx={{ fontSize: "0.82rem", fontWeight: 800, color: COLORS.textPrimary }}>
-                      {cfg.label}
-                    </Typography>
-                    <Typography sx={{ fontSize: "0.7rem", color: COLORS.textSecondary, mt: 0.3 }}>
+                        {isCompleted ? (
+                          <Chip
+                            label="Completed"
+                            size="small"
+                            sx={{
+                              height: 20,
+                              fontSize: "0.68rem",
+                              fontWeight: 800,
+                              backgroundColor: "#D1FAE5",
+                              color: "#065F46",
+                            }}
+                          />
+                        ) : isCurrent ? (
+                          <Chip
+                            label="In Progress"
+                            size="small"
+                            sx={{
+                              height: 20,
+                              fontSize: "0.68rem",
+                              fontWeight: 800,
+                              backgroundColor: cfg.color,
+                              color: "#FFFFFF",
+                            }}
+                          />
+                        ) : (
+                          <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted, fontWeight: 700 }}>
+                            Pending
+                          </Typography>
+                        )}
+                      </Stack>
+
+                      <Typography sx={{ fontSize: "0.88rem", fontWeight: 800, color: COLORS.textPrimary, mb: 0.5, lineHeight: 1.25 }}>
+                        {cfg.label}
+                      </Typography>
+                    </Box>
+
+                    <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, lineHeight: 1.4, mt: 1 }}>
                       {cfg.fullName}
                     </Typography>
                   </Box>
@@ -1309,9 +1323,9 @@ export default function InstallationProgress({ project, projectId }) {
                 >
                   <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
                     {/* Header Row */}
-                    <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 1.5, mb: 1.5 }}>
-                      <Stack direction="row" alignItems="center" gap={1.2} flexWrap="wrap">
-                        <Typography sx={{ fontWeight: 800, fontSize: "0.92rem", color: COLORS.textPrimary }}>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 2, mb: 1.8 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
+                        <Typography sx={{ fontWeight: 800, fontSize: "0.95rem", color: COLORS.textPrimary, mr: 0.8 }}>
                           {formatCleanDate(log.log_date)}
                         </Typography>
 
@@ -1323,7 +1337,9 @@ export default function InstallationProgress({ project, projectId }) {
                             color: cfg.color,
                             border: `1px solid ${cfg.border}`,
                             fontWeight: 800,
-                            fontSize: "0.72rem",
+                            fontSize: "0.74rem",
+                            height: 24,
+                            px: 0.5,
                           }}
                         />
 
@@ -1337,7 +1353,9 @@ export default function InstallationProgress({ project, projectId }) {
                               color: "#059669",
                               border: "1px solid #A7F3D0",
                               fontWeight: 800,
-                              fontSize: "0.7rem",
+                              fontSize: "0.72rem",
+                              height: 24,
+                              px: 0.5,
                             }}
                           />
                         )}
@@ -1350,7 +1368,9 @@ export default function InstallationProgress({ project, projectId }) {
                             color: "#B45309",
                             border: "1px solid #FDE68A",
                             fontWeight: 800,
-                            fontSize: "0.7rem",
+                            fontSize: "0.72rem",
+                            height: 24,
+                            px: 0.5,
                           }}
                         />
 
@@ -1364,11 +1384,13 @@ export default function InstallationProgress({ project, projectId }) {
                               color: COLORS.textSecondary,
                               border: `1px solid ${COLORS.border}`,
                               fontWeight: 600,
-                              fontSize: "0.7rem",
+                              fontSize: "0.72rem",
+                              height: 24,
+                              px: 0.5,
                             }}
                           />
                         )}
-                      </Stack>
+                      </Box>
 
                       <Stack direction="row" alignItems="center" gap={1}>
                         <IconButton

@@ -1474,7 +1474,7 @@ export default function ProjectsList() {
                         size="small"
                         variant="contained"
                         endIcon={<ArrowForwardIcon sx={{ fontSize: 16 }} />}
-                        onClick={() => navigate(`${projectBasePath}/${proj.id}`)}
+                        onClick={() => navigate(`${projectBasePath}/${proj.project_uuid || proj.id}`)}
                         sx={{
                           height: 32,
                           borderRadius: "8px",
@@ -1674,7 +1674,7 @@ export default function ProjectsList() {
                           <Button
                             size="small"
                             variant="outlined"
-                            onClick={() => navigate(`${projectBasePath}/${proj.id}`)}
+                            onClick={() => navigate(`${projectBasePath}/${proj.project_uuid || proj.id}`)}
                             sx={{
                               height: 30,
                               borderRadius: "6px",

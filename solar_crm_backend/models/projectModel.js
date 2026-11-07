@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const dbConfig = require("../config/db");
 const defaultDb = dbConfig.db || dbConfig.defaultDb;
 
@@ -150,10 +151,10 @@ const getProjectById = async (db = defaultDb, id) => {
     LEFT JOIN users u ON p.assigned_to = u.id
     LEFT JOIN users ab ON p.assigned_by = ab.id
     LEFT JOIN users cb ON p.created_by = cb.id
-    WHERE p.id = ? AND p.is_deleted = 0
+    WHERE (p.id = ? OR p.project_uuid = ? OR p.project_number = ?) AND p.is_deleted = 0
     LIMIT 1
   `;
-  const [rows] = await db.query(sql, [id]);
+  const [rows] = await db.query(sql, [id, id, id]);
   if (!rows || rows.length === 0) return null;
 
   const project = rows[0];
@@ -169,7 +170,7 @@ const getProjectById = async (db = defaultDb, id) => {
     WHERE psl.project_id = ? 
     ORDER BY psl.created_at DESC
   `;
-  const [stage_logs] = await db.query(logsSql, [id]);
+  const [stage_logs] = await db.query(logsSql, [project.id]);
   project.stage_logs = stage_logs || [];
 
   return project;
@@ -184,6 +185,8 @@ const createProject = async (db = defaultDb, data, created_by = null) => {
   const projectNumber =
     data.project_number ||
     "PROJ-" + new Date().getFullYear() + "-" + Math.floor(10000 + Math.random() * 90000);
+
+  const projectUuid = data.project_uuid || `PRJ-${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
 
   const initialStage = data.stage || "Order Closed";
 
@@ -203,6 +206,7 @@ const createProject = async (db = defaultDb, data, created_by = null) => {
   const sql = `
     INSERT INTO projects (
       project_number,
+      project_uuid,
       lead_id,
       quotation_id,
       customer_name,
@@ -226,11 +230,12 @@ const createProject = async (db = defaultDb, data, created_by = null) => {
       completion_date,
       notes,
       created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
     projectNumber,
+    projectUuid,
     data.lead_id || null,
     data.quotation_id || null,
     data.customer_name,
