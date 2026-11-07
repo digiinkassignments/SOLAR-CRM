@@ -377,9 +377,26 @@ export default function CustomerReviewPage() {
               )}
             </Box>
 
-            <Alert severity="success" sx={{ borderRadius: "10px", fontSize: "0.8rem", textAlign: "left" }}>
+            <Alert severity="success" sx={{ borderRadius: "10px", fontSize: "0.8rem", textAlign: "left", mb: 2.5 }}>
               This review is synced directly with your installation file in the Solar CRM portal. No further action is required.
             </Alert>
+
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setSubmittedSuccess(false)}
+              sx={{
+                borderRadius: "8px",
+                borderColor: COLORS.border,
+                color: COLORS.textSecondary,
+                textTransform: "none",
+                fontWeight: 700,
+                fontSize: "0.78rem",
+                "&:hover": { borderColor: COLORS.primary, color: COLORS.primary, bgcolor: "#F1F5F9" },
+              }}
+            >
+              Update / Edit My Review
+            </Button>
           </Paper>
         ) : (
           /* ACTIVE REVIEW FORM */
@@ -505,3 +522,4 @@ export default function CustomerReviewPage() {
     </Box>
   );
 }
+
