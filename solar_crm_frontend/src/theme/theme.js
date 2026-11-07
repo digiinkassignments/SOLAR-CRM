@@ -266,6 +266,42 @@ const theme = createTheme({
       },
     },
 
+    MuiSelect: {
+      defaultProps: {
+        MenuProps: {
+          autoFocus: false,
+          disableAutoFocusItem: true,
+          anchorOrigin: {
+            vertical: "bottom",
+            horizontal: "left",
+          },
+          transformOrigin: {
+            vertical: "top",
+            horizontal: "left",
+          },
+        },
+      },
+    },
+
+    MuiMenu: {
+      defaultProps: {
+        autoFocus: false,
+        disableAutoFocusItem: true,
+      },
+    },
+
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          fontSize: "13px",
+          fontWeight: 500,
+          "&.Mui-focusVisible": {
+            backgroundColor: "transparent",
+          },
+        },
+      },
+    },
+
     MuiDialog: {
       styleOverrides: {
         paper: {

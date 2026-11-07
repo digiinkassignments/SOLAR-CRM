@@ -1622,6 +1622,16 @@ export default function InstallationProgress({ project, projectId }) {
                             value={m.selected_option || (m.is_other ? "__OTHER__" : "")}
                             onChange={(e) => handleMaterialSelect(idx, e.target.value)}
                             MenuProps={{
+                              autoFocus: false,
+                              disableAutoFocusItem: true,
+                              anchorOrigin: {
+                                vertical: "bottom",
+                                horizontal: "left",
+                              },
+                              transformOrigin: {
+                                vertical: "top",
+                                horizontal: "left",
+                              },
                               PaperProps: {
                                 sx: { maxHeight: 360, borderRadius: "10px", boxShadow: "0 10px 25px rgba(0,0,0,0.15)" },
                               },
