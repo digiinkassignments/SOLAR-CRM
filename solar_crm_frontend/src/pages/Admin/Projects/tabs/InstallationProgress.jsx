@@ -145,6 +145,124 @@ const formatCleanDate = (dateVal) => {
   }
 };
 
+// Calculate delay or on-track status cleanly
+const getTimelineStatus = (targetDateStr, progressPct = 0, logsList = []) => {
+  if (!targetDateStr) {
+    return {
+      status: "unset",
+      label: "Date Not Set",
+      days: 0,
+      color: "#64748B",
+      bg: "#F1F5F9",
+      border: "#CBD5E1",
+    };
+  }
+
+  // Parse target date YYYY-MM-DD
+  const parts = String(targetDateStr).slice(0, 10).split("-").map(Number);
+  if (parts.length < 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) {
+    return {
+      status: "unset",
+      label: "Date Not Set",
+      days: 0,
+      color: "#64748B",
+      bg: "#F1F5F9",
+      border: "#CBD5E1",
+    };
+  }
+
+  const [tYear, tMonth, tDay] = parts;
+  const targetDate = new Date(tYear, tMonth - 1, tDay);
+  targetDate.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const isCompleted = Number(progressPct) >= 100;
+
+  if (isCompleted) {
+    // Project is 100% completed: compare completion date vs target date
+    let completionDate = today;
+    if (Array.isArray(logsList) && logsList.length > 0) {
+      const log100 = logsList.find((l) => Number(l.progress_percent) >= 100) || logsList[0];
+      if (log100?.log_date) {
+        const lParts = String(log100.log_date).slice(0, 10).split("-").map(Number);
+        if (lParts.length >= 3 && !isNaN(lParts[0])) {
+          completionDate = new Date(lParts[0], lParts[1] - 1, lParts[2]);
+          completionDate.setHours(0, 0, 0, 0);
+        }
+      }
+    }
+
+    const diffDays = Math.round((completionDate - targetDate) / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 0) {
+      return {
+        status: "delayed",
+        label: `Delayed by ${diffDays} ${diffDays === 1 ? "day" : "days"}`,
+        days: diffDays,
+        color: "#DC2626",
+        bg: "#FEE2E2",
+        border: "#FCA5A5",
+      };
+    } else if (diffDays === 0) {
+      return {
+        status: "on_time",
+        label: "Completed on Time",
+        days: 0,
+        color: "#16A34A",
+        bg: "#DCFCE7",
+        border: "#86EFAC",
+      };
+    } else {
+      const aheadDays = Math.abs(diffDays);
+      return {
+        status: "ahead",
+        label: `Completed ${aheadDays} ${aheadDays === 1 ? "day" : "days"} ahead`,
+        days: aheadDays,
+        color: "#16A34A",
+        bg: "#DCFCE7",
+        border: "#86EFAC",
+      };
+    }
+  }
+
+  // Project is ongoing (progress < 100%)
+  const diffDays = Math.round((today - targetDate) / (1000 * 60 * 60 * 24));
+
+  if (diffDays > 0) {
+    // Current date is past the target date
+    return {
+      status: "delayed",
+      label: `Delayed by ${diffDays} ${diffDays === 1 ? "day" : "days"}`,
+      days: diffDays,
+      color: "#DC2626",
+      bg: "#FEE2E2",
+      border: "#FCA5A5",
+    };
+  } else if (diffDays === 0) {
+    return {
+      status: "due_today",
+      label: "Due Today",
+      days: 0,
+      color: "#D97706",
+      bg: "#FEF3C7",
+      border: "#FCD34D",
+    };
+  } else {
+    // Target date is in future
+    const remainingDays = Math.abs(diffDays);
+    return {
+      status: "on_track",
+      label: `On Track (${remainingDays} ${remainingDays === 1 ? "day" : "days"} left)`,
+      days: remainingDays,
+      color: "#16A34A",
+      bg: "#DCFCE7",
+      border: "#86EFAC",
+    };
+  }
+};
+
 // Custom lightweight toast hook
 const useSnackbar = () => {
   const [snackbar, setSnackbar] = useState({
@@ -184,6 +302,26 @@ export default function InstallationProgress({ project, projectId }) {
     end: project?.installation_end_date || "",
   });
 
+  // Sync if project prop updates
+  useEffect(() => {
+    if (project) {
+      setLocalProjectDates({
+        start: project.installation_start_date || "",
+        end: project.installation_end_date || "",
+      });
+    }
+  }, [project?.installation_start_date, project?.installation_end_date]);
+
+  // Overall schedule / timeline calculation
+  const timelineInfo = useMemo(() => {
+    return getTimelineStatus(localProjectDates.end, currentProgress, logs);
+  }, [localProjectDates.end, currentProgress, logs]);
+
+  // Dialog target date timeline calculation
+  const dialogTimelineInfo = useMemo(() => {
+    return getTimelineStatus(newTargetDate, currentProgress, logs);
+  }, [newTargetDate, currentProgress, logs]);
+
   // Photos & Lightbox State
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [photoPreviews, setPhotoPreviews] = useState([]);
@@ -192,6 +330,7 @@ export default function InstallationProgress({ project, projectId }) {
   // Form State
   const [formData, setFormData] = useState({
     log_date: new Date().toISOString().split("T")[0],
+    expected_completion_date: localProjectDates.end ? String(localProjectDates.end).slice(0, 10) : "",
     phase: INSTALLATION_PHASES[0],
     is_phase_completed: false,
     work_done: "",
@@ -211,6 +350,11 @@ export default function InstallationProgress({ project, projectId }) {
     },
     supervisor_signoff: false,
   });
+
+  // Modal schedule calculation
+  const modalTimelineInfo = useMemo(() => {
+    return getTimelineStatus(formData.expected_completion_date, formData.progress_percent, logs);
+  }, [formData.expected_completion_date, formData.progress_percent, logs]);
 
   // Stock Management items for materials consumed dropdown
   const [stockItems, setStockItems] = useState([]);
@@ -352,6 +496,7 @@ export default function InstallationProgress({ project, projectId }) {
 
     setFormData({
       log_date: new Date().toISOString().split("T")[0],
+      expected_completion_date: localProjectDates.end ? String(localProjectDates.end).slice(0, 10) : "",
       phase: nextPhase,
       is_phase_completed: false,
       work_done: "",
@@ -443,6 +588,7 @@ export default function InstallationProgress({ project, projectId }) {
       log_date: log.log_date
         ? String(log.log_date).split("T")[0]
         : new Date().toISOString().split("T")[0],
+      expected_completion_date: localProjectDates.end ? String(localProjectDates.end).slice(0, 10) : "",
       phase: log.phase || INSTALLATION_PHASES[0],
       is_phase_completed: log.is_phase_completed === 1 || log.is_phase_completed === true,
       work_done: log.work_done || "",
@@ -708,6 +854,20 @@ export default function InstallationProgress({ project, projectId }) {
         targetLogId = res.data?.id;
       }
 
+      // Sync overall expected completion date to project if specified
+      if (formData.expected_completion_date) {
+        try {
+          await axios.put(
+            getApiUrl(`/projects/${targetProjectId}`),
+            { installation_end_date: formData.expected_completion_date },
+            { headers: getAuthHeader() }
+          );
+          setLocalProjectDates((prev) => ({ ...prev, end: formData.expected_completion_date }));
+        } catch (dateErr) {
+          console.warn("Could not sync target date to project:", dateErr);
+        }
+      }
+
       // Upload selected photos (up to 10) with metadata captions
       if (selectedPhotos.length > 0 && targetLogId) {
         const photoFormData = new FormData();
@@ -822,7 +982,7 @@ export default function InstallationProgress({ project, projectId }) {
 
             <Grid container spacing={2}>
               {/* Start Date (Auto-filled from Log 1 if not set) */}
-              <Grid size={{ xs: 6, sm: 4 }}>
+              <Grid size={{ xs: 6, sm: 3.5 }}>
                 <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Start Date
                 </Typography>
@@ -835,32 +995,70 @@ export default function InstallationProgress({ project, projectId }) {
               </Grid>
 
               {/* Expected Completion Date (Settable before work begins) */}
-              <Grid size={{ xs: 6, sm: 5 }}>
+              <Grid size={{ xs: 12, sm: 5.5 }}>
                 <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Target Completion
                 </Typography>
-                <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.3 }}>
-                  <CalendarTodayIcon sx={{ fontSize: 13, color: COLORS.textSecondary }} />
-                  <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: COLORS.textPrimary }}>
-                    {formatCleanDate(localProjectDates.end)}
-                  </Typography>
-                  <Tooltip title="Set or change target delivery date">
-                    <IconButton
+                <Stack direction="row" alignItems="center" gap={0.8} sx={{ mt: 0.3, flexWrap: "wrap" }}>
+                  <Stack direction="row" alignItems="center" gap={0.5}>
+                    <CalendarTodayIcon sx={{ fontSize: 13, color: COLORS.textSecondary }} />
+                    <Typography sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                      {formatCleanDate(localProjectDates.end)}
+                    </Typography>
+                    <Tooltip title="Set or change target delivery date">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setNewTargetDate(localProjectDates.end ? String(localProjectDates.end).slice(0, 10) : "");
+                          setDateDialogOpen(true);
+                        }}
+                        sx={{ p: 0.2, color: "#2563EB" }}
+                      >
+                        <EditCalendarIcon sx={{ fontSize: 15 }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+
+                  {/* Delay / On-Track Badge */}
+                  {localProjectDates.end ? (
+                    <Chip
                       size="small"
+                      label={timelineInfo.label}
+                      sx={{
+                        height: 22,
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        color: timelineInfo.color,
+                        backgroundColor: timelineInfo.bg,
+                        border: `1px solid ${timelineInfo.border}`,
+                        "& .MuiChip-label": { px: 0.8 },
+                      }}
+                    />
+                  ) : (
+                    <Chip
+                      size="small"
+                      label="Set Target Date"
+                      clickable
                       onClick={() => {
-                        setNewTargetDate(localProjectDates.end ? localProjectDates.end.slice(0, 10) : "");
+                        setNewTargetDate("");
                         setDateDialogOpen(true);
                       }}
-                      sx={{ p: 0.2, color: "#2563EB" }}
-                    >
-                      <EditCalendarIcon sx={{ fontSize: 15 }} />
-                    </IconButton>
-                  </Tooltip>
+                      sx={{
+                        height: 22,
+                        fontSize: "0.7rem",
+                        fontWeight: 700,
+                        color: "#2563EB",
+                        backgroundColor: "#EFF6FF",
+                        border: "1px dashed #93C5FD",
+                        cursor: "pointer",
+                      }}
+                    />
+                  )}
                 </Stack>
               </Grid>
 
               {/* Total Logs */}
-              <Grid size={{ xs: 12, sm: 3 }}>
+              <Grid size={{ xs: 6, sm: 3 }}>
                 <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Field Logs
                 </Typography>
@@ -1427,6 +1625,58 @@ export default function InstallationProgress({ project, projectId }) {
                     />
                   </Grid>
 
+                  {/* Overall Expected Completion Date */}
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.6 }}>
+                      <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary }}>
+                        Overall Expected Completion Date
+                      </Typography>
+                      {modalTimelineInfo && modalTimelineInfo.status !== "unset" && (
+                        <Chip
+                          size="small"
+                          label={modalTimelineInfo.label}
+                          sx={{
+                            height: 20,
+                            fontSize: "0.68rem",
+                            fontWeight: 700,
+                            color: modalTimelineInfo.color,
+                            backgroundColor: modalTimelineInfo.bg,
+                            border: `1px solid ${modalTimelineInfo.border}`,
+                            "& .MuiChip-label": { px: 0.6 },
+                          }}
+                        />
+                      )}
+                    </Box>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="date"
+                      value={formData.expected_completion_date || ""}
+                      onChange={(e) => handleInputChange("expected_completion_date", e.target.value)}
+                      helperText={
+                        formData.expected_completion_date
+                          ? modalTimelineInfo?.status === "delayed"
+                            ? `⚠️ Installation delayed by ${modalTimelineInfo.days} ${modalTimelineInfo.days === 1 ? "day" : "days"}`
+                            : modalTimelineInfo?.status === "due_today"
+                            ? "⚠️ Scheduled completion is today"
+                            : "✓ On track to complete within target"
+                          : "Set overall rooftop installation target date"
+                      }
+                      FormHelperTextProps={{
+                        sx: {
+                          fontSize: "0.7rem",
+                          fontWeight: 600,
+                          color:
+                            modalTimelineInfo?.status === "delayed"
+                              ? "#DC2626"
+                              : modalTimelineInfo?.status === "due_today"
+                              ? "#D97706"
+                              : "#16A34A",
+                        },
+                      }}
+                    />
+                  </Grid>
+
                   {/* Installation Phase */}
                   <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControl fullWidth size="small" required>
@@ -1445,8 +1695,27 @@ export default function InstallationProgress({ project, projectId }) {
                     </FormControl>
                   </Grid>
 
-                  {/* Phase Completed Checkbox */}
+                  {/* Weather */}
                   <Grid size={{ xs: 12, sm: 6 }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Site Weather</InputLabel>
+                      <Select
+                        value={formData.weather}
+                        label="Site Weather"
+                        onChange={(e) => handleInputChange("weather", e.target.value)}
+                      >
+                        <MenuItem value="Sunny / Clear">☀️ Sunny / Clear (Optimal)</MenuItem>
+                        <MenuItem value="Partly Cloudy">⛅ Partly Cloudy</MenuItem>
+                        <MenuItem value="Light Rain / Drizzle">🌧️ Light Rain / Drizzle</MenuItem>
+                        <MenuItem value="High Wind">💨 High Wind (Caution)</MenuItem>
+                        <MenuItem value="Extreme Heat">🔥 Extreme Heat (&gt;42°C)</MenuItem>
+                        <MenuItem value="Work Halted - Weather">⚠️ Work Halted due to Bad Weather</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  {/* Phase Completed Checkbox */}
+                  <Grid size={{ xs: 12 }}>
                     <Box
                       sx={{
                         p: 1.2,
@@ -1476,25 +1745,6 @@ export default function InstallationProgress({ project, projectId }) {
                         }
                       />
                     </Box>
-                  </Grid>
-
-                  {/* Weather */}
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Site Weather</InputLabel>
-                      <Select
-                        value={formData.weather}
-                        label="Site Weather"
-                        onChange={(e) => handleInputChange("weather", e.target.value)}
-                      >
-                        <MenuItem value="Sunny / Clear">☀️ Sunny / Clear (Optimal)</MenuItem>
-                        <MenuItem value="Partly Cloudy">⛅ Partly Cloudy</MenuItem>
-                        <MenuItem value="Light Rain / Drizzle">🌧️ Light Rain / Drizzle</MenuItem>
-                        <MenuItem value="High Wind">💨 High Wind (Caution)</MenuItem>
-                        <MenuItem value="Extreme Heat">🔥 Extreme Heat (&gt;42°C)</MenuItem>
-                        <MenuItem value="Work Halted - Weather">⚠️ Work Halted due to Bad Weather</MenuItem>
-                      </Select>
-                    </FormControl>
                   </Grid>
                 </Grid>
               </Box>
@@ -2138,9 +2388,26 @@ export default function InstallationProgress({ project, projectId }) {
             Specify the scheduled installation completion date before commencing rooftop work.
           </Typography>
           <Box>
-            <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
-              Target Completion Date
-            </Typography>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.6 }}>
+              <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary }}>
+                Target Completion Date
+              </Typography>
+              {newTargetDate && dialogTimelineInfo.status !== "unset" && (
+                <Chip
+                  size="small"
+                  label={dialogTimelineInfo.label}
+                  sx={{
+                    height: 20,
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    color: dialogTimelineInfo.color,
+                    backgroundColor: dialogTimelineInfo.bg,
+                    border: `1px solid ${dialogTimelineInfo.border}`,
+                    "& .MuiChip-label": { px: 0.6 },
+                  }}
+                />
+              )}
+            </Box>
             <TextField
               fullWidth
               size="small"

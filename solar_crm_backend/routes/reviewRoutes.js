@@ -7,3 +7,4 @@ router.get('/:tokenOrId', ctrl.getPublicReviewData);
 router.post('/:tokenOrId', ctrl.submitPublicReview);
 
 module.exports = router;
+
