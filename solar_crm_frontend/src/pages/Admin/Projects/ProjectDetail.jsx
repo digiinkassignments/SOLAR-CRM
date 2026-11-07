@@ -24,6 +24,8 @@ import {
   Tab,
   LinearProgress,
   Tooltip,
+  Alert,
+  Chip,
 } from "@mui/material";
 
 // Icons
@@ -141,8 +143,7 @@ export default function ProjectDetail() {
         setProject(pData);
         // Secure URL mask: Automatically replace sequential numeric ID with unguessable project_uuid
         if (pData.project_uuid && id !== pData.project_uuid) {
-          const basePath = location.pathname.startsWith("/manager") ? "/manager/projects" : "/projects";
-          navigate(`${basePath}/${pData.project_uuid}`, { replace: true });
+          navigate(`${projectBasePath}/${pData.project_uuid}`, { replace: true });
         }
       } else {
         setError("Project not found.");
