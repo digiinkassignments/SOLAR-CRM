@@ -39,6 +39,7 @@ import QuotationList   from "../pages/Quotations/QuotationList";
 import DynamicWebQuotationView from "../pages/Quotations/DynamicWebQuotationView";
 import InvoiceList from "../pages/Invoices/InvoiceList";
 import DynamicInvoiceView from "../pages/Invoices/DynamicInvoiceView";
+import CustomerReviewPage from "../pages/Public/CustomerReviewPage";
 
 import StockList from "../pages/Stock/StockList";
 import StockDetail from "../pages/Stock/StockDetail";
@@ -125,6 +126,8 @@ const AppRoutes = () => {
         <Route path="/change-password" element={<ChangePassword />} />
         <Route path="/quote/:token" element={<DynamicWebQuotationView />} />
         <Route path="/invoice/:token" element={<DynamicInvoiceView />} />
+        <Route path="/review/:token" element={<CustomerReviewPage />} />
+        <Route path="/handover-review/:token" element={<CustomerReviewPage />} />
 
         <Route element={<PrivateRoute allowedRoles={["Admin", "Super Admin"]} />}>
           <Route element={<SubscriptionGuard><AdminLayout /></SubscriptionGuard>}>

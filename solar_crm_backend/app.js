@@ -88,6 +88,8 @@ const customerRoutes = require("./routes/customerRoutes");
 app.use("/api/customers", customerRoutes);
 const aiRoutes = require("./routes/aiRoutes");
 app.use("/api/ai", aiRoutes);
+const reviewRoutes = require("./routes/reviewRoutes");
+app.use("/api/public/review", reviewRoutes);
 
 
 

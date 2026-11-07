@@ -55,6 +55,9 @@ import ElectricBoltIcon from "@mui/icons-material/ElectricBolt";
 import BuildIcon from "@mui/icons-material/Build";
 import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import WhatsAppIcon from "@mui/icons-material/WhatsApp";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 
 const COLORS = {
   primary: "#0F172A",
@@ -170,6 +173,10 @@ export default function CustomerHandover({ project, projectId }) {
     handover_photo_url: "https://images.unsplash.com/photo-1509391365360-2e959784a276?w=800&auto=format&fit=crop&q=60",
     customer_rating: 5,
     customer_feedback: "Pleased with the rooftop solar installation speed and prompt DISCOM meter sync. Generation is visible clearly on the mobile phone app.",
+    review_token: "",
+    review_status: "pending",
+    review_submitted_at: null,
+    customer_reviewer_name: "",
     handover_status: "Pending", // Default Pending as requested
     remarks: "Customer oriented with inverter emergency shutoff and isolation MCB. Plant fully functional.",
   });
@@ -230,6 +237,10 @@ export default function CustomerHandover({ project, projectId }) {
           handover_photo_url: record.handover_photo_url || "https://images.unsplash.com/photo-1509391365360-2e959784a276?w=800&auto=format&fit=crop&q=60",
           customer_rating: record.customer_rating || 5,
           customer_feedback: record.customer_feedback || "",
+          review_token: record.review_token || "",
+          review_status: record.review_status || (record.customer_feedback ? "submitted" : "pending"),
+          review_submitted_at: record.review_submitted_at || null,
+          customer_reviewer_name: record.customer_reviewer_name || "",
           handover_status: record.handover_status || "Pending",
           remarks: record.remarks || "",
         });
@@ -318,6 +329,36 @@ export default function CustomerHandover({ project, projectId }) {
       (formData.customer_signature === 1 || formData.customer_signature === true)
     );
   }, [formData.training_completed, formData.app_demo_completed, formData.customer_signature]);
+
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  // Review URL generated for this project
+  const reviewUrl = useMemo(() => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://diassignments.digiinksolutions.com";
+    return `${origin}/review/${formData.review_token || targetProjectId}`;
+  }, [formData.review_token, targetProjectId]);
+
+  const handleCopyReviewLink = () => {
+    if (!reviewUrl) return;
+    navigator.clipboard.writeText(reviewUrl);
+    setCopiedLink(true);
+    setBannerAlert({
+      severity: "success",
+      message: "Customer Review Link copied to clipboard! Share this link with the customer to submit their rating & feedback.",
+    });
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const handleShareWhatsApp = () => {
+    const custName = project?.customer_name || formData.signature_signatory_name || "Customer";
+    const phone = (project?.customer_phone || formData.signature_phone || "").replace(/\D/g, "");
+    const plantKw = project?.system_capacity_kw || "Rooftop Solar";
+    const message = `Namaste ${custName} ji,\n\nThank you for choosing us for your ${plantKw} kW Solar Rooftop Installation! Your plant handover is completed.\n\nPlease share your valuable review & rate your installation experience directly using this link:\n${reviewUrl}\n\nThank you,\nSolar Installation & Service Team`;
+    const waUrl = phone
+      ? `https://api.whatsapp.com/send?phone=${phone.length === 10 ? "91" + phone : phone}&text=${encodeURIComponent(message)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, "_blank");
+  };
 
   // Handle Save
   const handleSave = async () => {
@@ -1081,20 +1122,51 @@ export default function CustomerHandover({ project, projectId }) {
             </Stack>
           </Grid>
 
-          {/* CUSTOMER FEEDBACK & STAR RATING */}
+          {/* CUSTOMER SATISFACTION & VERIFIED REVIEW (NON-EDITABLE) */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Typography
-              sx={{
-                fontSize: "0.75rem",
-                fontWeight: 800,
-                color: COLORS.primary,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-                mb: 1.5,
-              }}
-            >
-              Customer Satisfaction & Reviews
-            </Typography>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+              <Typography
+                sx={{
+                  fontSize: "0.75rem",
+                  fontWeight: 800,
+                  color: COLORS.primary,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                Customer Satisfaction & Reviews
+              </Typography>
+
+              {formData.review_status === "submitted" || formData.review_submitted_at ? (
+                <Chip
+                  icon={<VerifiedIcon sx={{ fontSize: "14px !important", color: "#065F46 !important" }} />}
+                  label="VERIFIED CUSTOMER REVIEW"
+                  size="small"
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: "0.68rem",
+                    bgcolor: "#DEF7EC",
+                    color: "#03543F",
+                    border: "1px solid #A7F3D0",
+                    height: 24,
+                  }}
+                />
+              ) : (
+                <Chip
+                  icon={<WarningAmberIcon sx={{ fontSize: "14px !important", color: "#92400E !important" }} />}
+                  label="AWAITING CUSTOMER REVIEW"
+                  size="small"
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: "0.68rem",
+                    bgcolor: "#FEF3C7",
+                    color: "#92400E",
+                    border: "1px solid #FDE68A",
+                    height: 24,
+                  }}
+                />
+              )}
+            </Stack>
 
             <Box
               sx={{
@@ -1104,23 +1176,137 @@ export default function CustomerHandover({ project, projectId }) {
                 backgroundColor: "#F8FAFC",
               }}
             >
-              <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
-                <Rating value={formData.customer_rating} readOnly precision={0.5} />
-                <Typography sx={{ fontWeight: 800, fontSize: "0.85rem", color: COLORS.textPrimary }}>
-                  {formData.customer_rating}.0 / 5.0 Rating
-                </Typography>
-              </Stack>
-
-              <Typography
+              {/* PUBLIC REVIEW LINK SHARE BOX */}
+              <Box
                 sx={{
-                  fontSize: "0.82rem",
-                  color: COLORS.textSecondary,
-                  fontStyle: "italic",
-                  lineHeight: 1.5,
+                  p: 1.5,
+                  mb: 2,
+                  borderRadius: "8px",
+                  bgcolor: "#FFFFFF",
+                  border: `1px solid ${COLORS.border}`,
                 }}
               >
-                "{formData.customer_feedback || "No feedback comments submitted yet."}"
-              </Typography>
+                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase", mb: 0.6 }}>
+                  Customer Feedback Link
+                </Typography>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="center">
+                  <TextField
+                    fullWidth
+                    size="small"
+                    value={reviewUrl}
+                    InputProps={{
+                      readOnly: true,
+                      sx: { fontSize: "0.74rem", fontFamily: "monospace", bgcolor: "#F8FAFC", height: 34 },
+                    }}
+                  />
+                  <Stack direction="row" spacing={0.8} sx={{ width: { xs: "100%", sm: "auto" } }}>
+                    <Tooltip title="Copy link for customer">
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={handleCopyReviewLink}
+                        startIcon={<ContentCopyIcon sx={{ fontSize: 14 }} />}
+                        sx={{
+                          fontSize: "0.72rem",
+                          fontWeight: 700,
+                          textTransform: "none",
+                          height: 34,
+                          px: 1.2,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {copiedLink ? "Copied!" : "Copy"}
+                      </Button>
+                    </Tooltip>
+
+                    <Tooltip title="Send link via WhatsApp">
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={handleShareWhatsApp}
+                        startIcon={<WhatsAppIcon sx={{ fontSize: 15 }} />}
+                        sx={{
+                          fontSize: "0.72rem",
+                          fontWeight: 700,
+                          textTransform: "none",
+                          height: 34,
+                          px: 1.2,
+                          bgcolor: "#25D366",
+                          color: "#FFFFFF",
+                          "&:hover": { bgcolor: "#128C7E" },
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        WhatsApp
+                      </Button>
+                    </Tooltip>
+
+                    <Tooltip title="Preview customer review form">
+                      <IconButton
+                        size="small"
+                        href={reviewUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        sx={{ border: `1px solid ${COLORS.border}`, borderRadius: "6px", width: 34, height: 34 }}
+                      >
+                        <OpenInNewIcon sx={{ fontSize: 15 }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                </Stack>
+              </Box>
+
+              {/* NON-EDITABLE STARS & REVIEW DISPLAY */}
+              <Box sx={{ p: 1.5, borderRadius: "8px", bgcolor: "#FFFFFF", border: `1px solid ${COLORS.border}` }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }} flexWrap="wrap" gap={1}>
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    <Rating value={Number(formData.customer_rating) || 5} readOnly precision={0.5} />
+                    <Typography sx={{ fontWeight: 800, fontSize: "0.85rem", color: COLORS.textPrimary }}>
+                      {formData.customer_rating || 5}.0 / 5.0 Rating
+                    </Typography>
+                  </Stack>
+
+                  <Chip
+                    icon={<LockOutlinedIcon sx={{ fontSize: "12px !important" }} />}
+                    label="Non-Editable Verified Review"
+                    size="small"
+                    sx={{
+                      fontSize: "0.65rem",
+                      fontWeight: 700,
+                      bgcolor: "#F1F5F9",
+                      color: COLORS.textMuted,
+                      height: 20,
+                    }}
+                  />
+                </Stack>
+
+                <Typography
+                  sx={{
+                    fontSize: "0.84rem",
+                    color: formData.customer_feedback ? COLORS.textPrimary : COLORS.textMuted,
+                    fontStyle: formData.customer_feedback ? "italic" : "normal",
+                    lineHeight: 1.55,
+                    bgcolor: "#F8FAFC",
+                    p: 1.2,
+                    borderRadius: "6px",
+                    borderLeft: `3px solid ${COLORS.secondary}`,
+                  }}
+                >
+                  "{formData.customer_feedback || "Review pending. Customer will enter their star rating and comments via the review link above."}"
+                </Typography>
+
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }} flexWrap="wrap" gap={1}>
+                  <Typography sx={{ fontSize: "0.7rem", color: COLORS.textMuted, fontWeight: 600 }}>
+                    Reviewer: {formData.customer_reviewer_name || formData.signature_signatory_name || project?.customer_name || "Customer"}
+                  </Typography>
+
+                  {formData.review_submitted_at && (
+                    <Typography sx={{ fontSize: "0.7rem", color: COLORS.textMuted, fontWeight: 600 }}>
+                      Submitted: {new Date(formData.review_submitted_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                    </Typography>
+                  )}
+                </Stack>
+              </Box>
 
               {formData.remarks && (
                 <Box sx={{ mt: 1.5, pt: 1.5, borderTop: `1px dashed ${COLORS.border}` }}>
@@ -1571,7 +1757,7 @@ export default function CustomerHandover({ project, projectId }) {
 
             <Divider />
 
-            {/* SECTION 6: CUSTOMER FEEDBACK & REMARKS (TALL MULTI-LINE FIELDS) */}
+            {/* SECTION 6: CUSTOMER REVIEW LINK & NON-EDITABLE VERIFIED SUBMISSION */}
             <Box>
               <Typography
                 sx={{
@@ -1583,49 +1769,119 @@ export default function CustomerHandover({ project, projectId }) {
                   mb: 1.5,
                 }}
               >
-                6. Customer Feedback & Engineering Remarks
+                6. Customer Satisfaction Review (Online Link & Verified Feedback)
               </Typography>
+
+              {/* SHARE REVIEW LINK CARD INSIDE MODAL */}
+              <Box
+                sx={{
+                  p: 1.8,
+                  mb: 2,
+                  borderRadius: "10px",
+                  bgcolor: "#F8FAFC",
+                  border: `1px solid ${COLORS.border}`,
+                }}
+              >
+                <Typography sx={{ fontSize: "0.74rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.4 }}>
+                  Customer Online Review Link (Copy & Share via WhatsApp)
+                </Typography>
+                <Typography sx={{ fontSize: "0.7rem", color: COLORS.textSecondary, mb: 1 }}>
+                  Customer opens this link on their phone, selects stars, and writes their review. It automatically syncs here.
+                </Typography>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="center">
+                  <TextField
+                    fullWidth
+                    size="small"
+                    value={reviewUrl}
+                    InputProps={{
+                      readOnly: true,
+                      sx: { fontSize: "0.74rem", fontFamily: "monospace", bgcolor: "#FFFFFF", height: 36 },
+                    }}
+                  />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleCopyReviewLink}
+                    startIcon={<ContentCopyIcon sx={{ fontSize: 14 }} />}
+                    sx={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "none", height: 36, px: 1.5, whiteSpace: "nowrap" }}
+                  >
+                    {copiedLink ? "Copied!" : "Copy Link"}
+                  </Button>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={handleShareWhatsApp}
+                    startIcon={<WhatsAppIcon sx={{ fontSize: 15 }} />}
+                    sx={{
+                      fontSize: "0.72rem",
+                      fontWeight: 700,
+                      textTransform: "none",
+                      height: 36,
+                      px: 1.5,
+                      bgcolor: "#25D366",
+                      color: "#FFFFFF",
+                      "&:hover": { bgcolor: "#128C7E" },
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    WhatsApp
+                  </Button>
+                </Stack>
+              </Box>
+
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12 }}>
-                  <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+                  <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }} flexWrap="wrap" gap={1}>
                     <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: COLORS.textPrimary }}>
                       Customer Star Rating:
                     </Typography>
                     <Rating
-                      value={formData.customer_rating}
-                      onChange={(e, val) => setFormData({ ...formData, customer_rating: val || 5 })}
+                      value={Number(formData.customer_rating) || 5}
+                      readOnly
                       precision={1}
                     />
                     <Typography sx={{ fontSize: "0.82rem", fontWeight: 800, color: COLORS.secondary }}>
-                      {formData.customer_rating} Star{formData.customer_rating > 1 ? "s" : ""}
+                      {formData.customer_rating || 5} Star{Number(formData.customer_rating) > 1 ? "s" : ""}
                     </Typography>
+                    <Chip
+                      icon={<LockOutlinedIcon sx={{ fontSize: "12px !important" }} />}
+                      label="Non-editable (Customer direct submission)"
+                      size="small"
+                      sx={{ fontSize: "0.65rem", fontWeight: 700, bgcolor: "#F1F5F9", color: COLORS.textMuted }}
+                    />
                   </Stack>
                 </Grid>
 
                 <Grid size={{ xs: 12 }}>
                   <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
-                    Customer Feedback / Testimonial *
+                    Customer Feedback / Testimonial (Non-Editable)
                   </Typography>
                   <TextField
                     fullWidth
                     multiline
-                    rows={4}
-                    placeholder="Record customer experience, feedback on crew timeliness, quality, etc."
+                    rows={3}
+                    placeholder="Awaiting customer review via public feedback link above..."
                     value={formData.customer_feedback}
-                    onChange={(e) => setFormData({ ...formData, customer_feedback: e.target.value })}
+                    InputProps={{
+                      readOnly: true,
+                    }}
                     sx={{
                       "& .MuiOutlinedInput-root": {
                         borderRadius: "8px",
-                        minHeight: "100px",
-                        alignItems: "flex-start",
+                        bgcolor: "#F8FAFC",
+                        color: COLORS.textPrimary,
+                        fontStyle: formData.customer_feedback ? "italic" : "normal",
                       },
                     }}
                   />
+                  <Typography sx={{ fontSize: "0.7rem", color: COLORS.textMuted, mt: 0.5 }}>
+                    * Customer ratings and comments are submitted directly by the client to maintain compliance and authenticity.
+                  </Typography>
                 </Grid>
 
                 <Grid size={12}>
                   <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
-                    Supervisor Handover Remarks
+                    Supervisor Handover Remarks (Internal Team Notes)
                   </Typography>
                   <TextField
                     fullWidth

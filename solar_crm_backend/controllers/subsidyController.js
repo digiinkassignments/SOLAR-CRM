@@ -22,24 +22,24 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
 }).single("document");
 
 // 1. Create or Update Subsidy Application
 const applySubsidyHandler = async (req, res) => {
   try {
     const { lead_id, consumer_number } = req.body;
-    if (!lead_id || !consumer_number) {
+    if (!lead_id) {
       return res.status(400).json({
         success: false,
-        message: "lead_id and consumer_number are required.",
+        message: "lead_id is required.",
       });
     }
 
     const result = await subsidyModel.applySubsidy(req.body, req.db);
     return res.status(200).json({
       success: true,
-      message: "PM Surya Ghar subsidy application details saved.",
+      message: "PM Surya Ghar subsidy portal application details saved successfully.",
       data: result,
     });
   } catch (error) {
@@ -161,9 +161,82 @@ const verifyDocHandler = async (req, res) => {
   }
 };
 
+// 5. Log Subsidy Rejection & Create Fix Task
+const logRejectionHandler = async (req, res) => {
+  try {
+    const { lead_id, stage_at_rejection, rejection_category, rejection_reason, fix_task } = req.body;
+    if (!lead_id || !rejection_category || !rejection_reason) {
+      return res.status(400).json({
+        success: false,
+        message: "lead_id, rejection_category, and rejection_reason are required.",
+      });
+    }
+
+    const result = await subsidyModel.logSubsidyRejection(req.body, req.db);
+    return res.status(200).json({
+      success: true,
+      message: "Subsidy rejection logged and actionable fix task assigned.",
+      data: result,
+    });
+  } catch (error) {
+    console.error("logRejectionHandler error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to log subsidy rejection.",
+      error: error.message,
+    });
+  }
+};
+
+// 6. Resolve Fix Task
+const resolveFixTaskHandler = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Rejection log ID required." });
+    }
+
+    const result = await subsidyModel.resolveRejectionFixTask(id, req.db);
+    return res.status(200).json({
+      success: true,
+      message: "Rejection fix task marked as resolved.",
+      data: result,
+    });
+  } catch (error) {
+    console.error("resolveFixTaskHandler error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to resolve rejection task.",
+      error: error.message,
+    });
+  }
+};
+
+// 7. Get All Subsidies List
+const getAllSubsidiesHandler = async (req, res) => {
+  try {
+    const { page, limit, search, status } = req.query;
+    const data = await subsidyModel.getAllSubsidies({ page, limit, search, status }, req.db);
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error("getAllSubsidiesHandler error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch subsidy projects list.",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   applySubsidyHandler,
   getSubsidyByLeadHandler,
   uploadDocHandler,
   verifyDocHandler,
+  logRejectionHandler,
+  resolveFixTaskHandler,
+  getAllSubsidiesHandler,
 };
