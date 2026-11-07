@@ -130,6 +130,9 @@ export default function ProjectsList() {
     system_capacity_kw: "5.00",
     panel_count: "",
     inverter_kw: "",
+    total_cost: "",
+    amount_received: "",
+    payment_status: "Pending",
     customer_address: "",
     city: "",
     state: "",
@@ -284,6 +287,9 @@ export default function ProjectsList() {
           system_capacity_kw: "5.00",
           panel_count: "",
           inverter_kw: "",
+    total_cost: "",
+    amount_received: "",
+    payment_status: "Pending",
           customer_address: "",
           city: "",
           state: "",
@@ -1799,6 +1805,7 @@ export default function ProjectsList() {
                         customer_phone: newValue.customer_phone || "",
                         lead_id: newValue.lead_id || null,
                         quotation_id: newValue.id || null,
+                        total_cost: (newValue.grand_total || newValue.total_amount || newValue.net_payable_amount || newValue.final_amount) ? String(newValue.grand_total || newValue.total_amount || newValue.net_payable_amount || newValue.final_amount) : prev.total_cost,
                         system_capacity_kw: newValue.system_capacity_kw ? String(newValue.system_capacity_kw) : prev.system_capacity_kw,
                         customer_address: newValue.customer_address || prev.customer_address || "",
                         city: newValue.city || prev.city || "",
@@ -2013,6 +2020,121 @@ export default function ProjectsList() {
                       onChange={(e) =>
                         setFormData({ ...formData, notes: e.target.value })
                       }
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider />
+
+              {/* SECTION D: Commercial Contract & Payment Details */}
+              <Box>
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+                  <Typography sx={{ fontSize: "0.88rem", fontWeight: 700, color: COLORS.textPrimary }}>
+                    Step 4: Commercial Contract & Payment Details
+                  </Typography>
+                  <Chip
+                    size="small"
+                    label={
+                      (() => {
+                        const total = Number(formData.total_cost) || 0;
+                        const rec = Number(formData.amount_received) || 0;
+                        const bal = Math.max(0, total - rec);
+                        if (total === 0) return "Pending Valuation";
+                        if (bal === 0) return "100% Paid (Eligible for Handover)";
+                        return `₹${bal.toLocaleString("en-IN")} Pending`;
+                      })()
+                    }
+                    sx={{
+                      height: 22,
+                      fontSize: "0.72rem",
+                      fontWeight: 800,
+                      bgcolor:
+                        (Number(formData.total_cost) > 0 && Math.max(0, (Number(formData.total_cost) || 0) - (Number(formData.amount_received) || 0)) === 0)
+                          ? "#DCFCE7"
+                          : "#FEF3C7",
+                      color:
+                        (Number(formData.total_cost) > 0 && Math.max(0, (Number(formData.total_cost) || 0) - (Number(formData.amount_received) || 0)) === 0)
+                          ? "#166534"
+                          : "#92400E",
+                    }}
+                  />
+                </Box>
+
+                <Alert severity="info" sx={{ mb: 2, fontSize: "0.78rem", py: 0.5, borderRadius: 1.5 }}>
+                  <strong>Handover Clearance Rule:</strong> Final project handover dossiers, warranty certificates, and statutory commissioning documents cannot be released to the customer until 100% of the project cost is received.
+                </Alert>
+
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label="Total Project Cost (₹)"
+                      placeholder="e.g. 250000"
+                      value={formData.total_cost}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const rec = Number(formData.amount_received) || 0;
+                        const cost = Number(val) || 0;
+                        const bal = Math.max(0, cost - rec);
+                        setFormData({
+                          ...formData,
+                          total_cost: val,
+                          payment_status: cost > 0 && bal === 0 ? "Completed" : (rec > 0 ? "Partial" : "Pending"),
+                        });
+                      }}
+                      InputProps={{
+                        startAdornment: <Typography sx={{ fontSize: "0.85rem", color: COLORS.textMuted, mr: 0.5 }}>₹</Typography>,
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label="Amount Received / Advance (₹)"
+                      placeholder="e.g. 50000"
+                      value={formData.amount_received}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const cost = Number(formData.total_cost) || 0;
+                        const rec = Number(val) || 0;
+                        const bal = Math.max(0, cost - rec);
+                        setFormData({
+                          ...formData,
+                          amount_received: val,
+                          payment_status: cost > 0 && bal === 0 ? "Completed" : (rec > 0 ? "Partial" : "Pending"),
+                        });
+                      }}
+                      InputProps={{
+                        startAdornment: <Typography sx={{ fontSize: "0.85rem", color: COLORS.textMuted, mr: 0.5 }}>₹</Typography>,
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Balance Due (Live)"
+                      disabled
+                      value={
+                        (() => {
+                          const cost = Number(formData.total_cost) || 0;
+                          const rec = Number(formData.amount_received) || 0;
+                          return `₹${Math.max(0, cost - rec).toLocaleString("en-IN")}`;
+                        })()
+                      }
+                      sx={{
+                        "& .MuiInputBase-input": {
+                          fontWeight: 700,
+                          color: Math.max(0, (Number(formData.total_cost) || 0) - (Number(formData.amount_received) || 0)) > 0 ? "#DC2626" : "#16A34A",
+                        },
+                      }}
                     />
                   </Grid>
                 </Grid>

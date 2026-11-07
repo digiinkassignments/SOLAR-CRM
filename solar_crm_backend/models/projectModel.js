@@ -187,6 +187,19 @@ const createProject = async (db = defaultDb, data, created_by = null) => {
 
   const initialStage = data.stage || "Order Closed";
 
+  const totalCost = data.total_cost !== undefined && data.total_cost !== "" ? parseFloat(data.total_cost) : 0;
+  const amountReceived = data.amount_received !== undefined && data.amount_received !== "" ? parseFloat(data.amount_received) : 0;
+  let paymentStatus = data.payment_status || "Pending";
+  if (totalCost > 0) {
+    if (amountReceived >= totalCost) {
+      paymentStatus = "Paid";
+    } else if (amountReceived > 0) {
+      paymentStatus = "Partially Paid";
+    } else {
+      paymentStatus = "Pending";
+    }
+  }
+
   const sql = `
     INSERT INTO projects (
       project_number,
@@ -201,6 +214,9 @@ const createProject = async (db = defaultDb, data, created_by = null) => {
       system_capacity_kw,
       panel_count,
       inverter_kw,
+      total_cost,
+      amount_received,
+      payment_status,
       stage,
       stage_updated_at,
       assigned_to,
@@ -210,7 +226,7 @@ const createProject = async (db = defaultDb, data, created_by = null) => {
       completion_date,
       notes,
       created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
@@ -226,6 +242,9 @@ const createProject = async (db = defaultDb, data, created_by = null) => {
     parseFloat(data.system_capacity_kw) || 1.0,
     data.panel_count ? parseInt(data.panel_count, 10) : null,
     data.inverter_kw ? parseFloat(data.inverter_kw) : null,
+    totalCost,
+    amountReceived,
+    paymentStatus,
     initialStage,
     data.assigned_to || null,
     data.assigned_by || created_by || null,
@@ -312,6 +331,9 @@ const updateProject = async (db = defaultDb, id, data) => {
     "system_capacity_kw",
     "panel_count",
     "inverter_kw",
+    "total_cost",
+    "amount_received",
+    "payment_status",
     "stage",
     "assigned_to",
     "assigned_by",

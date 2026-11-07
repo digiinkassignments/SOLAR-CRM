@@ -121,6 +121,9 @@ export default function ProjectDetail() {
     installation_end_date: "",
     completion_date: "",
     notes: "",
+    total_cost: "",
+    amount_received: "",
+    payment_status: "Pending",
   });
 
   // Delete Project Dialog State
@@ -234,6 +237,9 @@ export default function ProjectDetail() {
         ? project.completion_date.slice(0, 10)
         : "",
       notes: project.notes || "",
+      total_cost: project.total_cost != null ? String(project.total_cost) : "",
+      amount_received: project.amount_received != null ? String(project.amount_received) : "",
+      payment_status: project.payment_status || "Pending",
     });
     setEditDialogOpen(true);
   };
@@ -565,6 +571,35 @@ export default function ProjectDetail() {
               Created on {formatDate(project.created_at)} • Last stage update:{" "}
               {formatDateTime(project.stage_updated_at || project.updated_at)}
             </Typography>
+
+            {/* Commercial Contract & Payment Sync Overview */}
+            {project.total_cost != null && Number(project.total_cost) > 0 && (
+              <Stack direction="row" alignItems="center" gap={0.8} sx={{ mt: 0.8, flexWrap: "wrap" }}>
+                <Chip
+                  size="small"
+                  label={`Contract: ₹${Number(project.total_cost).toLocaleString("en-IN")}`}
+                  sx={{ height: 22, fontSize: "0.72rem", fontWeight: 700, bgcolor: "#F1F5F9", color: COLORS.textPrimary }}
+                />
+                <Chip
+                  size="small"
+                  label={`Received: ₹${Number(project.amount_received || 0).toLocaleString("en-IN")}`}
+                  sx={{ height: 22, fontSize: "0.72rem", fontWeight: 700, bgcolor: "#DCFCE7", color: "#166534" }}
+                />
+                {Math.max(0, (Number(project.total_cost) || 0) - (Number(project.amount_received) || 0)) > 0 ? (
+                  <Chip
+                    size="small"
+                    label={`Balance Due: ₹${Math.max(0, (Number(project.total_cost) || 0) - (Number(project.amount_received) || 0)).toLocaleString("en-IN")} (Handover On Hold)`}
+                    sx={{ height: 22, fontSize: "0.72rem", fontWeight: 800, bgcolor: "#FEE2E2", color: "#991B1B" }}
+                  />
+                ) : (
+                  <Chip
+                    size="small"
+                    label="✓ 100% Paid (Handover Cleared)"
+                    sx={{ height: 22, fontSize: "0.72rem", fontWeight: 800, bgcolor: "#DCFCE7", color: "#166534" }}
+                  />
+                )}
+              </Stack>
+            )}
           </Box>
 
           {/* Action Buttons (Spaced & Wrapped Cleanly) */}
@@ -1634,6 +1669,133 @@ export default function ProjectDetail() {
                     },
                   }}
                 />
+              </Box>
+
+              <Divider />
+
+              {/* Group 5: Commercial Contract & Handover Payment Sync */}
+              <Box>
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
+                  <Typography
+                    sx={{
+                      fontSize: "0.75rem",
+                      fontWeight: 800,
+                      color: COLORS.primary,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    Commercial Contract & Handover Payment Sync
+                  </Typography>
+                  <Chip
+                    size="small"
+                    label={
+                      (() => {
+                        const cost = Number(editFormData.total_cost) || 0;
+                        const rec = Number(editFormData.amount_received) || 0;
+                        const bal = Math.max(0, cost - rec);
+                        if (cost === 0) return "Pending Valuation";
+                        if (bal === 0) return "100% Paid (Handover Cleared)";
+                        return `₹${bal.toLocaleString("en-IN")} Pending`;
+                      })()
+                    }
+                    sx={{
+                      height: 20,
+                      fontSize: "0.7rem",
+                      fontWeight: 800,
+                      bgcolor:
+                        Number(editFormData.total_cost) > 0 &&
+                        Math.max(0, (Number(editFormData.total_cost) || 0) - (Number(editFormData.amount_received) || 0)) === 0
+                          ? "#DCFCE7"
+                          : "#FEF3C7",
+                      color:
+                        Number(editFormData.total_cost) > 0 &&
+                        Math.max(0, (Number(editFormData.total_cost) || 0) - (Number(editFormData.amount_received) || 0)) === 0
+                          ? "#166534"
+                          : "#92400E",
+                    }}
+                  />
+                </Box>
+                <Alert severity="info" sx={{ mb: 1.5, py: 0.3, fontSize: "0.75rem" }}>
+                  Handover Lock: If Balance Due &gt; 0, Customer Handover stage completion and official handover dossiers cannot be released.
+                </Alert>
+
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label="Total Project Cost (₹)"
+                      placeholder="e.g. 250000"
+                      value={editFormData.total_cost}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const rec = Number(editFormData.amount_received) || 0;
+                        const cost = Number(val) || 0;
+                        const bal = Math.max(0, cost - rec);
+                        setEditFormData({
+                          ...editFormData,
+                          total_cost: val,
+                          payment_status: cost > 0 && bal === 0 ? "Completed" : (rec > 0 ? "Partial" : "Pending"),
+                        });
+                      }}
+                      InputProps={{
+                        startAdornment: <Typography sx={{ fontSize: "0.85rem", color: COLORS.textMuted, mr: 0.5 }}>₹</Typography>,
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label="Amount Received (₹)"
+                      placeholder="e.g. 100000"
+                      value={editFormData.amount_received}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const cost = Number(editFormData.total_cost) || 0;
+                        const rec = Number(val) || 0;
+                        const bal = Math.max(0, cost - rec);
+                        setEditFormData({
+                          ...editFormData,
+                          amount_received: val,
+                          payment_status: cost > 0 && bal === 0 ? "Completed" : (rec > 0 ? "Partial" : "Pending"),
+                        });
+                      }}
+                      InputProps={{
+                        startAdornment: <Typography sx={{ fontSize: "0.85rem", color: COLORS.textMuted, mr: 0.5 }}>₹</Typography>,
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Balance Due (Live)"
+                      disabled
+                      value={
+                        (() => {
+                          const cost = Number(editFormData.total_cost) || 0;
+                          const rec = Number(editFormData.amount_received) || 0;
+                          return `₹${Math.max(0, cost - rec).toLocaleString("en-IN")}`;
+                        })()
+                      }
+                      sx={{
+                        "& .MuiInputBase-input": {
+                          fontWeight: 700,
+                          color:
+                            Math.max(0, (Number(editFormData.total_cost) || 0) - (Number(editFormData.amount_received) || 0)) > 0
+                              ? "#DC2626"
+                              : "#16A34A",
+                        },
+                      }}
+                    />
+                  </Grid>
+                </Grid>
               </Box>
             </Stack>
           </DialogContent>

@@ -144,6 +144,17 @@ export default function CustomerHandover({ project, projectId }) {
 
   const [bannerAlert, setBannerAlert] = useState(null);
 
+  // Payment Record / Update Dialog State
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentFormData, setPaymentFormData] = useState({
+    contract_value: "",
+    amount_paid: "",
+    new_collection: "",
+    payment_mode: "Bank Transfer (NEFT/RTGS)",
+    payment_ref: "",
+  });
+  const [updatingPayment, setUpdatingPayment] = useState(false);
+
   // Form state
   const [formData, setFormData] = useState({
     handover_date: defaultHandoverDate,
@@ -249,34 +260,58 @@ export default function CustomerHandover({ project, projectId }) {
         });
       }
 
-      // 2. Fetch Invoices to verify Commercial Balance
-      try {
-        const invRes = await axios.get(getApiUrl(`/invoices`), { headers: getAuthHeader() });
-        const invList = invRes.data?.data || invRes.data?.invoices || [];
-        const phone = (project?.customer_phone || "").replace(/\D/g, "");
-        const name = (project?.customer_name || "").toLowerCase();
+      // 2. Synchronize Commercial Contract & Payment Details (Prioritize project & handover fields)
+      let gross = 0;
+      let paid = 0;
+      let balance = 0;
+      let payStatus = "Pending";
+      let invNum = "PROJECT-CONTRACT";
 
-        const match = invList.find((i) => {
-          const invPhone = (i.customer_phone || "").replace(/\D/g, "");
-          const invName = (i.customer_name || "").toLowerCase();
-          return (phone && invPhone && invPhone === phone) || (name && invName && invName.includes(name));
-        });
-
-        if (match) {
-          const gross = parseFloat(match.net_payable_amount || match.gross_total || 0);
-          const paid = parseFloat(match.amount_paid || 0);
-          const balance = parseFloat(match.balance_due || (gross - paid));
-          setFinancials({
-            contractValue: gross,
-            amountPaid: paid,
-            balanceDue: balance,
-            paymentStatus: match.payment_status || (balance <= 0 ? "Paid" : "Partially Paid"),
-            invoiceNumber: match.invoice_number,
-          });
-        }
-      } catch (e) {
-        // Fallback default
+      if (record && record.contract_value != null && Number(record.contract_value) > 0) {
+        gross = Number(record.contract_value);
+        paid = Number(record.amount_paid) || 0;
+        balance = Math.max(0, gross - paid);
+        payStatus = record.payment_status || (balance <= 0 ? "Paid" : (paid > 0 ? "Partially Paid" : "Pending"));
+      } else if (project && project.total_cost != null && Number(project.total_cost) > 0) {
+        gross = Number(project.total_cost);
+        paid = Number(project.amount_received) || 0;
+        balance = Math.max(0, gross - paid);
+        payStatus = project.payment_status || (balance <= 0 ? "Paid" : (paid > 0 ? "Partially Paid" : "Pending"));
       }
+
+      // If no direct project contract cost is set, fallback to matching invoices
+      if (gross === 0) {
+        try {
+          const invRes = await axios.get(getApiUrl(`/invoices`), { headers: getAuthHeader() });
+          const invList = invRes.data?.data || invRes.data?.invoices || [];
+          const phone = (project?.customer_phone || "").replace(/\D/g, "");
+          const name = (project?.customer_name || "").toLowerCase();
+
+          const match = invList.find((i) => {
+            const invPhone = (i.customer_phone || "").replace(/\D/g, "");
+            const invName = (i.customer_name || "").toLowerCase();
+            return (phone && invPhone && invPhone === phone) || (name && invName && invName.includes(name));
+          });
+
+          if (match) {
+            gross = parseFloat(match.net_payable_amount || match.gross_total || 0);
+            paid = parseFloat(match.amount_paid || 0);
+            balance = parseFloat(match.balance_due || (gross - paid));
+            payStatus = match.payment_status || (balance <= 0 ? "Paid" : "Partially Paid");
+            invNum = match.invoice_number;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      setFinancials({
+        contractValue: gross,
+        amountPaid: paid,
+        balanceDue: balance,
+        paymentStatus: payStatus,
+        invoiceNumber: invNum,
+      });
     } catch (err) {
       console.error("fetchHandover error:", err);
     } finally {
@@ -287,6 +322,80 @@ export default function CustomerHandover({ project, projectId }) {
   useEffect(() => {
     fetchHandoverAndFinancials();
   }, [fetchHandoverAndFinancials]);
+
+  // Open Record / Update Payment Dialog
+  const handleOpenPaymentDialog = () => {
+    setPaymentFormData({
+      contract_value: financials.contractValue ? String(financials.contractValue) : "",
+      amount_paid: financials.amountPaid ? String(financials.amountPaid) : "",
+      new_collection: "",
+      payment_mode: "Bank Transfer (NEFT/RTGS)",
+      payment_ref: "",
+    });
+    setPaymentDialogOpen(true);
+  };
+
+  // Submit Payment Record
+  const handleSavePayment = async (e) => {
+    if (e) e.preventDefault();
+    setUpdatingPayment(true);
+    try {
+      const contractVal = Number(paymentFormData.contract_value) || 0;
+      const prevPaid = Number(paymentFormData.amount_paid) || 0;
+      const additional = Number(paymentFormData.new_collection) || 0;
+      const totalPaid = prevPaid + additional;
+      const balance = Math.max(0, contractVal - totalPaid);
+      const status = contractVal > 0 && balance === 0 ? "Completed" : (totalPaid > 0 ? "Partial" : "Pending");
+
+      // 1. Update project commercial fields
+      await axios.put(
+        getApiUrl(`/projects/${targetProjectId}`),
+        {
+          total_cost: contractVal,
+          amount_received: totalPaid,
+          payment_status: status,
+        },
+        { headers: getAuthHeader() }
+      );
+
+      // 2. Update handover commercial fields
+      await axios.put(
+        getApiUrl(`/projects/${targetProjectId}/handover`),
+        {
+          ...formData,
+          contract_value: contractVal,
+          amount_paid: totalPaid,
+          balance_due: balance,
+          payment_status: status,
+        },
+        { headers: getAuthHeader() }
+      );
+
+      setFinancials({
+        contractValue: contractVal,
+        amountPaid: totalPaid,
+        balanceDue: balance,
+        paymentStatus: status === "Completed" ? "Paid" : status,
+        invoiceNumber: financials.invoiceNumber || "DIRECT-CONTRACT",
+      });
+
+      setPaymentDialogOpen(false);
+      setBannerAlert({
+        severity: "success",
+        message: balance === 0
+          ? "Payment updated: 100% Cleared! Customer Handover is now commercially unlocked."
+          : `Payment updated: ₹${additional.toLocaleString("en-IN")} recorded. Remaining balance: ₹${balance.toLocaleString("en-IN")}.`,
+      });
+    } catch (err) {
+      console.error("handleSavePayment error:", err);
+      setBannerAlert({
+        severity: "error",
+        message: err.response?.data?.message || "Failed to update payment details.",
+      });
+    } finally {
+      setUpdatingPayment(false);
+    }
+  };
 
   // Recalculate auto warranty end dates when warranty_start_date changes
   const handleWarrantyStartDateChange = (newDate) => {
@@ -326,12 +435,14 @@ export default function CustomerHandover({ project, projectId }) {
 
   // Safety Gate: Block "Completed" status if training, app demo, or customer signature is incomplete
   const canCompleteHandover = useMemo(() => {
+    const isPaymentCleared = financials.balanceDue <= 0 && (financials.contractValue > 0 || financials.amountPaid > 0);
     return (
       formData.training_completed === "Completed" &&
       formData.app_demo_completed === "Completed" &&
-      (formData.customer_signature === 1 || formData.customer_signature === true)
+      (formData.customer_signature === 1 || formData.customer_signature === true) &&
+      isPaymentCleared
     );
-  }, [formData.training_completed, formData.app_demo_completed, formData.customer_signature]);
+  }, [formData.training_completed, formData.app_demo_completed, formData.customer_signature, financials.balanceDue, financials.contractValue, financials.amountPaid]);
 
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -382,13 +493,22 @@ export default function CustomerHandover({ project, projectId }) {
       return;
     }
 
-    // 2. Safety Gate Check: Cannot mark as Completed if training/signature not done
-    if (formData.handover_status === "Completed" && !canCompleteHandover) {
-      setBannerAlert({
-        severity: "error",
-        message: "Safety Gate Block: Handover cannot be marked 'Completed' until Customer Training, App Demo, and Customer Signoff are fully verified.",
-      });
-      return;
+    // 2. Safety Gate & Commercial Hold Check: Cannot mark as Completed if balance pending or requirements incomplete
+    if (formData.handover_status === "Completed") {
+      if (financials.balanceDue > 0) {
+        setBannerAlert({
+          severity: "error",
+          message: `Commercial Hold Block: Handover cannot be completed and documents cannot be released until 100% Payment is received! Pending Balance: ₹${financials.balanceDue.toLocaleString("en-IN")}.`,
+        });
+        return;
+      }
+      if (!canCompleteHandover) {
+        setBannerAlert({
+          severity: "error",
+          message: "Safety Gate Block: Handover cannot be marked 'Completed' until Customer Training, App Demo, and Customer Signoff are fully verified.",
+        });
+        return;
+      }
     }
 
     setSaving(true);
@@ -644,23 +764,70 @@ export default function CustomerHandover({ project, projectId }) {
             </Typography>
           </Grid>
 
-          <Grid size={{ xs: 6, sm: 3, md: 2 }} sx={{ textAlign: { xs: "left", md: "right" } }}>
-            <Chip
-              icon={financials.balanceDue > 0 ? <WarningAmberIcon /> : <CheckCircleIcon />}
-              label={financials.balanceDue > 0 ? "Balance Pending" : "Cleared for Handover"}
-              size="small"
-              sx={{
-                fontWeight: 800,
-                backgroundColor: financials.balanceDue > 0 ? "#FEE2E2" : "#DCFCE7",
-                color: financials.balanceDue > 0 ? "#991B1B" : "#166534",
-              }}
-            />
+          <Grid size={{ xs: 12, md: 4 }} sx={{ textAlign: { xs: "left", md: "right" } }}>
+            <Stack direction="row" spacing={1} justifyContent={{ xs: "flex-start", md: "flex-end" }} alignItems="center">
+              <Chip
+                icon={financials.balanceDue > 0 ? <WarningAmberIcon /> : <CheckCircleIcon />}
+                label={financials.balanceDue > 0 ? `₹${financials.balanceDue.toLocaleString("en-IN")} Pending` : "Cleared for Handover"}
+                size="small"
+                sx={{
+                  fontWeight: 800,
+                  backgroundColor: financials.balanceDue > 0 ? "#FEE2E2" : "#DCFCE7",
+                  color: financials.balanceDue > 0 ? "#991B1B" : "#166534",
+                }}
+              />
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleOpenPaymentDialog}
+                sx={{
+                  textTransform: "none",
+                  fontWeight: 700,
+                  fontSize: "0.75rem",
+                  borderColor: "#2563EB",
+                  color: "#2563EB",
+                  bgcolor: "#EFF6FF",
+                  "&:hover": { bgcolor: "#DBEAFE", borderColor: "#1D4ED8" },
+                }}
+              >
+                Record / Update Payment
+              </Button>
+            </Stack>
           </Grid>
         </Grid>
 
-        {financials.balanceDue > 0 && (
-          <Alert severity="warning" sx={{ mt: 1.5, py: 0.5, fontSize: "0.78rem" }}>
-            Commercial Notice: Final system handover is strictly gated by accounts. If balance payment is pending, collect the cheque/NEFT reference before completing digital customer signoff.
+        {financials.balanceDue > 0 ? (
+          <Alert
+            severity="error"
+            action={
+              <Button color="inherit" size="small" onClick={handleOpenPaymentDialog} sx={{ fontWeight: 800, textTransform: "none" }}>
+                Collect Payment
+              </Button>
+            }
+            sx={{
+              mt: 1.5,
+              py: 0.8,
+              fontSize: "0.82rem",
+              fontWeight: 600,
+              border: "1px solid #FCA5A5",
+              backgroundColor: "#FEF2F2",
+            }}
+          >
+            <strong>⚠️ Commercial Lock Active:</strong> Final project handover dossiers, warranty cards, and completion signoffs are strictly locked until 100% payment is cleared. Outstanding Balance: <strong>₹{financials.balanceDue.toLocaleString("en-IN")}</strong>.
+          </Alert>
+        ) : (
+          <Alert
+            severity="success"
+            sx={{
+              mt: 1.5,
+              py: 0.5,
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              border: "1px solid #BBF7D0",
+              backgroundColor: "#F0FDF4",
+            }}
+          >
+            ✓ 100% Commercial Clearance Approved: Full project cost has been received. Project is commercially eligible for official document handover and signoff.
           </Alert>
         )}
       </Paper>
@@ -1340,6 +1507,137 @@ export default function CustomerHandover({ project, projectId }) {
         </Grid>
       </Paper>
 
+      {/* RECORD / UPDATE PAYMENT DIALOG */}
+      <Dialog
+        open={paymentDialogOpen}
+        onClose={() => !updatingPayment && setPaymentDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: "14px" } }}
+      >
+        <Box component="form" onSubmit={handleSavePayment}>
+          <DialogTitle sx={{ fontWeight: 800, fontSize: "1.1rem", color: COLORS.textPrimary, pb: 1 }}>
+            💳 Record / Update Handover Payment
+          </DialogTitle>
+          <DialogContent dividers sx={{ pt: 2 }}>
+            <Alert severity="info" sx={{ mb: 2, fontSize: "0.8rem" }}>
+              Sync with Handover: As per commercial policy, zero documents or completion dossiers can be released until 100% of the contract value is collected.
+            </Alert>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  label="Total Contract Amount (₹) *"
+                  required
+                  value={paymentFormData.contract_value}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, contract_value: e.target.value })}
+                  InputProps={{
+                    startAdornment: <Typography sx={{ fontSize: "0.85rem", color: COLORS.textMuted, mr: 0.5 }}>₹</Typography>,
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  label="Amount Received So Far (₹)"
+                  value={paymentFormData.amount_paid}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, amount_paid: e.target.value })}
+                  InputProps={{
+                    startAdornment: <Typography sx={{ fontSize: "0.85rem", color: COLORS.textMuted, mr: 0.5 }}>₹</Typography>,
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  label="New Collection Received Today (₹)"
+                  placeholder="e.g. 50000"
+                  value={paymentFormData.new_collection}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, new_collection: e.target.value })}
+                  InputProps={{
+                    startAdornment: <Typography sx={{ fontSize: "0.85rem", color: COLORS.textMuted, mr: 0.5 }}>₹</Typography>,
+                  }}
+                  helperText="Enter additional payment collected now"
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Payment Mode"
+                  select
+                  SelectProps={{ native: true }}
+                  value={paymentFormData.payment_mode}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, payment_mode: e.target.value })}
+                >
+                  <option value="Bank Transfer (NEFT/RTGS)">Bank Transfer (NEFT/RTGS)</option>
+                  <option value="UPI / QR">UPI / QR</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Direct Online Gateway">Direct Online Gateway</option>
+                </TextField>
+              </Grid>
+              <Grid size={12}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="UTR / Cheque No / Reference Notes"
+                  placeholder="e.g. UTR12345678, HDFC Cheque #004521"
+                  value={paymentFormData.payment_ref}
+                  onChange={(e) => setPaymentFormData({ ...paymentFormData, payment_ref: e.target.value })}
+                />
+              </Grid>
+              <Grid size={12}>
+                <Paper elevation={0} sx={{ p: 1.5, bgcolor: "#F8FAFC", border: "1px dashed #CBD5E1", borderRadius: "8px" }}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography sx={{ fontSize: "0.82rem", color: COLORS.textSecondary }}>Net Balance After Collection:</Typography>
+                    <Typography
+                      sx={{
+                        fontSize: "1rem",
+                        fontWeight: 900,
+                        color:
+                          Math.max(
+                            0,
+                            (Number(paymentFormData.contract_value) || 0) -
+                            ((Number(paymentFormData.amount_paid) || 0) + (Number(paymentFormData.new_collection) || 0))
+                          ) === 0
+                            ? "#16A34A"
+                            : "#DC2626",
+                      }}
+                    >
+                      ₹{Math.max(
+                        0,
+                        (Number(paymentFormData.contract_value) || 0) -
+                        ((Number(paymentFormData.amount_paid) || 0) + (Number(paymentFormData.new_collection) || 0))
+                      ).toLocaleString("en-IN")}
+                    </Typography>
+                  </Stack>
+                </Paper>
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setPaymentDialogOpen(false)} disabled={updatingPayment} sx={{ textTransform: "none", color: COLORS.textSecondary }}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={updatingPayment}
+              sx={{ textTransform: "none", fontWeight: 700, bgcolor: COLORS.primary, "&:hover": { bgcolor: COLORS.primaryHover } }}
+            >
+              {updatingPayment ? "Saving Payment..." : "Save & Sync Payment"}
+            </Button>
+          </DialogActions>
+        </Box>
+      </Dialog>
+
       {/* FULL EDIT HANDOVER MODAL (SPACIOUS maxWidth="md" - NO SQUISHED TEXTAREAS) */}
       <Dialog
         open={dialogOpen}
@@ -1457,13 +1755,19 @@ export default function CustomerHandover({ project, projectId }) {
                       <MenuItem value="Pending">Pending</MenuItem>
                       <MenuItem value="In Progress">In Progress</MenuItem>
                       <MenuItem value="Completed" disabled={!canCompleteHandover}>
-                        Completed {!canCompleteHandover ? "(Requires Training & Signoff)" : ""}
+                        Completed {
+                          financials.balanceDue > 0
+                            ? `(Blocked: ₹${financials.balanceDue.toLocaleString("en-IN")} Pending)`
+                            : (!canCompleteHandover ? "(Requires Training & Signoff)" : "")
+                        }
                       </MenuItem>
                       <MenuItem value="On Hold">On Hold</MenuItem>
                     </Select>
                     {!canCompleteHandover && (
-                      <FormHelperText sx={{ color: "#D97706" }}>
-                        "Completed" is blocked until Customer Training, App Demo, and Customer Signoff are confirmed.
+                      <FormHelperText sx={{ color: financials.balanceDue > 0 ? "#DC2626" : "#D97706", fontWeight: 600 }}>
+                        {financials.balanceDue > 0
+                          ? `⚠️ Commercial Hold: 100% Payment required before marking Completed (₹${financials.balanceDue.toLocaleString("en-IN")} pending).`
+                          : `"Completed" is blocked until Customer Training, App Demo, and Customer Signoff are confirmed.`}
                       </FormHelperText>
                     )}
                   </FormControl>

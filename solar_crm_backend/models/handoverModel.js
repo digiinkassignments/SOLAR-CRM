@@ -162,6 +162,11 @@ const createHandover = async (db, projectId, data, userId) => {
   await ensureHandoverTable(db);
   const reviewToken = data.review_token || `rev-${projectId}-${Date.now().toString(36)}`;
 
+  const cVal = data.contract_value !== undefined ? parseFloat(data.contract_value) : null;
+  const aPaid = data.amount_paid !== undefined ? parseFloat(data.amount_paid) : null;
+  const bDue = (cVal !== null && aPaid !== null) ? (cVal - aPaid) : (data.balance_due !== undefined ? parseFloat(data.balance_due) : null);
+  const pStat = data.payment_status || (bDue !== null ? (bDue <= 0 ? "Paid" : aPaid > 0 ? "Partially Paid" : "Pending") : null);
+
   const fields = [
     'project_id', 'training_completed', 'app_demo_completed', 'monitoring_app_access_shared',
     'emergency_contact_given', 'operation_manual', 'warranty_card', 'maintenance_schedule',
@@ -172,7 +177,8 @@ const createHandover = async (db, projectId, data, userId) => {
     'first_service_due_date', 'customer_signature', 'signed_docket_url',
     'signature_signatory_name', 'signature_phone', 'handover_photo_url',
     'customer_feedback', 'customer_rating', 'review_token', 'review_status',
-    'review_submitted_at', 'customer_reviewer_name', 'handover_status', 'remarks', 'signature_data', 'created_by'
+    'review_submitted_at', 'customer_reviewer_name', 'handover_status', 'remarks', 'signature_data',
+    'contract_value', 'amount_paid', 'balance_due', 'payment_status', 'created_by'
   ];
 
   const values = [
@@ -212,6 +218,10 @@ const createHandover = async (db, projectId, data, userId) => {
     data.handover_status || 'Pending',
     data.remarks || null,
     data.signature_data || null,
+    cVal,
+    aPaid,
+    bDue,
+    pStat,
     userId || null
   ];
 
@@ -232,6 +242,11 @@ const createHandover = async (db, projectId, data, userId) => {
 
 const updateHandover = async (db, projectId, data) => {
   await ensureHandoverTable(db);
+  const cVal = data.contract_value !== undefined ? parseFloat(data.contract_value) : null;
+  const aPaid = data.amount_paid !== undefined ? parseFloat(data.amount_paid) : null;
+  const bDue = (cVal !== null && aPaid !== null) ? (cVal - aPaid) : (data.balance_due !== undefined ? parseFloat(data.balance_due) : null);
+  const pStat = data.payment_status || (bDue !== null ? (bDue <= 0 ? "Paid" : aPaid > 0 ? "Partially Paid" : "Pending") : null);
+
   await db.query(
     `UPDATE project_handover SET
       training_completed = ?,
@@ -263,6 +278,10 @@ const updateHandover = async (db, projectId, data) => {
       customer_feedback = COALESCE(?, customer_feedback),
       customer_rating = COALESCE(?, customer_rating),
       signature_data = COALESCE(?, signature_data),
+      contract_value = COALESCE(?, contract_value),
+      amount_paid = COALESCE(?, amount_paid),
+      balance_due = COALESCE(?, balance_due),
+      payment_status = COALESCE(?, payment_status),
       handover_status = ?,
       remarks = ?
     WHERE project_id = ? AND is_deleted = 0`,
@@ -296,11 +315,31 @@ const updateHandover = async (db, projectId, data) => {
       data.customer_feedback !== undefined ? data.customer_feedback : null,
       data.customer_rating !== undefined ? data.customer_rating : null,
       data.signature_data !== undefined ? data.signature_data : null,
+      cVal,
+      aPaid,
+      bDue,
+      pStat,
       data.handover_status || 'Pending',
       data.remarks || null,
       projectId
     ]
   );
+
+  // Sync projects table if payment information or completion date is provided
+  try {
+    if (cVal !== null || aPaid !== null) {
+      await db.query(
+        `UPDATE projects SET 
+          total_cost = COALESCE(?, total_cost),
+          amount_received = COALESCE(?, amount_received),
+          payment_status = COALESCE(?, payment_status)
+         WHERE id = ?`,
+        [cVal, aPaid, pStat, projectId]
+      );
+    }
+  } catch (syncErr) {
+    console.warn("Could not sync payment to projects:", syncErr);
+  }
 
   // Sync project completion_date if handover is completed
   if (data.handover_status === 'Completed' && data.handover_date) {

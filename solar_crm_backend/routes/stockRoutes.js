@@ -23,16 +23,22 @@ const {
   bulkImportItems,
 } = require("../controllers/stockController");
 
-// All stock routes are protected for Admin only (role_id 1)
+// Protected by JWT
 router.use(verifyToken);
-router.use(authorizeRoles(1));
 
-// Categories & Reports
+// Read-only stock catalog accessible by all authenticated staff (for Daily Site Logs, BOM, Inspections)
 router.get("/categories", getCategories);
+router.get("/items", getItems);
+router.get("/items/:id", getItemById);
+router.get("/items/barcode/:code", getItemByBarcode);
+
+// All mutating or sensitive operations restricted to Admin (role 1) and authorized managers
+router.use(authorizeRoles(1, 2));
+
+// Reports
 router.get("/report", getStockReport);
 
 // Barcode & QR Quick Scan Operations
-router.get("/items/barcode/:code", getItemByBarcode);
 router.post("/quick-scan-in", quickScanIn);
 
 // Transactions
@@ -44,10 +50,8 @@ router.get("/alerts", getAlerts);
 router.put("/alerts/:id/resolve", resolveAlert);
 
 // Stock Items CRUD & Bulk Import
-router.get("/items", getItems);
 router.post("/items/bulk-import", bulkImportItems);
 router.post("/items/bulk-delete", bulkDeleteItems);
-router.get("/items/:id", getItemById);
 router.post("/items", uploadStock.single("image"), processStockImage, createItem);
 router.put("/items/:id", uploadStock.single("image"), processStockImage, updateItem);
 router.delete("/items/:id", deleteItem);
