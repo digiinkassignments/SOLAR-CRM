@@ -47,3 +47,26 @@ h1, h2, h3, h4, h5, h6 {
   background: #0F172A;
 }
 
+/* ============================================================
+   FIX: LAPTOP TRACKPAD GHOST CLICK / AUTO-SELECT ON DROPDOWNS
+   Prevents rapid trackpad tap-release from accidentally clicking
+   the menu item mounted directly under cursor on menu open.
+   ============================================================ */
+.MuiMenu-paper,
+.MuiPopover-paper {
+  animation: muiMenuDelayPointer 200ms ease-out !important;
+}
+
+@keyframes muiMenuDelayPointer {
+  0% {
+    pointer-events: none !important;
+  }
+  99% {
+    pointer-events: none !important;
+  }
+  100% {
+    pointer-events: auto !important;
+  }
+}
+
+

@@ -266,11 +266,20 @@ const theme = createTheme({
       },
     },
 
+    MuiPopover: {
+      defaultProps: {
+        disableAutoFocus: true,
+        disableRestoreFocus: true,
+      },
+    },
+
     MuiSelect: {
       defaultProps: {
         MenuProps: {
           autoFocus: false,
           disableAutoFocusItem: true,
+          disableAutoFocus: true,
+          disableRestoreFocus: true,
           anchorOrigin: {
             vertical: "bottom",
             horizontal: "left",
@@ -287,6 +296,8 @@ const theme = createTheme({
       defaultProps: {
         autoFocus: false,
         disableAutoFocusItem: true,
+        disableAutoFocus: true,
+        disableRestoreFocus: true,
       },
     },
 
