@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import {
   Box,
@@ -54,6 +54,8 @@ import ElectricBoltIcon from "@mui/icons-material/ElectricBolt";
 import SpeedIcon from "@mui/icons-material/Speed";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import EditCalendarIcon from "@mui/icons-material/EditCalendar";
+import SearchIcon from "@mui/icons-material/Search";
+import { getStockItems } from "../../../../services/stockService";
 
 // Design Palette
 const COLORS = {
@@ -210,6 +212,43 @@ export default function InstallationProgress({ project, projectId }) {
     supervisor_signoff: false,
   });
 
+  // Stock Management items for materials consumed dropdown
+  const [stockItems, setStockItems] = useState([]);
+  const [loadingStock, setLoadingStock] = useState(false);
+  const [stockSearch, setStockSearch] = useState("");
+
+  const fetchStock = useCallback(async () => {
+    try {
+      setLoadingStock(true);
+      const res = await getStockItems({ limit: 500, sort_by: "name", sort_order: "ASC" });
+      if (res?.data && Array.isArray(res.data)) {
+        setStockItems(res.data.filter((i) => i.is_active !== 0));
+      } else if (Array.isArray(res)) {
+        setStockItems(res.filter((i) => i.is_active !== 0));
+      }
+    } catch (err) {
+      console.error("Failed to fetch stock items for installation progress:", err);
+    } finally {
+      setLoadingStock(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStock();
+  }, [fetchStock]);
+
+  const filteredStockItems = useMemo(() => {
+    if (!stockSearch.trim()) return stockItems;
+    const q = stockSearch.toLowerCase();
+    return stockItems.filter(
+      (s) =>
+        s.name?.toLowerCase().includes(q) ||
+        s.brand?.toLowerCase().includes(q) ||
+        s.item_code?.toLowerCase().includes(q) ||
+        s.model?.toLowerCase().includes(q)
+    );
+  }, [stockItems, stockSearch]);
+
   const { snackbar, showSnackbar, hideSnackbar } = useSnackbar();
 
   const getAuthHeader = () => {
@@ -320,7 +359,7 @@ export default function InstallationProgress({ project, projectId }) {
       hours_worked: "8",
       supervisor_name: "",
       crew_names: "",
-      materials_list: [{ item: "", quantity: "", unit: "Nos" }],
+      materials_list: [{ item: "", selected_option: "", custom_item: "", is_other: false, quantity: "", unit: "Nos", stock_item_id: null }],
       issues_faced: "",
       progress_percent: targetPct,
       weather: "Sunny / Clear",
@@ -341,14 +380,60 @@ export default function InstallationProgress({ project, projectId }) {
     setSelectedPhotos([]);
     setPhotoPreviews([]);
 
-    // Map materials
+    // Map materials matching stock items or custom
     let mats = [];
-    if (Array.isArray(log.materials_list)) {
-      mats = log.materials_list;
+    if (Array.isArray(log.materials_list) && log.materials_list.length > 0) {
+      mats = log.materials_list.map((m) => {
+        const rawItem = (m.item || "").trim();
+        const matched = stockItems.find(
+          (s) => s.name?.trim().toLowerCase() === rawItem.toLowerCase()
+        );
+        if (matched) {
+          return {
+            item: matched.name,
+            selected_option: matched.name,
+            custom_item: "",
+            is_other: false,
+            quantity: m.quantity ?? "",
+            unit: m.unit || matched.unit || "Nos",
+            stock_item_id: matched.id,
+          };
+        } else if (rawItem) {
+          return {
+            item: rawItem,
+            selected_option: "__OTHER__",
+            custom_item: rawItem,
+            is_other: true,
+            quantity: m.quantity ?? "",
+            unit: m.unit || "Nos",
+            stock_item_id: null,
+          };
+        } else {
+          return {
+            item: "",
+            selected_option: "",
+            custom_item: "",
+            is_other: false,
+            quantity: m.quantity ?? "",
+            unit: m.unit || "Nos",
+            stock_item_id: null,
+          };
+        }
+      });
     } else if (log.materials_used) {
-      mats = [{ item: log.materials_used, quantity: 1, unit: "Nos" }];
+      mats = [
+        {
+          item: log.materials_used,
+          selected_option: "__OTHER__",
+          custom_item: log.materials_used,
+          is_other: true,
+          quantity: 1,
+          unit: "Nos",
+          stock_item_id: null,
+        },
+      ];
     } else {
-      mats = [{ item: "", quantity: "", unit: "Nos" }];
+      mats = [{ item: "", selected_option: "", custom_item: "", is_other: false, quantity: "", unit: "Nos", stock_item_id: null }];
     }
 
     // Map safety
@@ -365,7 +450,7 @@ export default function InstallationProgress({ project, projectId }) {
       hours_worked: log.hours_worked ?? "",
       supervisor_name: log.supervisor_name || "",
       crew_names: log.crew_names || "",
-      materials_list: mats.length > 0 ? mats : [{ item: "", quantity: "", unit: "Nos" }],
+      materials_list: mats.length > 0 ? mats : [{ item: "", selected_option: "", custom_item: "", is_other: false, quantity: "", unit: "Nos", stock_item_id: null }],
       issues_faced: log.issues_faced || "",
       progress_percent: log.progress_percent ?? "",
       weather: log.weather || "Sunny / Clear",
@@ -453,7 +538,10 @@ export default function InstallationProgress({ project, projectId }) {
   const handleAddMaterialRow = () => {
     setFormData((prev) => ({
       ...prev,
-      materials_list: [...prev.materials_list, { item: "", quantity: "", unit: "Nos" }],
+      materials_list: [
+        ...prev.materials_list,
+        { item: "", selected_option: "", custom_item: "", is_other: false, quantity: "", unit: "Nos", stock_item_id: null },
+      ],
     }));
   };
 
@@ -469,6 +557,61 @@ export default function InstallationProgress({ project, projectId }) {
       const updated = [...prev.materials_list];
       if (updated[index]) {
         updated[index] = { ...updated[index], [field]: value };
+      }
+      return { ...prev, materials_list: updated };
+    });
+  };
+
+  const handleMaterialSelect = (idx, val) => {
+    setFormData((prev) => {
+      const updated = [...prev.materials_list];
+      if (val === "__OTHER__") {
+        updated[idx] = {
+          ...updated[idx],
+          selected_option: "__OTHER__",
+          is_other: true,
+          item: updated[idx].custom_item || "",
+          stock_item_id: null,
+        };
+      } else {
+        const stockItem = stockItems.find((s) => s.name === val);
+        let mappedUnit = updated[idx]?.unit || "Nos";
+        if (stockItem?.unit) {
+          const u = stockItem.unit.toLowerCase();
+          if (u.includes("roll")) mappedUnit = "Rolls";
+          else if (u.includes("meter") || u.includes("mtr")) mappedUnit = "Meters";
+          else if (u.includes("set")) mappedUnit = "Sets";
+          else if (u.includes("kg")) mappedUnit = "Kg";
+          else if (u.includes("bag")) mappedUnit = "Bags";
+          else if (u.includes("piece") || u.includes("pc")) mappedUnit = "Piece";
+          else if (u.includes("box")) mappedUnit = "Boxes";
+          else if (u.includes("liter") || u.includes("ltr")) mappedUnit = "Liters";
+          else if (u.includes("nos") || u.includes("no")) mappedUnit = "Nos";
+        }
+
+        updated[idx] = {
+          ...updated[idx],
+          selected_option: val,
+          item: val,
+          is_other: false,
+          custom_item: "",
+          stock_item_id: stockItem ? stockItem.id : null,
+          unit: mappedUnit,
+        };
+      }
+      return { ...prev, materials_list: updated };
+    });
+  };
+
+  const handleCustomItemChange = (idx, text) => {
+    setFormData((prev) => {
+      const updated = [...prev.materials_list];
+      if (updated[idx]) {
+        updated[idx] = {
+          ...updated[idx],
+          custom_item: text,
+          item: text,
+        };
       }
       return { ...prev, materials_list: updated };
     });
@@ -512,9 +655,18 @@ export default function InstallationProgress({ project, projectId }) {
     try {
       setSaving(true);
       // Clean materials list
-      const cleanMaterials = formData.materials_list.filter(
-        (m) => m.item && m.item.trim()
-      );
+      const cleanMaterials = formData.materials_list
+        .map((m) => {
+          const finalItem = (m.is_other ? (m.custom_item || m.item || "") : (m.item || m.selected_option || "")).trim();
+          return {
+            item: finalItem,
+            quantity: m.quantity === "" ? 1 : Number(m.quantity) || 1,
+            unit: m.unit || "Nos",
+            stock_item_id: m.stock_item_id || null,
+            is_custom: Boolean(m.is_other),
+          };
+        })
+        .filter((m) => Boolean(m.item));
 
       const payload = {
         log_date: formData.log_date,
@@ -1455,20 +1607,140 @@ export default function InstallationProgress({ project, projectId }) {
                   </Button>
                 </Stack>
 
-                <Stack spacing={1.2}>
+                <Stack spacing={1.5}>
                   {formData.materials_list.map((m, idx) => (
-                    <Grid container spacing={1.5} alignItems="center" key={idx}>
+                    <Grid container spacing={1.5} alignItems="flex-start" key={idx} sx={{ p: 1.2, borderRadius: "10px", bgcolor: "#F8FAFC", border: `1px solid ${COLORS.border}` }}>
+                      {/* Material Item Selector (Stock Dropdown + Others Custom Option) */}
                       <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label={`Material Item #${idx + 1}`}
-                          placeholder="e.g. Solar Panels 550W, 4 sqmm DC Cable, Mid Clamps..."
-                          value={m.item}
-                          onChange={(e) => handleMaterialChange(idx, "item", e.target.value)}
-                        />
+                        <FormControl fullWidth size="small">
+                          <InputLabel id={`mat-select-label-${idx}`}>Material Item #{idx + 1} *</InputLabel>
+                          <Select
+                            labelId={`mat-select-label-${idx}`}
+                            label={`Material Item #${idx + 1} *`}
+                            value={m.selected_option || (m.is_other ? "__OTHER__" : "")}
+                            onChange={(e) => handleMaterialSelect(idx, e.target.value)}
+                            MenuProps={{
+                              PaperProps: {
+                                sx: { maxHeight: 360, borderRadius: "10px", boxShadow: "0 10px 25px rgba(0,0,0,0.15)" },
+                              },
+                            }}
+                          >
+                            {/* Search Filter Header */}
+                            {stockItems.length > 5 && (
+                              <Box sx={{ p: 1, position: "sticky", top: 0, bgcolor: "#FFFFFF", zIndex: 2, borderBottom: `1px solid ${COLORS.border}` }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  placeholder="Search stock inventory..."
+                                  value={stockSearch}
+                                  onChange={(e) => setStockSearch(e.target.value)}
+                                  onKeyDown={(e) => e.stopPropagation()}
+                                  InputProps={{
+                                    startAdornment: <SearchIcon sx={{ fontSize: 18, mr: 0.8, color: COLORS.textSecondary }} />,
+                                  }}
+                                />
+                              </Box>
+                            )}
+
+                            {/* Option for Others / Custom Material */}
+                            <MenuItem
+                              value="__OTHER__"
+                              sx={{
+                                fontWeight: 800,
+                                fontSize: "0.82rem",
+                                color: "#B45309",
+                                bgcolor: "#FEF3C7 !important",
+                                py: 1,
+                                "&:hover": { bgcolor: "#FDE68A !important" },
+                              }}
+                            >
+                              ✏️ Others / Custom Material (Type Manually)
+                            </MenuItem>
+
+                            <Divider sx={{ my: 0.5 }} />
+
+                            {/* Stock Items List */}
+                            {loadingStock ? (
+                              <MenuItem disabled sx={{ fontSize: "0.8rem" }}>
+                                <CircularProgress size={16} sx={{ mr: 1 }} /> Loading inventory items...
+                              </MenuItem>
+                            ) : filteredStockItems.length === 0 ? (
+                              <MenuItem disabled sx={{ fontSize: "0.8rem", fontStyle: "italic", color: COLORS.textMuted }}>
+                                {stockSearch ? "No matching stock items found" : "No stock items in inventory"}
+                              </MenuItem>
+                            ) : (
+                              filteredStockItems.map((s) => {
+                                const avail = s.available_stock ?? s.current_stock ?? 0;
+                                return (
+                                  <MenuItem key={s.id} value={s.name} sx={{ py: 0.8 }}>
+                                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", gap: 1 }}>
+                                      <Box sx={{ minWidth: 0 }}>
+                                        <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: COLORS.textPrimary }} noWrap>
+                                          {s.name}
+                                        </Typography>
+                                        <Typography sx={{ fontSize: "0.7rem", color: COLORS.textSecondary }}>
+                                          {s.brand ? `${s.brand} • ` : ""}{s.item_code || `Code: ${s.id}`}
+                                        </Typography>
+                                      </Box>
+                                      <Chip
+                                        size="small"
+                                        label={`${avail} ${s.unit || "Nos"}`}
+                                        sx={{
+                                          height: 20,
+                                          fontSize: "0.68rem",
+                                          fontWeight: 800,
+                                          bgcolor: avail > 0 ? "#DCFCE7" : "#FEE2E2",
+                                          color: avail > 0 ? "#166534" : "#991B1B",
+                                          flexShrink: 0,
+                                        }}
+                                      />
+                                    </Box>
+                                  </MenuItem>
+                                );
+                              })
+                            )}
+                          </Select>
+                        </FormControl>
+
+                        {/* If 'Others' Selected -> Custom Text Input */}
+                        {m.is_other && (
+                          <Box sx={{ mt: 1 }}>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              label="Custom Material Name & Details *"
+                              placeholder="e.g. 4 aluminium rails, 16 roof clamps, 32 SS bolts, 32 rubber wash..."
+                              value={m.custom_item || ""}
+                              onChange={(e) => handleCustomItemChange(idx, e.target.value)}
+                              sx={{
+                                "& .MuiOutlinedInput-root": {
+                                  backgroundColor: "#FFFBEB",
+                                },
+                              }}
+                            />
+                            <Typography sx={{ fontSize: "0.68rem", color: "#B45309", mt: 0.3, fontStyle: "italic" }}>
+                              Custom material entered manually (not linked to warehouse stock)
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* If Stock Item Selected -> Live Stock Availability */}
+                        {!m.is_other && m.selected_option && (
+                          <Box sx={{ mt: 0.6, display: "flex", alignItems: "center", gap: 0.8 }}>
+                            {(() => {
+                              const matched = stockItems.find((s) => s.name === m.selected_option);
+                              const avail = matched?.available_stock ?? matched?.current_stock ?? 0;
+                              return (
+                                <Typography sx={{ fontSize: "0.72rem", color: avail > 0 ? "#16A34A" : "#DC2626", fontWeight: 700 }}>
+                                  📦 Warehouse Stock: {avail} {matched?.unit || "Nos"} available
+                                </Typography>
+                              );
+                            })()}
+                          </Box>
+                        )}
                       </Grid>
 
+                      {/* Quantity */}
                       <Grid size={{ xs: 6, sm: 3 }}>
                         <TextField
                           fullWidth
@@ -1482,6 +1754,7 @@ export default function InstallationProgress({ project, projectId }) {
                         />
                       </Grid>
 
+                      {/* Unit */}
                       <Grid size={{ xs: 4, sm: 2 }}>
                         <FormControl fullWidth size="small">
                           <InputLabel>Unit</InputLabel>
@@ -1491,17 +1764,21 @@ export default function InstallationProgress({ project, projectId }) {
                             onChange={(e) => handleMaterialChange(idx, "unit", e.target.value)}
                           >
                             <MenuItem value="Nos">Nos</MenuItem>
+                            <MenuItem value="Piece">Piece</MenuItem>
+                            <MenuItem value="Pcs">Pcs</MenuItem>
                             <MenuItem value="Meters">Meters</MenuItem>
                             <MenuItem value="Sets">Sets</MenuItem>
-                            <MenuItem value="Pcs">Pcs</MenuItem>
+                            <MenuItem value="Rolls">Rolls</MenuItem>
                             <MenuItem value="Kg">Kg</MenuItem>
                             <MenuItem value="Bags">Bags</MenuItem>
-                            <MenuItem value="Rolls">Rolls</MenuItem>
+                            <MenuItem value="Boxes">Boxes</MenuItem>
+                            <MenuItem value="Liters">Liters</MenuItem>
                           </Select>
                         </FormControl>
                       </Grid>
 
-                      <Grid size={{ xs: 2, sm: 1 }}>
+                      {/* Delete Row Button */}
+                      <Grid size={{ xs: 2, sm: 1 }} sx={{ display: "flex", justifyContent: "center", pt: { sm: 0.5 } }}>
                         <IconButton
                           size="small"
                           color="error"
