@@ -686,7 +686,9 @@ export default function InstallationProgress({ project, projectId }) {
         weather: formData.weather,
         safety_checklist: formData.safety_checklist,
         supervisor_signoff: formData.supervisor_signoff ? 1 : 0,
-        supervisor_signoff_time: formData.supervisor_signoff ? new Date().toISOString() : null,
+        supervisor_signoff_time: formData.supervisor_signoff
+          ? new Date().toISOString().slice(0, 19).replace("T", " ")
+          : null,
       };
 
       let targetLogId = editingLogId;

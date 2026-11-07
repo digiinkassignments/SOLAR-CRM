@@ -144,6 +144,13 @@ const getAllLogs = async (db, projectId) => {
   return { logs: logsWithPhotos, totalLogs: logsWithPhotos.length, currentProgress, completedPhases };
 };
 
+const toMysqlDatetime = (val) => {
+  if (!val) return null;
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+};
+
 const createLog = async (db, projectId, data, userId) => {
   await ensureInstallationLogsTable(db);
 
@@ -156,7 +163,7 @@ const createLog = async (db, projectId, data, userId) => {
     : null;
 
   const isSignoff = data.supervisor_signoff ? 1 : 0;
-  const signoffTime = isSignoff ? (data.supervisor_signoff_time || new Date()) : null;
+  const signoffTime = isSignoff ? toMysqlDatetime(data.supervisor_signoff_time || new Date()) : null;
 
   const [result] = await db.query(
     `INSERT INTO installation_logs (
@@ -212,7 +219,7 @@ const updateLog = async (db, logId, projectId, data) => {
     : null;
 
   const isSignoff = data.supervisor_signoff ? 1 : 0;
-  const signoffTime = isSignoff ? (data.supervisor_signoff_time || new Date()) : null;
+  const signoffTime = isSignoff ? toMysqlDatetime(data.supervisor_signoff_time || new Date()) : null;
 
   await db.query(
     `UPDATE installation_logs SET
