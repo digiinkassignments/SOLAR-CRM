@@ -984,7 +984,7 @@ export default function ProjectDetail() {
                   </Box>
                   <Chip
                     size="small"
-                    label={`${progress}% Done`}
+                    label={`${progressPct}% Done`}
                     sx={{
                       height: 24,
                       fontSize: "0.74rem",
