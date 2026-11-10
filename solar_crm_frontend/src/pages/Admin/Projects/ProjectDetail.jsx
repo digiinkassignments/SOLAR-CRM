@@ -536,14 +536,16 @@ export default function ProjectDetail() {
                 display: "flex",
                 alignItems: "center",
                 flexWrap: "wrap",
-                gap: 1.2,
+                gap: 1.5,
                 mb: 0.8,
               }}
             >
-              <Box
+              <Chip
+                label={project.project_number}
+                size="small"
                 sx={{
-                  px: 1.2,
-                  py: 0.4,
+                  px: 0.5,
+                  height: 28,
                   borderRadius: "6px",
                   backgroundColor: "#EFF6FF",
                   border: "1px solid #BFDBFE",
@@ -551,13 +553,9 @@ export default function ProjectDetail() {
                   fontWeight: 800,
                   fontSize: "0.82rem",
                   fontFamily: "monospace",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  flexShrink: 0,
+                  letterSpacing: "0.02em",
                 }}
-              >
-                {project.project_number}
-              </Box>
+              />
 
               <Typography
                 variant="h5"
@@ -984,27 +982,18 @@ export default function ProjectDetail() {
                       10 sequential phases under PM Surya Ghar & DISCOM net-metering
                     </Typography>
                   </Box>
-                  <Button
+                  <Chip
                     size="small"
-                    variant="outlined"
-                    startIcon={<SwapHorizIcon sx={{ fontSize: 15 }} />}
-                    onClick={handleOpenStageDialog}
+                    label={`${progress}% Done`}
                     sx={{
-                      height: 32,
-                      borderRadius: "6px",
-                      textTransform: "none",
-                      fontWeight: 700,
+                      height: 24,
                       fontSize: "0.74rem",
-                      px: 1.5,
-                      borderColor: COLORS.border,
-                      color: COLORS.textPrimary,
-                      whiteSpace: "nowrap",
-                      flexShrink: 0,
-                      "&:hover": { borderColor: COLORS.primary, backgroundColor: "#F8FAFC" },
+                      fontWeight: 800,
+                      backgroundColor: "#EFF6FF",
+                      color: "#1D4ED8",
+                      border: "1px solid #BFDBFE",
                     }}
-                  >
-                    Change Stage
-                  </Button>
+                  />
                 </Box>
 
                 {/* Stepper Progress Bar */}

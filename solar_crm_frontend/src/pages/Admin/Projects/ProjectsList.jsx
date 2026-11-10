@@ -552,7 +552,7 @@ export default function ProjectsList() {
                   sx={{
                     width: 36,
                     height: 36,
-                    borderRadius: "6px",
+                    borderRadius: "8px",
                     border: `1px solid ${COLORS.border}`,
                     backgroundColor: COLORS.card,
                     color: COLORS.textPrimary,
@@ -580,16 +580,16 @@ export default function ProjectsList() {
               onClick={() => setNewModalOpen(true)}
               sx={{
                 height: 36,
-                borderRadius: "6px",
+                borderRadius: "8px",
                 textTransform: "none",
                 fontWeight: 700,
-                fontSize: "0.8rem",
-                px: 2,
-                backgroundColor: COLORS.primary,
+                fontSize: "0.82rem",
+                px: 2.2,
+                backgroundColor: "#005BAC",
                 color: "#FFFFFF",
-                boxShadow: "0 2px 6px rgba(15, 23, 42, 0.15)",
+                boxShadow: "0 2px 6px rgba(0, 91, 172, 0.25)",
                 whiteSpace: "nowrap",
-                "&:hover": { backgroundColor: COLORS.primaryHover },
+                "&:hover": { backgroundColor: "#004785" },
               }}
             >
               New Project
@@ -1141,11 +1141,13 @@ export default function ProjectsList() {
                     }}
                   >
                     {/* Left: Project Number + Customer Name */}
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, flexWrap: "wrap" }}>
-                      <Box
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+                      <Chip
+                        label={proj.project_number}
+                        size="small"
                         sx={{
-                          px: 1.2,
-                          py: 0.35,
+                          px: 0.5,
+                          height: 26,
                           borderRadius: "6px",
                           backgroundColor: "#EFF6FF",
                           border: "1px solid #BFDBFE",
@@ -1153,13 +1155,9 @@ export default function ProjectsList() {
                           fontWeight: 800,
                           fontSize: "0.8rem",
                           fontFamily: "monospace",
-                          letterSpacing: "0.03em",
-                          display: "inline-flex",
-                          alignItems: "center",
+                          letterSpacing: "0.02em",
                         }}
-                      >
-                        {proj.project_number}
-                      </Box>
+                      />
 
                       <Typography
                         variant="h6"

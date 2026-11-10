@@ -1112,19 +1112,19 @@ export default function InstallationProgress({ project, projectId }) {
                 startIcon={<AddIcon sx={{ fontSize: 18 }} />}
                 onClick={handleOpenAddModal}
                 sx={{
-                  backgroundColor: COLORS.primary,
+                  backgroundColor: "#005BAC",
                   color: "#FFFFFF",
                   textTransform: "none",
                   fontWeight: 700,
-                  fontSize: "0.82rem",
-                  px: 2.5,
-                  height: 40,
-                  borderRadius: "6px",
+                  fontSize: "0.84rem",
+                  px: 2.2,
+                  height: 38,
+                  borderRadius: "8px",
                   whiteSpace: "nowrap",
                   flexShrink: 0,
-                  minWidth: 165,
-                  boxShadow: "0 2px 6px rgba(15, 23, 42, 0.15)",
-                  "&:hover": { backgroundColor: "#020617" },
+                  minWidth: 160,
+                  boxShadow: "0 2px 6px rgba(0, 91, 172, 0.25)",
+                  "&:hover": { backgroundColor: "#004785" },
                 }}
               >
                 Log Today's Work

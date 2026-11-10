@@ -21,10 +21,11 @@ import CloseIcon from "@mui/icons-material/Close";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import CheckCircleOutlinedIcon from "@mui/icons-material/CheckCircleOutlined";
+import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import api from "../../api/axios";
 import toast from "react-hot-toast";
 
-const CreateQuotationModal = ({ open, onClose, calcData = null, leadData = null }) => {
+const CreateQuotationModal = ({ open, onClose, calcData = null, leadData = null, onQuotationCreated = null }) => {
   const [loading, setLoading] = useState(false);
   const [leadsList, setLeadsList] = useState([]);
   const [selectedLeadId, setSelectedLeadId] = useState("");
@@ -83,6 +84,13 @@ const CreateQuotationModal = ({ open, onClose, calcData = null, leadData = null 
       setCustomerAddress(leadData.address || "");
       setCity(leadData.city || "");
       setState(leadData.state || "");
+
+      const kw = Number(leadData.required_kw) || 3.0;
+      setSystemCapacityKw(kw);
+      const sub = kw <= 1 ? 30000 : kw <= 2 ? 60000 : 78000;
+      setSubsidyAmount(sub);
+      const base = leadData.quotation_amount ? Number(leadData.quotation_amount) : Math.round(kw * 50000);
+      setBasePrice(base);
     }
   }, [calcData, leadData, open]);
 
@@ -156,6 +164,9 @@ const CreateQuotationModal = ({ open, onClose, calcData = null, leadData = null 
       if (res.data?.success) {
         toast.success("Quotation generated successfully!");
         setCreatedQuotation(res.data.data);
+        if (onQuotationCreated) {
+          onQuotationCreated(res.data.data);
+        }
       }
     } catch (err) {
       console.error("Create quotation error:", err);
@@ -170,6 +181,15 @@ const CreateQuotationModal = ({ open, onClose, calcData = null, leadData = null 
     const fullUrl = `${window.location.origin}/quote/${createdQuotation.public_token}`;
     navigator.clipboard.writeText(fullUrl);
     toast.success("Public quotation link copied to clipboard!");
+  };
+
+  const handleShareWhatsApp = () => {
+    if (!createdQuotation) return;
+    const phone = (createdQuotation.customer_phone || "").replace(/[^0-9]/g, "");
+    const formattedPhone = phone.length === 10 ? `91${phone}` : phone;
+    const publicUrl = `${window.location.origin}/quote/${createdQuotation.public_token}`;
+    const msg = `Hello ${createdQuotation.customer_name},\n\nHere is your official solar energy proposal (${createdQuotation.system_capacity_kw} kW System).\n\n📄 View Proposal & Download PDF:\n${publicUrl}\n\nThank you!`;
+    window.open(`https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(msg)}`, "_blank");
   };
 
   const handleCloseDialog = () => {
@@ -217,20 +237,28 @@ const CreateQuotationModal = ({ open, onClose, calcData = null, leadData = null 
               </Typography>
             </Paper>
 
-            <Stack direction="row" spacing={2} justifyContent="center">
+            <Stack direction="row" spacing={1.5} justifyContent="center" flexWrap="wrap">
               <Button
                 variant="outlined"
                 startIcon={<ContentCopyIcon />}
                 onClick={handleCopyPublicLink}
-                sx={{ borderRadius: "10px", fontWeight: 700 }}
+                sx={{ borderRadius: "8px", fontWeight: 700, textTransform: "none", height: 38 }}
               >
                 Copy Link
               </Button>
               <Button
                 variant="contained"
+                startIcon={<WhatsAppIcon sx={{ color: "#FFFFFF" }} />}
+                onClick={handleShareWhatsApp}
+                sx={{ bgcolor: "#16A34A", color: "#FFFFFF", borderRadius: "8px", fontWeight: 700, textTransform: "none", height: 38, "&:hover": { bgcolor: "#15803D" } }}
+              >
+                WhatsApp Share
+              </Button>
+              <Button
+                variant="contained"
                 startIcon={<OpenInNewIcon />}
                 onClick={() => window.open(`/quote/${createdQuotation.public_token}`, "_blank")}
-                sx={{ bgcolor: "#005BAC", color: "#FFFFFF", borderRadius: "10px", fontWeight: 700 }}
+                sx={{ bgcolor: "#005BAC", color: "#FFFFFF", borderRadius: "8px", fontWeight: 700, textTransform: "none", height: 38 }}
               >
                 Open Proposal Page
               </Button>

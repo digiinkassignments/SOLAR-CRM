@@ -92,12 +92,13 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
     { isSection: true, title: "SALES & LEADS" },
     { title: "Lead Management", icon: <SolarPowerOutlinedIcon />, path: "/leads", featureKey: null, requiredPermission: "leads:view" },
     { title: "Customers", icon: <PeopleAltOutlinedIcon />, path: "/customers", featureKey: null, requiredPermission: "customers:view" },
-    { title: "Quotations", icon: <DescriptionOutlinedIcon />, path: "/quotations", featureKey: null, requiredPermission: "quotations:view" },
+    { title: "Quotations", icon: <DescriptionOutlinedIcon />, path: "/quotations", featureKey: null, requiredPermission: null },
+    { title: "Invoices", icon: <ReceiptLongOutlinedIcon />, path: "/invoices", featureKey: null, requiredPermission: null },
     { title: "Solar Calculator", icon: <CalculateOutlinedIcon />, path: "/calculator", featureKey: null, requiredPermission: "calculator:view" },
 
     { isSection: true, title: "FINANCE" },
-    { title: "Invoices & Billing", icon: <ReceiptLongOutlinedIcon />, path: "/invoices", featureKey: null, requiredPermission: "invoices:view" },
-    { title: "Subsidy Tracking", icon: <AccountBalanceIcon />, path: "/subsidies", featureKey: null, requiredPermission: "subsidies:view" },
+    { title: "Invoices & Billing", icon: <ReceiptLongOutlinedIcon />, path: "/invoices", featureKey: null, requiredPermission: null },
+    { title: "Subsidy Tracking", icon: <AccountBalanceIcon />, path: "/subsidies", featureKey: null, requiredPermission: null },
 
     { isSection: true, title: "PROJECT EXECUTION" },
     { title: "Projects", icon: <EngineeringIcon />, path: "/projects", featureKey: null, requiredPermission: "projects:view" },

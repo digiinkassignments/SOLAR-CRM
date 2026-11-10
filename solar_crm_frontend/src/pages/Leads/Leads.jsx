@@ -118,6 +118,7 @@ import {
   getPipelineStatuses,
 } from "../../services/leadConfigService";
 import BulkDeleteBar from "../../components/BulkDeleteBar";
+import CreateQuotationModal from "../Quotations/CreateQuotationModal";
 import api from "../../api/axios";
 
 /* ============================================================
@@ -804,6 +805,17 @@ export default function Leads() {
     setWhatsappDrawerOpen(true);
     setAnchorEl(null);
   }, []);
+
+  const [createQuotationOpen, setCreateQuotationOpen] = useState(false);
+  const [quotationLead, setQuotationLead] = useState(null);
+
+  const handleOpenCreateQuotation = useCallback((lead) => {
+    const target = lead || activeLead;
+    if (!target) return;
+    setQuotationLead(target);
+    setCreateQuotationOpen(true);
+    setAnchorEl(null);
+  }, [activeLead]);
 
   const openScheduleSurvey = useCallback((lead) => {
     setSurveyLead(lead || activeLead);
@@ -1818,6 +1830,31 @@ export default function Leads() {
                       </Button>
                     </Tooltip>
 
+                    <Tooltip title="Create Dynamic Solar Quotation / Proposal">
+                      <Button
+                        size="small"
+                        startIcon={<DescriptionIcon sx={{ fontSize: 13, color: "#D97706" }} />}
+                        onClick={() => handleOpenCreateQuotation(row)}
+                        sx={{
+                          height: 28,
+                          borderRadius: "6px",
+                          color: "#92400E",
+                          backgroundColor: "#FEF3C7",
+                          border: "1px solid #FDE68A",
+                          fontSize: "0.7rem",
+                          fontWeight: 800,
+                          px: 1.2,
+                          textTransform: "none",
+                          "&:hover": {
+                            backgroundColor: "#FDE68A",
+                            color: "#78350F",
+                          },
+                        }}
+                      >
+                        Quote
+                      </Button>
+                    </Tooltip>
+
                     <IconButton
                       size="small"
                       onClick={(e) => handleMenuOpen(e, row)}
@@ -2440,6 +2477,16 @@ export default function Leads() {
           onClick={() => {
             const target = activeLead;
             handleMenuClose();
+            handleOpenCreateQuotation(target);
+          }}
+          sx={{ fontSize: "0.8rem", py: 0.9, fontWeight: 700, color: "#B45309" }}
+        >
+          <DescriptionIcon sx={{ fontSize: 16, mr: 1.2, color: "#D97706" }} /> Generate Proposal / Quotation
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            const target = activeLead;
+            handleMenuClose();
             openAssignModal(target);
           }}
           sx={{ fontSize: "0.8rem", py: 0.9 }}
@@ -2752,6 +2799,28 @@ export default function Leads() {
                   }}
                 >
                   AI Copilot Insights
+                </Button>
+
+                <Button
+                  size="small"
+                  variant="contained"
+                  startIcon={<DescriptionIcon sx={{ fontSize: 15 }} />}
+                  onClick={() => {
+                    setViewModalOpen(false);
+                    handleOpenCreateQuotation(viewLead);
+                  }}
+                  sx={{
+                    borderRadius: "6px",
+                    bgcolor: "#D97706",
+                    color: "#FFFFFF",
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    textTransform: "none",
+                    height: 32,
+                    "&:hover": { bgcolor: "#B45309" },
+                  }}
+                >
+                  Generate Quotation
                 </Button>
               </>
             )}
@@ -3440,6 +3509,18 @@ export default function Leads() {
         <AICopilotModal open={aiCopilotOpen} onClose={() => setAiCopilotOpen(false)} lead={aiCopilotLead} />
       )}
       <ImportLeadsDialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)} onImportSuccess={fetchLeadsList} showSnackbar={showSnackbar} />
+
+      {createQuotationOpen && (
+        <CreateQuotationModal
+          open={createQuotationOpen}
+          onClose={() => {
+            setCreateQuotationOpen(false);
+            setQuotationLead(null);
+          }}
+          leadData={quotationLead}
+          onQuotationCreated={() => fetchLeadsList()}
+        />
+      )}
 
       {/* TOAST SNACKBAR */}
       <Snackbar open={snackbar.open} autoHideDuration={3500} onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))} anchorOrigin={{ vertical: "bottom", horizontal: "right" }}>

@@ -13,6 +13,7 @@ import DownloadIcon from "@mui/icons-material/Download";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import VerifiedIcon from "@mui/icons-material/Verified";
+import toast from "react-hot-toast";
 
 import api from "../../api/axios";
 import defaultLogo from "../../assets/images/logo.png";
@@ -201,6 +202,75 @@ const DynamicInvoiceView = () => {
     ? customerAddressParts.join(", ")
     : "Installation Site / Customer Address";
 
+  // Direct 1-Page PDF Generator
+  const handleDownloadPdf = async () => {
+    const element = document.getElementById("printable-tax-invoice");
+    if (!element) {
+      window.print();
+      return;
+    }
+
+    toast.loading("Generating 1-page official invoice PDF...", { id: "pdf-toast" });
+
+    // Pre-convert any images in element to Base64 before exporting
+    const imgs = element.querySelectorAll("img");
+    for (const img of imgs) {
+      if (img.src && !img.src.startsWith("data:")) {
+        try {
+          const res = await fetch(img.src, { mode: "cors" });
+          const blob = await res.blob();
+          const reader = new FileReader();
+          await new Promise((resolve) => {
+            reader.onloadend = () => {
+              img.src = reader.result;
+              resolve();
+            };
+            reader.readAsDataURL(blob);
+          });
+        } catch (e) {
+          console.warn("PDF pre-convert image note:", e);
+        }
+      }
+    }
+
+    import("html2pdf.js")
+      .then((html2pdfModule) => {
+        const html2pdf = html2pdfModule.default || html2pdfModule;
+        const opt = {
+          margin: [4, 6, 4, 6],
+          filename: `Tax_Invoice_${invoice?.invoice_number || "Invoice"}.pdf`,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            scrollY: 0,
+            scrollX: 0,
+            windowWidth: 1024,
+          },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+          pagebreak: { mode: ["avoid-all"] },
+        };
+
+        html2pdf()
+          .set(opt)
+          .from(element)
+          .save()
+          .then(() => {
+            toast.success("Official 1-Page Tax Invoice downloaded!", { id: "pdf-toast" });
+          })
+          .catch((err) => {
+            console.error("PDF save error:", err);
+            toast.error("Opening print dialog fallback...", { id: "pdf-toast" });
+            window.print();
+          });
+      })
+      .catch((e) => {
+        console.error("html2pdf import error:", e);
+        window.print();
+      });
+  };
+
   // WhatsApp Share Handler
   const handleShareWhatsApp = () => {
     const url = window.location.href.split("?")[0];
@@ -284,25 +354,44 @@ const DynamicInvoiceView = () => {
             size="small"
             variant="contained"
             startIcon={<DownloadIcon sx={{ fontSize: 16 }} />}
-            onClick={() => window.print()}
+            onClick={handleDownloadPdf}
             sx={{
-              bgcolor: "#334155",
+              bgcolor: "#005BAC",
               color: "#FFFFFF",
               fontWeight: 700,
               fontSize: "0.76rem",
               textTransform: "none",
               borderRadius: "6px",
               height: 32,
-              "&:hover": { bgcolor: "#1E293B" },
+              "&:hover": { bgcolor: "#004785" },
             }}
           >
-            Download / Print 1-Page PDF
+            Download 1-Page PDF
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<PrintIcon sx={{ fontSize: 16 }} />}
+            onClick={() => window.print()}
+            sx={{
+              borderColor: "rgba(255,255,255,0.3)",
+              color: "#FFFFFF",
+              fontWeight: 700,
+              fontSize: "0.76rem",
+              textTransform: "none",
+              borderRadius: "6px",
+              height: 32,
+              "&:hover": { borderColor: "#FFFFFF", bgcolor: "rgba(255,255,255,0.08)" },
+            }}
+          >
+            Print
           </Button>
         </Stack>
       </Box>
 
       {/* ── STRICT 1-PAGE A4 OFFICIAL TAX INVOICE CONTAINER ── */}
       <Box
+        id="printable-tax-invoice"
         className="invoice-a4-page"
         sx={{
           width: "210mm",
