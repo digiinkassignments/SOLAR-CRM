@@ -30,6 +30,7 @@ import CakeOutlinedIcon from "@mui/icons-material/CakeOutlined";
 import EngineeringIcon from "@mui/icons-material/Engineering";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
+import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlined";
 
 import logo from "../../assets/images/logo.png";
 
@@ -99,6 +100,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
     { isSection: true, title: "FINANCE" },
     { title: "Invoices & Billing", icon: <ReceiptLongOutlinedIcon />, path: "/invoices", featureKey: null, requiredPermission: null },
     { title: "Subsidy Tracking", icon: <AccountBalanceIcon />, path: "/subsidies", featureKey: null, requiredPermission: null },
+    { title: "Solar Loans", icon: <MonetizationOnOutlinedIcon />, path: "/loans", featureKey: null, requiredPermission: null },
 
     { isSection: true, title: "PROJECT EXECUTION" },
     { title: "Projects", icon: <EngineeringIcon />, path: "/projects", featureKey: null, requiredPermission: "projects:view" },

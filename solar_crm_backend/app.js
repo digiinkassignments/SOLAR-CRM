@@ -73,6 +73,8 @@ app.use("/api/invoices", invoiceRoutes);
 app.use("/api/surveys", surveyRoutes);
 app.use("/api/deals", dealRoutes);
 app.use("/api/subsidy", subsidyRoutes);
+const loanRoutes = require("./routes/loanRoutes");
+app.use("/api/loans", loanRoutes);
 app.use("/api/stock", stockRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/projects/:id/inspection", inspectionRoutes);

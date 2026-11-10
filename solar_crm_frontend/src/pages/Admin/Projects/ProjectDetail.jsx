@@ -63,6 +63,7 @@ import Commissioning from "./tabs/Commissioning";
 import FinalInspection from "./tabs/FinalInspection";
 import CustomerHandover from "./tabs/CustomerHandover";
 import WarrantyAMC from "./tabs/WarrantyAMC";
+import ProjectLoanTab from "./tabs/ProjectLoanTab";
 import {
   STAGES,
   STAGE_CONFIG,
@@ -736,6 +737,7 @@ export default function ProjectDetail() {
               <Tab icon={<FactCheckIcon />} label="Final Inspection" iconPosition="start" />
               <Tab icon={<HandshakeIcon />} label="Customer Handover" iconPosition="start" />
               <Tab icon={<VerifiedIcon />} label="Warranty & AMC" iconPosition="start" />
+              <Tab icon={<AccountBalanceOutlinedIcon sx={{ fontSize: "1.1rem" }} />} label="Solar Loan" iconPosition="start" />
             </Tabs>
           </Box>
         </Paper>
@@ -1256,6 +1258,13 @@ export default function ProjectDetail() {
         {activeTab === 7 && (
           <Box sx={{ mt: 1 }}>
             <WarrantyAMC project={project} projectId={id} />
+          </Box>
+        )}
+
+        {/* TAB 8: SOLAR LOAN & FINANCING */}
+        {activeTab === 8 && (
+          <Box sx={{ mt: 1 }}>
+            <ProjectLoanTab project={project} projectId={id} />
           </Box>
         )}
       </Box>

@@ -51,6 +51,7 @@ import SubsidyTracker from "../pages/Admin/Subsidy/SubsidyTracker";
 import SubsidyDetail from "../pages/Admin/Subsidy/SubsidyDetail";
 import CustomersList from "../pages/Customers/CustomersList";
 import CustomerDetail from "../pages/Customers/CustomerDetail";
+import LoansList from "../pages/Loans/LoansList";
 
 const SubscriptionGuard = ({ children }) => {
   const { user, token } = useAuth();
@@ -141,6 +142,7 @@ const AppRoutes = () => {
             <Route path="/calculator" element={<SolarCalculator />} />
             <Route path="/quotations" element={<QuotationList />} />
             <Route path="/invoices"   element={<InvoiceList />} />
+            <Route path="/loans"      element={<LoansList />} />
             <Route path="/projects"   element={<ProjectsList />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/subsidies"   element={<SubsidyTracker />} />
@@ -165,6 +167,7 @@ const AppRoutes = () => {
             <Route path="/manager/calculator" element={<SolarCalculator />} />
             <Route path="/manager/quotations" element={<QuotationList />} />
             <Route path="/manager/invoices"   element={<InvoiceList />} />
+            <Route path="/manager/loans"      element={<LoansList />} />
             <Route path="/manager/projects"   element={<ProjectsList />} />
             <Route path="/manager/projects/:id" element={<ProjectDetail />} />
             <Route path="/manager/followups"  element={<TeamFollowups />} />
