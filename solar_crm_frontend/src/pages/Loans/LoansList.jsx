@@ -451,7 +451,7 @@ export default function LoansList() {
               "&:hover": { backgroundColor: "#004785" },
             }}
           >
-            + Apply for Loan
+            Apply for Loan
           </Button>
         </Stack>
       </Stack>
@@ -765,7 +765,7 @@ export default function LoansList() {
                 No solar loan applications found
               </Typography>
               <Typography sx={{ fontSize: "0.82rem", color: COLORS.textSecondary, mt: 0.5, mb: 2.5 }}>
-                Get started by clicking &quot;+ Apply for Loan&quot; to log a Jan Samarth or bank loan application.
+                Get started by clicking &quot;Apply for Loan&quot; to log a Jan Samarth or bank loan application.
               </Typography>
               <Button
                 variant="contained"
@@ -773,7 +773,7 @@ export default function LoansList() {
                 onClick={() => setCreateModalOpen(true)}
                 sx={{ bgcolor: "#005BAC", borderRadius: "8px", textTransform: "none", fontWeight: 700 }}
               >
-                + Apply for Loan
+                Apply for Loan
               </Button>
             </Paper>
           ) : (

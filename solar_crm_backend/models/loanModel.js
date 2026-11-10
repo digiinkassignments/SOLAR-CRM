@@ -149,7 +149,7 @@ const getLoanById = async (id, db = defaultDb) => {
   await ensureLoanTables(db);
   const [rows] = await db.query(
     `SELECT l.*, 
-            ld.name AS lead_customer_name, ld.phone AS lead_phone, ld.email AS lead_email,
+            ld.customer_name AS lead_customer_name, ld.mobile_number AS lead_phone, ld.email AS lead_email,
             ld.city AS lead_city, ld.state AS lead_state, ld.required_kw AS lead_kw,
             p.project_number
      FROM solar_loans l
@@ -234,7 +234,7 @@ const getAllLoans = async ({ search = "", stage = "", bank = "", page = 1, limit
   const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
   const query = `
     SELECT l.*, 
-           ld.name AS lead_name, ld.phone AS lead_phone,
+           ld.customer_name AS lead_name, ld.mobile_number AS lead_phone,
            p.project_number, p.stage as project_stage
     FROM solar_loans l
     LEFT JOIN leads ld ON l.lead_id = ld.id
