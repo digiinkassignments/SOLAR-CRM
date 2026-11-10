@@ -531,22 +531,25 @@ export default function ProjectDetail() {
         >
           {/* Customer & Project Title */}
           <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Stack
-              direction="row"
-              alignItems="center"
-              spacing={1.5}
-              sx={{ flexWrap: "wrap", gap: 1.5, mb: 1 }}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 1.2,
+                mb: 0.8,
+              }}
             >
               <Box
                 sx={{
-                  px: 1.5,
-                  py: 0.5,
-                  borderRadius: "8px",
+                  px: 1.2,
+                  py: 0.4,
+                  borderRadius: "6px",
                   backgroundColor: "#EFF6FF",
                   border: "1px solid #BFDBFE",
                   color: "#1D4ED8",
                   fontWeight: 800,
-                  fontSize: "0.85rem",
+                  fontSize: "0.82rem",
                   fontFamily: "monospace",
                   display: "inline-flex",
                   alignItems: "center",
@@ -563,14 +566,13 @@ export default function ProjectDetail() {
                   fontSize: { xs: "1.2rem", sm: "1.35rem" },
                   color: COLORS.textPrimary,
                   letterSpacing: "-0.01em",
-                  mr: 0.5,
                 }}
               >
                 {project.customer_name}
               </Typography>
 
               {renderStageBadge(project.stage)}
-            </Stack>
+            </Box>
 
             <Typography
               variant="body2"
@@ -615,12 +617,12 @@ export default function ProjectDetail() {
             )}
           </Box>
 
-          {/* Action Buttons (Spaced & Wrapped Cleanly) */}
+          {/* Action Buttons (Spaced & Aligned Cleanly) */}
           <Stack
             direction="row"
             alignItems="center"
             gap={1}
-            sx={{ flexWrap: "wrap", flexShrink: 0 }}
+            sx={{ flexShrink: 0, flexWrap: "nowrap" }}
           >
             <Button
               variant="outlined"
@@ -628,15 +630,16 @@ export default function ProjectDetail() {
               startIcon={<EditIcon sx={{ fontSize: 16 }} />}
               onClick={handleOpenEditDialog}
               sx={{
-                height: 38,
-                borderRadius: "8px",
+                height: 36,
+                borderRadius: "6px",
                 textTransform: "none",
                 fontWeight: 700,
-                fontSize: "0.8rem",
-                px: 2,
+                fontSize: "0.78rem",
+                px: 1.8,
                 borderColor: COLORS.border,
                 color: COLORS.textPrimary,
                 backgroundColor: "#FFFFFF",
+                whiteSpace: "nowrap",
                 "&:hover": {
                   borderColor: COLORS.primary,
                   backgroundColor: "#F8FAFC",
@@ -649,17 +652,18 @@ export default function ProjectDetail() {
             <Button
               variant="contained"
               size="small"
-              startIcon={<SwapHorizIcon sx={{ fontSize: 18 }} />}
+              startIcon={<SwapHorizIcon sx={{ fontSize: 17 }} />}
               onClick={handleOpenStageDialog}
               sx={{
-                height: 38,
-                borderRadius: "8px",
+                height: 36,
+                borderRadius: "6px",
                 textTransform: "none",
                 fontWeight: 700,
-                fontSize: "0.8rem",
-                px: 2.2,
+                fontSize: "0.78rem",
+                px: 2,
                 backgroundColor: COLORS.secondary,
                 color: "#FFFFFF",
+                whiteSpace: "nowrap",
                 "&:hover": { backgroundColor: "#D97706" },
               }}
             >
@@ -670,9 +674,9 @@ export default function ProjectDetail() {
               size="small"
               onClick={() => setDeleteConfirmOpen(true)}
               sx={{
-                height: 38,
-                width: 38,
-                borderRadius: "8px",
+                height: 36,
+                width: 36,
+                borderRadius: "6px",
                 border: `1px solid ${COLORS.border}`,
                 color: "#EF4444",
                 "&:hover": {
@@ -964,11 +968,11 @@ export default function ProjectDetail() {
                   boxSizing: "border-box",
                 }}
               >
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                  <Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2, flexWrap: "wrap", gap: 1.5 }}>
+                  <Box sx={{ flex: 1, minWidth: 220 }}>
                     <Typography
                       sx={{
-                        fontSize: "0.85rem",
+                        fontSize: "0.9rem",
                         fontWeight: 900,
                         color: COLORS.textPrimary,
                         letterSpacing: "-0.01em",
@@ -976,21 +980,27 @@ export default function ProjectDetail() {
                     >
                       Solar Project Execution Stepper
                     </Typography>
-                    <Typography sx={{ fontSize: "0.74rem", color: COLORS.textSecondary, mt: 0.2 }}>
+                    <Typography sx={{ fontSize: "0.74rem", color: COLORS.textSecondary, mt: 0.3 }}>
                       10 sequential phases under PM Surya Ghar & DISCOM net-metering
                     </Typography>
                   </Box>
                   <Button
                     size="small"
                     variant="outlined"
-                    startIcon={<SwapHorizIcon sx={{ fontSize: 16 }} />}
+                    startIcon={<SwapHorizIcon sx={{ fontSize: 15 }} />}
                     onClick={handleOpenStageDialog}
                     sx={{
-                      height: 30,
+                      height: 32,
                       borderRadius: "6px",
                       textTransform: "none",
                       fontWeight: 700,
                       fontSize: "0.74rem",
+                      px: 1.5,
+                      borderColor: COLORS.border,
+                      color: COLORS.textPrimary,
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                      "&:hover": { borderColor: COLORS.primary, backgroundColor: "#F8FAFC" },
                     }}
                   >
                     Change Stage

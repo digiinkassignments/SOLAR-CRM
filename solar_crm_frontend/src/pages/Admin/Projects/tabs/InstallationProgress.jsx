@@ -1004,62 +1004,72 @@ export default function InstallationProgress({ project, projectId }) {
                 <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Target Completion
                 </Typography>
-                <Stack direction="row" alignItems="center" gap={0.8} sx={{ mt: 0.3, flexWrap: "wrap" }}>
-                  <Stack direction="row" alignItems="center" gap={0.5}>
-                    <CalendarTodayIcon sx={{ fontSize: 13, color: COLORS.textSecondary }} />
-                    <Typography sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.textPrimary }}>
-                      {formatCleanDate(localProjectDates.end)}
-                    </Typography>
-                    <Tooltip title="Set or change target delivery date">
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          setNewTargetDate(localProjectDates.end ? String(localProjectDates.end).slice(0, 10) : "");
-                          setDateDialogOpen(true);
-                        }}
-                        sx={{ p: 0.2, color: "#2563EB" }}
-                      >
-                        <EditCalendarIcon sx={{ fontSize: 15 }} />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
-
-                  {/* Delay / On-Track Badge */}
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, mt: 0.3, flexWrap: "wrap" }}>
                   {localProjectDates.end ? (
-                    <Chip
-                      size="small"
-                      label={timelineInfo.label}
-                      sx={{
-                        height: 22,
-                        fontSize: "0.72rem",
-                        fontWeight: 800,
-                        color: timelineInfo.color,
-                        backgroundColor: timelineInfo.bg,
-                        border: `1px solid ${timelineInfo.border}`,
-                        "& .MuiChip-label": { px: 0.8 },
-                      }}
-                    />
+                    <>
+                      <Stack direction="row" alignItems="center" gap={0.5}>
+                        <CalendarTodayIcon sx={{ fontSize: 14, color: COLORS.textSecondary }} />
+                        <Typography sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.textPrimary }}>
+                          {formatCleanDate(localProjectDates.end)}
+                        </Typography>
+                        <Tooltip title="Edit target delivery date">
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setNewTargetDate(localProjectDates.end ? String(localProjectDates.end).slice(0, 10) : "");
+                              setDateDialogOpen(true);
+                            }}
+                            sx={{ p: 0.3, color: "#2563EB", "&:hover": { backgroundColor: "#EFF6FF" } }}
+                          >
+                            <EditCalendarIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+
+                      {/* Delay / On-Track Badge */}
+                      <Chip
+                        size="small"
+                        label={timelineInfo.label}
+                        sx={{
+                          height: 22,
+                          fontSize: "0.72rem",
+                          fontWeight: 800,
+                          color: timelineInfo.color,
+                          backgroundColor: timelineInfo.bg,
+                          border: `1px solid ${timelineInfo.border}`,
+                          "& .MuiChip-label": { px: 0.8 },
+                        }}
+                      />
+                    </>
                   ) : (
-                    <Chip
+                    <Button
                       size="small"
-                      label="Set Target Date"
-                      clickable
+                      variant="outlined"
+                      startIcon={<CalendarTodayIcon sx={{ fontSize: 13 }} />}
                       onClick={() => {
                         setNewTargetDate("");
                         setDateDialogOpen(true);
                       }}
                       sx={{
-                        height: 22,
-                        fontSize: "0.7rem",
+                        height: 26,
+                        fontSize: "0.74rem",
                         fontWeight: 700,
                         color: "#2563EB",
+                        borderColor: "#BFDBFE",
                         backgroundColor: "#EFF6FF",
-                        border: "1px dashed #93C5FD",
-                        cursor: "pointer",
+                        textTransform: "none",
+                        borderRadius: "6px",
+                        px: 1.2,
+                        "&:hover": {
+                          borderColor: "#3B82F6",
+                          backgroundColor: "#DBEAFE",
+                        },
                       }}
-                    />
+                    >
+                      Set Target Date
+                    </Button>
                   )}
-                </Stack>
+                </Box>
               </Grid>
 
               {/* Total Logs */}
@@ -1099,21 +1109,20 @@ export default function InstallationProgress({ project, projectId }) {
 
               <Button
                 variant="contained"
-                startIcon={<AddIcon />}
+                startIcon={<AddIcon sx={{ fontSize: 18 }} />}
                 onClick={handleOpenAddModal}
                 sx={{
                   backgroundColor: COLORS.primary,
                   color: "#FFFFFF",
                   textTransform: "none",
                   fontWeight: 700,
-                  fontSize: "0.85rem",
-                  px: 3,
-                  py: 1.2,
-                  height: 42,
-                  borderRadius: "8px",
+                  fontSize: "0.82rem",
+                  px: 2.5,
+                  height: 40,
+                  borderRadius: "6px",
                   whiteSpace: "nowrap",
                   flexShrink: 0,
-                  minWidth: 175,
+                  minWidth: 165,
                   boxShadow: "0 2px 6px rgba(15, 23, 42, 0.15)",
                   "&:hover": { backgroundColor: "#020617" },
                 }}

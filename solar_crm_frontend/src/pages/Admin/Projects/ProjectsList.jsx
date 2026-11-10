@@ -462,7 +462,7 @@ export default function ProjectsList() {
             boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
           }}
         >
-          <Box>
+          <Box sx={{ flex: 1, minWidth: 260 }}>
             <Typography
               variant="h5"
               sx={{
@@ -490,7 +490,7 @@ export default function ProjectsList() {
             direction="row"
             alignItems="center"
             gap={1.2}
-            sx={{ flexWrap: "wrap", width: { xs: "100%", sm: "auto" } }}
+            sx={{ flexShrink: 0, flexWrap: "nowrap" }}
           >
             {/* View Mode Toggle */}
             <ToggleButtonGroup
@@ -499,15 +499,15 @@ export default function ProjectsList() {
               onChange={(e, newView) => newView && setViewMode(newView)}
               size="small"
               sx={{
-                height: 38,
+                height: 36,
                 backgroundColor: "#F1F5F9",
-                borderRadius: "8px",
+                borderRadius: "6px",
                 p: 0.3,
                 "& .MuiToggleButton-root": {
                   border: 0,
-                  borderRadius: "6px",
-                  px: 1.5,
-                  py: 0.5,
+                  borderRadius: "4px",
+                  px: 1.4,
+                  py: 0.4,
                   color: COLORS.textSecondary,
                   "&.Mui-selected": {
                     backgroundColor: COLORS.card,
@@ -520,9 +520,9 @@ export default function ProjectsList() {
             >
               <ToggleButton value="box">
                 <Tooltip title="Modern Card View">
-                  <Stack direction="row" alignItems="center" gap={0.6}>
-                    <ViewListOutlinedIcon sx={{ fontSize: 18 }} />
-                    <Typography sx={{ fontSize: "0.76rem", fontWeight: 700 }}>
+                  <Stack direction="row" alignItems="center" gap={0.5}>
+                    <ViewListOutlinedIcon sx={{ fontSize: 17 }} />
+                    <Typography sx={{ fontSize: "0.75rem", fontWeight: 700 }}>
                       Cards
                     </Typography>
                   </Stack>
@@ -530,9 +530,9 @@ export default function ProjectsList() {
               </ToggleButton>
               <ToggleButton value="table">
                 <Tooltip title="Data Table View">
-                  <Stack direction="row" alignItems="center" gap={0.6}>
-                    <TableChartOutlinedIcon sx={{ fontSize: 18 }} />
-                    <Typography sx={{ fontSize: "0.76rem", fontWeight: 700 }}>
+                  <Stack direction="row" alignItems="center" gap={0.5}>
+                    <TableChartOutlinedIcon sx={{ fontSize: 17 }} />
+                    <Typography sx={{ fontSize: "0.75rem", fontWeight: 700 }}>
                       Table
                     </Typography>
                   </Stack>
@@ -550,9 +550,9 @@ export default function ProjectsList() {
                   }}
                   disabled={loading}
                   sx={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: "8px",
+                    width: 36,
+                    height: 36,
+                    borderRadius: "6px",
                     border: `1px solid ${COLORS.border}`,
                     backgroundColor: COLORS.card,
                     color: COLORS.textPrimary,
@@ -561,7 +561,7 @@ export default function ProjectsList() {
                 >
                   <RefreshIcon
                     sx={{
-                      fontSize: 19,
+                      fontSize: 18,
                       animation: loading ? "spin 0.8s linear infinite" : "none",
                       "@keyframes spin": {
                         from: { transform: "rotate(0deg)" },
@@ -576,18 +576,18 @@ export default function ProjectsList() {
             {/* Create Project Button */}
             <Button
               variant="contained"
-              startIcon={<AddIcon sx={{ fontSize: 19 }} />}
+              startIcon={<AddIcon sx={{ fontSize: 18 }} />}
               onClick={() => setNewModalOpen(true)}
               sx={{
-                height: 38,
-                borderRadius: "8px",
+                height: 36,
+                borderRadius: "6px",
                 textTransform: "none",
                 fontWeight: 700,
-                fontSize: "0.82rem",
-                px: 2.2,
+                fontSize: "0.8rem",
+                px: 2,
                 backgroundColor: COLORS.primary,
                 color: "#FFFFFF",
-                boxShadow: "0 2px 8px rgba(15, 23, 42, 0.15)",
+                boxShadow: "0 2px 6px rgba(15, 23, 42, 0.15)",
                 whiteSpace: "nowrap",
                 "&:hover": { backgroundColor: COLORS.primaryHover },
               }}
@@ -1133,65 +1133,45 @@ export default function ProjectsList() {
                   <Box
                     sx={{
                       display: "flex",
-                      flexDirection: { xs: "column", sm: "row" },
                       justifyContent: "space-between",
                       alignItems: { xs: "flex-start", sm: "center" },
+                      flexWrap: "wrap",
                       gap: 1.5,
-                      mb: 2,
+                      mb: 1.2,
                     }}
                   >
-                    {/* Left: Project Number + Customer Name + Location Subtitle */}
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        gap={1.2}
-                        sx={{ flexWrap: "wrap", mb: 0.4 }}
+                    {/* Left: Project Number + Customer Name */}
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, flexWrap: "wrap" }}>
+                      <Box
+                        sx={{
+                          px: 1.2,
+                          py: 0.35,
+                          borderRadius: "6px",
+                          backgroundColor: "#EFF6FF",
+                          border: "1px solid #BFDBFE",
+                          color: "#1D4ED8",
+                          fontWeight: 800,
+                          fontSize: "0.8rem",
+                          fontFamily: "monospace",
+                          letterSpacing: "0.03em",
+                          display: "inline-flex",
+                          alignItems: "center",
+                        }}
                       >
-                        <Box
-                          sx={{
-                            px: 1.2,
-                            py: 0.35,
-                            borderRadius: "6px",
-                            backgroundColor: "#EFF6FF",
-                            border: "1px solid #BFDBFE",
-                            color: "#1D4ED8",
-                            fontWeight: 800,
-                            fontSize: "0.82rem",
-                            fontFamily: "monospace",
-                            letterSpacing: "0.03em",
-                          }}
-                        >
-                          {proj.project_number}
-                        </Box>
+                        {proj.project_number}
+                      </Box>
 
-                        <Typography
-                          variant="h6"
-                          sx={{
-                            fontWeight: 800,
-                            fontSize: "1.08rem",
-                            color: COLORS.textPrimary,
-                            letterSpacing: "-0.01em",
-                          }}
-                        >
-                          {proj.customer_name}
-                        </Typography>
-                      </Stack>
-
-                      {/* Location Subtitle */}
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        gap={0.5}
-                        sx={{ color: COLORS.textSecondary }}
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          fontWeight: 800,
+                          fontSize: "1.05rem",
+                          color: COLORS.textPrimary,
+                          letterSpacing: "-0.01em",
+                        }}
                       >
-                        <LocationOnOutlinedIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
-                        <Typography sx={{ fontSize: "0.76rem" }}>
-                          {[proj.city, proj.state].filter(Boolean).join(", ") ||
-                            proj.customer_address ||
-                            "Site location not specified"}
-                        </Typography>
-                      </Stack>
+                        {proj.customer_name}
+                      </Typography>
                     </Box>
 
                     {/* Right: Stage Badge */}
@@ -1199,6 +1179,21 @@ export default function ProjectsList() {
                       {renderStageBadge(proj.stage)}
                     </Box>
                   </Box>
+
+                  {/* Location Subtitle */}
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    gap={0.6}
+                    sx={{ color: COLORS.textSecondary, mb: 1.8 }}
+                  >
+                    <LocationOnOutlinedIcon sx={{ fontSize: 16, color: COLORS.textMuted }} />
+                    <Typography sx={{ fontSize: "0.78rem" }}>
+                      {[proj.city, proj.state].filter(Boolean).join(", ") ||
+                        proj.customer_address ||
+                        "Site location not specified"}
+                    </Typography>
+                  </Stack>
 
                   {/* 10-Stage Milestone Progress Bar */}
                   <Box sx={{ mb: 2 }}>
@@ -1256,12 +1251,16 @@ export default function ProjectsList() {
                     <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Box
                         sx={{
-                          p: 1.4,
+                          p: 1.5,
                           borderRadius: "10px",
                           backgroundColor: "#F8FAFC",
                           border: `1px solid ${COLORS.border}`,
                           height: "100%",
                           boxSizing: "border-box",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                          minHeight: 82,
                         }}
                       >
                         <Typography
@@ -1280,7 +1279,7 @@ export default function ProjectsList() {
                           <SolarPowerIcon sx={{ fontSize: 20, color: "#D97706" }} />
                           <Typography
                             sx={{
-                              fontSize: "0.92rem",
+                              fontSize: "0.95rem",
                               fontWeight: 800,
                               color: COLORS.textPrimary,
                             }}
@@ -1301,12 +1300,16 @@ export default function ProjectsList() {
                     <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Box
                         sx={{
-                          p: 1.4,
+                          p: 1.5,
                           borderRadius: "10px",
                           backgroundColor: "#F8FAFC",
                           border: `1px solid ${COLORS.border}`,
                           height: "100%",
                           boxSizing: "border-box",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                          minHeight: 82,
                         }}
                       >
                         <Typography
@@ -1327,7 +1330,7 @@ export default function ProjectsList() {
                             component="a"
                             href={`tel:${proj.customer_phone}`}
                             sx={{
-                              fontSize: "0.9rem",
+                              fontSize: "0.92rem",
                               fontWeight: 700,
                               color: "#2563EB",
                               textDecoration: "none",
@@ -1349,12 +1352,16 @@ export default function ProjectsList() {
                     <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Box
                         sx={{
-                          p: 1.4,
+                          p: 1.5,
                           borderRadius: "10px",
                           backgroundColor: "#F8FAFC",
                           border: `1px solid ${COLORS.border}`,
                           height: "100%",
                           boxSizing: "border-box",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                          minHeight: 82,
                         }}
                       >
                         <Typography
@@ -1383,7 +1390,7 @@ export default function ProjectsList() {
                           </Avatar>
                           <Typography
                             sx={{
-                              fontSize: "0.86rem",
+                              fontSize: "0.88rem",
                               fontWeight: 700,
                               color: COLORS.textPrimary,
                               overflow: "hidden",
@@ -1406,12 +1413,16 @@ export default function ProjectsList() {
                     <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                       <Box
                         sx={{
-                          p: 1.4,
+                          p: 1.5,
                           borderRadius: "10px",
                           backgroundColor: "#F8FAFC",
                           border: `1px solid ${COLORS.border}`,
                           height: "100%",
                           boxSizing: "border-box",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                          minHeight: 82,
                         }}
                       >
                         <Typography
@@ -1430,7 +1441,7 @@ export default function ProjectsList() {
                           <CalendarTodayIcon sx={{ fontSize: 16, color: COLORS.textMuted }} />
                           <Typography
                             sx={{
-                              fontSize: "0.86rem",
+                              fontSize: "0.88rem",
                               fontWeight: 700,
                               color: COLORS.textPrimary,
                             }}
@@ -1452,7 +1463,7 @@ export default function ProjectsList() {
                   {/* Card Bottom Row: Timestamps + Action Buttons */}
                   <Box
                     sx={{
-                      pt: 1.5,
+                      pt: 1.4,
                       borderTop: `1px solid ${COLORS.border}`,
                       display: "flex",
                       justifyContent: "space-between",
@@ -1463,28 +1474,29 @@ export default function ProjectsList() {
                   >
                     <Typography
                       sx={{
-                        fontSize: "0.73rem",
+                        fontSize: "0.74rem",
                         color: COLORS.textMuted,
                       }}
                     >
                       Created on {formatDate(proj.created_at)}
                     </Typography>
 
-                    <Stack direction="row" spacing={1}>
+                    <Stack direction="row" spacing={1} alignItems="center">
                       <Button
                         size="small"
                         variant="contained"
-                        endIcon={<ArrowForwardIcon sx={{ fontSize: 16 }} />}
+                        endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />}
                         onClick={() => navigate(`${projectBasePath}/${proj.project_uuid || proj.id}`)}
                         sx={{
-                          height: 32,
-                          borderRadius: "8px",
+                          height: 34,
+                          borderRadius: "6px",
                           textTransform: "none",
                           fontWeight: 700,
                           fontSize: "0.78rem",
                           px: 2,
                           backgroundColor: COLORS.primary,
                           color: "#FFFFFF",
+                          whiteSpace: "nowrap",
                           "&:hover": { backgroundColor: COLORS.primaryHover },
                         }}
                       >
@@ -1494,9 +1506,9 @@ export default function ProjectsList() {
                         size="small"
                         onClick={() => handleDeleteClick(proj)}
                         sx={{
-                          height: 32,
-                          width: 32,
-                          borderRadius: "8px",
+                          height: 34,
+                          width: 34,
+                          borderRadius: "6px",
                           border: `1px solid ${COLORS.border}`,
                           color: "#EF4444",
                           "&:hover": {
