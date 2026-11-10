@@ -97,7 +97,7 @@ const useSnackbar = () => {
 };
 
 export default function Commissioning({ project, projectId }) {
-  const targetProjectId = projectId || project?.id;
+  const targetProjectId = project?.id || projectId;
   const systemKw = Number(project?.system_capacity_kw || 0);
   const inverterRatingKw = Number(project?.inverter_kw || systemKw || 5);
 

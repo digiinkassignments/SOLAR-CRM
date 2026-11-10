@@ -97,7 +97,7 @@ const useSnackbar = () => {
 };
 
 export default function FinalInspection({ project, projectId }) {
-  const targetProjectId = projectId || project?.id;
+  const targetProjectId = project?.id || projectId;
 
   // Compute sensible default inspection date (one day after commissioning date, e.g., 10 Nov)
   const defaultInspectionDate = useMemo(() => {

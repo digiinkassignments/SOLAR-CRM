@@ -1,9 +1,22 @@
 const { ensureHandoverTable, getHandover, createHandover, updateHandover } = require('../models/handoverModel');
 
+const resolveNumericProjectId = async (db, idOrUuid) => {
+  if (!idOrUuid) return null;
+  if (/^\d+$/.test(String(idOrUuid))) {
+    return parseInt(idOrUuid, 10);
+  }
+  const [rows] = await db.query(
+    "SELECT id FROM projects WHERE project_uuid = ? OR project_number = ? LIMIT 1",
+    [idOrUuid, idOrUuid]
+  );
+  return rows[0]?.id || idOrUuid;
+};
+
 exports.get = async (req, res) => {
   try {
     await ensureHandoverTable(req.db);
-    const data = await getHandover(req.db, req.params.id);
+    const pid = await resolveNumericProjectId(req.db, req.params.id);
+    const data = await getHandover(req.db, pid);
     res.json({ handover: data });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 };
@@ -11,18 +24,20 @@ exports.get = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     await ensureHandoverTable(req.db);
-    const existing = await getHandover(req.db, req.params.id);
+    const pid = await resolveNumericProjectId(req.db, req.params.id);
+    const existing = await getHandover(req.db, pid);
     if (existing) return res.status(400).json({ message: 'Already exists. Use PUT.' });
-    await createHandover(req.db, req.params.id, req.body, req.user?.id || req.user?.userId);
-    const data = await getHandover(req.db, req.params.id);
+    await createHandover(req.db, pid, req.body, req.user?.id || req.user?.userId);
+    const data = await getHandover(req.db, pid);
     res.status(201).json({ message: 'Handover created', handover: data });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 };
 
 exports.update = async (req, res) => {
   try {
-    await updateHandover(req.db, req.params.id, req.body);
-    const data = await getHandover(req.db, req.params.id);
+    const pid = await resolveNumericProjectId(req.db, req.params.id);
+    await updateHandover(req.db, pid, req.body);
+    const data = await getHandover(req.db, pid);
     res.json({ message: 'Updated', handover: data });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Server error' }); }
 };

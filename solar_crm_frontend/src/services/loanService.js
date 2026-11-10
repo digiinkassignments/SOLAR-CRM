@@ -151,3 +151,4 @@ export const uploadLoanDoc = async (id, formData) => {
   });
   return res.data;
 };
+

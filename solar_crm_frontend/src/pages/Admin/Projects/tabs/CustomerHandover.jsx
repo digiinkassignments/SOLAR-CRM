@@ -124,7 +124,7 @@ const DEFAULT_DOSSIER_CHECKLIST = [
 ];
 
 export default function CustomerHandover({ project, projectId }) {
-  const targetProjectId = projectId || project?.id;
+  const targetProjectId = project?.id || projectId;
 
   // Sensible default dates: Handover 2 days after Final Inspection (12 Nov 2026)
   const defaultHandoverDate = "2026-11-12";

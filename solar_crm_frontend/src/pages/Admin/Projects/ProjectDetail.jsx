@@ -1222,49 +1222,49 @@ export default function ProjectDetail() {
         {/* TAB 2: PRE-INSTALL INSPECTION */}
         {activeTab === 2 && (
           <Box sx={{ mt: 1 }}>
-            <PreInstallInspection project={project} projectId={id} />
+            <PreInstallInspection project={project} projectId={project?.id || id} />
           </Box>
         )}
 
         {/* TAB 3: INSTALLATION PROGRESS */}
         {activeTab === 3 && (
           <Box sx={{ mt: 1 }}>
-            <InstallationProgress project={project} projectId={id} />
+            <InstallationProgress project={project} projectId={project?.id || id} />
           </Box>
         )}
 
         {/* TAB 4: COMMISSIONING */}
         {activeTab === 4 && (
           <Box sx={{ mt: 1 }}>
-            <Commissioning project={project} projectId={id} />
+            <Commissioning project={project} projectId={project?.id || id} />
           </Box>
         )}
 
         {/* TAB 5: FINAL INSPECTION */}
         {activeTab === 5 && (
           <Box sx={{ mt: 1 }}>
-            <FinalInspection project={project} projectId={id} />
+            <FinalInspection project={project} projectId={project?.id || id} />
           </Box>
         )}
 
         {/* TAB 6: CUSTOMER HANDOVER */}
         {activeTab === 6 && (
           <Box sx={{ mt: 1 }}>
-            <CustomerHandover project={project} projectId={id} />
+            <CustomerHandover project={project} projectId={project?.id || id} />
           </Box>
         )}
 
         {/* TAB 7: WARRANTY & AMC */}
         {activeTab === 7 && (
           <Box sx={{ mt: 1 }}>
-            <WarrantyAMC project={project} projectId={id} />
+            <WarrantyAMC project={project} projectId={project?.id || id} />
           </Box>
         )}
 
         {/* TAB 8: SOLAR LOAN & FINANCING */}
         {activeTab === 8 && (
           <Box sx={{ mt: 1 }}>
-            <ProjectLoanTab project={project} projectId={id} />
+            <ProjectLoanTab project={project} projectId={project?.id || id} />
           </Box>
         )}
       </Box>

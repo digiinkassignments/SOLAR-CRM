@@ -7,10 +7,23 @@ const {
   updateServiceVisit
 } = require('../models/warrantyModel');
 
+const resolveNumericProjectId = async (db, idOrUuid) => {
+  if (!idOrUuid) return null;
+  if (/^\d+$/.test(String(idOrUuid))) {
+    return parseInt(idOrUuid, 10);
+  }
+  const [rows] = await db.query(
+    "SELECT id FROM projects WHERE project_uuid = ? OR project_number = ? LIMIT 1",
+    [idOrUuid, idOrUuid]
+  );
+  return rows[0]?.id || idOrUuid;
+};
+
 exports.get = async (req, res) => {
   try {
     await ensureWarrantyTable(req.db);
-    const data = await getWarrantyAndVisits(req.db, req.params.id);
+    const pid = await resolveNumericProjectId(req.db, req.params.id);
+    const data = await getWarrantyAndVisits(req.db, pid);
     res.json({
       warranty: data.warranty,
       visits: data.visits
@@ -24,13 +37,14 @@ exports.get = async (req, res) => {
 exports.createOrUpdate = async (req, res) => {
   try {
     await ensureWarrantyTable(req.db);
-    const existing = await getWarrantyAndVisits(req.db, req.params.id);
+    const pid = await resolveNumericProjectId(req.db, req.params.id);
+    const existing = await getWarrantyAndVisits(req.db, pid);
     if (existing.warranty) {
-      await updateWarranty(req.db, req.params.id, req.body);
+      await updateWarranty(req.db, pid, req.body);
     } else {
-      await createWarranty(req.db, req.params.id, req.body, req.user?.id || req.user?.userId);
+      await createWarranty(req.db, pid, req.body, req.user?.id || req.user?.userId);
     }
-    const data = await getWarrantyAndVisits(req.db, req.params.id);
+    const data = await getWarrantyAndVisits(req.db, pid);
     res.status(200).json({
       message: 'Warranty & AMC saved successfully',
       warranty: data.warranty,
@@ -45,8 +59,9 @@ exports.createOrUpdate = async (req, res) => {
 exports.addVisit = async (req, res) => {
   try {
     await ensureWarrantyTable(req.db);
-    await addServiceVisit(req.db, req.params.id, req.body, req.user?.id || req.user?.userId);
-    const data = await getWarrantyAndVisits(req.db, req.params.id);
+    const pid = await resolveNumericProjectId(req.db, req.params.id);
+    await addServiceVisit(req.db, pid, req.body, req.user?.id || req.user?.userId);
+    const data = await getWarrantyAndVisits(req.db, pid);
     res.status(201).json({
       message: 'Service visit logged successfully',
       warranty: data.warranty,
@@ -60,9 +75,11 @@ exports.addVisit = async (req, res) => {
 
 exports.updateVisit = async (req, res) => {
   try {
+    await ensureWarrantyTable(req.db);
+    const pid = await resolveNumericProjectId(req.db, req.params.id);
     await updateServiceVisit(req.db, req.params.visitId, req.body);
-    const data = await getWarrantyAndVisits(req.db, req.params.id);
-    res.json({
+    const data = await getWarrantyAndVisits(req.db, pid);
+    res.status(200).json({
       message: 'Service visit updated',
       warranty: data.warranty,
       visits: data.visits

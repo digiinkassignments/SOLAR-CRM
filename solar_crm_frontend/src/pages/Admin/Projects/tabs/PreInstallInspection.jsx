@@ -99,7 +99,7 @@ const useSnackbar = () => {
 };
 
 export default function PreInstallInspection({ project, projectId }) {
-  const targetProjectId = projectId || project?.id;
+  const targetProjectId = project?.id || projectId;
   const systemKw = Number(project?.system_capacity_kw || 0);
 
   // Smart recommended meter type based on DISCOM limits (>5 kW requires Three Phase)

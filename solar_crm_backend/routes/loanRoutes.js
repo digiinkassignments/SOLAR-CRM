@@ -25,3 +25,4 @@ router.delete("/:id", verifyToken, deleteLoanHandler);
 router.post("/:id/upload-doc", verifyToken, uploadLoanDocHandler);
 
 module.exports = router;
+

@@ -6,10 +6,23 @@ const {
   saveLogPhotos
 } = require('../models/installationLogModel');
 
+const resolveNumericProjectId = async (db, idOrUuid) => {
+  if (!idOrUuid) return null;
+  if (/^\d+$/.test(String(idOrUuid))) {
+    return parseInt(idOrUuid, 10);
+  }
+  const [rows] = await db.query(
+    "SELECT id FROM projects WHERE project_uuid = ? OR project_number = ? LIMIT 1",
+    [idOrUuid, idOrUuid]
+  );
+  return rows[0]?.id || idOrUuid;
+};
+
 exports.getLogs = async (req, res) => {
   try {
     await ensureInstallationLogsTable(req.db);
-    const data = await getAllLogs(req.db, req.params.id);
+    const pid = await resolveNumericProjectId(req.db, req.params.id);
+    const data = await getAllLogs(req.db, pid);
     res.json(data);
   } catch (err) {
     console.error('getLogs error:', err);
@@ -21,8 +34,9 @@ exports.createLog = async (req, res) => {
   try {
     await ensureInstallationLogsTable(req.db);
     if (!req.body.work_done) return res.status(400).json({ message: 'work_done is required' });
-    const id = await createLog(req.db, req.params.id, req.body, req.user?.id || req.user?.userId);
-    const data = await getAllLogs(req.db, req.params.id);
+    const pid = await resolveNumericProjectId(req.db, req.params.id);
+    const id = await createLog(req.db, pid, req.body, req.user?.id || req.user?.userId);
+    const data = await getAllLogs(req.db, pid);
     res.status(201).json({ message: 'Log created', id, ...data });
   } catch (err) {
     console.error('createLog error:', err);
@@ -33,8 +47,9 @@ exports.createLog = async (req, res) => {
 exports.updateLog = async (req, res) => {
   try {
     await ensureInstallationLogsTable(req.db);
-    await updateLog(req.db, req.params.logId, req.params.id, req.body);
-    const data = await getAllLogs(req.db, req.params.id);
+    const pid = await resolveNumericProjectId(req.db, req.params.id);
+    await updateLog(req.db, req.params.logId, pid, req.body);
+    const data = await getAllLogs(req.db, pid);
     res.json({ message: 'Log updated', ...data });
   } catch (err) {
     console.error('updateLog error:', err);
@@ -49,36 +64,13 @@ exports.uploadPhotos = async (req, res) => {
     if (files.length === 0) {
       return res.status(400).json({ message: 'No photos uploaded.' });
     }
-
-    let meta = [];
-    if (req.body.captions) {
-      try {
-        meta = typeof req.body.captions === 'string' ? JSON.parse(req.body.captions) : req.body.captions;
-      } catch {
-        meta = [];
-      }
-    }
-
-    const photoRecords = files.map((f, idx) => {
-      const itemMeta = Array.isArray(meta) && meta[idx] ? meta[idx] : {};
-      return {
-        photo_url: `/uploads/installation/${f.filename}`,
-        caption: itemMeta.caption || req.body[`caption_${idx}`] || null,
-        photo_tag: itemMeta.tag || req.body[`tag_${idx}`] || 'Work Progress',
-        file_name: f.originalname,
-        file_size: f.size,
-      };
-    });
-
-    await saveLogPhotos(req.db, req.params.logId, photoRecords);
-    const data = await getAllLogs(req.db, req.params.id);
-    res.status(200).json({
-      message: 'Photos uploaded successfully',
-      photos: photoRecords,
-      ...data
-    });
+    const pid = await resolveNumericProjectId(req.db, req.params.id);
+    const photoUrls = files.map((f) => `/uploads/installation/${f.filename}`);
+    await saveLogPhotos(req.db, req.params.logId, photoUrls);
+    const data = await getAllLogs(req.db, pid);
+    res.status(201).json({ message: 'Photos uploaded successfully', photoUrls, ...data });
   } catch (err) {
     console.error('uploadPhotos error:', err);
-    res.status(500).json({ message: 'Failed to upload photos: ' + err.message });
+    res.status(500).json({ message: 'Server error' });
   }
 };

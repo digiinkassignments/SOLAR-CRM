@@ -284,7 +284,7 @@ const useSnackbar = () => {
 };
 
 export default function InstallationProgress({ project, projectId }) {
-  const targetProjectId = projectId || project?.id;
+  const targetProjectId = project?.id || projectId;
 
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);

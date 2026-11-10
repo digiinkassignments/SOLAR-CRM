@@ -146,7 +146,7 @@ const DEFAULT_SCHEDULED_VISITS = [
 ];
 
 export default function WarrantyAMC({ project, projectId }) {
-  const targetProjectId = projectId || project?.id;
+  const targetProjectId = project?.id || projectId;
 
   // Defaults: Handover on 12 Nov 2026.
   // 1st year free warranty: 12 Nov 2026 -> 11 Nov 2027
