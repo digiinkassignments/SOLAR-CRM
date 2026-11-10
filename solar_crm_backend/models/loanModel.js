@@ -18,7 +18,13 @@ const ensureLoanTables = async (db = defaultDb) => {
       bank_dsa_name VARCHAR(150) DEFAULT NULL,
       bank_dsa_phone VARCHAR(50) DEFAULT NULL,
       portal_application_no VARCHAR(100) DEFAULT NULL,
-      loan_stage VARCHAR(50) NOT NULL DEFAULT 'Applied / Logged',
+      loan_stage VARCHAR(50) NOT NULL DEFAULT 'Eligibility & Docs',
+      side_status VARCHAR(50) NOT NULL DEFAULT 'Active',
+      rejection_reason TEXT DEFAULT NULL,
+      stopped_at_stage VARCHAR(50) DEFAULT NULL,
+      subsidy_credited_to_loan TINYINT(1) DEFAULT 0,
+      backward_reason TEXT DEFAULT NULL,
+      loan_synced_to_project TINYINT(1) DEFAULT 0,
       system_capacity_kw DECIMAL(8, 2) DEFAULT 3.00,
       total_project_cost DECIMAL(12, 2) DEFAULT 0.00,
       subsidy_expected DECIMAL(12, 2) DEFAULT 78000.00,
@@ -67,6 +73,91 @@ const ensureLoanTables = async (db = defaultDb) => {
   } catch (err) {
     console.warn("ensureLoanTables notice:", err.message);
   }
+
+  // Safe schema migrations for 5-stage + 1 side status tracker
+  const migrations = [
+    `ALTER TABLE solar_loans ADD COLUMN side_status VARCHAR(50) NOT NULL DEFAULT 'Active'`,
+    `ALTER TABLE solar_loans ADD COLUMN rejection_reason TEXT DEFAULT NULL`,
+    `ALTER TABLE solar_loans ADD COLUMN stopped_at_stage VARCHAR(50) DEFAULT NULL`,
+    `ALTER TABLE solar_loans ADD COLUMN subsidy_credited_to_loan TINYINT(1) DEFAULT 0`,
+    `ALTER TABLE solar_loans ADD COLUMN backward_reason TEXT DEFAULT NULL`,
+    `ALTER TABLE solar_loans ADD COLUMN loan_synced_to_project TINYINT(1) DEFAULT 0`,
+  ];
+  for (const m of migrations) {
+    try { await db.query(m); } catch (e) {}
+  }
+
+  // Migrate legacy stage names
+  try {
+    await db.query(`UPDATE solar_loans SET loan_stage = 'Eligibility & Docs' WHERE loan_stage IN ('Eligibility Check', 'Docs Pending')`);
+    await db.query(`UPDATE solar_loans SET loan_stage = 'Applied' WHERE loan_stage = 'Applied / Logged'`);
+    await db.query(`UPDATE solar_loans SET loan_stage = 'Under Review' WHERE loan_stage = 'Bank FI & Verification'`);
+    await db.query(`UPDATE solar_loans SET loan_stage = 'Disbursed', subsidy_credited_to_loan = 1 WHERE loan_stage = 'Subsidy Adjusted'`);
+    await db.query(`UPDATE solar_loans SET side_status = 'Rejected', stopped_at_stage = 'Eligibility & Docs', loan_stage = 'Eligibility & Docs' WHERE loan_stage = 'Rejected'`);
+  } catch (e) {}
+};
+
+// Sync disbursed money into project amount_received and update payment_status
+const syncLoanPaymentToProject = async (loanId, db = defaultDb) => {
+  try {
+    const [loanRows] = await db.query(`SELECT * FROM solar_loans WHERE id = ?`, [loanId]);
+    if (!loanRows || loanRows.length === 0) return;
+    const loan = loanRows[0];
+
+    if (loan.loan_stage !== "Disbursed") return;
+    const disbursed = parseFloat(loan.disbursed_amount) || 0;
+    if (disbursed <= 0) return;
+
+    // Find linked project
+    let projectId = loan.project_id;
+    if (!projectId && loan.lead_id) {
+      const [projRows] = await db.query(
+        `SELECT id FROM projects WHERE lead_id = ? AND is_deleted = 0 ORDER BY id DESC LIMIT 1`,
+        [loan.lead_id]
+      );
+      if (projRows && projRows.length > 0) {
+        projectId = projRows[0].id;
+        await db.query(`UPDATE solar_loans SET project_id = ? WHERE id = ?`, [projectId, loanId]);
+      }
+    }
+
+    if (!projectId) return;
+
+    const [projectRows] = await db.query(
+      `SELECT id, total_cost, amount_received, payment_status, notes FROM projects WHERE id = ?`,
+      [projectId]
+    );
+    if (!projectRows || projectRows.length === 0) return;
+
+    const project = projectRows[0];
+    const totalCost = parseFloat(project.total_cost) || 0;
+    const currentReceived = parseFloat(project.amount_received) || 0;
+
+    if (!loan.loan_synced_to_project) {
+      const newReceived = currentReceived + disbursed;
+      let newPaymentStatus = "Partially Paid";
+      if (totalCost > 0 && newReceived >= totalCost) {
+        newPaymentStatus = "Paid";
+      } else if (newReceived <= 0) {
+        newPaymentStatus = "Pending";
+      }
+
+      const noteText = `\n[${new Date().toLocaleDateString("en-IN")}] Solar Loan Disbursed: ₹${disbursed.toLocaleString("en-IN")} from ${loan.bank_name || "Bank"} credited to project payment balance.`;
+      const updatedNotes = (project.notes || "") + noteText;
+
+      await db.query(
+        `UPDATE projects SET amount_received = ?, payment_status = ?, notes = ? WHERE id = ?`,
+        [newReceived, newPaymentStatus, updatedNotes, projectId]
+      );
+
+      await db.query(
+        `UPDATE solar_loans SET loan_synced_to_project = 1 WHERE id = ?`,
+        [loanId]
+      );
+    }
+  } catch (err) {
+    console.error("syncLoanPaymentToProject error:", err.message);
+  }
 };
 
 // Calculate PMT EMI helper: P * r * (1+r)^n / ((1+r)^n - 1)
@@ -93,12 +184,13 @@ const createLoan = async (data, db = defaultDb) => {
     INSERT INTO solar_loans (
       lead_id, project_id, customer_name, customer_phone, customer_email, city, state,
       bank_name, bank_branch, bank_ifsc, bank_dsa_name, bank_dsa_phone, portal_application_no,
-      loan_stage, system_capacity_kw, total_project_cost, subsidy_expected, down_payment_amount,
+      loan_stage, side_status, rejection_reason, stopped_at_stage, subsidy_credited_to_loan, backward_reason,
+      system_capacity_kw, total_project_cost, subsidy_expected, down_payment_amount,
       loan_amount_applied, sanctioned_amount, disbursed_amount, interest_rate, tenure_months, monthly_emi,
       cibil_score, electricity_consumer_no, co_applicant_name, co_applicant_relation,
       applied_date, sanction_date, disbursal_date, first_emi_date, bank_query_remarks, internal_notes,
       sanction_letter_url, created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
@@ -115,7 +207,12 @@ const createLoan = async (data, db = defaultDb) => {
     data.bank_dsa_name || null,
     data.bank_dsa_phone || null,
     data.portal_application_no || null,
-    data.loan_stage || "Applied / Logged",
+    data.loan_stage || "Eligibility & Docs",
+    data.side_status || "Active",
+    data.rejection_reason || null,
+    data.stopped_at_stage || null,
+    data.subsidy_credited_to_loan ? 1 : 0,
+    data.backward_reason || null,
     parseFloat(data.system_capacity_kw) || 3.0,
     parseFloat(data.total_project_cost) || 0,
     parseFloat(data.subsidy_expected) || 78000,
@@ -194,7 +291,7 @@ const getLoanByProjectId = async (projectId, db = defaultDb) => {
 };
 
 // 5. Get All Loans with filters, pagination, and KPI counts
-const getAllLoans = async ({ search = "", stage = "", bank = "", page = 1, limit = 20 }, db = defaultDb) => {
+const getAllLoans = async ({ search = "", stage = "", bank = "", side_status = "", page = 1, limit = 20 }, db = defaultDb) => {
   await ensureLoanTables(db);
 
   let whereClauses = ["1=1"];
@@ -209,8 +306,17 @@ const getAllLoans = async ({ search = "", stage = "", bank = "", page = 1, limit
   }
 
   if (stage && stage !== "All") {
-    whereClauses.push(`l.loan_stage = ?`);
-    params.push(stage);
+    if (stage === "Rejected / Withdrawn" || stage === "Rejected") {
+      whereClauses.push(`l.side_status IN ('Rejected', 'Withdrawn')`);
+    } else {
+      whereClauses.push(`l.loan_stage = ? AND (l.side_status = 'Active' OR l.side_status IS NULL)`);
+      params.push(stage);
+    }
+  }
+
+  if (side_status && side_status !== "All") {
+    whereClauses.push(`l.side_status = ?`);
+    params.push(side_status);
   }
 
   if (bank && bank !== "All") {
@@ -235,7 +341,7 @@ const getAllLoans = async ({ search = "", stage = "", bank = "", page = 1, limit
   const query = `
     SELECT l.*, 
            ld.customer_name AS lead_name, ld.mobile_number AS lead_phone,
-           p.project_number, p.stage as project_stage
+           p.project_number, p.stage as project_stage, p.amount_received as project_amount_received
     FROM solar_loans l
     LEFT JOIN leads ld ON l.lead_id = ld.id
     LEFT JOIN projects p ON l.project_id = p.id
@@ -255,16 +361,16 @@ const getAllLoans = async ({ search = "", stage = "", bank = "", page = 1, limit
   };
 };
 
-// 6. Get Global KPI Stats
+// 6. Get Global KPI Stats for 5-Stage Tracker
 const getLoanStats = async (db = defaultDb) => {
   await ensureLoanTables(db);
   const [rows] = await db.query(`
     SELECT 
       COUNT(*) AS total_loans,
-      SUM(CASE WHEN loan_stage IN ('Eligibility Check', 'Docs Pending', 'Applied / Logged', 'Bank FI & Verification') THEN 1 ELSE 0 END) AS in_process_loans,
-      SUM(CASE WHEN loan_stage = 'Sanctioned' THEN 1 ELSE 0 END) AS sanctioned_loans,
-      SUM(CASE WHEN loan_stage IN ('Disbursed', 'Subsidy Adjusted') THEN 1 ELSE 0 END) AS disbursed_loans,
-      SUM(CASE WHEN loan_stage = 'Rejected' THEN 1 ELSE 0 END) AS rejected_loans,
+      SUM(CASE WHEN (side_status = 'Active' OR side_status IS NULL) AND loan_stage IN ('Eligibility & Docs', 'Applied', 'Under Review') THEN 1 ELSE 0 END) AS in_process_loans,
+      SUM(CASE WHEN (side_status = 'Active' OR side_status IS NULL) AND loan_stage = 'Sanctioned' THEN 1 ELSE 0 END) AS sanctioned_loans,
+      SUM(CASE WHEN (side_status = 'Active' OR side_status IS NULL) AND loan_stage = 'Disbursed' THEN 1 ELSE 0 END) AS disbursed_loans,
+      SUM(CASE WHEN side_status IN ('Rejected', 'Withdrawn') THEN 1 ELSE 0 END) AS rejected_loans,
       COALESCE(SUM(loan_amount_applied), 0) AS total_applied_amount,
       COALESCE(SUM(sanctioned_amount), 0) AS total_sanctioned_amount,
       COALESCE(SUM(disbursed_amount), 0) AS total_disbursed_amount
@@ -283,6 +389,9 @@ const updateLoan = async (id, data, db = defaultDb) => {
     emi = calculateMonthlyEMI(loanP, data.interest_rate || 7.0, data.tenure_months || 60);
   }
 
+  // Handle clearing side status (e.g. Try Another Lender)
+  const isClearingRejection = data.clear_rejection === true || data.side_status === "Active";
+
   const query = `
     UPDATE solar_loans SET
       customer_name = COALESCE(?, customer_name),
@@ -297,6 +406,12 @@ const updateLoan = async (id, data, db = defaultDb) => {
       bank_dsa_phone = COALESCE(?, bank_dsa_phone),
       portal_application_no = COALESCE(?, portal_application_no),
       loan_stage = COALESCE(?, loan_stage),
+      side_status = ${isClearingRejection ? "'Active'" : "COALESCE(?, side_status)"},
+      rejection_reason = ${isClearingRejection ? "NULL" : "COALESCE(?, rejection_reason)"},
+      stopped_at_stage = ${isClearingRejection ? "NULL" : "COALESCE(?, stopped_at_stage)"},
+      subsidy_credited_to_loan = COALESCE(?, subsidy_credited_to_loan),
+      backward_reason = COALESCE(?, backward_reason),
+      project_id = COALESCE(?, project_id),
       system_capacity_kw = COALESCE(?, system_capacity_kw),
       total_project_cost = COALESCE(?, total_project_cost),
       subsidy_expected = COALESCE(?, subsidy_expected),
@@ -334,6 +449,18 @@ const updateLoan = async (id, data, db = defaultDb) => {
     data.bank_dsa_phone ?? null,
     data.portal_application_no ?? null,
     data.loan_stage ?? null,
+  ];
+
+  if (!isClearingRejection) {
+    values.push(data.side_status ?? null);
+    values.push(data.rejection_reason ?? null);
+    values.push(data.stopped_at_stage ?? null);
+  }
+
+  values.push(
+    data.subsidy_credited_to_loan != null ? (data.subsidy_credited_to_loan ? 1 : 0) : null,
+    data.backward_reason ?? null,
+    data.project_id ?? null,
     data.system_capacity_kw != null ? parseFloat(data.system_capacity_kw) : null,
     data.total_project_cost != null ? parseFloat(data.total_project_cost) : null,
     data.subsidy_expected != null ? parseFloat(data.subsidy_expected) : null,
@@ -355,10 +482,16 @@ const updateLoan = async (id, data, db = defaultDb) => {
     data.bank_query_remarks ?? null,
     data.internal_notes ?? null,
     data.sanction_letter_url ?? null,
-    id,
-  ];
+    id
+  );
 
   await db.query(query, values);
+
+  // Sync disbursed money into project amount_received if disbursed
+  if (data.loan_stage === "Disbursed" || (data.disbursed_amount && parseFloat(data.disbursed_amount) > 0)) {
+    await syncLoanPaymentToProject(id, db);
+  }
+
   return getLoanById(id, db);
 };
 

@@ -17,6 +17,13 @@ import {
   TextField,
   IconButton,
   Divider,
+  Alert,
+  Checkbox,
+  FormControlLabel,
+  Radio,
+  RadioGroup,
+  FormControl,
+  FormLabel,
 } from "@mui/material";
 
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
@@ -28,13 +35,17 @@ import CloseIcon from "@mui/icons-material/Close";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import PhoneIcon from "@mui/icons-material/Phone";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import BlockOutlinedIcon from "@mui/icons-material/BlockOutlined";
+import ReplayIcon from "@mui/icons-material/Replay";
 
 import toast from "react-hot-toast";
 import {
   LOAN_STAGES,
   LOAN_STAGE_CONFIG,
+  SIDE_STATUS_CONFIG,
   POPULAR_BANKS,
   calculateEMI,
+  validateStageTransition,
   getLoanByLead,
   createLoan,
   updateLoan,
@@ -55,16 +66,47 @@ export default function ProjectLoanTab({ project, projectId }) {
   const [loan, setLoan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [stageDialogOpen, setStageDialogOpen] = useState(false);
-  const [newStage, setNewStage] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Side Status Dialog (Mark as Rejected / Withdrawn)
+  const [sideStatusDialogOpen, setSideStatusDialogOpen] = useState(false);
+  const [sideStatusAction, setSideStatusAction] = useState("Rejected");
+  const [sideStatusReason, setSideStatusReason] = useState("");
+  const [savingSideStatus, setSavingSideStatus] = useState(false);
+
+  // Try Another Lender Dialog
+  const [tryAnotherLenderDialogOpen, setTryAnotherLenderDialogOpen] = useState(false);
+  const [newLenderName, setNewLenderName] = useState("State Bank of India (SBI)");
+  const [newLenderAmount, setNewLenderAmount] = useState("");
+  const [savingNewLender, setSavingNewLender] = useState(false);
+
+  // Backward Dialog
+  const [backwardDialogOpen, setBackwardDialogOpen] = useState(false);
+  const [backwardTargetStage, setBackwardTargetStage] = useState("");
+  const [backwardReasonText, setBackwardReasonText] = useState("");
+  const [savingBackward, setSavingBackward] = useState(false);
+
+  // Stage Advance Requirements Dialog
+  const [advanceReqDialogOpen, setAdvanceReqDialogOpen] = useState(false);
+  const [advanceTargetStage, setAdvanceTargetStage] = useState("");
+  const [advanceFormData, setAdvanceFormData] = useState({
+    applied_date: "",
+    portal_application_no: "",
+    sanctioned_amount: "",
+    sanction_date: "",
+    sanction_letter_url: "",
+    disbursed_amount: "",
+    disbursal_date: "",
+    subsidy_credited_to_loan: false,
+  });
+  const [savingAdvance, setSavingAdvance] = useState(false);
 
   // New Loan Form State
   const [formData, setFormData] = useState({
     bank_name: "State Bank of India (SBI)",
     bank_branch: "",
     portal_application_no: "",
-    loan_stage: "Applied / Logged",
+    loan_stage: "Eligibility & Docs",
     system_capacity_kw: project?.system_capacity_kw || 3.0,
     total_project_cost: project?.total_cost || 180000,
     subsidy_expected: 78000,
@@ -97,7 +139,7 @@ export default function ProjectLoanTab({ project, projectId }) {
     fetchLoanData();
   }, [project?.lead_id, projectId]);
 
-  // Recalculate EMI
+  // Recalculate EMI in Create Modal
   useEffect(() => {
     const P = parseFloat(formData.loan_amount_applied) || 0;
     const r = parseFloat(formData.interest_rate) || 7.0;
@@ -133,32 +175,189 @@ export default function ProjectLoanTab({ project, projectId }) {
     }
   };
 
-  // Change Stage
-  const handleStageChangeSubmit = async () => {
-    if (!loan || !newStage) return;
-    setSaving(true);
-    try {
-      const payload = { loan_stage: newStage };
-      if (newStage === "Sanctioned" && !loan.sanction_date) {
-        payload.sanction_date = new Date().toISOString().slice(0, 10);
-        if (!loan.sanctioned_amount) payload.sanctioned_amount = loan.loan_amount_applied;
-      }
-      if (newStage === "Disbursed" && !loan.disbursal_date) {
-        payload.disbursal_date = new Date().toISOString().slice(0, 10);
-        if (!loan.disbursed_amount) payload.disbursed_amount = loan.sanctioned_amount || loan.loan_amount_applied;
-      }
+  // Handle Step Click
+  const handleStepClick = (targetStage) => {
+    if (!loan) return;
+    const currentStage = loan.loan_stage || "Eligibility & Docs";
+    if (currentStage === targetStage && loan.side_status === "Active") return;
 
+    const fromIdx = LOAN_STAGES.indexOf(currentStage);
+    const toIdx = LOAN_STAGES.indexOf(targetStage);
+
+    // If moving backward: ask for a reason
+    if (toIdx < fromIdx) {
+      setBackwardTargetStage(targetStage);
+      setBackwardReasonText("");
+      setBackwardDialogOpen(true);
+      return;
+    }
+
+    // If moving forward: check validation
+    const validation = validateStageTransition(currentStage, targetStage, loan);
+    if (!validation.ok) {
+      setAdvanceTargetStage(targetStage);
+      setAdvanceFormData({
+        applied_date: loan.applied_date ? loan.applied_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        portal_application_no: loan.portal_application_no || "",
+        sanctioned_amount: loan.sanctioned_amount > 0 ? loan.sanctioned_amount : loan.loan_amount_applied || "",
+        sanction_date: loan.sanction_date ? loan.sanction_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        sanction_letter_url: loan.sanction_letter_url || "",
+        disbursed_amount: loan.disbursed_amount > 0 ? loan.disbursed_amount : loan.sanctioned_amount || loan.loan_amount_applied || "",
+        disbursal_date: loan.disbursal_date ? loan.disbursal_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        subsidy_credited_to_loan: Boolean(loan.subsidy_credited_to_loan),
+      });
+      setAdvanceReqDialogOpen(true);
+      return;
+    }
+
+    // Direct transition
+    executeStageChange({ loan_stage: targetStage });
+  };
+
+  const executeStageChange = async (payload) => {
+    if (!loan) return;
+    try {
       const res = await updateLoan(loan.id, payload);
       if (res?.success) {
-        toast.success(`Loan stage updated to ${newStage}`);
-        setStageDialogOpen(false);
+        toast.success(`Loan stage updated to ${payload.loan_stage}`);
         fetchLoanData();
       }
     } catch (err) {
       console.error("Update stage error:", err);
-      toast.error("Failed to update stage");
+      toast.error(err.response?.data?.message || "Failed to update stage");
+    }
+  };
+
+  // Submit Stage Advance with completed requirements
+  const handleSaveAdvanceRequirements = async () => {
+    if (!loan || !advanceTargetStage) return;
+
+    // Rule: Disbursed amount cannot exceed sanctioned amount
+    if (advanceTargetStage === "Disbursed" || advanceFormData.disbursed_amount) {
+      const sancAmt = parseFloat(advanceFormData.sanctioned_amount || loan.sanctioned_amount || 0);
+      const disbAmt = parseFloat(advanceFormData.disbursed_amount || 0);
+      if (sancAmt > 0 && disbAmt > sancAmt) {
+        toast.error(`Disbursed amount (₹${disbAmt.toLocaleString("en-IN")}) cannot exceed Sanctioned amount (₹${sancAmt.toLocaleString("en-IN")})`);
+        return;
+      }
+    }
+
+    setSavingAdvance(true);
+    try {
+      const payload = {
+        loan_stage: advanceTargetStage,
+        ...advanceFormData,
+      };
+
+      const res = await updateLoan(loan.id, payload);
+      if (res?.success) {
+        toast.success(`Loan moved to ${advanceTargetStage} successfully!`);
+        setAdvanceReqDialogOpen(false);
+        fetchLoanData();
+      }
+    } catch (err) {
+      console.error("Advance error:", err);
+      toast.error(err.response?.data?.message || "Failed to move stage.");
     } finally {
-      setSaving(false);
+      setSavingAdvance(false);
+    }
+  };
+
+  // Submit Moving Backward with reason
+  const handleConfirmBackward = async () => {
+    if (!loan || !backwardTargetStage) return;
+    if (!backwardReasonText.trim()) {
+      toast.error("Please enter a short reason for moving back.");
+      return;
+    }
+
+    setSavingBackward(true);
+    try {
+      const payload = {
+        loan_stage: backwardTargetStage,
+        backward_reason: backwardReasonText.trim(),
+        internal_notes: loan.internal_notes
+          ? `${loan.internal_notes}\n[${new Date().toLocaleDateString("en-IN")}] Moved back to ${backwardTargetStage}: ${backwardReasonText.trim()}`
+          : `[${new Date().toLocaleDateString("en-IN")}] Moved back to ${backwardTargetStage}: ${backwardReasonText.trim()}`,
+      };
+
+      const res = await updateLoan(loan.id, payload);
+      if (res?.success) {
+        toast.success(`Loan moved back to ${backwardTargetStage}`);
+        setBackwardDialogOpen(false);
+        fetchLoanData();
+      }
+    } catch (err) {
+      console.error("Backward error:", err);
+      toast.error(err.response?.data?.message || "Failed to move back.");
+    } finally {
+      setSavingBackward(false);
+    }
+  };
+
+  // Submit Side Status
+  const handleSaveSideStatus = async () => {
+    if (!loan) return;
+    if (!sideStatusReason.trim()) {
+      toast.error("Please enter a reason.");
+      return;
+    }
+
+    setSavingSideStatus(true);
+    try {
+      const payload = {
+        side_status: sideStatusAction,
+        rejection_reason: sideStatusReason.trim(),
+        stopped_at_stage: loan.loan_stage || "Eligibility & Docs",
+      };
+
+      const res = await updateLoan(loan.id, payload);
+      if (res?.success) {
+        toast.success(`Loan application marked as ${sideStatusAction}`);
+        setSideStatusDialogOpen(false);
+        fetchLoanData();
+      }
+    } catch (err) {
+      console.error("Side status error:", err);
+      toast.error(err.response?.data?.message || "Failed to update status.");
+    } finally {
+      setSavingSideStatus(false);
+    }
+  };
+
+  // Submit Try Another Lender
+  const handleSaveTryAnotherLender = async () => {
+    if (!loan) return;
+    if (!newLenderName.trim()) {
+      toast.error("Please select a bank.");
+      return;
+    }
+
+    setSavingNewLender(true);
+    try {
+      const payload = {
+        bank_name: newLenderName.trim(),
+        loan_amount_applied: newLenderAmount || loan.loan_amount_applied,
+        loan_stage: "Eligibility & Docs",
+        side_status: "Active",
+        clear_rejection: true,
+        portal_application_no: "",
+        internal_notes: loan.internal_notes
+          ? `${loan.internal_notes}\n[${new Date().toLocaleDateString("en-IN")}] Re-applied with new lender: ${newLenderName.trim()}`
+          : `[${new Date().toLocaleDateString("en-IN")}] Re-applied with new lender: ${newLenderName.trim()}`,
+      };
+
+      const res = await updateLoan(loan.id, payload);
+      if (res?.success) {
+        toast.success(`Loan reopened with ${newLenderName}!`);
+        setTryAnotherLenderDialogOpen(false);
+        fetchLoanData();
+      }
+    } catch (err) {
+      console.error("Try another lender error:", err);
+      toast.error(err.response?.data?.message || "Failed to re-apply.");
+    } finally {
+      setSavingNewLender(false);
     }
   };
 
@@ -222,7 +421,7 @@ export default function ProjectLoanTab({ project, projectId }) {
               bank_name: "State Bank of India (SBI)",
               bank_branch: "",
               portal_application_no: "",
-              loan_stage: "Applied / Logged",
+              loan_stage: "Eligibility & Docs",
               system_capacity_kw: kw,
               total_project_cost: cost,
               subsidy_expected: 78000,
@@ -237,7 +436,7 @@ export default function ProjectLoanTab({ project, projectId }) {
           }}
           sx={{ bgcolor: "#005BAC", borderRadius: "8px", textTransform: "none", fontWeight: 700 }}
         >
-          + Link / Apply for Solar Loan
+          Link / Apply for Solar Loan
         </Button>
 
         {/* Create Modal */}
@@ -248,135 +447,192 @@ export default function ProjectLoanTab({ project, projectId }) {
               <CloseIcon fontSize="small" />
             </IconButton>
           </DialogTitle>
-          <Box component="form" onSubmit={handleCreateSubmit}>
-            <DialogContent dividers sx={{ py: 2.5 }}>
+          <form onSubmit={handleCreateSubmit}>
+            <DialogContent dividers sx={{ py: 2 }}>
               <Stack spacing={2}>
                 <Box>
-                  <Typography sx={{ fontSize: "0.76rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.5 }}>
-                    Financing Bank / Lender *
-                  </Typography>
-                  <Select fullWidth size="small" value={formData.bank_name} onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}>
+                  <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, mb: 0.5 }}>Lender (Bank / NBFC) *</Typography>
+                  <Select
+                    fullWidth
+                    size="small"
+                    value={formData.bank_name}
+                    onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                  >
                     {POPULAR_BANKS.map((b) => (
                       <MenuItem key={b} value={b}>{b}</MenuItem>
                     ))}
                   </Select>
                 </Box>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Typography sx={{ fontSize: "0.76rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.5 }}>
-                      Portal ARN / Application No.
-                    </Typography>
-                    <TextField fullWidth size="small" placeholder="e.g. JS-2026-991" value={formData.portal_application_no} onChange={(e) => setFormData({ ...formData, portal_application_no: e.target.value })} />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Typography sx={{ fontSize: "0.76rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.5 }}>
-                      Loan Amount Requested (₹) *
-                    </Typography>
-                    <TextField fullWidth size="small" type="number" required value={formData.loan_amount_applied} onChange={(e) => setFormData({ ...formData, loan_amount_applied: e.target.value })} />
-                  </Grid>
-                </Grid>
-                <Box sx={{ p: 1.5, borderRadius: "8px", bgcolor: "#EFF6FF", border: "1px solid #BFDBFE" }}>
-                  <Typography sx={{ fontSize: "0.82rem", fontWeight: 800, color: "#1D4ED8" }}>
-                    Estimated EMI: ₹{Number(formData.monthly_emi || 0).toLocaleString("en-IN")} / month
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary }}>
-                    5 Years @ 7.0% Concessional Interest Rate
-                  </Typography>
-                </Box>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Loan Requested Amount (₹) *"
+                  type="number"
+                  required
+                  value={formData.loan_amount_applied}
+                  onChange={(e) => setFormData({ ...formData, loan_amount_applied: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Jan Samarth / Bank App No"
+                  placeholder="e.g. JS-2026-99182"
+                  value={formData.portal_application_no}
+                  onChange={(e) => setFormData({ ...formData, portal_application_no: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Bank Branch Location"
+                  value={formData.bank_branch}
+                  onChange={(e) => setFormData({ ...formData, bank_branch: e.target.value })}
+                />
               </Stack>
             </DialogContent>
             <DialogActions sx={{ p: 2 }}>
-              <Button variant="outlined" onClick={() => setCreateModalOpen(false)}>Cancel</Button>
+              <Button onClick={() => setCreateModalOpen(false)}>Cancel</Button>
               <Button type="submit" variant="contained" disabled={saving} sx={{ bgcolor: "#005BAC", fontWeight: 700 }}>
-                {saving ? "Saving..." : "Submit Loan Application"}
+                {saving ? "Saving..." : "Log Application"}
               </Button>
             </DialogActions>
-          </Box>
+          </form>
         </Dialog>
       </Paper>
     );
   }
 
-  const stageCfg = LOAN_STAGE_CONFIG[loan.loan_stage] || LOAN_STAGE_CONFIG["Applied / Logged"];
+  const stageCfg = LOAN_STAGE_CONFIG[loan.loan_stage] || LOAN_STAGE_CONFIG["Eligibility & Docs"];
+  const isRejectedOrWithdrawn = loan.side_status === "Rejected" || loan.side_status === "Withdrawn";
+  const sideCfg = SIDE_STATUS_CONFIG[loan.side_status] || SIDE_STATUS_CONFIG.Active;
 
   return (
-    <Paper elevation={0} sx={{ p: 3, borderRadius: "14px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.card }}>
-      {/* Top Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 2, mb: 3 }}>
+    <Box>
+      {/* Top Header Card */}
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2.5, flexWrap: "wrap", gap: 1.5 }}>
         <Box>
-          <Stack direction="row" alignItems="center" spacing={1.2}>
-            <AccountBalanceIcon sx={{ fontSize: 24, color: "#005BAC" }} />
+          <Stack direction="row" alignItems="center" spacing={1}>
             <Typography sx={{ fontWeight: 800, fontSize: "1.2rem", color: COLORS.textPrimary }}>
               {loan.bank_name}
             </Typography>
-            <Chip
-              size="small"
-              label={loan.loan_stage}
-              sx={{
-                height: 24,
-                fontSize: "0.72rem",
-                fontWeight: 800,
-                color: stageCfg.color,
-                bgcolor: stageCfg.bg,
-                border: `1px solid ${stageCfg.border}`,
-              }}
-            />
+            {isRejectedOrWithdrawn ? (
+              <Chip
+                size="small"
+                label={`${sideCfg.label} (Stopped at ${loan.stopped_at_stage || loan.loan_stage})`}
+                sx={{
+                  height: 24,
+                  fontSize: "0.72rem",
+                  fontWeight: 800,
+                  color: sideCfg.color,
+                  bgcolor: sideCfg.bg,
+                  border: `1px solid ${sideCfg.border}`,
+                }}
+              />
+            ) : (
+              <Chip
+                size="small"
+                label={`Step ${stageCfg.step}/5 • ${stageCfg.label}`}
+                sx={{
+                  height: 24,
+                  fontSize: "0.72rem",
+                  fontWeight: 800,
+                  color: stageCfg.color,
+                  bgcolor: stageCfg.bg,
+                  border: `1px solid ${stageCfg.border}`,
+                }}
+              />
+            )}
           </Stack>
           <Typography sx={{ fontSize: "0.78rem", color: COLORS.textSecondary, mt: 0.5 }}>
-            Application ARN: <strong>{loan.portal_application_no || "N/A"}</strong> • Applied: {loan.applied_date || "Recent"}
+            Application ARN: <strong>{loan.portal_application_no || "Eligibility & Docs"}</strong> • Applied: {loan.applied_date ? loan.applied_date.slice(0, 10) : "Recent"}
           </Typography>
         </Box>
 
-        <Button
-          size="small"
-          variant="contained"
-          onClick={() => {
-            setNewStage(loan.loan_stage);
-            setStageDialogOpen(true);
-          }}
-          sx={{ bgcolor: "#F59E0B", color: "#FFFFFF", fontWeight: 700, borderRadius: "6px", textTransform: "none", height: 34, "&:hover": { bgcolor: "#D97706" } }}
-        >
-          Change Loan Stage
-        </Button>
+        <Stack direction="row" spacing={1}>
+          {isRejectedOrWithdrawn ? (
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<ReplayIcon />}
+              onClick={() => {
+                setNewLenderName("State Bank of India (SBI)");
+                setNewLenderAmount(loan.loan_amount_applied || "");
+                setTryAnotherLenderDialogOpen(true);
+              }}
+              sx={{ bgcolor: "#1E293B", fontWeight: 700, borderRadius: "6px", textTransform: "none" }}
+            >
+              Try Another Lender
+            </Button>
+          ) : (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<BlockOutlinedIcon />}
+              onClick={() => {
+                setSideStatusAction("Rejected");
+                setSideStatusReason(loan.rejection_reason || "");
+                setSideStatusDialogOpen(true);
+              }}
+              sx={{ color: "#EF4444", borderColor: "#FCA5A5", fontWeight: 700, borderRadius: "6px", textTransform: "none", "&:hover": { bgcolor: "#FEE2E2" } }}
+            >
+              Mark Rejected / Withdrawn
+            </Button>
+          )}
+        </Stack>
       </Box>
 
-      {/* 7-Stage Interactive Stepper */}
+      {/* Rejection / Stopped Callout Banner */}
+      {isRejectedOrWithdrawn && (
+        <Alert
+          severity="error"
+          sx={{ mb: 3, borderRadius: "10px" }}
+        >
+          <strong>{sideCfg.label}:</strong> Loan application stopped at <strong>{loan.stopped_at_stage || loan.loan_stage}</strong>.
+          <br />
+          Reason: <em>{loan.rejection_reason || "None specified"}</em>
+        </Alert>
+      )}
+
+      {/* 5-Stage Interactive Stepper */}
       <Box sx={{ mb: 3.5 }}>
         <Typography sx={{ fontSize: "0.75rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase", mb: 1.2 }}>
-          Loan Progress Pipeline
+          5-Stage Solar Loan Pipeline (Click any step to advance or adjust)
         </Typography>
-        <Box sx={{ display: "flex", gap: 1, overflowX: "auto", pb: 1 }}>
+        <Grid container spacing={1}>
           {LOAN_STAGES.map((stg, idx) => {
             const isCurrent = loan.loan_stage === stg;
             const cfg = LOAN_STAGE_CONFIG[stg];
+            const isPassed = LOAN_STAGES.indexOf(loan.loan_stage) > idx;
+
             return (
-              <Box
-                key={stg}
-                onClick={() => {
-                  setNewStage(stg);
-                  handleStageChangeSubmit();
-                }}
-                sx={{
-                  p: 1.2,
-                  borderRadius: "8px",
-                  border: `1.5px solid ${isCurrent ? cfg.color : COLORS.border}`,
-                  bgcolor: isCurrent ? cfg.bg : "#F8FAFC",
-                  cursor: "pointer",
-                  minWidth: 110,
-                  textAlign: "center",
-                  "&:hover": { borderColor: cfg.color },
-                }}
-              >
-                <Typography sx={{ fontSize: "0.68rem", fontWeight: 800, color: isCurrent ? cfg.color : COLORS.textMuted }}>
-                  STEP {idx + 1}
-                </Typography>
-                <Typography sx={{ fontSize: "0.74rem", fontWeight: 700, color: isCurrent ? cfg.color : COLORS.textPrimary, mt: 0.2 }}>
-                  {stg}
-                </Typography>
-              </Box>
+              <Grid size={{ xs: 12, sm: 2.4 }} key={stg}>
+                <Paper
+                  onClick={() => handleStepClick(stg)}
+                  elevation={0}
+                  sx={{
+                    p: 1.5,
+                    borderRadius: "10px",
+                    border: `2px solid ${isCurrent ? cfg.color : isPassed ? "#86EFAC" : COLORS.border}`,
+                    bgcolor: isCurrent ? cfg.bg : isPassed ? "#F0FDF4" : "#FFFFFF",
+                    cursor: "pointer",
+                    textAlign: "center",
+                    transition: "all 0.15s ease",
+                    "&:hover": { borderColor: cfg.color, transform: "scale(1.02)" },
+                  }}
+                >
+                  <Typography sx={{ fontSize: "0.68rem", fontWeight: 800, color: isCurrent ? cfg.color : isPassed ? "#16A34A" : COLORS.textMuted }}>
+                    STEP {idx + 1} {isPassed ? "✓" : ""}
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.76rem", fontWeight: 700, color: isCurrent ? cfg.color : COLORS.textPrimary, mt: 0.2 }}>
+                    {cfg.label}
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.65rem", color: COLORS.textMuted, mt: 0.5, lineHeight: 1.2 }}>
+                    {cfg.needed}
+                  </Typography>
+                </Paper>
+              </Grid>
             );
           })}
-        </Box>
+        </Grid>
       </Box>
 
       {/* 4 Financial Figures */}
@@ -414,6 +670,42 @@ export default function ProjectLoanTab({ project, projectId }) {
           </Box>
         </Grid>
       </Grid>
+
+      {/* Disbursed Stage Highlight: Subsidy Checkbox */}
+      {loan.loan_stage === "Disbursed" && (
+        <Box sx={{ p: 2, borderRadius: "10px", bgcolor: "#F0FDF4", border: "1px solid #86EFAC", mb: 3 }}>
+          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={1}>
+            <Box>
+              <Typography sx={{ fontWeight: 800, fontSize: "0.88rem", color: "#065F46" }}>
+                ✓ Loan Disbursed &amp; Recorded on Project
+              </Typography>
+              <Typography sx={{ fontSize: "0.76rem", color: "#047857", mt: 0.2 }}>
+                ₹{Number(loan.disbursed_amount || 0).toLocaleString("en-IN")} credited into Project Payment received.
+              </Typography>
+            </Box>
+
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={Boolean(loan.subsidy_credited_to_loan)}
+                  onChange={async (e) => {
+                    const val = e.target.checked;
+                    await updateLoan(loan.id, { subsidy_credited_to_loan: val });
+                    setLoan((prev) => ({ ...prev, subsidy_credited_to_loan: val }));
+                    toast.success(val ? "Subsidy credited to loan account marked" : "Subsidy loan adjustment removed");
+                  }}
+                  color="success"
+                />
+              }
+              label={
+                <Typography sx={{ fontSize: "0.8rem", fontWeight: 700, color: "#065F46" }}>
+                  Subsidy credited to loan account
+                </Typography>
+              }
+            />
+          </Stack>
+        </Box>
+      )}
 
       {/* Documents Vault */}
       <Box>
@@ -462,23 +754,284 @@ export default function ProjectLoanTab({ project, projectId }) {
         </Grid>
       </Box>
 
-      {/* Change Stage Dialog */}
-      <Dialog open={stageDialogOpen} onClose={() => setStageDialogOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: "14px", p: 1 } }}>
-        <DialogTitle sx={{ fontWeight: 800, fontSize: "1.05rem" }}>Update Loan Stage</DialogTitle>
+      {/* ── STAGE ADVANCE REQUIREMENTS MODAL ── */}
+      <Dialog
+        open={advanceReqDialogOpen}
+        onClose={() => !savingAdvance && setAdvanceReqDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: "14px", p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: "1.1rem" }}>
+          Advance to Stage: {advanceTargetStage}
+        </DialogTitle>
         <DialogContent sx={{ py: 2 }}>
-          <Select fullWidth size="small" value={newStage} onChange={(e) => setNewStage(e.target.value)}>
-            {LOAN_STAGES.map((s) => (
-              <MenuItem key={s} value={s}>{s}</MenuItem>
-            ))}
-          </Select>
+          <Typography sx={{ fontSize: "0.8rem", color: COLORS.textSecondary, mb: 2 }}>
+            Complete the required items below to advance this loan to <strong>{advanceTargetStage}</strong>:
+          </Typography>
+
+          <Stack spacing={2}>
+            {advanceTargetStage === "Applied" && (
+              <>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Application Date *"
+                  type="date"
+                  required
+                  value={advanceFormData.applied_date}
+                  onChange={(e) => setAdvanceFormData({ ...advanceFormData, applied_date: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Application / Jan Samarth ARN Number *"
+                  placeholder="e.g. JS-2026-99182"
+                  required
+                  value={advanceFormData.portal_application_no}
+                  onChange={(e) => setAdvanceFormData({ ...advanceFormData, portal_application_no: e.target.value })}
+                />
+              </>
+            )}
+
+            {advanceTargetStage === "Sanctioned" && (
+              <>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Sanctioned Loan Amount (₹) *"
+                  type="number"
+                  required
+                  value={advanceFormData.sanctioned_amount}
+                  onChange={(e) => setAdvanceFormData({ ...advanceFormData, sanctioned_amount: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Sanction Date *"
+                  type="date"
+                  required
+                  value={advanceFormData.sanction_date}
+                  onChange={(e) => setAdvanceFormData({ ...advanceFormData, sanction_date: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Sanction Letter Document URL"
+                  value={advanceFormData.sanction_letter_url}
+                  onChange={(e) => setAdvanceFormData({ ...advanceFormData, sanction_letter_url: e.target.value })}
+                />
+              </>
+            )}
+
+            {advanceTargetStage === "Disbursed" && (
+              <>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Disbursed Amount (₹) *"
+                  type="number"
+                  required
+                  helperText={`Maximum allowable: Sanctioned Amount (₹${Number(loan?.sanctioned_amount || advanceFormData.sanctioned_amount || 0).toLocaleString("en-IN")})`}
+                  value={advanceFormData.disbursed_amount}
+                  onChange={(e) => setAdvanceFormData({ ...advanceFormData, disbursed_amount: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Disbursal Date *"
+                  type="date"
+                  required
+                  value={advanceFormData.disbursal_date}
+                  onChange={(e) => setAdvanceFormData({ ...advanceFormData, disbursal_date: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={advanceFormData.subsidy_credited_to_loan}
+                      onChange={(e) => setAdvanceFormData({ ...advanceFormData, subsidy_credited_to_loan: e.target.checked })}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Typography sx={{ fontSize: "0.82rem" }}>
+                      Subsidy credited to loan account (optional)
+                    </Typography>
+                  }
+                />
+              </>
+            )}
+          </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button variant="outlined" onClick={() => setStageDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleStageChangeSubmit} disabled={saving} sx={{ bgcolor: "#005BAC", fontWeight: 700 }}>
-            Save Stage
+        <DialogActions sx={{ p: 2, borderTop: `1px solid ${COLORS.border}` }}>
+          <Button variant="outlined" onClick={() => setAdvanceReqDialogOpen(false)} disabled={savingAdvance}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveAdvanceRequirements}
+            disabled={savingAdvance}
+            sx={{ bgcolor: "#005BAC", fontWeight: 700 }}
+          >
+            {savingAdvance ? "Advancing..." : `Confirm & Move to ${advanceTargetStage}`}
           </Button>
         </DialogActions>
       </Dialog>
-    </Paper>
+
+      {/* ── BACKWARD STAGE REASON MODAL ── */}
+      <Dialog
+        open={backwardDialogOpen}
+        onClose={() => !savingBackward && setBackwardDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: "14px", p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: "1.1rem" }}>
+          Move Loan Backward
+        </DialogTitle>
+        <DialogContent sx={{ py: 2 }}>
+          <Typography sx={{ fontSize: "0.82rem", color: COLORS.textSecondary, mb: 1.5 }}>
+            Moving this loan back from <strong>{loan?.loan_stage}</strong> to <strong>{backwardTargetStage}</strong>. Please enter a short reason:
+          </Typography>
+          <TextField
+            fullWidth
+            size="small"
+            multiline
+            rows={3}
+            placeholder="e.g. Lender requested revised quotation or co-applicant KYC documents..."
+            required
+            value={backwardReasonText}
+            onChange={(e) => setBackwardReasonText(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2, borderTop: `1px solid ${COLORS.border}` }}>
+          <Button variant="outlined" onClick={() => setBackwardDialogOpen(false)} disabled={savingBackward}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleConfirmBackward}
+            disabled={savingBackward}
+            sx={{ bgcolor: "#D97706", fontWeight: 700 }}
+          >
+            {savingBackward ? "Moving..." : "Confirm & Move Back"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── SIDE STATUS MODAL (MARK REJECTED / WITHDRAWN) ── */}
+      <Dialog
+        open={sideStatusDialogOpen}
+        onClose={() => !savingSideStatus && setSideStatusDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: "14px", p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: "1.1rem", color: "#DC2626" }}>
+          Mark as Rejected or Withdrawn
+        </DialogTitle>
+        <DialogContent sx={{ py: 2 }}>
+          <Typography sx={{ fontSize: "0.8rem", color: COLORS.textSecondary, mb: 1.5 }}>
+            The card will keep showing stage <strong>{loan?.loan_stage}</strong> as where it stopped.
+          </Typography>
+
+          <FormControl component="fieldset" sx={{ mb: 2 }}>
+            <FormLabel component="legend" sx={{ fontSize: "0.75rem", fontWeight: 700 }}>Select Status *</FormLabel>
+            <RadioGroup
+              row
+              value={sideStatusAction}
+              onChange={(e) => setSideStatusAction(e.target.value)}
+            >
+              <FormControlLabel value="Rejected" control={<Radio size="small" />} label={<Typography sx={{ fontSize: "0.82rem" }}>Rejected by Lender</Typography>} />
+              <FormControlLabel value="Withdrawn" control={<Radio size="small" />} label={<Typography sx={{ fontSize: "0.82rem" }}>Withdrawn by Customer</Typography>} />
+            </RadioGroup>
+          </FormControl>
+
+          <TextField
+            fullWidth
+            size="small"
+            multiline
+            rows={3}
+            label="Reason *"
+            placeholder="e.g. CIBIL score below 650, or customer opted for cash payment..."
+            required
+            value={sideStatusReason}
+            onChange={(e) => setSideStatusReason(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2, borderTop: `1px solid ${COLORS.border}` }}>
+          <Button variant="outlined" onClick={() => setSideStatusDialogOpen(false)} disabled={savingSideStatus}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveSideStatus}
+            disabled={savingSideStatus}
+            sx={{ bgcolor: "#DC2626", fontWeight: 700 }}
+          >
+            {savingSideStatus ? "Saving..." : "Confirm"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── TRY ANOTHER LENDER MODAL ── */}
+      <Dialog
+        open={tryAnotherLenderDialogOpen}
+        onClose={() => !savingNewLender && setTryAnotherLenderDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: "14px", p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: "1.1rem" }}>
+          Try Another Lender
+        </DialogTitle>
+        <DialogContent sx={{ py: 2 }}>
+          <Typography sx={{ fontSize: "0.82rem", color: COLORS.textSecondary, mb: 2 }}>
+            Choose a new bank or NBFC for <strong>{project?.customer_name}</strong>. Previous KYC documents remain saved in the vault.
+          </Typography>
+
+          <Stack spacing={2}>
+            <Box>
+              <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, mb: 0.5 }}>New Bank / NBFC *</Typography>
+              <Select
+                fullWidth
+                size="small"
+                value={newLenderName}
+                onChange={(e) => setNewLenderName(e.target.value)}
+              >
+                {POPULAR_BANKS.map((b) => (
+                  <MenuItem key={b} value={b}>{b}</MenuItem>
+                ))}
+              </Select>
+            </Box>
+
+            <TextField
+              fullWidth
+              size="small"
+              label="Requested Loan Amount (₹)"
+              type="number"
+              value={newLenderAmount}
+              onChange={(e) => setNewLenderAmount(e.target.value)}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, borderTop: `1px solid ${COLORS.border}` }}>
+          <Button variant="outlined" onClick={() => setTryAnotherLenderDialogOpen(false)} disabled={savingNewLender}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveTryAnotherLender}
+            disabled={savingNewLender}
+            sx={{ bgcolor: "#005BAC", fontWeight: 700 }}
+          >
+            {savingNewLender ? "Re-Applying..." : "Re-Apply with New Lender"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }

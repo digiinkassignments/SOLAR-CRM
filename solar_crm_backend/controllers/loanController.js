@@ -148,6 +148,23 @@ const getLoanByProjectHandler = async (req, res) => {
 const updateLoanHandler = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Rule: Disbursed amount can't exceed the sanctioned amount
+    if (req.body.disbursed_amount !== undefined) {
+      const existing = await loanModel.getLoanById(id, req.db);
+      const sancAmt = req.body.sanctioned_amount !== undefined
+        ? parseFloat(req.body.sanctioned_amount)
+        : parseFloat(existing?.sanctioned_amount || 0);
+      const disbAmt = parseFloat(req.body.disbursed_amount) || 0;
+
+      if (sancAmt > 0 && disbAmt > sancAmt) {
+        return res.status(400).json({
+          success: false,
+          message: `Disbursed amount (₹${disbAmt.toLocaleString("en-IN")}) cannot exceed the sanctioned amount (₹${sancAmt.toLocaleString("en-IN")}).`,
+        });
+      }
+    }
+
     const updated = await loanModel.updateLoan(id, req.body, req.db);
     return res.status(200).json({
       success: true,
