@@ -74,6 +74,21 @@ const ensureProjectTables = async (db = defaultDb) => {
 ensureProjectTables().catch(() => {});
 
 /**
+ * Resolve project ID whether given numeric ID, project_uuid (e.g. 'PRJ-72FC2623E455DF9B'), or project_number
+ */
+const resolveNumericProjectId = async (db = defaultDb, idOrUuid) => {
+  if (!idOrUuid) return null;
+  if (/^\d+$/.test(String(idOrUuid))) {
+    return parseInt(idOrUuid, 10);
+  }
+  const [rows] = await db.query(
+    "SELECT id FROM projects WHERE project_uuid = ? OR project_number = ? LIMIT 1",
+    [String(idOrUuid), String(idOrUuid)]
+  );
+  return rows[0]?.id || null;
+};
+
+/**
  * 1. Get All Projects with dynamic filters, pagination & assigned user name
  */
 const getAllProjects = async (db = defaultDb, { stage, assigned_to, search, page = 1, limit = 15 } = {}) => {
@@ -141,6 +156,16 @@ const getAllProjects = async (db = defaultDb, { stage, assigned_to, search, page
 const getProjectById = async (db = defaultDb, id) => {
   await ensureProjectTables(db);
 
+  let whereClause = "";
+  let params = [];
+  if (/^\d+$/.test(String(id))) {
+    whereClause = "(p.id = ? OR p.project_uuid = ? OR p.project_number = ?)";
+    params = [parseInt(id, 10), String(id), String(id)];
+  } else {
+    whereClause = "(p.project_uuid = ? OR p.project_number = ?)";
+    params = [String(id), String(id)];
+  }
+
   const sql = `
     SELECT 
       p.*,
@@ -151,10 +176,10 @@ const getProjectById = async (db = defaultDb, id) => {
     LEFT JOIN users u ON p.assigned_to = u.id
     LEFT JOIN users ab ON p.assigned_by = ab.id
     LEFT JOIN users cb ON p.created_by = cb.id
-    WHERE (p.id = ? OR p.project_uuid = ? OR p.project_number = ?) AND p.is_deleted = 0
+    WHERE ${whereClause} AND p.is_deleted = 0
     LIMIT 1
   `;
-  const [rows] = await db.query(sql, [id, id, id]);
+  const [rows] = await db.query(sql, params);
   if (!rows || rows.length === 0) return null;
 
   const project = rows[0];
@@ -283,10 +308,15 @@ const createProject = async (db = defaultDb, data, created_by = null) => {
 const updateProjectStage = async (db = defaultDb, projectId, newStage, changedBy = null, notes = null) => {
   await ensureProjectTables(db);
 
+  const numericId = await resolveNumericProjectId(db, projectId);
+  if (!numericId) {
+    throw new Error("Project not found or has been deleted.");
+  }
+
   // Get current stage first
   const [rows] = await db.query(
     `SELECT stage FROM projects WHERE id = ? AND is_deleted = 0 LIMIT 1`,
-    [projectId]
+    [numericId]
   );
 
   if (!rows || rows.length === 0) {
@@ -298,19 +328,19 @@ const updateProjectStage = async (db = defaultDb, projectId, newStage, changedBy
   // Update projects table
   await db.query(
     `UPDATE projects SET stage = ?, stage_updated_at = NOW() WHERE id = ?`,
-    [newStage, projectId]
+    [newStage, numericId]
   );
 
   // Insert into project_stage_logs
   await db.query(
     `INSERT INTO project_stage_logs (project_id, from_stage, to_stage, changed_by, notes)
      VALUES (?, ?, ?, ?, ?)`,
-    [projectId, fromStage, newStage, changedBy, notes || null]
+    [numericId, fromStage, newStage, changedBy, notes || null]
   );
 
   return {
     success: true,
-    project_id: projectId,
+    project_id: numericId,
     from_stage: fromStage,
     to_stage: newStage,
     changed_by: changedBy,
@@ -323,6 +353,11 @@ const updateProjectStage = async (db = defaultDb, projectId, newStage, changedBy
  */
 const updateProject = async (db = defaultDb, id, data) => {
   await ensureProjectTables(db);
+
+  const numericId = await resolveNumericProjectId(db, id);
+  if (!numericId) {
+    return false;
+  }
 
   const allowedFields = [
     "lead_id",
@@ -366,7 +401,7 @@ const updateProject = async (db = defaultDb, id, data) => {
     updates.push("stage_updated_at = NOW()");
   }
 
-  values.push(id);
+  values.push(numericId);
   const sql = `UPDATE projects SET ${updates.join(", ")} WHERE id = ? AND is_deleted = 0`;
   const [result] = await db.query(sql, values);
   return result.affectedRows > 0;
@@ -377,9 +412,13 @@ const updateProject = async (db = defaultDb, id, data) => {
  */
 const softDeleteProject = async (db = defaultDb, id) => {
   await ensureProjectTables(db);
+  const numericId = await resolveNumericProjectId(db, id);
+  if (!numericId) {
+    return false;
+  }
   const [result] = await db.query(
     `UPDATE projects SET is_deleted = 1 WHERE id = ?`,
-    [id]
+    [numericId]
   );
   return result.affectedRows > 0;
 };
@@ -400,6 +439,7 @@ const getProjectStats = async (db = defaultDb) => {
 
 module.exports = {
   ensureProjectTables,
+  resolveNumericProjectId,
   getAllProjects,
   getProjectById,
   createProject,

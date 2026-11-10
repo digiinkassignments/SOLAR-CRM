@@ -180,7 +180,7 @@ export default function ProjectDetail() {
     if (!targetStage) return;
     setUpdatingStage(true);
     try {
-      const res = await api.put(`/projects/${id}/stage`, {
+      const res = await api.put(`/projects/${project?.id || id}/stage`, {
         stage: targetStage,
         notes: `Quick advanced to ${targetStage}`,
       });
@@ -205,7 +205,7 @@ export default function ProjectDetail() {
     }
     setUpdatingStage(true);
     try {
-      const res = await api.put(`/projects/${id}/stage`, {
+      const res = await api.put(`/projects/${project?.id || id}/stage`, {
         stage: nextStage,
         notes: stageNotes.trim() || undefined,
       });
@@ -257,7 +257,7 @@ export default function ProjectDetail() {
     e.preventDefault();
     setUpdatingProject(true);
     try {
-      const res = await api.put(`/projects/${id}`, editFormData);
+      const res = await api.put(`/projects/${project?.id || id}`, editFormData);
       if (res.data?.success) {
         toast.success("Project information updated successfully!");
         setEditDialogOpen(false);
