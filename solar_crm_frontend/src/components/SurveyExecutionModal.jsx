@@ -1,3 +1,4 @@
+import SurveyDocuments from "./SurveyDocuments";
 import React, { useState, useEffect } from "react";
 import {
   Dialog,
@@ -80,6 +81,8 @@ export default function SurveyExecutionModal({ open, onClose, survey, lead, onCo
   const [gpsLoading, setGpsLoading] = useState(false);
 
   const [formData, setFormData] = useState({
+    feasibility_verdict: "",
+    proposed_capacity_kw: "",
     roof_type: "RCC",
     roof_area_sqft: "",
     shadow_conditions: "No Obstruction (100% Solar)",
@@ -94,6 +97,8 @@ export default function SurveyExecutionModal({ open, onClose, survey, lead, onCo
   useEffect(() => {
     if (survey) {
       setFormData({
+        feasibility_verdict: survey.feasibility_verdict || "",
+        proposed_capacity_kw: survey.proposed_capacity_kw || lead?.required_kw || "",
         roof_type: survey.roof_type || "RCC",
         roof_area_sqft: survey.roof_area_sqft || (lead?.required_kw ? Number(lead.required_kw) * 100 : ""),
         shadow_conditions: survey.shadow_conditions || "No Obstruction (100% Solar)",
@@ -167,12 +172,13 @@ export default function SurveyExecutionModal({ open, onClose, survey, lead, onCo
 
   const handleSubmit = async () => {
     if (!survey?.id) return;
+    if (!formData.feasibility_verdict) { showSnackbar?.("Choose a feasibility verdict.", "error"); return; }
 
     setSaving(true);
     try {
       const res = await completeSurvey(survey.id, formData);
       if (res.success) {
-        showSnackbar && showSnackbar("Site Survey measurements & photos saved! Lead marked as 'Survey Completed'.", "success");
+        showSnackbar && showSnackbar(res.message || "Survey saved.", "success");
         onCompleted && onCompleted(res.data);
         onClose();
       } else {
@@ -266,7 +272,11 @@ export default function SurveyExecutionModal({ open, onClose, survey, lead, onCo
           </Grid>
         </Paper>
 
-        <Grid container spacing={2.5}>
+        <Box sx={{ mb: 3, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+          <TextField select required label="Feasibility verdict" value={formData.feasibility_verdict} onChange={e => setFormData(p => ({ ...p, feasibility_verdict: e.target.value }))}>{['Feasible','Feasible with conditions','Not feasible'].map(value => <MenuItem key={value} value={value}>{value}</MenuItem>)}</TextField>
+          <TextField required type="number" label="Proposed capacity (kW)" value={formData.proposed_capacity_kw} onChange={e => setFormData(p => ({ ...p, proposed_capacity_kw: e.target.value }))} />
+          <Typography variant="body2" color="text.secondary" sx={{ gridColumn: '1 / -1' }}>A Feasible survey automatically creates or links the customer and project. No approval is required.</Typography>
+        </Box><Grid container spacing={2.5}>
           {/* SECTION 1: ROOF & STRUCTURAL DATA */}
           <Grid item xs={12}>
             <Paper elevation={0} sx={{ p: 2, borderRadius: "12px", border: `1px solid ${COLORS.border}`, bgcolor: "#FFFFFF" }}>
@@ -499,7 +509,7 @@ export default function SurveyExecutionModal({ open, onClose, survey, lead, onCo
             />
           </Grid>
         </Grid>
-      </DialogContent>
+      <Box sx={{ mt: 3 }}><SurveyDocuments surveyId={survey?.id} /></Box></DialogContent>
 
       {/* FOOTER */}
       <DialogActions sx={{ p: 2, px: 2.5, borderTop: `1px solid ${COLORS.border}` }}>
@@ -509,7 +519,7 @@ export default function SurveyExecutionModal({ open, onClose, survey, lead, onCo
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={saving}
+          disabled={saving || uploading}
           startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <CheckCircleIcon />}
           sx={{
             textTransform: "none",

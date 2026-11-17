@@ -1,3 +1,4 @@
+import SurveyDocuments from "../../../components/SurveyDocuments";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Box, Button, Card, Chip, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Stack, Tab, Tabs, TextField, Typography, Checkbox, FormControlLabel, CircularProgress, IconButton } from '@mui/material';
@@ -169,6 +170,7 @@ export default function FieldWorkspace({
           })}>Assign engineer</Button>}</Stack></Stack>{resource && <Box sx={{
         mt: 1.5
       }}><Contact row={resource} /></Box>}</Paper>
+ {resource && type === 'survey' && <Box sx={{ mb: 2 }}><SurveyDocuments surveyId={resource.id} /></Box>}
  {error && <Alert severity="error" sx={{
       mb: 2
     }}>{error}</Alert>}
@@ -254,7 +256,7 @@ export default function FieldWorkspace({
           }} useFlexGap sx={{
             gap: 2,
             justifyContent: 'space-between'
-          }}><Box><Typography fontWeight={800}>Field records & evidence</Typography><Typography variant="body2" color="text.secondary">Draft → Submitted → Coordinator review</Typography></Box><Button variant="contained" startIcon={<Add />} onClick={() => setDialog({
+          }}><Box><Typography fontWeight={800}>Field records & evidence</Typography><Typography variant="body2" color="text.secondary">{type === 'survey' ? 'Feasible submission automatically creates the customer and project.' : 'Draft, submission and coordinator review'}</Typography></Box><Button variant="contained" startIcon={<Add />} onClick={() => setDialog({
               type: 'record',
               kind: type === 'survey' ? 'survey' : 'work_log'
             })}>Add field record</Button></Stack>{Object.entries(definitions).filter(([, d]) => d.resource === type).length > 1 && <Tabs value={kind} onChange={(_, v) => setKind(v)} variant="scrollable" scrollButtons="auto" sx={{
@@ -551,7 +553,7 @@ function RecordEditor({
         version: currentVersion
       });
       localStorage.removeItem(key);
-      toast.success(submit ? 'Work submitted for review.' : 'Draft saved.');
+      toast.success(submit ? kind === 'survey' && form.feasibility_verdict === 'Feasible' ? 'Feasible survey saved. Customer and project linked automatically.' : 'Work submitted for review.' : 'Draft saved.');
       onSaved();
     } catch (e) {
       setError(e.response?.data?.message || 'Save/upload failed. The draft and unuploaded files remain here for retry.');
@@ -576,7 +578,7 @@ function RecordEditor({
       fontWeight: 800
     }}>Field record<Typography variant="body2" color="text.secondary">{resource.customer_name} • Draft recovery saves text on this device.</Typography></DialogTitle><DialogContent><Stack spacing={2} sx={{
         pt: 1
-      }}>{error && <Alert severity="error">{error}</Alert>}{localDraft && !recovered && <Alert severity="info" action={<Stack direction="row"><Button onClick={() => {
+      }}>{error && <Alert severity="error">{error}</Alert>}{kind === 'survey' && <><Alert severity="info">Feasible surveys create or link the customer and project automatically on submission. No manager approval is required.</Alert><SurveyDocuments surveyId={resource.id} /></>}{localDraft && !recovered && <Alert severity="info" action={<Stack direction="row"><Button onClick={() => {
             setForm(localDraft.data);
             setServerId(localDraft.server_id || entry?.id || null);
             setVersion(localDraft.version || entry?.version || 1);

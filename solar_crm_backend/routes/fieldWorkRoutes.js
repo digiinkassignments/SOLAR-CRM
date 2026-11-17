@@ -378,7 +378,7 @@ router.post('/entries/:entryId/submit', wrap(async (req, res) => {
     await c.beginTransaction();
     const e = await entry(req, c, true);
     if (Number(e.created_by) !== Number(req.user.id)) fail('Only the author can submit.', 403);
-    if (e.status === 'Submitted' || e.status === 'Approved') {
+    if (['Submitted', 'Approved', 'Completed'].includes(e.status)) {
       await c.rollback();
       return res.json({
         success: true,
@@ -398,7 +398,10 @@ router.post('/entries/:entryId/submit', wrap(async (req, res) => {
     if (e.kind === 'serials') {
       for (const row of d.rows) await c.query('INSERT INTO crm_field_serials(project_id,entry_id,component,brand,model,serial) VALUES (?,?,?,?,?,?)', [e.resource_id, e.id, row.component, row.brand.slice(0, 100), row.model.slice(0, 150), row.serial.slice(0, 150)]);
     }
+    let automaticConversion = null;
     if (e.kind === 'survey') {
+      const [[reference]] = await c.query('SELECT lead_id FROM site_surveys WHERE id=?', [e.resource_id]);
+      if (reference) await c.query('SELECT id FROM leads WHERE id=? FOR UPDATE', [reference.lead_id]);
       const current = await find(req, 'survey', e.resource_id, c, true);
       if (current.status === 'cancelled') fail('This survey was cancelled. Ask your coordinator for a new assignment.', 409);
 
@@ -469,16 +472,18 @@ router.post('/entries/:entryId/submit', wrap(async (req, res) => {
         );
       }
     }
+    if (e.kind === 'survey') automaticConversion = await require('../services/surveyConversion').convertFeasibleSurvey(c, e.resource_id, req.user.id);
     if (e.kind === 'work_log') {
       const [result] = await c.query('INSERT INTO installation_logs(project_id,log_date,phase,work_done,workers_count,hours_worked,crew_names,materials_used,issues_faced,progress_percent,safety_checklist,weather,supervisor_signoff,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL,0,?)', [e.resource_id, d.log_date, d.phase.slice(0, 80), d.work_done, d.workers_count, d.hours_worked, d.crew || null, d.materials_used || null, d.issues || null, d.progress_percent, JSON.stringify(d.checks), req.user.id]);
       await c.query('UPDATE crm_field_entries SET legacy_log_id=? WHERE id=?', [result.insertId, e.id]);
     }
-    await c.query("UPDATE crm_field_entries SET status='Submitted',version=version+1 WHERE id=?", [e.id]);
+    await c.query("UPDATE crm_field_entries SET status=?,version=version+1 WHERE id=?", [automaticConversion ? 'Completed' : 'Submitted', e.id]);
     await w.event(c, e.resource_type, e.resource_id, 'Record submitted', e.id, w.definitions[e.kind].label, req.user.id);
     await c.commit();
     res.json({
       success: true,
-      message: 'Work submitted. Coordinator review is separate from completion and utility approval.'
+      data: automaticConversion,
+      message: automaticConversion ? 'Feasible survey saved. Customer and project created or linked automatically.' : 'Work submitted. Coordinator review is separate from completion and utility approval.'
     });
   } catch (e) {
     await c.rollback();

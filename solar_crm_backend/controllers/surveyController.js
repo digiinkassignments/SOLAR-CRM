@@ -119,18 +119,21 @@ const completeSurveyHandler = async (req, res) => {
       });
     }
 
-    const updatedSurvey = await surveyModel.completeSurvey(id, req.body, req.db);
+    if (Number(req.user.role_id) === 4) {
+      if (Number(existing.assigned_engineer_id) !== Number(req.user.id)) return res.sendStatus(404);
+    } else if (!await require('../models/leadModel').isLeadAccessibleByUser(existing.lead_id, req.user.role_id, req.user.id, req.db)) return res.sendStatus(404);
+    const updatedSurvey = await surveyModel.completeSurvey(id, req.body, req.db, req.user.id);
 
     return res.status(200).json({
       success: true,
-      message: "Site survey recorded and completed successfully.",
+      message: updatedSurvey.project_id ? "Survey saved. Customer and project linked automatically." : "Site survey saved successfully.",
       data: updatedSurvey,
     });
   } catch (error) {
     console.error("completeSurveyHandler error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
-      message: "Failed to complete site survey.",
+      message: error.status ? error.message : "Failed to complete site survey.",
       error: error.message,
     });
   }
@@ -172,6 +175,9 @@ const approveSurveyToProjectHandler = async (req, res) => {
     const { id, leadId } = req.params;
     const { notes, initialStage, assigned_to } = req.body || {};
 
+    const survey = id ? await surveyModel.getSurveyById(id, req.db) : await surveyModel.getSurveyByLeadId(leadId, req.db);
+    if (!survey) return res.sendStatus(404);
+    if (roleId === 4 ? Number(survey.assigned_engineer_id) !== Number(req.user.id) : !await require('../models/leadModel').isLeadAccessibleByUser(survey.lead_id, roleId, req.user.id, req.db)) return res.sendStatus(404);
     const projectData = await surveyModel.approveSurveyAndCreateProject(
       {
         surveyId: id ? Number(id) : null,
@@ -186,7 +192,7 @@ const approveSurveyToProjectHandler = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Survey approved and Project ${projectData.project_number} created successfully!`,
+      message: `Customer and Project ${projectData.project_number} linked successfully.`,
       data: projectData,
     });
   } catch (error) {

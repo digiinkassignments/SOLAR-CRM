@@ -143,8 +143,8 @@ const scheduleSurvey = async (data, createdBy, db = defaultDb) => {
 };
 
 // 2. Get Survey by ID
-const getSurveyById = async (id, db = defaultDb) => {
-  await ensureSurveyTable(db);
+const getSurveyById = async (id, db = defaultDb, skipEnsure = false) => {
+  if (!skipEnsure) await ensureSurveyTable(db);
   const [rows] = await db.query(
     `
     SELECT s.*, 
@@ -196,8 +196,7 @@ const getSurveyByLeadId = async (leadId, db = defaultDb) => {
 };
 
 // 4. Complete Survey Execution
-const completeSurvey = async (id, data, db = defaultDb) => {
-  await ensureSurveyTable(db);
+const saveSurveyData = async (id, data, db) => {
   const {
     roof_type,
     roof_area_sqft,
@@ -234,7 +233,10 @@ const completeSurvey = async (id, data, db = defaultDb) => {
   const safeLng = parseNum(gps_longitude);
 
   const photosJson = Array.isArray(photos) ? JSON.stringify(photos) : (typeof photos === "string" ? photos : null);
-  const verdict = feasibility_verdict || "Feasible";
+  const verdict = feasibility_verdict;
+  if (!['Feasible', 'Feasible with conditions', 'Not feasible'].includes(verdict)) {
+    throw Object.assign(new Error('Choose a feasibility verdict.'), { status: 400 });
+  }
 
   await db.query(
     `
@@ -287,7 +289,7 @@ const completeSurvey = async (id, data, db = defaultDb) => {
     ]
   );
 
-  const survey = await getSurveyById(id, db);
+  const survey = await getSurveyById(id, db, true);
   if (survey && survey.lead_id) {
     if (consumer_number) {
       try {
@@ -336,6 +338,29 @@ const completeSurvey = async (id, data, db = defaultDb) => {
   }
 
   return survey;
+};
+
+// Persist the report and its customer/project links atomically.
+const completeSurvey = async (id, data, db = defaultDb, actorId = null) => {
+  await ensureSurveyTable(db);
+  await require('./projectModel').ensureProjectTables(db);
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[reference]] = await connection.query('SELECT lead_id FROM site_surveys WHERE id=?', [id]);
+    if (!reference) throw Object.assign(new Error('Survey not found.'), { status: 404 });
+    await connection.query('SELECT id FROM leads WHERE id=? FOR UPDATE', [reference.lead_id]);
+    const [[current]] = await connection.query('SELECT status FROM site_surveys WHERE id=? FOR UPDATE', [id]);
+    if (current.status === 'cancelled') throw Object.assign(new Error('Cancelled surveys cannot be completed.'), { status: 409 });
+    await saveSurveyData(id, data, connection);
+    const conversion = await require('../services/surveyConversion').convertFeasibleSurvey(connection, id, actorId);
+    const survey = await getSurveyById(id, connection, true);
+    await connection.commit();
+    return { ...survey, ...(conversion || {}) };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally { connection.release(); }
 };
 
 // 5. Get All Surveys List
@@ -394,156 +419,21 @@ const getSurveysList = async (queryParams = {}, db = defaultDb) => {
 };
 
 // 6. Approve Survey and Convert / Create Project
-const crypto = require("crypto");
-const approveSurveyAndCreateProject = async ({ surveyId, leadId, approvedBy, notes, initialStage, assignedTo }, db = defaultDb) => {
+const approveSurveyAndCreateProject = async ({ surveyId, leadId, approvedBy }, db = defaultDb) => {
   await ensureSurveyTable(db);
-  const projectModel = require("./projectModel");
-  await projectModel.ensureProjectTables(db);
-
-  let survey = null;
-  if (surveyId) {
-    survey = await getSurveyById(surveyId, db);
-  } else if (leadId) {
-    survey = await getSurveyByLeadId(leadId, db);
+  const survey = surveyId ? await getSurveyById(surveyId, db) : await getSurveyByLeadId(leadId, db);
+  if (!survey || survey.status !== 'completed' || survey.feasibility_verdict !== 'Feasible') {
+    throw Object.assign(new Error('Only a completed Feasible survey can create a project. Save the feasibility report first.'), { status: 400 });
   }
-
-  const actualLeadId = survey?.lead_id || leadId;
-  if (!actualLeadId) {
-    const err = new Error("Lead ID or Survey ID is required.");
-    err.status = 400;
-    throw err;
-  }
-
-  const [leads] = await db.query("SELECT * FROM leads WHERE id = ? AND is_deleted = 0 LIMIT 1", [actualLeadId]);
-  if (leads.length === 0) {
-    const err = new Error("Lead not found.");
-    err.status = 404;
-    throw err;
-  }
-  const lead = leads[0];
-
-  // Check if an existing project already exists for this lead
-  const [existingProjects] = await db.query(
-    "SELECT id, project_number, project_uuid, stage, assigned_to FROM projects WHERE lead_id = ? AND is_deleted = 0 ORDER BY id DESC LIMIT 1",
-    [actualLeadId]
-  );
-
-  let projectId;
-  let projectNumber;
-  let projectStage;
-  const targetEngineerId = assignedTo || survey?.assigned_engineer_id || null;
-
-  if (existingProjects.length > 0) {
-    projectId = existingProjects[0].id;
-    projectNumber = existingProjects[0].project_number;
-    projectStage = existingProjects[0].stage;
-
-    // Assign project to engineer if not yet assigned
-    if (targetEngineerId && !existingProjects[0].assigned_to) {
-      await db.query("UPDATE projects SET assigned_to = ? WHERE id = ?", [targetEngineerId, projectId]);
-    }
-  } else {
-    // Generate new project
-    projectNumber = "PROJ-" + new Date().getFullYear() + "-" + Math.floor(10000 + Math.random() * 90000);
-    const projectUuid = `PRJ-${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
-    projectStage = initialStage || "Pre-Install Inspection";
-    const capacity = parseFloat(survey?.proposed_capacity_kw || lead.required_kw || 3.0);
-    const address = survey?.site_address || lead.address || null;
-    const projectNotes = notes || survey?.feasibility_notes || survey?.site_notes || "Project created upon survey approval";
-
-    const [projResult] = await db.query(
-      `INSERT INTO projects (
-        project_number,
-        project_uuid,
-        lead_id,
-        customer_name,
-        customer_phone,
-        customer_address,
-        city,
-        state,
-        pincode,
-        system_capacity_kw,
-        stage,
-        stage_updated_at,
-        assigned_to,
-        assigned_by,
-        notes,
-        created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)`,
-      [
-        projectNumber,
-        projectUuid,
-        actualLeadId,
-        lead.customer_name || "Customer",
-        lead.mobile_number || "",
-        address,
-        lead.city || null,
-        lead.state || null,
-        lead.pincode || null,
-        capacity,
-        projectStage,
-        targetEngineerId,
-        approvedBy || null,
-        projectNotes,
-        approvedBy || null,
-      ]
-    );
-    projectId = projResult.insertId;
-
-    // Record initial stage log
-    try {
-      await db.query(
-        `INSERT INTO project_stage_logs (project_id, from_stage, to_stage, changed_by, notes)
-         VALUES (?, NULL, ?, ?, ?)`,
-        [projectId, projectStage, approvedBy || null, "Created from approved Site Survey"]
-      );
-    } catch (e) {
-      console.warn("Could not insert stage log:", e.message);
-    }
-  }
-
-  // Update site survey approval and link project_id if survey exists
-  if (survey?.id) {
-    try {
-      await db.query(
-        `UPDATE site_surveys SET
-          is_approved = 1,
-          approved_by = ?,
-          approved_at = NOW(),
-          project_id = ?
-         WHERE id = ?`,
-        [approvedBy || null, projectId, survey.id]
-      );
-    } catch (e) {
-      console.warn("Could not update survey approval fields:", e.message);
-    }
-  }
-
-  // Update lead status
+  await require('./projectModel').ensureProjectTables(db);
+  const connection = await db.getConnection();
   try {
-    await db.query(
-      `UPDATE leads SET status = 'Project In Progress', updated_at = NOW() WHERE id = ?`,
-      [actualLeadId]
-    );
-  } catch (e) {}
-
-  // Log in lead_activity_logs
-  try {
-    await db.query(
-      `INSERT INTO lead_activity_logs (lead_id, action_type, new_value, remark)
-       VALUES (?, 'Survey Approved & Project Created', ?, ?)`,
-      [actualLeadId, projectNumber, `Project ${projectNumber} active at stage: ${projectStage}. Assigned engineer: ${targetEngineerId || 'None'}.`]
-    );
-  } catch (e) {}
-
-  return {
-    project_id: projectId,
-    project_number: projectNumber,
-    lead_id: actualLeadId,
-    stage: projectStage,
-    assigned_to: targetEngineerId,
-    customer_name: lead.customer_name,
-  };
+    await connection.beginTransaction();
+    const result = await require('../services/surveyConversion').convertFeasibleSurvey(connection, survey.id, approvedBy);
+    await connection.commit();
+    return { ...result, lead_id: survey.lead_id, stage: survey.project_stage || 'Pre-Install Inspection', assigned_to: survey.assigned_engineer_id, customer_name: survey.customer_name };
+  } catch (error) { await connection.rollback(); throw error; }
+  finally { connection.release(); }
 };
 
 module.exports = {

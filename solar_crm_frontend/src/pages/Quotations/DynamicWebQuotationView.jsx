@@ -253,7 +253,11 @@ const DynamicWebQuotationView = () => {
           logging: false,
           scrollY: 0,
           scrollX: 0,
-          windowWidth: Math.max(element.scrollWidth, 794),
+          windowWidth: 1024,
+          onclone: (document) => {
+            const page = document.getElementById("printable-zoho-quotation");
+            if (page) { page.style.width = "718px"; page.style.maxWidth = "718px"; }
+          },
         },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         pagebreak: { mode: ["css", "legacy"], avoid: [".pdf-keep-together", "tr"] },
@@ -452,7 +456,8 @@ const DynamicWebQuotationView = () => {
             sx={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center",
+              alignItems: { xs: "flex-start", sm: "center" },
+              flexDirection: { xs: "column", sm: "row" },
               gap: 2,
             }}
           >
@@ -528,7 +533,7 @@ const DynamicWebQuotationView = () => {
             </Stack>
 
             {/* Right Action Buttons Group */}
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack direction="row" useFlexGap spacing={1} alignItems="center" sx={{ flexWrap: "wrap", minWidth: 0 }}>
               {/* Share Dropdown Button */}
               <Button
                 variant="outlined"

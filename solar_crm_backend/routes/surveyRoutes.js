@@ -79,6 +79,7 @@ router.get('/availability', verifyToken, async (req, res) => {
     res.sendStatus(503);
   }
 });
+router.use(require("./surveyDocuments"));
 router.post("/schedule", verifyToken, scheduleSurveyHandler);
 router.get("/lead/:leadId", verifyToken, getSurveyByLeadHandler);
 router.get("/", verifyToken, getSurveysListHandler);

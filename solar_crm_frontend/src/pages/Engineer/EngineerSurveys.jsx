@@ -1,3 +1,5 @@
+import SurveyDocuments from "../../components/SurveyDocuments";
+import toast from "react-hot-toast";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -200,6 +202,7 @@ export default function EngineerSurveys() {
 
   const handleSubmitComplete = async () => {
     if (!selectedSurvey) return;
+    if (!form.feasibility_verdict) { toast.error("Choose a feasibility verdict."); return; }
     setModalError("");
 
     if (!form.consumer_number || !String(form.consumer_number).trim()) {
@@ -228,6 +231,7 @@ export default function EngineerSurveys() {
       setSaving(true);
       const res = await completeSurvey(selectedSurvey.id, form);
       if (res?.success) {
+        toast.success(res.message || "Survey saved.");
         setCompleteModalOpen(false);
         fetchSurveys();
       } else {
@@ -235,6 +239,7 @@ export default function EngineerSurveys() {
       }
     } catch (err) {
       console.error("Error completing survey:", err);
+      toast.error(err.response?.data?.message || "Could not save the survey. Please retry.");
       setModalError(err.response?.data?.message || "Error completing survey. Please try again.");
     } finally {
       setSaving(false);
@@ -833,6 +838,7 @@ export default function EngineerSurveys() {
               )}
             </Grid>
           </Grid>
+        <Box sx={{ mt: 3 }}><SurveyDocuments surveyId={selectedSurvey?.id} /></Box>
         </DialogContent>
         <DialogActions sx={{ p: 2, borderTop: "1px solid #E2E8F0" }}>
           <Button onClick={() => setCompleteModalOpen(false)} sx={{ textTransform: "none", color: "#64748B" }}>
@@ -841,7 +847,7 @@ export default function EngineerSurveys() {
           <Button
             variant="contained"
             onClick={handleSubmitComplete}
-            disabled={saving}
+            disabled={saving || uploadingPhotos}
             sx={{
               backgroundColor: "#0284C7",
               color: "#FFFFFF",
