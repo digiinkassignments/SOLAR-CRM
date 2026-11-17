@@ -7,6 +7,7 @@ class AppColors {
   static const Color brandPrimary = Color(0xFFF59E0B);      // Solar Gold / Amber (#F59E0B)
   static const Color brandPrimaryHover = Color(0xFFD97706); // Amber 600
   static const Color brandPrimaryLight = Color(0xFFFEF3C7); // Amber 100
+  static const Color brandNavy = Color(0xFF0F172A);         // Deep Slate Navy (#0F172A)
   static const Color amberDark = brandPrimaryHover;
   
   // Status Accents

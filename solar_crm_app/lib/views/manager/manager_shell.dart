@@ -5,6 +5,7 @@ import '../../core/constants/app_typography.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import '../widgets/logout_dialog.dart';
+import '../settings/settings_view.dart';
 
 class ManagerShell extends StatefulWidget {
   const ManagerShell({super.key});
@@ -26,40 +27,8 @@ class _ManagerShellState extends State<ManagerShell> {
     final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              user?.name ?? "Team Manager",
-              style: AppTypography.headingSmall(color: primaryTextColor),
-            ),
-            Text(
-              "MANAGER WORKSPACE • ${auth.workspace?.toUpperCase()}",
-              style: AppTypography.badge(color: AppColors.skyBlue),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, color: AppColors.errorRed),
-            tooltip: "Logout",
-            onPressed: () async {
-              final nav = Navigator.of(context);
-              final confirmed = await showLogoutConfirmationDialog(context);
-              if (!confirmed) return;
-              await auth.logout();
-              nav.pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
-              );
-            },
-          ),
-        ],
-      ),
-      body: Center(
+    final pages = [
+      Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
@@ -93,10 +62,89 @@ class _ManagerShellState extends State<ManagerShell> {
           ),
         ),
       ),
+      Center(
+        child: Text("Team Leads", style: AppTypography.headingMedium(color: primaryTextColor)),
+      ),
+      Center(
+        child: Text("Survey Schedules", style: AppTypography.headingMedium(color: primaryTextColor)),
+      ),
+      Center(
+        child: Text("Manager Reports", style: AppTypography.headingMedium(color: primaryTextColor)),
+      ),
+      const SettingsView(),
+    ];
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: InkWell(
+          onTap: () => setState(() => _currentIndex = 4),
+          borderRadius: BorderRadius.circular(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                user?.name ?? "Team Manager",
+                style: AppTypography.headingSmall(color: primaryTextColor),
+              ),
+              Text(
+                "MANAGER WORKSPACE • ${auth.workspace?.toUpperCase()}",
+                style: AppTypography.badge(color: AppColors.skyBlue),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: InkWell(
+              onTap: () => setState(() => _currentIndex = 4),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _currentIndex == 4 ? AppColors.brandPrimary : borderColor,
+                    width: 2,
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: 14,
+                  backgroundColor: AppColors.brandNavy,
+                  child: Text(
+                    (user?.name.isNotEmpty == true ? user!.name[0] : "M").toUpperCase(),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: AppColors.errorRed),
+            tooltip: "Logout",
+            onPressed: () async {
+              final nav = Navigator.of(context);
+              final confirmed = await showLogoutConfirmationDialog(context);
+              if (!confirmed) return;
+              await auth.logout();
+              nav.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+          ),
+        ],
+      ),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: pages,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         selectedItemColor: AppColors.skyBlue,
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined),
@@ -117,6 +165,11 @@ class _ManagerShellState extends State<ManagerShell> {
             icon: Icon(Icons.bar_chart_outlined),
             activeIcon: Icon(Icons.bar_chart),
             label: "Reports",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+            activeIcon: Icon(Icons.settings),
+            label: "Settings",
           ),
         ],
       ),

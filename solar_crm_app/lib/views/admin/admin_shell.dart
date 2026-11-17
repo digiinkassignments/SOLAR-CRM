@@ -12,6 +12,7 @@ import 'leads/leads_list_view.dart';
 import '../calculator/solar_calculator_view.dart';
 import '../finance/finance_view.dart';
 import '../stock/stock_list_view.dart';
+import '../settings/settings_view.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -52,6 +53,7 @@ class _AdminShellState extends State<AdminShell> {
         borderColor: borderColor,
       ),
       const UsersListView(),
+      const SettingsView(),
     ];
 
     return Scaffold(
@@ -59,52 +61,56 @@ class _AdminShellState extends State<AdminShell> {
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: borderColor),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Image.asset(
-                'assets/images/logo.png',
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: AppColors.brandPrimary.withValues(alpha: 0.15),
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.solar_power_rounded, color: AppColors.brandPrimary, size: 20),
+        title: InkWell(
+          onTap: () => setState(() => _currentIndex = 5),
+          borderRadius: BorderRadius.circular(10),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: borderColor),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: AppColors.brandPrimary.withValues(alpha: 0.15),
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.solar_power_rounded, color: AppColors.brandPrimary, size: 20),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    auth.tenant?.businessName.isNotEmpty == true
-                        ? auth.tenant!.businessName
-                        : (auth.workspace?.toUpperCase() ?? "DigiInk Solutions"),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.headingSmall(color: primaryTextColor),
-                  ),
-                  Text(
-                    "ADMIN • ${auth.workspace?.toUpperCase() ?? 'SOLAR CRM'}",
-                    style: AppTypography.badge(color: AppColors.brandPrimary),
-                  ),
-                ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      auth.tenant?.businessName.isNotEmpty == true
+                          ? auth.tenant!.businessName
+                          : (auth.workspace?.toUpperCase() ?? "DigiInk Solutions"),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.headingSmall(color: primaryTextColor),
+                    ),
+                    Text(
+                      "ADMIN • ${auth.workspace?.toUpperCase() ?? 'SOLAR CRM'}",
+                      style: AppTypography.badge(color: AppColors.brandPrimary),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.inventory_2_outlined, color: AppColors.emeraldGreen, size: 24),
+            icon: const Icon(Icons.inventory_2_outlined, color: AppColors.emeraldGreen, size: 22),
             tooltip: "Stock & Inventory",
             onPressed: () {
               Navigator.of(context).push(
@@ -113,7 +119,7 @@ class _AdminShellState extends State<AdminShell> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.receipt_long_rounded, color: AppColors.skyBlue, size: 24),
+            icon: const Icon(Icons.receipt_long_rounded, color: AppColors.skyBlue, size: 22),
             tooltip: "Quotations & Invoices",
             onPressed: () {
               Navigator.of(context).push(
@@ -122,13 +128,39 @@ class _AdminShellState extends State<AdminShell> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.calculate_outlined, color: AppColors.brandPrimary, size: 24),
+            icon: const Icon(Icons.calculate_outlined, color: AppColors.brandPrimary, size: 22),
             tooltip: "Solar Calculator",
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SolarCalculatorView()),
               );
             },
+          ),
+          // Header Profile Avatar (Opens Settings)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: InkWell(
+              onTap: () => setState(() => _currentIndex = 5),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _currentIndex == 5 ? AppColors.brandPrimary : borderColor,
+                    width: 2,
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: 14,
+                  backgroundColor: AppColors.brandNavy,
+                  child: Text(
+                    (auth.user?.name.isNotEmpty == true ? auth.user!.name[0] : "A").toUpperCase(),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: AppColors.errorRed, size: 22),
@@ -190,6 +222,11 @@ class _AdminShellState extends State<AdminShell> {
               icon: Icon(Icons.badge_outlined),
               activeIcon: Icon(Icons.badge_rounded),
               label: "Team",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings_outlined),
+              activeIcon: Icon(Icons.settings_rounded),
+              label: "Settings",
             ),
           ],
         ),

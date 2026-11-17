@@ -17,6 +17,13 @@ class ApiConstants {
   static const String forgotPassword = "/auth/forgot-password";
   static const String resetPassword = "/auth/reset-password";
 
+  // Profile & Settings endpoints (Matching https://digiinksolutions.solops.cloud/profile & /settings)
+  static const String userProfile = "/profile";
+  static const String changePassword = "/profile/change-password";
+  static const String profilePhoto = "/profile/photo";
+  static const String companySettings = "/settings";
+  static const String companyLogo = "/settings/logo";
+
   // Dashboard endpoints
   static const String adminDashboard = "/dashboard/admin";
   static const String managerDashboard = "/dashboard/manager";

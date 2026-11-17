@@ -5,6 +5,7 @@ import '../../core/constants/app_typography.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import '../widgets/logout_dialog.dart';
+import '../settings/settings_view.dart';
 
 class SalesShell extends StatefulWidget {
   const SalesShell({super.key});
@@ -26,40 +27,8 @@ class _SalesShellState extends State<SalesShell> {
     final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              user?.name ?? "Sales Workspace",
-              style: AppTypography.headingSmall(color: primaryTextColor),
-            ),
-            Text(
-              "SALES EXECUTIVE • ${auth.workspace?.toUpperCase()}",
-              style: AppTypography.badge(color: AppColors.brandPrimary),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, color: AppColors.errorRed),
-            tooltip: "Logout",
-            onPressed: () async {
-              final nav = Navigator.of(context);
-              final confirmed = await showLogoutConfirmationDialog(context);
-              if (!confirmed) return;
-              await auth.logout();
-              nav.pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
-              );
-            },
-          ),
-        ],
-      ),
-      body: Center(
+    final pages = [
+      Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
@@ -93,29 +62,113 @@ class _SalesShellState extends State<SalesShell> {
           ),
         ),
       ),
+      Center(
+        child: Text("All Leads", style: AppTypography.headingMedium(color: primaryTextColor)),
+      ),
+      Center(
+        child: Text("Solar Calculator", style: AppTypography.headingMedium(color: primaryTextColor)),
+      ),
+      Center(
+        child: Text("AI Copilot", style: AppTypography.headingMedium(color: primaryTextColor)),
+      ),
+      const SettingsView(),
+    ];
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: InkWell(
+          onTap: () => setState(() => _currentIndex = 4),
+          borderRadius: BorderRadius.circular(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                user?.name ?? "Sales Workspace",
+                style: AppTypography.headingSmall(color: primaryTextColor),
+              ),
+              Text(
+                "SALES EXECUTIVE • ${auth.workspace?.toUpperCase()}",
+                style: AppTypography.badge(color: AppColors.brandPrimary),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: InkWell(
+              onTap: () => setState(() => _currentIndex = 4),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _currentIndex == 4 ? AppColors.brandPrimary : borderColor,
+                    width: 2,
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: 14,
+                  backgroundColor: AppColors.brandNavy,
+                  child: Text(
+                    (user?.name.isNotEmpty == true ? user!.name[0] : "S").toUpperCase(),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: AppColors.errorRed),
+            tooltip: "Logout",
+            onPressed: () async {
+              final nav = Navigator.of(context);
+              final confirmed = await showLogoutConfirmationDialog(context);
+              if (!confirmed) return;
+              await auth.logout();
+              nav.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+          ),
+        ],
+      ),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: pages,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.call_outlined),
             activeIcon: Icon(Icons.call),
-            label: "Calling Queue",
+            label: "Calling",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.people_outline),
             activeIcon: Icon(Icons.people),
-            label: "All Leads",
+            label: "Leads",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.calculate_outlined),
             activeIcon: Icon(Icons.calculate),
-            label: "Solar Calc",
+            label: "Calculator",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.auto_awesome_outlined),
             activeIcon: Icon(Icons.auto_awesome),
             label: "AI Copilot",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+            activeIcon: Icon(Icons.settings),
+            label: "Settings",
           ),
         ],
       ),

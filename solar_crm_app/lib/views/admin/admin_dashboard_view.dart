@@ -74,69 +74,93 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Welcome Header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: borderColor, width: 1),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          todayFormatted,
-                          style: AppTypography.caption(color: textSecondary),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.brandPrimary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppColors.brandPrimary.withValues(alpha: 0.25)),
+              InkWell(
+                onTap: () => widget.onNavigateTab?.call(5),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderColor, width: 1),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            todayFormatted,
+                            style: AppTypography.caption(color: textSecondary),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: Image.asset(
-                                  'assets/images/logo.png',
-                                  width: 14,
-                                  height: 14,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) => const Icon(
-                                    Icons.solar_power_rounded,
-                                    size: 14,
-                                    color: AppColors.brandPrimary,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.brandPrimary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppColors.brandPrimary.withValues(alpha: 0.25)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Image.asset(
+                                    'assets/images/logo.png',
+                                    width: 14,
+                                    height: 14,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (context, error, stackTrace) => const Icon(
+                                      Icons.solar_power_rounded,
+                                      size: 14,
+                                      color: AppColors.brandPrimary,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                auth.tenant?.businessName ?? auth.workspace?.toUpperCase() ?? "SOLAR CRM",
-                                style: AppTypography.badge(color: AppColors.brandPrimary),
-                              ),
-                            ],
+                                const SizedBox(width: 5),
+                                Text(
+                                  auth.tenant?.businessName ?? auth.workspace?.toUpperCase() ?? "SOLAR CRM",
+                                  style: AppTypography.badge(color: AppColors.brandPrimary),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "${_getGreeting()}, ${auth.user?.name ?? 'Admin'} 👋",
-                      style: AppTypography.heading(size: 20, color: textPrimary),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "Executive overview of operations, installations, and revenue pipeline.",
-                      style: AppTypography.body(color: textSecondary),
-                    ),
-                  ],
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "${_getGreeting()}, ${auth.user?.name ?? 'Admin'} 👋",
+                                  style: AppTypography.heading(size: 20, color: textPrimary),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "Executive overview of operations, installations, and revenue pipeline.",
+                                  style: AppTypography.body(color: textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: borderColor),
+                            ),
+                            child: const Icon(Icons.settings_outlined, size: 20, color: AppColors.brandPrimary),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
