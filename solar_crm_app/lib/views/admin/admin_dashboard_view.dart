@@ -15,6 +15,7 @@ import 'widgets/admin_recent_leads_card.dart';
 import 'widgets/admin_activity_feed_card.dart';
 import '../calculator/solar_calculator_view.dart';
 import '../finance/finance_view.dart';
+import '../stock/stock_list_view.dart';
 
 class AdminDashboardView extends StatefulWidget {
   final Function(int)? onNavigateTab;
@@ -199,6 +200,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
                 // Quotations & Invoices Quick Tool Banner
                 _buildFinanceCard(isDark, cardBg, borderColor, textPrimary, textSecondary),
+
+                const SizedBox(height: 10),
+
+                // Stock & Inventory Management Banner
+                _buildStockCard(isDark, cardBg, borderColor, textPrimary, textSecondary),
 
                 const SizedBox(height: 16),
 
@@ -520,6 +526,99 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               Icons.arrow_forward_ios_rounded,
               size: 16,
               color: AppColors.skyBlue,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStockCard(
+    bool isDark,
+    Color cardBg,
+    Color borderColor,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const StockListView()),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.emeraldGreen.withValues(alpha: 0.35)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.emeraldGreen.withValues(alpha: isDark ? 0.06 : 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.emeraldGreen.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.inventory_2_rounded,
+                color: AppColors.emeraldGreen,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          "Stock & Inventory",
+                          style: AppTypography.headingSmall(color: textPrimary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.emeraldGreen.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          "WAREHOUSE",
+                          style: AppTypography.badge(color: AppColors.emeraldGreen),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    "Track solar panels, inverters, cables, stock IN/OUT & valuation",
+                    style: AppTypography.caption(color: textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: AppColors.emeraldGreen,
             ),
           ],
         ),

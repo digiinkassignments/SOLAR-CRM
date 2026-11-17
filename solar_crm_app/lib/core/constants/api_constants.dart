@@ -68,4 +68,13 @@ class ApiConstants {
   static String invoicePayments(int id) => "/invoices/$id/payments";
   static String invoiceSendEmail(int id) => "/invoices/$id/send-email";
   static String invoiceDelete(int id) => "/invoices/$id";
+
+  // Stock & Inventory
+  static const String stockCategories = "/stock/categories";
+  static const String stockItems = "/stock/items";
+  static String stockItemDetails(int id) => "/stock/items/$id";
+  static const String stockTransactions = "/stock/transactions";
+  static const String stockAlerts = "/stock/alerts";
+  static String resolveStockAlert(int id) => "/stock/alerts/$id/resolve";
+  static const String stockReport = "/stock/report";
 }
