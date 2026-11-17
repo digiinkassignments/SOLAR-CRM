@@ -12,6 +12,7 @@ import 'sheets/stock_valuation_sheet.dart';
 import 'stock_detail_view.dart';
 import 'stock_transactions_view.dart';
 import 'stock_alerts_view.dart';
+import 'widgets/barcode_scanner_sheet.dart';
 import 'widgets/stock_item_card.dart';
 
 class StockListView extends StatefulWidget {
@@ -30,6 +31,7 @@ class _StockListViewState extends State<StockListView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<StockProvider>(context, listen: false);
       provider.fetchCategories();
+      provider.fetchReport();
       provider.fetchStockItems();
       provider.fetchAlerts();
     });
@@ -71,6 +73,11 @@ class _StockListViewState extends State<StockListView> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+            tooltip: "Scan Barcode / QR",
+            onPressed: () => BarcodeScannerSheet.show(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.assessment_outlined),
             tooltip: "Valuation Report",
             onPressed: () => StockValuationSheet.show(context),
@@ -89,6 +96,7 @@ class _StockListViewState extends State<StockListView> {
             tooltip: "Refresh",
             onPressed: () {
               provider.fetchCategories();
+              provider.fetchReport();
               provider.fetchStockItems();
               provider.fetchAlerts();
             },
@@ -98,6 +106,7 @@ class _StockListViewState extends State<StockListView> {
       body: RefreshIndicator(
         onRefresh: () async {
           await provider.fetchCategories();
+          await provider.fetchReport();
           await provider.fetchStockItems();
           await provider.fetchAlerts();
         },
@@ -109,7 +118,7 @@ class _StockListViewState extends State<StockListView> {
 
             const SizedBox(height: 14),
 
-            // Action Buttons Bar
+            // Action Buttons Bar (Scan Barcode, +New SKU, Alerts, Transactions, Valuation)
             _buildActionButtonsBar(context, provider, isDark, cardBg, borderColor, textPrimary, textSecondary),
 
             const SizedBox(height: 14),
@@ -196,6 +205,20 @@ class _StockListViewState extends State<StockListView> {
               const SizedBox(height: 12),
             ],
 
+            // Item count & pagination summary
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Showing ${items.length} of ${provider.totalItems} SKUs (Page ${provider.page} of ${provider.totalPages})",
+                    style: AppTypography.caption(color: textSecondary, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+
             // Stock Items List
             if (isLoading)
               const Center(
@@ -245,6 +268,12 @@ class _StockListViewState extends State<StockListView> {
                 );
               }),
 
+            const SizedBox(height: 12),
+
+            // Numbered Pagination Controls (1, 2, 3...)
+            if (provider.totalPages > 1)
+              _buildPaginationBar(provider, isDark, cardBg, borderColor, textPrimary, textSecondary),
+
             const SizedBox(height: 60),
           ],
         ),
@@ -286,6 +315,72 @@ class _StockListViewState extends State<StockListView> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPaginationBar(
+    StockProvider provider,
+    bool isDark,
+    Color cardBg,
+    Color borderColor,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    final currentPage = provider.page;
+    final totalPages = provider.totalPages;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      alignment: Alignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Previous button
+          IconButton(
+            icon: const Icon(Icons.chevron_left_rounded),
+            onPressed: currentPage > 1 ? () => provider.setPage(currentPage - 1) : null,
+          ),
+
+          // Page numbers (e.g. 1, 2, 3...)
+          ...List.generate(totalPages, (index) {
+            final pageNum = index + 1;
+            final isCurrent = pageNum == currentPage;
+
+            return GestureDetector(
+              onTap: () => provider.setPage(pageNum),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: isCurrent
+                      ? AppColors.brandPrimary
+                      : (isDark ? Colors.white10 : Colors.grey.shade100),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isCurrent ? AppColors.brandPrimary : borderColor,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  "$pageNum",
+                  style: TextStyle(
+                    color: isCurrent ? Colors.white : textPrimary,
+                    fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            );
+          }),
+
+          // Next button
+          IconButton(
+            icon: const Icon(Icons.chevron_right_rounded),
+            onPressed: currentPage < totalPages ? () => provider.setPage(currentPage + 1) : null,
+          ),
+        ],
       ),
     );
   }
@@ -470,13 +565,26 @@ class _StockListViewState extends State<StockListView> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
+          // Barcode / QR Scanner button
           ElevatedButton.icon(
-            onPressed: () => StockItemSheet.show(context),
+            onPressed: () => BarcodeScannerSheet.show(context),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.brandPrimary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+            label: const Text("Scan Barcode / QR"),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: () => StockItemSheet.show(context),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: textPrimary,
+              side: BorderSide(color: borderColor),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             ),
             icon: const Icon(Icons.add_rounded, size: 18),
             label: const Text("+ New SKU"),

@@ -77,3 +77,4 @@ class StockAlertModel {
 
   bool get isCritical => alertType == 'OUT_OF_STOCK';
 }
+

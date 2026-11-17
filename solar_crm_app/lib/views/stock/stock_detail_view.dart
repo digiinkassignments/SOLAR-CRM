@@ -476,3 +476,4 @@ class _StockDetailViewState extends State<StockDetailView> {
     );
   }
 }
+

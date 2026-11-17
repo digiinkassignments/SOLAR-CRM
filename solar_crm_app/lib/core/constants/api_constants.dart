@@ -77,4 +77,6 @@ class ApiConstants {
   static const String stockAlerts = "/stock/alerts";
   static String resolveStockAlert(int id) => "/stock/alerts/$id/resolve";
   static const String stockReport = "/stock/report";
+  static String stockItemByBarcode(String code) => "/stock/items/barcode/${Uri.encodeComponent(code)}";
+  static const String stockQuickScanIn = "/stock/quick-scan-in";
 }

@@ -371,3 +371,4 @@ class StockItemCard extends StatelessWidget {
     );
   }
 }
+

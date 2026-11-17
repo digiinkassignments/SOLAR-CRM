@@ -28,18 +28,18 @@ class _StockOutSheetState extends State<StockOutSheet> {
 
   StockItemModel? _selectedItem;
   final _quantityController = TextEditingController();
-  final _referenceIdController = TextEditingController();
+  final _referenceNumberController = TextEditingController();
+  final _customerSiteController = TextEditingController();
   final _notesController = TextEditingController();
 
   String _referenceType = "PROJECT";
   bool _isLoading = false;
 
   final List<Map<String, String>> _referenceTypes = [
-    {"label": "Project Installation", "value": "PROJECT"},
-    {"label": "Direct Site Dispatch", "value": "DISPATCH"},
-    {"label": "Damaged / Defective", "value": "DAMAGED"},
-    {"label": "Lost / Scrap Write-off", "value": "LOST"},
-    {"label": "Internal Company Use", "value": "INTERNAL_USE"},
+    {"label": "Project / Site Dispatch", "value": "PROJECT"},
+    {"label": "Lead Demo / Sample", "value": "LEAD"},
+    {"label": "Scrap / Damaged Write-off", "value": "DAMAGED"},
+    {"label": "Inventory Adjustment (-)", "value": "ADJUSTMENT"},
   ];
 
   @override
@@ -51,9 +51,16 @@ class _StockOutSheetState extends State<StockOutSheet> {
   @override
   void dispose() {
     _quantityController.dispose();
-    _referenceIdController.dispose();
+    _referenceNumberController.dispose();
+    _customerSiteController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  int get _remainingStock {
+    if (_selectedItem == null) return 0;
+    final qty = int.tryParse(_quantityController.text) ?? 0;
+    return _selectedItem!.currentStock - qty;
   }
 
   Future<void> _handleSubmit() async {
@@ -83,7 +90,8 @@ class _StockOutSheetState extends State<StockOutSheet> {
       itemId: _selectedItem!.id,
       quantity: qty,
       referenceType: _referenceType,
-      referenceId: _referenceIdController.text.trim().isNotEmpty ? _referenceIdController.text.trim() : null,
+      referenceNumber: _referenceNumberController.text.trim().isNotEmpty ? _referenceNumberController.text.trim() : null,
+      vendorName: _customerSiteController.text.trim().isNotEmpty ? _customerSiteController.text.trim() : null,
       notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
     );
 
@@ -95,7 +103,7 @@ class _StockOutSheetState extends State<StockOutSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.errorRed,
-            content: Text("Stock OUT: $qty ${_selectedItem!.unit} dispatched from ${_selectedItem!.name}"),
+            content: Text("Stock OUT: -$qty ${_selectedItem!.unit} dispatched from ${_selectedItem!.name}"),
           ),
         );
       } else {
@@ -131,6 +139,9 @@ class _StockOutSheetState extends State<StockOutSheet> {
         left: 20,
         right: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.90,
       ),
       child: Form(
         key: _formKey,
@@ -173,7 +184,7 @@ class _StockOutSheetState extends State<StockOutSheet> {
                 ],
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
 
               // Item Selector
               Text(
@@ -191,7 +202,7 @@ class _StockOutSheetState extends State<StockOutSheet> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.inventory_2_outlined, color: AppColors.errorRed, size: 20),
+                      const Icon(Icons.inventory_2_outlined, color: AppColors.errorRed, size: 20),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -227,7 +238,7 @@ class _StockOutSheetState extends State<StockOutSheet> {
                     return DropdownMenuItem<int>(
                       value: item.id,
                       child: Text(
-                        "${item.itemCode} - ${item.name} (Stock: ${item.currentStock})",
+                        "${item.itemCode} - ${item.name} (Available: ${item.currentStock} ${item.unit})",
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.bodySmall(color: textPrimary),
@@ -245,7 +256,7 @@ class _StockOutSheetState extends State<StockOutSheet> {
 
               const SizedBox(height: 14),
 
-              // Quantity to Dispatch
+              // Dispatch Quantity
               Text(
                 "DISPATCH QUANTITY *",
                 style: AppTypography.caption(fontWeight: FontWeight.w700, color: textSecondary),
@@ -260,6 +271,7 @@ class _StockOutSheetState extends State<StockOutSheet> {
                   hintText: _selectedItem != null ? "Max ${_selectedItem!.currentStock}" : "Enter quantity",
                   suffixText: _selectedItem?.unit ?? "Units",
                 ),
+                onChanged: (_) => setState(() {}),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return "Required";
                   final n = int.tryParse(v.trim());
@@ -271,42 +283,86 @@ class _StockOutSheetState extends State<StockOutSheet> {
                 },
               ),
 
+              const SizedBox(height: 12),
+
+              // Live Stock Balance Gauge
+              if (_selectedItem != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _remainingStock >= 0
+                        ? (isDark ? Colors.white10 : Colors.grey.shade50)
+                        : AppColors.errorRed.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _remainingStock >= 0 ? borderColor : AppColors.errorRed,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("Remaining After Dispatch:", style: AppTypography.caption(color: textSecondary)),
+                      Text(
+                        "$_remainingStock ${_selectedItem!.unit}",
+                        style: AppTypography.bodySmall(
+                          color: _remainingStock >= 0 ? AppColors.emeraldGreen : AppColors.errorRed,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               const SizedBox(height: 14),
 
-              // Reference Type & Reference / Project ID
+              // Reference Type
+              Text(
+                "PURPOSE / DESTINATION",
+                style: AppTypography.caption(fontWeight: FontWeight.w700, color: textSecondary),
+              ),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                initialValue: _referenceType,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                ),
+                items: _referenceTypes.map((rt) {
+                  return DropdownMenuItem<String>(
+                    value: rt["value"],
+                    child: Text(
+                      rt["label"]!,
+                      style: AppTypography.bodySmall(color: textPrimary, fontWeight: FontWeight.w600),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (v) {
+                  if (v != null) setState(() => _referenceType = v);
+                },
+              ),
+
+              const SizedBox(height: 14),
+
+              // Project / Lead Code & Customer Site Name
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "PURPOSE / DESTINATION",
+                          "PROJECT / LEAD CODE",
                           style: AppTypography.caption(fontWeight: FontWeight.w700, color: textSecondary),
                         ),
                         const SizedBox(height: 6),
-                        DropdownButtonFormField<String>(
-                          initialValue: _referenceType,
-                          isExpanded: true,
+                        TextFormField(
+                          controller: _referenceNumberController,
                           decoration: InputDecoration(
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            hintText: "e.g. PRJ-2026-104",
                           ),
-                          items: _referenceTypes.map((rt) {
-                            return DropdownMenuItem<String>(
-                              value: rt["value"],
-                              child: Text(
-                                rt["label"]!,
-                                style: AppTypography.caption(color: textPrimary, fontWeight: FontWeight.w600),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (v) {
-                            if (v != null) setState(() => _referenceType = v);
-                          },
                         ),
                       ],
                     ),
@@ -317,16 +373,16 @@ class _StockOutSheetState extends State<StockOutSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "PROJECT / CHALAN #",
+                          "CUSTOMER / SITE NAME",
                           style: AppTypography.caption(fontWeight: FontWeight.w700, color: textSecondary),
                         ),
                         const SizedBox(height: 6),
                         TextFormField(
-                          controller: _referenceIdController,
+                          controller: _customerSiteController,
                           decoration: InputDecoration(
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            hintText: "PRJ-1049",
+                            hintText: "e.g. Rajesh Sharma",
                           ),
                         ),
                       ],
@@ -339,7 +395,7 @@ class _StockOutSheetState extends State<StockOutSheet> {
 
               // Notes
               Text(
-                "DISPATCH NOTES",
+                "DISPATCH REMARKS / NOTES",
                 style: AppTypography.caption(fontWeight: FontWeight.w700, color: textSecondary),
               ),
               const SizedBox(height: 6),
@@ -349,7 +405,7 @@ class _StockOutSheetState extends State<StockOutSheet> {
                 decoration: InputDecoration(
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   contentPadding: const EdgeInsets.all(12),
-                  hintText: "Installer name, site contact, transport vehicle #...",
+                  hintText: "e.g. Dispatched 10 panels via local transport for site installation...",
                 ),
               ),
 

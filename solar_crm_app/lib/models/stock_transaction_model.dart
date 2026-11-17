@@ -84,3 +84,4 @@ class StockTransactionModel {
   bool get isInward => transactionType == 'IN';
   bool get isOutward => transactionType == 'OUT';
 }
+

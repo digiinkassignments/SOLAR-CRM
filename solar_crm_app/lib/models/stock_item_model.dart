@@ -161,3 +161,4 @@ class StockItemModel {
     return r.clamp(0.0, 1.0);
   }
 }
+

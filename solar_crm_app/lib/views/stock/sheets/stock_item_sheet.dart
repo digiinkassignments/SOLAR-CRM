@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
@@ -25,7 +27,9 @@ class StockItemSheet extends StatefulWidget {
 
 class _StockItemSheetState extends State<StockItemSheet> {
   final _formKey = GlobalKey<FormState>();
+  final _picker = ImagePicker();
 
+  File? _imageFile;
   int? _selectedCategoryId;
   final _nameController = TextEditingController();
   final _brandController = TextEditingController();
@@ -45,16 +49,26 @@ class _StockItemSheetState extends State<StockItemSheet> {
 
   // Specs
   final _wattageController = TextEditingController();
+  String _panelType = "Mono PERC";
+  final _efficiencyController = TextEditingController();
+  final _warrantyController = TextEditingController(text: "25");
+
   final _capacityKwController = TextEditingController();
-  final _phaseController = TextEditingController(text: "3 Phase");
-  final _warrantyController = TextEditingController();
-  final _structureTypeController = TextEditingController();
-  final _cableTypeController = TextEditingController();
-  final _specsNotesController = TextEditingController();
+  String _inverterType = "On-Grid";
+  String _phase = "3 Phase";
+
+  String _structureType = "GI";
+  String _cableType = "DC 6mm²";
+  final _batteryCapacityController = TextEditingController();
 
   bool _isLoading = false;
 
   final List<String> _units = ["Piece", "Set", "Meter", "Kg", "Litre", "Roll", "Pair", "Box", "Pack"];
+  final List<String> _panelTypes = ["Mono PERC", "Bifacial", "Polycrystalline", "TopCon", "Thin Film"];
+  final List<String> _inverterTypes = ["On-Grid", "Off-Grid", "Hybrid", "Microinverter"];
+  final List<String> _phases = ["Single Phase", "3 Phase"];
+  final List<String> _structureTypes = ["GI (Galvanized Iron)", "Aluminium", "Tin Shed", "Elevated"];
+  final List<String> _cableTypes = ["DC 4mm²", "DC 6mm²", "DC 10mm²", "AC 4 Core", "AC 2 Core"];
 
   @override
   void initState() {
@@ -78,12 +92,26 @@ class _StockItemSheetState extends State<StockItemSheet> {
 
       final specs = item.specifications;
       _wattageController.text = specs['wattage']?.toString() ?? "";
+      if (specs['panel_type'] != null && _panelTypes.contains(specs['panel_type'])) {
+        _panelType = specs['panel_type'].toString();
+      }
+      _efficiencyController.text = specs['efficiency']?.toString() ?? "";
+      _warrantyController.text = specs['warranty_years']?.toString() ?? "25";
+
       _capacityKwController.text = specs['capacity_kw']?.toString() ?? "";
-      _phaseController.text = specs['phase']?.toString() ?? "3 Phase";
-      _warrantyController.text = specs['warranty_years']?.toString() ?? "";
-      _structureTypeController.text = specs['structure_type']?.toString() ?? "";
-      _cableTypeController.text = specs['cable_type']?.toString() ?? "";
-      _specsNotesController.text = specs['notes']?.toString() ?? "";
+      if (specs['inverter_type'] != null && _inverterTypes.contains(specs['inverter_type'])) {
+        _inverterType = specs['inverter_type'].toString();
+      }
+      if (specs['phase'] != null && _phases.contains(specs['phase'])) {
+        _phase = specs['phase'].toString();
+      }
+      if (specs['structure_type'] != null && _structureTypes.contains(specs['structure_type'])) {
+        _structureType = specs['structure_type'].toString();
+      }
+      if (specs['cable_type'] != null && _cableTypes.contains(specs['cable_type'])) {
+        _cableType = specs['cable_type'].toString();
+      }
+      _batteryCapacityController.text = specs['battery_capacity']?.toString() ?? "";
     }
   }
 
@@ -102,13 +130,22 @@ class _StockItemSheetState extends State<StockItemSheet> {
     _reorderLevelController.dispose();
     _initialStockController.dispose();
     _wattageController.dispose();
-    _capacityKwController.dispose();
-    _phaseController.dispose();
+    _efficiencyController.dispose();
     _warrantyController.dispose();
-    _structureTypeController.dispose();
-    _cableTypeController.dispose();
-    _specsNotesController.dispose();
+    _capacityKwController.dispose();
+    _batteryCapacityController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(source: source, maxWidth: 1024, maxHeight: 1024, imageQuality: 85);
+      if (picked != null) {
+        setState(() => _imageFile = File(picked.path));
+      }
+    } catch (e) {
+      debugPrint("Error picking image: $e");
+    }
   }
 
   Future<void> _handleSubmit() async {
@@ -122,12 +159,15 @@ class _StockItemSheetState extends State<StockItemSheet> {
 
     final specs = {
       if (_wattageController.text.trim().isNotEmpty) 'wattage': _wattageController.text.trim(),
-      if (_capacityKwController.text.trim().isNotEmpty) 'capacity_kw': _capacityKwController.text.trim(),
-      if (_phaseController.text.trim().isNotEmpty) 'phase': _phaseController.text.trim(),
+      'panel_type': _panelType,
+      if (_efficiencyController.text.trim().isNotEmpty) 'efficiency': _efficiencyController.text.trim(),
       if (_warrantyController.text.trim().isNotEmpty) 'warranty_years': _warrantyController.text.trim(),
-      if (_structureTypeController.text.trim().isNotEmpty) 'structure_type': _structureTypeController.text.trim(),
-      if (_cableTypeController.text.trim().isNotEmpty) 'cable_type': _cableTypeController.text.trim(),
-      if (_specsNotesController.text.trim().isNotEmpty) 'notes': _specsNotesController.text.trim(),
+      if (_capacityKwController.text.trim().isNotEmpty) 'capacity_kw': _capacityKwController.text.trim(),
+      'inverter_type': _inverterType,
+      'phase': _phase,
+      'structure_type': _structureType,
+      'cable_type': _cableType,
+      if (_batteryCapacityController.text.trim().isNotEmpty) 'battery_capacity': _batteryCapacityController.text.trim(),
     };
 
     final payload = {
@@ -156,9 +196,16 @@ class _StockItemSheetState extends State<StockItemSheet> {
     final provider = Provider.of<StockProvider>(context, listen: false);
     bool success;
     if (widget.editItem != null) {
-      success = await provider.updateStockItem(widget.editItem!.id, payload);
+      success = await provider.updateStockItem(
+        widget.editItem!.id,
+        payload,
+        imageFilePath: _imageFile?.path,
+      );
     } else {
-      success = await provider.createStockItem(payload);
+      success = await provider.createStockItem(
+        payload,
+        imageFilePath: _imageFile?.path,
+      );
     }
 
     setState(() => _isLoading = false);
@@ -207,7 +254,7 @@ class _StockItemSheetState extends State<StockItemSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.88,
+        maxHeight: MediaQuery.of(context).size.height * 0.90,
       ),
       child: Form(
         key: _formKey,
@@ -254,7 +301,84 @@ class _StockItemSheetState extends State<StockItemSheet> {
                 ],
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
+
+              // Photo Upload Section
+              Center(
+                child: Column(
+                  children: [
+                    Stack(
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white10 : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: borderColor, width: 1.5),
+                            image: _imageFile != null
+                                ? DecorationImage(image: FileImage(_imageFile!), fit: BoxFit.cover)
+                                : widget.editItem?.imageUrl != null
+                                    ? DecorationImage(
+                                        image: NetworkImage(widget.editItem!.imageUrl!),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null,
+                          ),
+                          child: (_imageFile == null && widget.editItem?.imageUrl == null)
+                              ? Icon(Icons.solar_power_rounded, size: 36, color: textSecondary)
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: () {
+                              showModalBottomSheet(
+                                context: context,
+                                builder: (_) => SafeArea(
+                                  child: Wrap(
+                                    children: [
+                                      ListTile(
+                                        leading: const Icon(Icons.camera_alt_rounded),
+                                        title: const Text("Take Photo (Camera)"),
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          _pickImage(ImageSource.camera);
+                                        },
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons.photo_library_rounded),
+                                        title: const Text("Choose from Gallery"),
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          _pickImage(ImageSource.gallery);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: const BoxDecoration(
+                                color: AppColors.brandPrimary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 16),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text("Product Photo (Max 5MB)", style: AppTypography.caption(color: textSecondary)),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
 
               // Category Picker
               Text(
@@ -391,7 +515,7 @@ class _StockItemSheetState extends State<StockItemSheet> {
                           decoration: InputDecoration(
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            hintText: "Barcode digits",
+                            hintText: "Scan or enter barcode",
                           ),
                         ),
                       ],
@@ -402,7 +526,7 @@ class _StockItemSheetState extends State<StockItemSheet> {
 
               const SizedBox(height: 14),
 
-              // Unit, Unit Price & GST
+              // Unit, Unit Price, GST & HSN
               Row(
                 children: [
                   Expanded(
@@ -454,10 +578,7 @@ class _StockItemSheetState extends State<StockItemSheet> {
                             prefixText: "₹ ",
                             hintText: "18500",
                           ),
-                          validator: (v) {
-                            if (v == null || v.trim().isEmpty) return "Required";
-                            return null;
-                          },
+                          validator: (v) => (v == null || v.trim().isEmpty) ? "Required" : null,
                         ),
                       ],
                     ),
@@ -490,7 +611,24 @@ class _StockItemSheetState extends State<StockItemSheet> {
 
               const SizedBox(height: 14),
 
-              // Stock Thresholds: Min Level & Reorder Level & Initial Stock
+              // HSN Code
+              Text(
+                "HSN CODE",
+                style: AppTypography.caption(fontWeight: FontWeight.w700, color: textSecondary),
+              ),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _hsnCodeController,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  hintText: "e.g. 8541",
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              // Min Stock Level, Reorder Level & Initial Stock
               Row(
                 children: [
                   Expanded(
@@ -563,17 +701,17 @@ class _StockItemSheetState extends State<StockItemSheet> {
                 ],
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
 
               // Technical Specifications Section Header
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
                   children: [
-                    Icon(Icons.tune_rounded, size: 16, color: AppColors.brandPrimary),
+                    const Icon(Icons.tune_rounded, size: 16, color: AppColors.brandPrimary),
                     const SizedBox(width: 6),
                     Text(
-                      "TECHNICAL SPECIFICATIONS (OPTIONAL)",
+                      "TECHNICAL SPECIFICATIONS",
                       style: AppTypography.caption(
                         color: AppColors.brandPrimary,
                         fontWeight: FontWeight.w700,
@@ -583,24 +721,21 @@ class _StockItemSheetState extends State<StockItemSheet> {
                 ),
               ),
 
-              // Wattage & Capacity kW
+              // Panel Specifics: Wattage, Panel Type, Efficiency, Warranty
               Row(
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "WATTAGE (Wp)",
-                          style: AppTypography.caption(color: textSecondary),
-                        ),
+                        Text("WATTAGE (Wp)", style: AppTypography.caption(color: textSecondary)),
                         const SizedBox(height: 4),
                         TextFormField(
                           controller: _wattageController,
                           decoration: InputDecoration(
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            hintText: "540W",
+                            hintText: "e.g. 540W",
                           ),
                         ),
                       ],
@@ -611,18 +746,60 @@ class _StockItemSheetState extends State<StockItemSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "CAPACITY (kW)",
-                          style: AppTypography.caption(color: textSecondary),
+                        Text("PANEL TYPE", style: AppTypography.caption(color: textSecondary)),
+                        const SizedBox(height: 4),
+                        DropdownButtonFormField<String>(
+                          initialValue: _panelType,
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          ),
+                          items: _panelTypes.map((t) => DropdownMenuItem(value: t, child: Text(t, style: AppTypography.caption(fontWeight: FontWeight.w600)))).toList(),
+                          onChanged: (v) { if (v != null) setState(() => _panelType = v); },
                         ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              // Inverter Specifics: Capacity kW, Inverter Type, Phase
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("CAPACITY (kW)", style: AppTypography.caption(color: textSecondary)),
                         const SizedBox(height: 4),
                         TextFormField(
                           controller: _capacityKwController,
                           decoration: InputDecoration(
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            hintText: "5 kW",
+                            hintText: "e.g. 5 kW",
                           ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("INVERTER TYPE", style: AppTypography.caption(color: textSecondary)),
+                        const SizedBox(height: 4),
+                        DropdownButtonFormField<String>(
+                          initialValue: _inverterType,
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          ),
+                          items: _inverterTypes.map((t) => DropdownMenuItem(value: t, child: Text(t, style: AppTypography.caption(fontWeight: FontWeight.w600)))).toList(),
+                          onChanged: (v) { if (v != null) setState(() => _inverterType = v); },
                         ),
                       ],
                     ),
@@ -639,17 +816,14 @@ class _StockItemSheetState extends State<StockItemSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "WARRANTY (YEARS)",
-                          style: AppTypography.caption(color: textSecondary),
-                        ),
+                        Text("WARRANTY (YEARS)", style: AppTypography.caption(color: textSecondary)),
                         const SizedBox(height: 4),
                         TextFormField(
                           controller: _warrantyController,
                           decoration: InputDecoration(
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            hintText: "10 Years / 25 Years",
+                            hintText: "25",
                           ),
                         ),
                       ],
@@ -660,23 +834,39 @@ class _StockItemSheetState extends State<StockItemSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "PHASE / TYPE",
-                          style: AppTypography.caption(color: textSecondary),
-                        ),
+                        Text("PHASE", style: AppTypography.caption(color: textSecondary)),
                         const SizedBox(height: 4),
-                        TextFormField(
-                          controller: _phaseController,
+                        DropdownButtonFormField<String>(
+                          initialValue: _phase,
                           decoration: InputDecoration(
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            hintText: "3 Phase / Mono",
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                           ),
+                          items: _phases.map((p) => DropdownMenuItem(value: p, child: Text(p, style: AppTypography.caption(fontWeight: FontWeight.w600)))).toList(),
+                          onChanged: (v) { if (v != null) setState(() => _phase = v); },
                         ),
                       ],
                     ),
                   ),
                 ],
+              ),
+
+              const SizedBox(height: 14),
+
+              // Description / Technical Notes
+              Text(
+                "DESCRIPTION / STORAGE NOTES",
+                style: AppTypography.caption(fontWeight: FontWeight.w700, color: textSecondary),
+              ),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _descriptionController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.all(12),
+                  hintText: "Write additional technical specs, batch details, or warehouse storage notes...",
+                ),
               ),
 
               const SizedBox(height: 24),
@@ -702,7 +892,7 @@ class _StockItemSheetState extends State<StockItemSheet> {
                   label: Text(
                     _isLoading
                         ? "Saving..."
-                        : (widget.editItem != null ? "Save Changes" : "Create Stock Item"),
+                        : (widget.editItem != null ? "Save Changes" : "Create Stock SKU"),
                     style: AppTypography.bodyMedium(color: Colors.white, fontWeight: FontWeight.w700),
                   ),
                 ),

@@ -50,7 +50,7 @@ class _StockValuationSheetState extends State<StockValuationSheet> {
       ),
       padding: const EdgeInsets.all(20),
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
+        maxHeight: MediaQuery.of(context).size.height * 0.90,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,11 +72,11 @@ class _StockValuationSheetState extends State<StockValuationSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Inventory Valuation Report",
+                      "Stock Inventory & Valuation Report",
                       style: AppTypography.headingSmall(color: textPrimary),
                     ),
                     Text(
-                      "Real-time asset valuation across hardware categories",
+                      "Warehouse inventory valuation & category breakdown",
                       style: AppTypography.caption(color: textSecondary),
                     ),
                   ],
@@ -99,57 +99,137 @@ class _StockValuationSheetState extends State<StockValuationSheet> {
               ),
             )
           else ...[
-            // KPI Summary Row
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white10 : Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: borderColor),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
+            // 4 Top KPI Cards (2x2 Grid)
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white10 : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: borderColor),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("TOTAL VALUE", style: AppTypography.caption(fontWeight: FontWeight.w700, color: textSecondary)),
+                        Text(
+                          "Total Valuation (Excl GST)",
+                          style: AppTypography.caption(color: textSecondary, fontWeight: FontWeight.w600),
+                        ),
                         const SizedBox(height: 4),
                         Text(
-                          Formatters.formatCurrency(report?.totalValuation ?? provider.totalValuation),
-                          style: AppTypography.headingSmall(color: AppColors.emeraldGreen),
+                          Formatters.formatCurrency(report?.totalValuation ?? 0.0),
+                          style: AppTypography.bodyMedium(
+                            color: AppColors.emeraldGreen,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  Container(width: 1, height: 40, color: borderColor),
-                  const SizedBox(width: 14),
-                  Expanded(
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white10 : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: borderColor),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("ACTIVE SKUs", style: AppTypography.caption(fontWeight: FontWeight.w700, color: textSecondary)),
+                        Text(
+                          "Total Valuation (Incl GST)",
+                          style: AppTypography.caption(color: textSecondary, fontWeight: FontWeight.w600),
+                        ),
                         const SizedBox(height: 4),
                         Text(
-                          "${report?.totalItems ?? provider.totalSKUs} Items",
-                          style: AppTypography.headingSmall(color: textPrimary),
+                          Formatters.formatCurrency(report?.totalValuationWithGst ?? 0.0),
+                          style: AppTypography.bodyMedium(
+                            color: AppColors.skyBlue,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white10 : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Total Stock Quantity",
+                          style: AppTypography.caption(color: textSecondary, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "${report?.totalQuantity ?? 0} Units",
+                          style: AppTypography.bodyMedium(
+                            color: textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white10 : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Catalog SKUs",
+                          style: AppTypography.caption(color: textSecondary, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "${report?.totalItems ?? 0} SKUs",
+                          style: AppTypography.bodyMedium(
+                            color: textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
 
             Text(
-              "CATEGORY BREAKDOWN",
+              "CATEGORY-WISE STOCK VALUATION",
               style: AppTypography.caption(fontWeight: FontWeight.w700, color: textSecondary),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
 
+            // Category breakdown list
             Expanded(
               child: (report?.categories.isNotEmpty == true)
                   ? ListView.separated(
@@ -184,15 +264,18 @@ class _StockValuationSheetState extends State<StockValuationSheet> {
                                       style: AppTypography.bodySmall(color: textPrimary, fontWeight: FontWeight.w600),
                                     ),
                                     Text(
-                                      "${cat.totalItems} SKUs • ${cat.totalStock} in stock",
+                                      "${cat.itemCount} items • ${cat.totalQuantity} Units",
                                       style: AppTypography.caption(color: textSecondary),
                                     ),
                                   ],
                                 ),
                               ),
                               Text(
-                                Formatters.formatCurrency(cat.totalValuation),
-                                style: AppTypography.bodyMedium(color: AppColors.emeraldGreen, fontWeight: FontWeight.w700),
+                                Formatters.formatCurrency(cat.categoryValuation),
+                                style: AppTypography.bodyMedium(
+                                  color: cat.categoryValuation > 0 ? AppColors.emeraldGreen : textSecondary,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ],
                           ),

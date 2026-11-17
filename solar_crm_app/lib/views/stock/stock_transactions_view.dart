@@ -18,7 +18,11 @@ class StockTransactionsView extends StatefulWidget {
 
 class _StockTransactionsViewState extends State<StockTransactionsView> {
   String _selectedType = 'ALL';
+  String _selectedRefType = 'ALL';
   final _searchController = TextEditingController();
+
+  final List<String> _txnTypes = ['ALL', 'IN', 'OUT', 'ADJUSTMENT', 'RESERVED', 'RELEASED'];
+  final List<String> _refTypes = ['ALL', 'PURCHASE', 'LEAD', 'PROJECT', 'RETURN', 'DAMAGE'];
 
   @override
   void initState() {
@@ -34,11 +38,14 @@ class _StockTransactionsViewState extends State<StockTransactionsView> {
     super.dispose();
   }
 
-  void _loadData() {
-    Provider.of<StockProvider>(context, listen: false).fetchTransactions(
+  void _loadData({int? page}) {
+    final provider = Provider.of<StockProvider>(context, listen: false);
+    provider.fetchTransactions(
       itemId: widget.itemId,
-      transactionType: _selectedType,
+      transactionType: _selectedType == 'ALL' ? null : _selectedType,
+      referenceType: _selectedRefType == 'ALL' ? null : _selectedRefType,
       search: _searchController.text.trim(),
+      page: page,
     );
   }
 
@@ -82,77 +89,57 @@ class _StockTransactionsViewState extends State<StockTransactionsView> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: _loadData,
+            onPressed: () => _loadData(),
           ),
         ],
       ),
       body: Column(
         children: [
-          // KPI Summary Cards (Total IN / Total OUT)
+          // 3 Stat Cards Matching Web CRM
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.emeraldGreen.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.emeraldGreen.withValues(alpha: 0.25)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.trending_up_rounded, color: AppColors.emeraldGreen, size: 16),
-                            const SizedBox(width: 4),
-                            Text("INWARD VALUE", style: AppTypography.badge(color: AppColors.emeraldGreen)),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          Formatters.formatCurrency(totalInValue),
-                          style: AppTypography.headingSmall(color: textPrimary),
-                        ),
-                      ],
-                    ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildStatCard(
+                    title: "TOTAL TRANSACTIONS LOGGED",
+                    value: provider.totalTxns.toString(),
+                    subtitle: "All historical stock movements",
+                    accentColor: const Color(0xFF3B82F6),
+                    cardBg: cardBg,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.errorRed.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.errorRed.withValues(alpha: 0.25)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.trending_down_rounded, color: AppColors.errorRed, size: 16),
-                            const SizedBox(width: 4),
-                            Text("OUTWARD VALUE", style: AppTypography.badge(color: AppColors.errorRed)),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          Formatters.formatCurrency(totalOutValue),
-                          style: AppTypography.headingSmall(color: textPrimary),
-                        ),
-                      ],
-                    ),
+                  const SizedBox(width: 10),
+                  _buildStatCard(
+                    title: "PAGE INWARD PURCHASES (IN)",
+                    value: Formatters.formatCurrency(totalInValue),
+                    subtitle: "Stock added to warehouse",
+                    accentColor: const Color(0xFF16A34A),
+                    cardBg: cardBg,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 10),
+                  _buildStatCard(
+                    title: "PAGE OUTWARD DISPATCHES (OUT)",
+                    value: Formatters.formatCurrency(totalOutValue),
+                    subtitle: "Stock issued for projects/leads",
+                    accentColor: const Color(0xFFDC2626),
+                    cardBg: cardBg,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                  ),
+                ],
+              ),
             ),
           ),
 
-          // Filters: Search & Type Chips
+          // Filters: Search & Dropdowns
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: Column(
@@ -160,28 +147,101 @@ class _StockTransactionsViewState extends State<StockTransactionsView> {
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: "Search item, reference #, PO...",
+                    hintText: "Search item, reference #, vendor, PO...",
                     prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              _loadData(page: 1);
+                            },
+                          )
+                        : null,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  onSubmitted: (_) => _loadData(),
+                  onSubmitted: (_) => _loadData(page: 1),
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    _buildFilterChip("ALL", "All", _selectedType == "ALL"),
+                    // Txn Type Dropdown
+                    Expanded(
+                      child: Container(
+                        height: 38,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: borderColor),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedType,
+                            isExpanded: true,
+                            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                            items: _txnTypes.map((t) {
+                              return DropdownMenuItem<String>(
+                                value: t,
+                                child: Text(
+                                  t == 'ALL' ? "All Types" : t,
+                                  style: AppTypography.caption(color: textPrimary, fontWeight: FontWeight.w600),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _selectedType = val);
+                                _loadData(page: 1);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
                     const SizedBox(width: 8),
-                    _buildFilterChip("IN", "Stock IN", _selectedType == "IN"),
-                    const SizedBox(width: 8),
-                    _buildFilterChip("OUT", "Stock OUT", _selectedType == "OUT"),
+                    // Reference Type Dropdown
+                    Expanded(
+                      child: Container(
+                        height: 38,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: borderColor),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedRefType,
+                            isExpanded: true,
+                            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                            items: _refTypes.map((r) {
+                              return DropdownMenuItem<String>(
+                                value: r,
+                                child: Text(
+                                  r == 'ALL' ? "All Refs" : r,
+                                  style: AppTypography.caption(color: textPrimary, fontWeight: FontWeight.w600),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _selectedRefType = val);
+                                _loadData(page: 1);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
 
           // Transaction list
           Expanded(
@@ -201,7 +261,7 @@ class _StockTransactionsViewState extends State<StockTransactionsView> {
                     : RefreshIndicator(
                         onRefresh: () async => _loadData(),
                         child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                           itemCount: txns.length,
                           itemBuilder: (ctx, idx) {
                             final t = txns[idx];
@@ -210,23 +270,63 @@ class _StockTransactionsViewState extends State<StockTransactionsView> {
                         ),
                       ),
           ),
+
+          // Numbered Bottom Pagination (Matching Web 25 items per page)
+          if (provider.totalTxnPages > 1)
+            _buildPaginationBar(provider, isDark, cardBg, borderColor, textPrimary, textSecondary),
         ],
       ),
     );
   }
 
-  Widget _buildFilterChip(String value, String label, bool isSelected) {
-    return FilterChip(
-      selected: isSelected,
-      label: Text(label),
-      onSelected: (_) {
-        setState(() => _selectedType = value);
-        _loadData();
-      },
-      selectedColor: AppColors.brandPrimary.withValues(alpha: 0.15),
-      labelStyle: AppTypography.caption(
-        color: isSelected ? AppColors.brandPrimary : null,
-        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required Color accentColor,
+    required Color cardBg,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+  }) {
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border(
+          left: BorderSide(color: accentColor, width: 4),
+          top: BorderSide(color: borderColor),
+          right: BorderSide(color: borderColor),
+          bottom: BorderSide(color: borderColor),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            style: AppTypography.badge(color: accentColor),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: AppTypography.headingSmall(color: textPrimary),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: AppTypography.caption(color: textSecondary),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
@@ -340,6 +440,105 @@ class _StockTransactionsViewState extends State<StockTransactionsView> {
               style: AppTypography.caption(color: textSecondary),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaginationBar(
+    StockProvider provider,
+    bool isDark,
+    Color cardBg,
+    Color borderColor,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    final cur = provider.txnPage;
+    final total = provider.totalTxnPages;
+
+    List<int> pages = [];
+    if (total <= 5) {
+      pages = List.generate(total, (i) => i + 1);
+    } else {
+      int start = (cur - 2).clamp(1, total - 4);
+      pages = List.generate(5, (i) => start + i);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: cardBg,
+        border: Border(top: BorderSide(color: borderColor)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            "Page $cur of $total • ${provider.totalTxns} logs",
+            style: AppTypography.caption(color: textSecondary),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left_rounded, size: 20),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: cur > 1
+                    ? () => provider.setTxnPage(cur - 1,
+                        itemId: widget.itemId,
+                        transactionType: _selectedType == 'ALL' ? null : _selectedType,
+                        referenceType: _selectedRefType == 'ALL' ? null : _selectedRefType,
+                        search: _searchController.text.trim())
+                    : null,
+              ),
+              const SizedBox(width: 4),
+              ...pages.map((p) {
+                final isCurrent = p == cur;
+                return InkWell(
+                  onTap: () => provider.setTxnPage(p,
+                      itemId: widget.itemId,
+                      transactionType: _selectedType == 'ALL' ? null : _selectedType,
+                      referenceType: _selectedRefType == 'ALL' ? null : _selectedRefType,
+                      search: _searchController.text.trim()),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    width: 28,
+                    height: 28,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: isCurrent ? AppColors.brandPrimary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isCurrent ? AppColors.brandPrimary : borderColor,
+                      ),
+                    ),
+                    child: Text(
+                      "$p",
+                      style: AppTypography.caption(
+                        color: isCurrent ? Colors.white : textPrimary,
+                        fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.chevron_right_rounded, size: 20),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: cur < total
+                    ? () => provider.setTxnPage(cur + 1,
+                        itemId: widget.itemId,
+                        transactionType: _selectedType == 'ALL' ? null : _selectedType,
+                        referenceType: _selectedRefType == 'ALL' ? null : _selectedRefType,
+                        search: _searchController.text.trim())
+                    : null,
+              ),
+            ],
+          ),
         ],
       ),
     );
