@@ -398,14 +398,14 @@ const computeLocalSolarSystem = ({
 /* ============================================================
    MAIN COMPONENT: SolarCalculator
    ============================================================ */
-const SolarCalculator = ({ embeddedLead = null, onQuotationCreated = null }) => {
+const SolarCalculator = ({ embeddedLead = null, onQuotationCreated = null, technicalOnly = false }) => {
   // Mode: "bill" | "units" | "roof"
   const [calcMode, setCalcMode] = useState("bill");
 
   // Inputs
-  const [monthlyBill, setMonthlyBill] = useState(5000);
-  const [monthlyUnits, setMonthlyUnits] = useState(625);
-  const [roofAreaSqft, setRoofAreaSqft] = useState(500);
+  const [monthlyBill, setMonthlyBill] = useState("");
+  const [monthlyUnits, setMonthlyUnits] = useState("");
+  const [roofAreaSqft, setRoofAreaSqft] = useState("");
   const [roofUsablePercent, setRoofUsablePercent] = useState(80);
 
   const [selectedState, setSelectedState] = useState("Rajasthan");
@@ -857,7 +857,7 @@ const SolarCalculator = ({ embeddedLead = null, onQuotationCreated = null }) => 
             variant="contained"
             size="small"
             startIcon={<ReceiptLongIcon />}
-            onClick={handleCreateCurrentProposal}
+            style={{display:technicalOnly?"none":undefined}} onClick={handleCreateCurrentProposal}
             sx={{
               bgcolor: COLORS.primary,
               color: "#FFFFFF",
@@ -1266,7 +1266,7 @@ const SolarCalculator = ({ embeddedLead = null, onQuotationCreated = null }) => 
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
                       <FieldLabel>Usable Roof Space for Solar (%)</FieldLabel>
                       <Chip
-                        label={`${roofUsablePercent}% Usable (${Math.round(roofAreaSqft * (roofUsablePercent / 100))} sq.ft)`}
+                        label={`${roofUsablePercent}% Usable (${Math.round((Number(roofAreaSqft) || 500) * (roofUsablePercent / 100))} sq.ft)`}
                         size="small"
                         sx={{
                           bgcolor: COLORS.primarySoft,
@@ -1937,7 +1937,7 @@ const SolarCalculator = ({ embeddedLead = null, onQuotationCreated = null }) => 
               <Button
                 variant="contained"
                 endIcon={<ArrowForwardIcon />}
-                onClick={() => setOpenQuotationModal(true)}
+                style={{display:technicalOnly?"none":undefined}} onClick={() => setOpenQuotationModal(true)}
                 sx={{
                   bgcolor: COLORS.primary,
                   color: "#FFFFFF",
@@ -2413,7 +2413,7 @@ const SolarCalculator = ({ embeddedLead = null, onQuotationCreated = null }) => 
                       variant="contained"
                       size="small"
                       startIcon={<ReceiptLongIcon sx={{ fontSize: 15 }} />}
-                      onClick={() => handleCreateProposalFromSaved(sc)}
+                      style={{display:technicalOnly?"none":undefined}} onClick={() => handleCreateProposalFromSaved(sc)}
                       sx={{
                         bgcolor: COLORS.primary,
                         color: "#FFFFFF",
@@ -2437,7 +2437,7 @@ const SolarCalculator = ({ embeddedLead = null, onQuotationCreated = null }) => 
 
       {/* Create Proposal Modal Integration */}
       <CreateQuotationModal
-        open={openQuotationModal}
+        open={!technicalOnly && openQuotationModal}
         onClose={() => {
           setOpenQuotationModal(false);
           setActiveQuotationCalc(null);

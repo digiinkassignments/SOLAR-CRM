@@ -377,7 +377,7 @@ const getTeamMembersByManager = async (managerId, db = defaultDb) => {
 // ===============================
 const isUserInManagerTeam = async (userId, managerId, db = defaultDb) => {
     const [rows] = await db.query(
-        `SELECT id FROM users WHERE id = ? AND manager_id = ? AND is_deleted = 0`,
+        `SELECT id FROM users WHERE id = ? AND manager_id = ? AND role_id=3 AND is_deleted = 0`,
         [userId, managerId]
     );
     return rows.length > 0;

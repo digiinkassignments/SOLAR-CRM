@@ -30,6 +30,9 @@ const verifyToken = (req, res, next) => {
 
         // Save User Data
         req.user = decoded;
+        if (!req.user.client_id && req.clientInfo?.id) {
+            req.user.client_id = req.clientInfo.id;
+        }
 
         next();
 

@@ -331,7 +331,7 @@ const ClientDetail = () => {
                   </Typography>
                   <Box
                     component="a"
-                    href={`https://${client?.subdomain}.digiinksolutions.com`}
+                    href={`https://${client?.subdomain}.solops.cloud`}
                     target="_blank"
                     rel="noreferrer"
                     sx={{
@@ -345,7 +345,7 @@ const ClientDetail = () => {
                       "&:hover": { textDecoration: "underline" },
                     }}
                   >
-                    {client?.subdomain}.digiinksolutions.com
+                    {client?.subdomain}.solops.cloud
                     <OpenInNewRoundedIcon sx={{ fontSize: 13 }} />
                   </Box>
                 </Stack>
@@ -648,12 +648,12 @@ const ClientDetail = () => {
                 value={
                   <Box
                     component="a"
-                    href={`https://${client?.subdomain}.digiinksolutions.com`}
+                    href={`https://${client?.subdomain}.solops.cloud`}
                     target="_blank"
                     rel="noreferrer"
                     sx={{ color: GOOGLE_COLORS.blue, fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 0.5, "&:hover": { textDecoration: "underline" } }}
                   >
-                    https://{client?.subdomain}.digiinksolutions.com
+                    https://{client?.subdomain}.solops.cloud
                   </Box>
                 }
               />
@@ -1169,7 +1169,7 @@ const ClientDetail = () => {
                 <Stack spacing={1.2}>
                   <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                     <Typography variant="body2" sx={{ color: GOOGLE_COLORS.textSecondary, fontSize: "0.82rem" }}>Target Instance:</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.84rem" }}>{client?.subdomain}.digiinksolutions.com</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: GOOGLE_COLORS.textPrimary, fontSize: "0.84rem" }}>{client?.subdomain}.solops.cloud</Typography>
                   </Box>
                   <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                     <Typography variant="body2" sx={{ color: GOOGLE_COLORS.textSecondary, fontSize: "0.82rem" }}>Target Database:</Typography>

@@ -1,3 +1,4 @@
+import FieldWorkspace from "../pages/Engineer/field/FieldWorkspace";
 import React, { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from "react-router-dom";
 import api from "../api/axios";
@@ -31,8 +32,6 @@ import SalesLeads     from "../pages/Sales/SalesLeads";
 import SalesProfile   from "../pages/Sales/SalesProfile";
 
 import EngineerLayout    from "../layouts/EngineerLayout";
-import EngineerDashboard from "../pages/Engineer/EngineerDashboard";
-import EngineerSurveys   from "../pages/Engineer/EngineerSurveys";
 
 import SolarCalculator from "../pages/Calculator/SolarCalculator";
 import QuotationList   from "../pages/Quotations/QuotationList";
@@ -47,11 +46,10 @@ import StockTransactions from "../pages/Stock/StockTransactions";
 import StockAlerts from "../pages/Stock/StockAlerts";
 import ProjectsList from "../pages/Admin/Projects/ProjectsList";
 import ProjectDetail from "../pages/Admin/Projects/ProjectDetail";
-import SubsidyTracker from "../pages/Admin/Subsidy/SubsidyTracker";
 import SubsidyDetail from "../pages/Admin/Subsidy/SubsidyDetail";
 import CustomersList from "../pages/Customers/CustomersList";
 import CustomerDetail from "../pages/Customers/CustomerDetail";
-import LoansList from "../pages/Loans/LoansList";
+import FinancingHub from "../pages/Finance/FinancingHub";
 
 const SubscriptionGuard = ({ children }) => {
   const { user, token } = useAuth();
@@ -116,6 +114,19 @@ const HomeOrLogin = () => {
   return null;
 };
 
+function RedirectToProject() {
+  const { id } = useParams();
+  return <Navigate to={`/projects/${id}`} replace />;
+}
+function RedirectToManagerProject() {
+  const { id } = useParams();
+  return <Navigate to={`/manager/projects/${id}`} replace />;
+}
+function RedirectToEngineerProject() {
+  const { id } = useParams();
+  return <Navigate to={`/engineer/projects/${id}`} replace />;
+}
+
 const AppRoutes = () => {
   return (
     <BrowserRouter>
@@ -142,15 +153,22 @@ const AppRoutes = () => {
             <Route path="/calculator" element={<SolarCalculator />} />
             <Route path="/quotations" element={<QuotationList />} />
             <Route path="/invoices"   element={<InvoiceList />} />
-            <Route path="/loans"      element={<LoansList />} />
+            <Route path="/loans" element={<Navigate to="/subsidies/loans" replace />} />
             <Route path="/projects"   element={<ProjectsList />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
-            <Route path="/subsidies"   element={<SubsidyTracker />} />
+            <Route path="/projects/:id/field" element={<RedirectToProject />} />
+            <Route path="/subsidies" element={<FinancingHub />} />
+            <Route path="/subsidies/loans" element={<FinancingHub />} />
             <Route path="/subsidies/:leadId" element={<SubsidyDetail />} />
             <Route path="/stock"              element={<StockList />} />
             <Route path="/stock/transactions" element={<StockTransactions />} />
             <Route path="/stock/alerts"       element={<StockAlerts />} />
             <Route path="/stock/:id"          element={<StockDetail />} />
+            <Route path="/field-work" element={<FieldWorkspace />} />
+<Route path="/field-work/tasks" element={<FieldWorkspace mode="tasks" />} />
+<Route path="/field-work/projects" element={<FieldWorkspace mode="projects" />} />
+<Route path="/field-work/surveys" element={<FieldWorkspace mode="surveys" />} />
+<Route path="/field-work/surveys/:id" element={<FieldWorkspace resourceType="survey" />} />
             <Route path="/reports"    element={<Reports />} />
             <Route path="/settings"   element={<Settings />} />
             <Route path="/profile"    element={<Profile />} />
@@ -161,17 +179,34 @@ const AppRoutes = () => {
           <Route element={<SubscriptionGuard><ManagerLayout /></SubscriptionGuard>}>
             <Route path="/manager/dashboard"  element={<ManagerDashboard />} />
             <Route path="/manager/team"       element={<TeamMembers />} />
-            <Route path="/manager/leads"      element={<ManagerLeads />} />
+            <Route path="/manager/leads" element={<Leads />} />
+            <Route path="/manager/leads/today-followups" element={<TodayFollowups />} />
+            <Route path="/manager/leads/birthdays" element={<BirthdayEvents />} />
             <Route path="/manager/customers"  element={<CustomersList />} />
             <Route path="/manager/customers/:id" element={<CustomerDetail />} />
             <Route path="/manager/calculator" element={<SolarCalculator />} />
             <Route path="/manager/quotations" element={<QuotationList />} />
             <Route path="/manager/invoices"   element={<InvoiceList />} />
-            <Route path="/manager/loans"      element={<LoansList />} />
+            <Route path="/manager/loans" element={<Navigate to="/manager/subsidies/loans" replace />} />
+            <Route path="/manager/subsidies" element={<FinancingHub />} />
+            <Route path="/manager/subsidies/loans" element={<FinancingHub />} />
+            <Route path="/manager/subsidies/:leadId" element={<SubsidyDetail />} />
             <Route path="/manager/projects"   element={<ProjectsList />} />
             <Route path="/manager/projects/:id" element={<ProjectDetail />} />
+            <Route path="/manager/projects/:id/field" element={<RedirectToManagerProject />} />
             <Route path="/manager/followups"  element={<TeamFollowups />} />
-            <Route path="/manager/reports"    element={<ManagerReports />} />
+            <Route path="/manager/field-work" element={<FieldWorkspace />} />
+<Route path="/manager/field-work/tasks" element={<FieldWorkspace mode="tasks" />} />
+<Route path="/manager/field-work/projects" element={<FieldWorkspace mode="projects" />} />
+<Route path="/manager/field-work/surveys" element={<FieldWorkspace mode="surveys" />} />
+<Route path="/manager/field-work/surveys/:id" element={<FieldWorkspace resourceType="survey" />} />
+            <Route path="/manager/reports" element={<Reports />} />
+            <Route path="/manager/reports/team" element={<ManagerReports />} />
+            <Route path="/manager/settings" element={<Settings />} />
+            <Route path="/manager/stock" element={<StockList />} />
+            <Route path="/manager/stock/transactions" element={<StockTransactions />} />
+            <Route path="/manager/stock/alerts" element={<StockAlerts />} />
+            <Route path="/manager/stock/:id" element={<StockDetail />} />
             <Route path="/manager/profile"    element={<ManagerProfile />} />
           </Route>
         </Route>
@@ -180,6 +215,9 @@ const AppRoutes = () => {
           <Route element={<SubscriptionGuard><SalesLayout /></SubscriptionGuard>}>
             <Route path="/sales/dashboard"  element={<SalesDashboard />} />
             <Route path="/sales/leads"      element={<SalesLeads />} />
+            <Route path="/sales/followups" element={<Navigate to="/sales/leads/today-followups" replace />} />
+            <Route path="/sales/leads/today-followups" element={<TodayFollowups salesMode />} />
+            <Route path="/sales/leads/birthdays" element={<BirthdayEvents salesMode />} />
             <Route path="/sales/calculator" element={<SolarCalculator />} />
             <Route path="/sales/quotations" element={<QuotationList />} />
             <Route path="/sales/invoices"   element={<InvoiceList />} />
@@ -189,10 +227,15 @@ const AppRoutes = () => {
 
         <Route element={<PrivateRoute allowedRoles={["Site Engineer", "Engineer"]} />}>
           <Route element={<SubscriptionGuard><EngineerLayout /></SubscriptionGuard>}>
-            <Route path="/engineer/dashboard"  element={<EngineerDashboard />} />
-            <Route path="/engineer/surveys"    element={<EngineerSurveys />} />
-            <Route path="/engineer/projects"   element={<ProjectsList />} />
-            <Route path="/engineer/calculator" element={<SolarCalculator />} />
+            <Route path="/engineer/dashboard" element={<FieldWorkspace />} />
+            <Route path="/engineer/surveys" element={<FieldWorkspace mode="surveys" />} />
+            <Route path="/engineer/surveys/:id" element={<FieldWorkspace resourceType="survey" />} />
+            <Route path="/engineer/tasks" element={<FieldWorkspace mode="tasks" />} />
+            <Route path="/engineer/service" element={<FieldWorkspace mode="service" />} />
+            <Route path="/engineer/projects" element={<ProjectsList />} />
+            <Route path="/engineer/projects/:id" element={<ProjectDetail />} />
+            <Route path="/engineer/projects/:id/field" element={<RedirectToEngineerProject />} />
+            <Route path="/engineer/calculator" element={<SolarCalculator technicalOnly />} />
             <Route path="/engineer/profile"    element={<Profile />} />
           </Route>
         </Route>

@@ -1,7 +1,11 @@
+const managerScope=require("../utils/managerScope");
 const express = require("express");
 const router = express.Router();
 const { verifyToken } = require("../middleware/authMiddleware");
 const { db: defaultDb } = require("../config/db");
+
+const { engineerReport } = require("../controllers/engineerReportController");
+router.get("/engineers", verifyToken, engineerReport);
 
 // 1. Projects Execution Summary & Funnel
 router.get("/projects", verifyToken, async (req, res) => {
@@ -23,7 +27,7 @@ router.get("/projects", verifyToken, async (req, res) => {
         u.full_name AS assigned_to_name
       FROM projects p
       LEFT JOIN users u ON p.assigned_to = u.id
-      WHERE p.is_deleted = 0
+      WHERE p.is_deleted = 0${managerScope.linked(db,"p.lead_id")}
       ORDER BY p.id DESC
     `);
 
@@ -101,7 +105,7 @@ router.get("/financials", verifyToken, async (req, res) => {
         payment_status,
         due_date,
         created_at
-      FROM invoices
+      FROM invoices WHERE 1=1${managerScope.linked(db,"invoices.lead_id")}
       ORDER BY id DESC
     `);
 
@@ -191,7 +195,7 @@ router.get("/field-operations", verifyToken, async (req, res) => {
         u.full_name AS assigned_to_name
       FROM projects p
       LEFT JOIN users u ON p.assigned_to = u.id
-      WHERE p.is_deleted = 0
+      WHERE p.is_deleted = 0${managerScope.linked(db,"p.lead_id")}
       ORDER BY p.id DESC
     `);
 
@@ -332,7 +336,7 @@ router.get("/warranty-amc", verifyToken, async (req, res) => {
         p.system_capacity_kw,
         p.created_at
       FROM projects p
-      WHERE p.is_deleted = 0
+      WHERE p.is_deleted = 0${managerScope.linked(db,"p.lead_id")}
       ORDER BY p.id DESC
     `);
 

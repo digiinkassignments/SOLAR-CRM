@@ -360,7 +360,7 @@ const renewClient = async (req, res) => {
                 <p>Dear <strong>${client.owner_name}</strong>,</p>
                 <p>Your payment has been confirmed and your subscription plan <strong>${planInfo[0]?.name || ""}</strong> has been activated/renewed.</p>
                 <p>Please find attached your invoice PDF for lead <strong>${lead.lead_code || ""}</strong>.</p>
-                <p>Login URL: <a href="https://${client.subdomain}.digiinksolutions.com">https://${client.subdomain}.digiinksolutions.com</a></p>
+                <p>Login URL: <a href="https://${client.subdomain}.solops.cloud">https://${client.subdomain}.solops.cloud</a></p>
               </div>
             </div>
           `,
@@ -739,7 +739,7 @@ const resetClientAdminPassword = async (req, res) => {
         clientCode: client.client_code,
         businessName: client.business_name,
         subdomain: client.subdomain,
-        portalUrl: `https://${client.subdomain}.digiinksolutions.com`,
+        portalUrl: `https://${client.subdomain}.solops.cloud`,
         adminUsername: adminUser.email || adminUser.username,
         adminFullName: adminUser.full_name,
         tempPassword: tempPassword,
@@ -822,8 +822,8 @@ const impersonateClient = async (req, res) => {
         token,
         user: adminUser,
         subdomain: client.subdomain,
-        portalUrl: `https://${client.subdomain}.digiinksolutions.com`,
-        redirectUrl: `https://${client.subdomain}.digiinksolutions.com/dashboard?token=${token}`,
+        portalUrl: `https://${client.subdomain}.solops.cloud`,
+        redirectUrl: `https://${client.subdomain}.solops.cloud/dashboard?token=${token}`,
       },
     });
 

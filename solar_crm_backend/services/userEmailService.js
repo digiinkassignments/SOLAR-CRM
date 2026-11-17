@@ -30,7 +30,7 @@ async function sendUserWelcomeCredentialsEmail({
       return false;
     }
 
-    const appLoginUrl = loginUrl || process.env.FRONTEND_URL || "https://solarcrm.digiinksolutions.com";
+    const appLoginUrl = loginUrl || process.env.FRONTEND_URL || "https://solarcrm.solops.cloud";
 
     const mailOptions = {
       from: process.env.MAIL_FROM || `"Solar CRM Platform" <${process.env.MAIL_USER}>`,

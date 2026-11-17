@@ -1,3 +1,4 @@
+import MyNextActions from "../../components/MyNextActions";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -214,7 +215,7 @@ const SalesDashboard = () => {
   const conversionRate = total_assigned > 0 ? ((converted / total_assigned) * 100).toFixed(1) : "0.0";
 
   const openCount = statusBreakdown
-    .filter((s) => !["Won", "Lost", "Not Interested", "New Lead"].includes(s.status))
+    .filter((s) => !["Won", "Lost", "Invalid", "Not Interested", "New Lead"].includes(s.status))
     .reduce((acc, s) => acc + s.count, 0);
 
   const donutData = [
@@ -278,16 +279,17 @@ const SalesDashboard = () => {
       {/* STAT CARDS */}
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)", xl: "repeat(6, 1fr)" }, gap: 2, mb: 2.5, width: "100%" }}>
         <StatCard label="MY ASSIGNED LEADS" value={total_assigned} caption="Total active solar inquiries" icon={<PhoneInTalkIcon sx={{ fontSize: 18 }} />} color={COLORS.info} softColor={COLORS.infoSoft} loading={loading} onClick={() => navigate("/sales/leads")} index={0} />
-        <StatCard label="NEW LEADS" value={new_leads} caption="Not yet contacted" icon={<NewReleasesOutlinedIcon sx={{ fontSize: 18 }} />} color={COLORS.primary} softColor="#E6F0FA" loading={loading} onClick={() => navigate("/sales/leads")} index={1} />
-        <StatCard label="TODAY'S FOLLOW-UPS" value={today_followups} caption="Due today" icon={<PendingActionsIcon sx={{ fontSize: 18 }} />} color={COLORS.warning} softColor={COLORS.warningSoft} loading={loading} onClick={() => navigate("/sales/followups")} index={2} />
-        <StatCard label="PENDING FOLLOW-UPS" value={pending_followups} caption="Overdue - action required" icon={<WarningAmberOutlinedIcon sx={{ fontSize: 18 }} />} color={COLORS.danger} softColor={COLORS.dangerSoft} loading={loading} onClick={() => navigate("/sales/followups")} index={3} />
-        <StatCard label="CONVERTED DEALS" value={converted} caption={`${conversionRate}% conversion rate`} icon={<CheckCircleOutlinedIcon sx={{ fontSize: 18 }} />} color={COLORS.success} softColor={COLORS.successSoft} loading={loading} onClick={() => navigate("/sales/leads")} index={4} />
-        <StatCard label="UPCOMING SITE VISITS" value={upcoming_site_visits} caption="Scheduled surveys" icon={<LocationOnOutlinedIcon sx={{ fontSize: 18 }} />} color={COLORS.purple} softColor={COLORS.purpleSoft} loading={loading} onClick={() => navigate("/sales/leads")} index={5} />
+        <StatCard label="NEW LEADS" value={new_leads} caption="Not yet contacted" icon={<NewReleasesOutlinedIcon sx={{ fontSize: 18 }} />} color={COLORS.primary} softColor="#E6F0FA" loading={loading} onClick={() => navigate("/sales/leads?status=New%20Lead")} index={1} />
+        <StatCard label="TODAY'S FOLLOW-UPS" value={today_followups} caption="Due today" icon={<PendingActionsIcon sx={{ fontSize: 18 }} />} color={COLORS.warning} softColor={COLORS.warningSoft} loading={loading} onClick={() => navigate("/sales/leads/today-followups")} index={2} />
+        <StatCard label="PENDING FOLLOW-UPS" value={pending_followups} caption="Overdue - action required" icon={<WarningAmberOutlinedIcon sx={{ fontSize: 18 }} />} color={COLORS.danger} softColor={COLORS.dangerSoft} loading={loading} onClick={() => navigate("/sales/leads/today-followups?filter=overdue")} index={3} />
+        <StatCard label="CONVERTED DEALS" value={converted} caption={`${conversionRate}% conversion rate`} icon={<CheckCircleOutlinedIcon sx={{ fontSize: 18 }} />} color={COLORS.success} softColor={COLORS.successSoft} loading={loading} onClick={() => navigate("/sales/leads?status=Won")} index={4} />
+        <StatCard label="UPCOMING SITE VISITS" value={upcoming_site_visits} caption="Scheduled surveys" icon={<LocationOnOutlinedIcon sx={{ fontSize: 18 }} />} color={COLORS.purple} softColor={COLORS.purpleSoft} loading={loading} onClick={() => navigate("/sales/leads?visit_filter=upcoming")} index={5} />
       </Box>
 
       <Fade in={!loading} timeout={500}>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-          {/* MIDDLE ROW: ACTIONABLE FOLLOW-UPS & STAGE BREAKDOWN */}
+          <MyNextActions onChanged={fetchDashboard} />
+      {/* MIDDLE ROW: ACTIONABLE FOLLOW-UPS & STAGE BREAKDOWN */}
           <Box sx={{ display: "flex", gap: 2.5, flexDirection: { xs: "column", lg: "row" } }}>
             {/* ACTIONABLE FOLLOW-UPS LIST */}
             <Paper elevation={0} sx={{ flex: 1.4, p: 2.5, borderRadius: "16px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.card }}>

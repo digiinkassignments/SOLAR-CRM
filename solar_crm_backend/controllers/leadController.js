@@ -1,3 +1,4 @@
+const salesWorkflow = require("../services/salesWorkflow");
 const {
   createLead,
   getLeads,
@@ -38,6 +39,7 @@ const ROLE_SALES = 3;
 // Sales sirf ye fields touch kar sakta hai apni lead pe — customer ka
 // naam/number/email/address wagera nahi (data integrity ke liye Admin/Manager tak limited)
 const SALES_EDITABLE_FIELDS = [
+  "next_action", "next_follow_up_time",
   "interest_status",
   "required_kw",
   "remark",
@@ -64,6 +66,9 @@ const createLeadController = async (req, res) => {
       return res.status(400).json({ success: false, message: "Remark is mandatory when status is 'Not Interested'." });
     }
 
+    await salesWorkflow.ensure(req.db);
+    const taskError = salesWorkflow.validTask(req.body, Number(req.user.role_id) === 3 ? "New Lead" : req.body.status || "New Lead");
+    if (taskError) return res.status(400).json({ success: false, message: taskError });
     const payload = { ...req.body };
     const roleId = Number(req.user.role_id);
 
@@ -76,7 +81,8 @@ const createLeadController = async (req, res) => {
       payload.assigned_to = req.user.id;
       payload.assigned_by = req.user.id;
       payload.status = "New Lead";   // Sales pipeline-status khud set na kare
-    } else if (roleId === ROLE_MANAGER && payload.assigned_to) {
+    } else if (roleId === ROLE_MANAGER) {
+      if (!payload.assigned_to) return res.status(400).json({success:false,message:"Assign this lead to a salesperson in your team."});
       // Manager sirf apni team ko hi assign kar sake (ye check create-time pe
       // pehle missing tha — sirf /assign endpoint aur edit-form pe tha)
       const inTeam = await isUserInManagerTeam(payload.assigned_to, req.user.id, req.db);
@@ -211,6 +217,11 @@ const updateLeadController = async (req, res) => {
       }
     }
 
+    await salesWorkflow.ensure(req.db);
+    if (req.body.next_action !== undefined || req.body.next_follow_up_time !== undefined) {
+      const taskError = salesWorkflow.validTask(payload, payload.status || "New Lead");
+      if (taskError) return res.status(400).json({ success: false, message: taskError });
+    }
     await updateLead(id, payload, userId, req.db);
     return res.status(200).json({ success: true, message: "Lead updated successfully." });
   } catch (error) {
@@ -411,6 +422,12 @@ const addFollowupController = async (req, res) => {
       if (!allowed) return res.status(403).json({ success: false, message: "You do not have access to this lead." });
     }
 
+    if (req.body.follow_up_date || req.body.next_follow_up_date || req.body.status_after_followup) {
+      await salesWorkflow.ensure(req.db);
+      const rows = await getLeadById(id, req.db); const existing = rows[0] || {};
+      const taskError = salesWorkflow.validTask({ ...existing, ...req.body, next_follow_up_date: req.body.follow_up_date || req.body.next_follow_up_date || String(existing.next_follow_up_date || "").slice(0,10) }, req.body.status_after_followup || existing.status);
+      if (taskError) return res.status(400).json({ success:false, message:taskError + " Open Log outcome / reschedule to complete the schedule." });
+    }
     await addFollowup(id, req.body, userId, req.db);
 
     // Manager ko notify karo

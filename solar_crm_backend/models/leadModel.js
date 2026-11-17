@@ -3,6 +3,7 @@ const { db: defaultDb } = require("../config/db");
 const ROLE_SUPER_ADMIN = 1;
 const ROLE_MANAGER = 2;
 const ROLE_SALES = 3;
+const ROLE_SITE_ENGINEER = 4;
 
 // ======================================
 // Helper: Ensure Lead Birthday & Anniversary Columns Exist
@@ -60,8 +61,8 @@ const createLead = async (data, createdBy, db = defaultDb) => {
       dob, anniversary_date, address, city, state, pincode,
       solar_requirement, interest_status, required_kw, remark,
       lead_source, priority, status, assigned_to, assigned_by,
-      created_by, next_follow_up_date, site_visit_date, quotation_amount
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      created_by, next_follow_up_date, site_visit_date, quotation_amount, next_action, next_follow_up_time
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
       "",
@@ -87,7 +88,7 @@ const createLead = async (data, createdBy, db = defaultDb) => {
       createdBy,
       next_follow_up_date || null,
       site_visit_date || null,
-      quotation_amount || null,
+      quotation_amount || null, data.next_action || null, data.next_follow_up_time || null,
     ]
   );
 
@@ -141,40 +142,53 @@ const createLead = async (data, createdBy, db = defaultDb) => {
 // 2. Get All Leads (Paginated + Filtered) — FIXED: role_id based, fail-closed
 // ======================================
 const getLeads = async (params, roleId, userId, db = defaultDb) => {
+  if (params.followup_filter === "missing") await require("../services/salesWorkflow").ensure(db);
   const {
     page = 1, limit = 10, search = "", status = "", priority = "",
-    lead_source = "", assigned_to = "", manager_id = "",
+    lead_source = "", assigned_to = "", manager_id = "", solar_requirement = "", capacity_range = "", date_from = "", date_to = "", sort_by = "newest", visit_filter = "", followup_filter = "",
   } = params;
 
-  const offset = (Number(page) - 1) * Number(limit);
+  const safePage = Math.max(1, Math.floor(Number(page) || 1));
+  const safeLimit = Math.min(200, Math.max(1, Math.floor(Number(limit) || 10)));
+  const offset = (safePage - 1) * safeLimit;
   const role = Number(roleId);
   let whereConditions = ["l.is_deleted = 0"];
   let queryParams = [];
 
   // Role-based Scoping — role_id based now, not role_name string
   if (role === ROLE_SALES) {
-    whereConditions.push("l.assigned_to = ?");
-    queryParams.push(userId);
+    whereConditions.push("(l.assigned_to = ? OR l.created_by = ?)");
+    queryParams.push(userId, userId);
   } else if (role === ROLE_MANAGER) {
     whereConditions.push(
-      `(l.assigned_to IN (SELECT id FROM users WHERE manager_id = ?) OR l.assigned_to = ? OR l.created_by = ?)`
+      `l.assigned_to IN (SELECT id FROM users WHERE manager_id = ? AND role_id=3 AND is_deleted=0)`
     );
-    queryParams.push(userId, userId, userId);
+    queryParams.push(userId);
   } else if (role !== ROLE_SUPER_ADMIN) {
     // Unrecognized role -> show NOTHING (fail-closed, not fail-open)
     whereConditions.push("1 = 0");
   }
 
   if (search) {
-    whereConditions.push(`(l.lead_code LIKE ? OR l.customer_name LIKE ? OR l.mobile_number LIKE ? OR l.city LIKE ?)`);
+    whereConditions.push(`(l.lead_code LIKE ? OR l.customer_name LIKE ? OR l.mobile_number LIKE ? OR l.city LIKE ? OR l.email LIKE ?)`);
     const term = `%${search}%`;
-    queryParams.push(term, term, term, term);
+    queryParams.push(term, term, term, term, term);
   }
   if (status) { whereConditions.push("l.status = ?"); queryParams.push(status); }
   if (priority) { whereConditions.push("l.priority = ?"); queryParams.push(priority); }
   if (lead_source) { whereConditions.push("l.lead_source = ?"); queryParams.push(lead_source); }
   if (assigned_to) { whereConditions.push("l.assigned_to = ?"); queryParams.push(assigned_to); }
   if (manager_id) { whereConditions.push("u_assignee.manager_id = ?"); queryParams.push(manager_id); }
+
+  if (visit_filter === "upcoming") whereConditions.push("(l.site_visit_date >= CURDATE() OR l.status = 'Site Survey Scheduled') AND l.status NOT IN ('Won','Lost','Invalid','Not Interested')");
+  if (followup_filter === "missing") whereConditions.push("l.status NOT IN ('Won','Lost','Invalid','Not Interested') AND (l.next_follow_up_date IS NULL OR l.next_action IS NULL OR l.next_action='' OR l.next_follow_up_time IS NULL)");
+  if (solar_requirement) { whereConditions.push("l.solar_requirement = ?"); queryParams.push(solar_requirement); }
+  const capacityConditions = { "1-3": "l.required_kw >= 1 AND l.required_kw <= 3", "3-5": "l.required_kw > 3 AND l.required_kw <= 5", "5-10": "l.required_kw > 5 AND l.required_kw <= 10", "10+": "l.required_kw > 10" };
+  if (Object.prototype.hasOwnProperty.call(capacityConditions, capacity_range)) whereConditions.push(`(${capacityConditions[capacity_range]})`);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date_from)) { whereConditions.push("l.created_at >= ?"); queryParams.push(date_from); }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date_to)) { whereConditions.push("l.created_at < DATE_ADD(?, INTERVAL 1 DAY)"); queryParams.push(date_to); }
+  const ordering = { newest: "l.created_at DESC, l.id DESC", oldest: "l.created_at ASC, l.id ASC", name_asc: "l.customer_name ASC, l.id ASC", name_desc: "l.customer_name DESC, l.id DESC", kw_high: "l.required_kw DESC, l.id DESC" };
+  const orderBy = Object.prototype.hasOwnProperty.call(ordering, sort_by) ? ordering[sort_by] : ordering.newest;
 
   const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
 
@@ -220,13 +234,13 @@ const getLeads = async (params, roleId, userId, db = defaultDb) => {
       GROUP BY lead_id
     ) lf_count ON lf_count.lead_id = l.id
     ${whereClause}
-    ORDER BY l.created_at DESC
+    ORDER BY ${orderBy}
     LIMIT ? OFFSET ?
     `,
-    [...queryParams, Number(limit), Number(offset)]
+    [...queryParams, safeLimit, offset]
   );
 
-  return { total, page: Number(page), limit: Number(limit), data: rows };
+  return { total, page: safePage, limit: safeLimit, data: rows };
 };
 
 // ======================================
@@ -300,8 +314,18 @@ const isLeadAccessibleByUser = async (leadId, roleId, userId, db = defaultDb) =>
 
   if (role === ROLE_SALES) {
     const [rows] = await db.query(
-      `SELECT id FROM leads WHERE id = ? AND assigned_to = ? AND is_deleted = 0`,
-      [leadId, userId]
+      `SELECT id FROM leads WHERE id = ? AND (assigned_to = ? OR created_by = ?) AND is_deleted = 0`,
+      [leadId, userId, userId]
+    );
+    return rows.length > 0;
+  }
+
+  if (role === ROLE_SITE_ENGINEER) {
+    const [rows] = await db.query(
+      `SELECT l.id FROM leads l
+       LEFT JOIN site_surveys s ON s.lead_id = l.id
+       WHERE l.id = ? AND l.is_deleted = 0 AND (s.assigned_engineer_id = ? OR s.created_by = ? OR l.assigned_to = ? OR l.created_by = ?)`,
+      [leadId, userId, userId, userId, userId]
     );
     return rows.length > 0;
   }
@@ -312,9 +336,9 @@ const isLeadAccessibleByUser = async (leadId, roleId, userId, db = defaultDb) =>
       SELECT l.id FROM leads l
       LEFT JOIN users u ON l.assigned_to = u.id
       WHERE l.id = ? AND l.is_deleted = 0
-        AND (u.manager_id = ? OR l.assigned_to = ? OR l.created_by = ?)
+        AND (u.manager_id = ? AND u.role_id=3 AND u.is_deleted=0)
       `,
-      [leadId, userId, userId, userId]
+      [leadId, userId]
     );
     return rows.length > 0;
   }
@@ -348,17 +372,17 @@ const getTeamFollowupsList = async (managerId, db = defaultDb) => {
     ) lf ON lf.lead_id = l.id
     WHERE l.next_follow_up_date IS NOT NULL
       AND l.is_deleted = 0
-      AND (u.manager_id = ? OR l.assigned_to = ? OR l.created_by = ?)
+      AND (u.manager_id = ? AND u.role_id=3 AND u.is_deleted=0)
     ORDER BY l.next_follow_up_date ASC
     `,
-    [managerId, managerId, managerId]
+    [managerId]
   );
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   return rows.map((r) => {
-    const closed = ["Won", "Lost", "Not Interested"].includes(r.lead_status);
+    const closed = ["Won", "Lost", "Invalid", "Not Interested"].includes(r.lead_status);
     const dueDate = new Date(r.next_follow_up_date);
     dueDate.setHours(0, 0, 0, 0);
 
@@ -398,7 +422,7 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
 
   // Current lead details nikal lo (assignment + current status)
   const [currentRows] = await db.query(
-    `SELECT assigned_to, assigned_by, status FROM leads WHERE id=? AND is_deleted=0`,
+    `SELECT assigned_to, assigned_by, status, next_action, next_follow_up_time FROM leads WHERE id=? AND is_deleted=0`,
     [id]
   );
   const previousAssignedTo = currentRows[0]?.assigned_to ?? null;
@@ -411,7 +435,7 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
   const newAssignedBy = assignmentChanged && newAssignedTo ? updatedBy : previousAssignedBy;
 
   let closedAt = null;
-  if (["Won", "Lost", "Not Interested"].map(s => s.toLowerCase()).includes(String(effectiveStatus).toLowerCase())) {
+  if (["Won", "Lost", "Invalid", "Not Interested"].map(s => s.toLowerCase()).includes(String(effectiveStatus).toLowerCase())) {
     closedAt = new Date();
   }
 
@@ -420,7 +444,7 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
     UPDATE leads SET
       customer_name=?, mobile_number=?, alternate_number=?, email=?, dob=?, anniversary_date=?, address=?,
       city=?, state=?, pincode=?, solar_requirement=?, interest_status=?,
-      required_kw=?, remark=?, lead_source=?, priority=?, next_follow_up_date=?,
+      required_kw=?, remark=?, lead_source=?, priority=?, next_follow_up_date=?, next_action=?, next_follow_up_time=?,
       site_visit_date=?, quotation_amount=?, assigned_to=?, assigned_by=?,
       status = COALESCE(?, status),
       closed_at = COALESCE(?, closed_at)
@@ -431,7 +455,7 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
       dob || null, anniversary_date || null,
       address || null, city || null, state || null, pincode || null,
       solar_requirement, interest_status, required_kw || null, remark || null,
-      lead_source, priority, next_follow_up_date || null, site_visit_date || null,
+      lead_source, priority, next_follow_up_date || null, data.next_action === undefined ? currentRows[0]?.next_action || null : data.next_action || null, data.next_follow_up_time === undefined ? currentRows[0]?.next_follow_up_time || null : data.next_follow_up_time || null, site_visit_date || null,
       quotation_amount || null, newAssignedTo, newAssignedBy,
       newStatus || null, closedAt, id,
     ]
@@ -520,7 +544,7 @@ const updateLeadStatus = async (id, payload, performedBy, db = defaultDb) => {
   const oldStatus = leadRows[0]?.status || "Unknown";
 
   let closedAt = null;
-  if (["Won", "Lost", "Not Interested"].map(s => s.toLowerCase()).includes(String(newStatus).toLowerCase())) {
+  if (["Won", "Lost", "Invalid", "Not Interested"].map(s => s.toLowerCase()).includes(String(newStatus).toLowerCase())) {
     closedAt = new Date();
   }
 
@@ -693,7 +717,7 @@ const bulkReassignLeads = async (fromUserId, toUserId, performedBy, db = default
     const [openLeads] = await connection.query(
       `SELECT id FROM leads
        WHERE assigned_to = ? AND is_deleted = 0
-         AND status NOT IN ('Won','Lost','Not Interested')`,
+         AND status NOT IN ('Won','Lost','Invalid','Not Interested')`,
       [fromUserId]
     );
 
@@ -753,8 +777,8 @@ const bulkImportLeads = async (rows, createdBy, db = defaultDb) => {
         INSERT INTO leads (
           lead_code, customer_name, mobile_number, alternate_number, email,
           address, city, state, pincode, solar_requirement, interest_status,
-          required_kw, remark, lead_source, priority, status, created_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New Lead', ?)
+          required_kw, remark, lead_source, priority, status, created_by, assigned_to, assigned_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New Lead', ?, ?, ?)
         `,
         [
           "",
@@ -772,7 +796,7 @@ const bulkImportLeads = async (rows, createdBy, db = defaultDb) => {
           remark || null,
           lead_source || "Other",
           priority || "Medium",
-          createdBy,
+          createdBy, row.assigned_to || null, row.assigned_to ? createdBy : null,
         ]
       );
 
@@ -813,9 +837,9 @@ const getDateWiseFollowups = async (params, roleId, userId, db = defaultDb) => {
     queryParams.push(userId);
   } else if (role === ROLE_MANAGER) {
     whereConditions.push(
-      `(l.assigned_to IN (SELECT id FROM users WHERE manager_id = ?) OR l.assigned_to = ? OR l.created_by = ?)`
+      `l.assigned_to IN (SELECT id FROM users WHERE manager_id = ? AND role_id=3 AND is_deleted=0)`
     );
-    queryParams.push(userId, userId, userId);
+    queryParams.push(userId);
   } else if (role !== ROLE_SUPER_ADMIN) {
     whereConditions.push("1 = 0");
   }
@@ -829,7 +853,7 @@ const getDateWiseFollowups = async (params, roleId, userId, db = defaultDb) => {
     queryParams.push(targetDate);
   } else if (filter === "overdue") {
     whereConditions.push(
-      `l.next_follow_up_date IS NOT NULL AND DATE(l.next_follow_up_date) < ? AND l.status NOT IN ('Won', 'Lost', 'Not Interested')`
+      `l.next_follow_up_date IS NOT NULL AND DATE(l.next_follow_up_date) < ? AND l.status NOT IN ('Won', 'Lost', 'Invalid', 'Not Interested')`
     );
     queryParams.push(targetDate);
   } else if (filter === "upcoming") {
@@ -841,9 +865,9 @@ const getDateWiseFollowups = async (params, roleId, userId, db = defaultDb) => {
     whereConditions.push(`DATE(l.next_follow_up_date) = ?`);
     queryParams.push(date);
   } else if (filter === "not_set") {
-    whereConditions.push(`l.next_follow_up_date IS NULL AND l.status NOT IN ('Won', 'Lost', 'Not Interested')`);
+    whereConditions.push(`l.next_follow_up_date IS NULL AND l.status NOT IN ('Won', 'Lost', 'Invalid', 'Not Interested')`);
   } else if (filter === "all") {
-    whereConditions.push("l.status NOT IN ('Won', 'Lost', 'Not Interested')");
+    whereConditions.push("l.status NOT IN ('Won', 'Lost', 'Invalid', 'Not Interested')");
   }
 
   if (status) {
@@ -952,8 +976,8 @@ const getBirthdayEvents = async (params, roleId, userId, db = defaultDb) => {
     whereConditions.push("l.assigned_to = ?");
     queryParams.push(userId);
   } else if (role === ROLE_MANAGER) {
-    whereConditions.push("(u_assignee.manager_id = ? OR l.assigned_to = ? OR l.created_by = ?)");
-    queryParams.push(userId, userId, userId);
+    whereConditions.push("(u_assignee.manager_id = ? AND u_assignee.role_id=3 AND u_assignee.is_deleted=0)");
+    queryParams.push(userId);
   }
 
   if (filter === "today") {

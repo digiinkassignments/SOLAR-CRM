@@ -1,3 +1,7 @@
+import useWorkspaceNavigate from "../../hooks/useWorkspaceNavigate";
+import SalesWorkflowSettings from "./SalesWorkflowSettings";
+import Integrations from "./Integrations";
+import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -57,8 +61,6 @@ import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import AccountCircleOutlinedIcon from "@mui/icons-material/AccountCircleOutlined";
 import OpenInNewOutlinedIcon from "@mui/icons-material/OpenInNewOutlined";
-import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
-import RolesManagement from "./RolesManagement";
 
 // Services
 import { useAuth } from "../../context/AuthContext";
@@ -132,7 +134,7 @@ const sectionTitleSx = {
 };
 
 const Settings = () => {
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const { user: authUser, token } = useAuth();
@@ -561,8 +563,9 @@ const Settings = () => {
 
   // Windows 11 Fluent Sidebar Navigation Items
   const NAV_ITEMS = [
+    { id: 11, label: "Sales workflow", desc: "Timezone, discount limits & approvals", icon: <TuneOutlinedIcon sx={{ fontSize: "1.1rem" }} /> },
+    { id: 10, label: "Integrations", desc: "Meta Ads, Google Ads & WhatsApp Business API", icon: <HubOutlinedIcon sx={{ fontSize: "1.1rem" }} /> },
     { id: 0, label: "General & Company", desc: "Company branding, GST, Bank & Organization", icon: <BusinessOutlinedIcon sx={{ fontSize: "1.1rem" }} /> },
-    { id: 9, label: "Roles & Permissions", desc: "Custom roles, dynamic features & access control", icon: <ShieldOutlinedIcon sx={{ fontSize: "1.1rem" }} /> },
     { id: 7, label: "Pipeline Stages", desc: "Customize sales pipeline stages, colors & workflow", icon: <ViewKanbanOutlinedIcon sx={{ fontSize: "1.1rem" }} /> },
     { id: 6, label: "Lead Sources", desc: "Configure customer acquisition sources & channels", icon: <SourceOutlinedIcon sx={{ fontSize: "1.1rem" }} /> },
     { id: 5, label: "Custom Fields", desc: "Add custom metadata fields to lead forms", icon: <TuneOutlinedIcon sx={{ fontSize: "1.1rem" }} /> },
@@ -1949,11 +1952,9 @@ const Settings = () => {
               </Box>
             )}
 
-            {/* TAB 9: ROLES & PERMISSIONS (DYNAMIC RBAC) */}
-            {activeTab === 9 && (
-              <RolesManagement showNotification={showNotification} />
-            )}
 
+            {activeTab === 10 && <Integrations />}
+            {activeTab === 11 && <SalesWorkflowSettings />}
           </Box>
         </Box>
 

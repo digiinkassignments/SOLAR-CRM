@@ -1,3 +1,5 @@
+import { solarTax } from "../../utils/solarTax";
+import SolarTaxSummary from "../../components/SolarTaxSummary";
 import React, { useState, useEffect } from "react";
 import {
   Dialog,
@@ -81,6 +83,7 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
   const [baseAmount, setBaseAmount] = useState(0);
   const [installationAmount, setInstallationAmount] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [gstMode, setGstMode] = useState("itemised");
   const [gstRate, setGstRate] = useState(13.80);
   const [subsidyAmount, setSubsidyAmount] = useState(0);
 
@@ -117,13 +120,14 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
       const base = parseFloat(quotationData.base_price) || 0;
       const install = parseFloat(quotationData.structure_installation_cost) || 0;
       const disc = parseFloat(quotationData.discount_amount) || 0;
-      const gst = parseFloat(quotationData.gst_rate) || 13.80;
+      const gst = Number(quotationData.gst_rate ?? 13.80);
       const sub = parseFloat(quotationData.subsidy_amount) || 0;
 
       setBaseAmount(base);
       setInstallationAmount(install);
       setDiscountAmount(disc);
       setGstRate(gst);
+      setGstMode(quotationData.gst_mode || "itemised");
       setSubsidyAmount(sub);
 
       // Default amount paid can be advance e.g. 20-30% or 0
@@ -136,12 +140,15 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
   const numBase = parseFloat(baseAmount) || 0;
   const numInstall = parseFloat(installationAmount) || 0;
   const numDiscount = parseFloat(discountAmount) || 0;
-  const numGstRate = parseFloat(gstRate) || 13.80;
+  const numGstRate = Number(gstRate ?? 13.80);
   const numSubsidy = parseFloat(subsidyAmount) || 0;
 
   const taxableAmount = Math.max(0, numBase + numInstall - numDiscount);
-  const gstAmount = Math.round((taxableAmount * numGstRate) / 100);
-  const grossTotal = Math.round(taxableAmount + gstAmount);
+  let savedLines = [];
+  try { savedLines = typeof quotationData?.line_items_json === "string" ? JSON.parse(quotationData.line_items_json) : quotationData?.line_items_json || []; } catch { savedLines = []; }
+  const tax = solarTax({ mode: gstMode, subtotal: numBase + numInstall, discount: numDiscount, rate: numGstRate, items: savedLines });
+  const gstAmount = tax.gst;
+  const grossTotal = tax.total;
   const netPayable = Math.max(0, grossTotal - numSubsidy);
 
   const numPaid = Math.max(0, parseFloat(amountPaid) || 0);
@@ -164,6 +171,7 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
     try {
       const payload = {
         quotation_id: quotationData?.id || null,
+        quotation_revision_number: quotationData?.revision_number || 1,
         lead_id: quotationData?.lead_id || null,
         customer_name: customerName,
         customer_phone: customerPhone,
@@ -182,7 +190,9 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
         installation_amount: numInstall,
         discount_amount: numDiscount,
         taxable_amount: taxableAmount,
-        gst_rate: numGstRate,
+        gst_mode: gstMode,
+        line_items: savedLines.length ? savedLines : null,
+        gst_rate: gstMode === "solar_composite" ? 8.9 : numGstRate,
         gst_amount: gstAmount,
         gross_total: grossTotal,
         subsidy_amount: numSubsidy,
@@ -248,6 +258,9 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
       fullWidth
       PaperProps={{
         sx: {
+          m: { xs: 1, sm: 3 },
+          width: { xs: "calc(100% - 16px)", sm: "calc(100% - 48px)" },
+          maxHeight: { xs: "calc(100dvh - 16px)", sm: "calc(100dvh - 48px)" },
           borderRadius: "14px",
           border: `1px solid ${COLORS.border}`,
           boxShadow: "0 20px 40px -15px rgba(15, 23, 42, 0.15)",
@@ -258,30 +271,30 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
         sx={{
           bgcolor: COLORS.primary,
           color: "#FFFFFF",
-          px: 3,
+          px: { xs: 2, sm: 3 },
           py: 2,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
           <ReceiptLongIcon sx={{ color: "#38BDF8", fontSize: 26 }} />
           <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-              Convert into Official Tax Invoice
+              {quotationData ? "Create invoice from quotation" : "Create tax invoice"}
             </Typography>
             <Typography variant="caption" sx={{ color: "#94A3B8" }}>
-              Pre-filled commercial & payment settlement form • 100% editable
+              Review customer details, pricing and payment terms before creating.
             </Typography>
           </Box>
         </Box>
-        <IconButton onClick={handleClose} sx={{ color: "#94A3B8", "&:hover": { color: "#FFFFFF" } }}>
+        <IconButton aria-label="Close invoice form" onClick={handleClose} sx={{ flexShrink: 0, color: "#94A3B8", "&:hover": { color: "#FFFFFF" } }}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ p: 3, bgcolor: "#FAFBFC" }}>
+      <DialogContent sx={{ p: { xs: 2, sm: 3 }, bgcolor: "#FAFBFC", "& .MuiTextField-root, & .MuiGrid-root": { minWidth: 0 } }}>
         {createdInvoice ? (
           <Box sx={{ py: 3, textAlign: "center" }}>
             <CheckCircleOutlinedIcon sx={{ fontSize: 64, color: COLORS.success, mb: 1.5 }} />
@@ -304,23 +317,23 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
               }}
             >
               <Grid container spacing={2}>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Net Total</Typography>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>₹{netPayable.toLocaleString("en-IN")}</Typography>
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Amount Paid</Typography>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.success }}>
                     ₹{numPaid.toLocaleString("en-IN")}
                   </Typography>
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Balance Due</Typography>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, color: balanceDue > 0 ? COLORS.danger : COLORS.success }}>
                     ₹{balanceDue.toLocaleString("en-IN")}
                   </Typography>
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Payment Status</Typography>
                   <Box sx={{ mt: 0.3 }}>
                     <Chip
@@ -352,7 +365,7 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
                   "&:hover": { bgcolor: COLORS.primaryDark },
                 }}
               >
-                Download 1-Page PDF
+                Download PDF
               </Button>
               <Button
                 variant="outlined"
@@ -408,43 +421,43 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
             </Typography>
             <Paper elevation={0} sx={{ p: 2, mb: 2.5, bgcolor: "#FFFFFF", borderRadius: "10px", border: `1px solid ${COLORS.border}` }}>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Customer Name *
                   </Typography>
                   <TextField fullWidth size="small" value={customerName} onChange={(e) => setCustomerName(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Mobile Number *
                   </Typography>
                   <TextField fullWidth size="small" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Email Address
                   </Typography>
                   <TextField fullWidth size="small" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Customer GSTIN (For B2B Invoices)
                   </Typography>
                   <TextField fullWidth size="small" placeholder="Optional e.g. 08AAACH7409R1ZZ" value={customerGstin} onChange={(e) => setCustomerGstin(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Billing & Site Address
                   </Typography>
                   <TextField fullWidth size="small" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     City
                   </Typography>
                   <TextField fullWidth size="small" value={city} onChange={(e) => setCity(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     State
                   </Typography>
@@ -459,13 +472,13 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
             </Typography>
             <Paper elevation={0} sx={{ p: 2, mb: 2.5, bgcolor: "#FFFFFF", borderRadius: "10px", border: `1px solid ${COLORS.border}` }}>
               <Grid container spacing={2}>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Capacity (kW) *
                   </Typography>
                   <TextField type="number" fullWidth size="small" value={systemCapacityKw} onChange={(e) => setSystemCapacityKw(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={6} sm={3}>
+                <Grid size={{ xs: 6, sm: 3 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     System Type
                   </Typography>
@@ -475,19 +488,19 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
                     <MenuItem value="Hybrid">Hybrid System</MenuItem>
                   </TextField>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Solar PV Modules (HSN: 8479)
                   </Typography>
                   <TextField fullWidth size="small" value={panelSpecs} onChange={(e) => setPanelSpecs(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Solar Inverter (HSN: 8504)
                   </Typography>
                   <TextField fullWidth size="small" value={inverterSpecs} onChange={(e) => setInverterSpecs(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Mounting Structure & BoS
                   </Typography>
@@ -502,37 +515,38 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
             </Typography>
             <Paper elevation={0} sx={{ p: 2, mb: 2.5, bgcolor: "#FFFFFF", borderRadius: "10px", border: `1px solid ${COLORS.border}` }}>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Base Plant Cost (₹)
                   </Typography>
-                  <TextField type="number" fullWidth size="small" value={baseAmount} onChange={(e) => setBaseAmount(e.target.value)} sx={inputSx} />
+                  <TextField type="number" fullWidth size="small" disabled={savedLines.length > 0} value={baseAmount} onChange={(e) => setBaseAmount(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 6, sm: 4 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Structure / Installation (₹)
                   </Typography>
-                  <TextField type="number" fullWidth size="small" value={installationAmount} onChange={(e) => setInstallationAmount(e.target.value)} sx={inputSx} />
+                  <TextField type="number" fullWidth size="small" disabled={savedLines.length > 0} value={installationAmount} onChange={(e) => setInstallationAmount(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 6, sm: 4 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Special Discount (₹)
                   </Typography>
                   <TextField type="number" fullWidth size="small" value={discountAmount} onChange={(e) => setDiscountAmount(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 12 }}><TextField select fullWidth size="small" label="GST mode" value={gstMode} onChange={(event) => setGstMode(event.target.value)}><MenuItem value="solar_composite">Complete solar system (70:30, automatic)</MenuItem><MenuItem value="itemised">Itemised</MenuItem></TextField><SolarTaxSummary tax={tax} /></Grid>
+                <Grid size={{ xs: 6, sm: 4 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     GST Rate (%)
                   </Typography>
-                  <TextField type="number" fullWidth size="small" value={gstRate} onChange={(e) => setGstRate(e.target.value)} sx={inputSx} />
+                  <TextField disabled={gstMode === "solar_composite" || savedLines.length > 0} type="number" fullWidth size="small" value={gstMode === "solar_composite" ? 8.9 : gstRate} onChange={(e) => setGstRate(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 6, sm: 4 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Calculated GST Amount (₹)
                   </Typography>
                   <TextField fullWidth size="small" value={`₹${gstAmount.toLocaleString("en-IN")}`} disabled sx={inputSx} />
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     PM Surya Ghar Subsidy (₹)
                   </Typography>
@@ -543,19 +557,19 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
               {/* Financial Summary Highlight */}
               <Box sx={{ mt: 2, p: 1.5, bgcolor: COLORS.bgSubtle, borderRadius: "8px", border: `1px dashed ${COLORS.border}` }}>
                 <Grid container spacing={1}>
-                  <Grid item xs={6} sm={3}>
+                  <Grid size={{ xs: 6, sm: 3 }}>
                     <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Taxable Value</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>₹{taxableAmount.toLocaleString("en-IN")}</Typography>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid size={{ xs: 6, sm: 3 }}>
                     <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Total Inc. GST</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>₹{grossTotal.toLocaleString("en-IN")}</Typography>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid size={{ xs: 6, sm: 3 }}>
                     <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Subsidy Deduction</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.success }}>-₹{numSubsidy.toLocaleString("en-IN")}</Typography>
                   </Grid>
-                  <Grid item xs={6} sm={3}>
+                  <Grid size={{ xs: 6, sm: 3 }}>
                     <Typography variant="caption" sx={{ color: COLORS.primary, fontWeight: 700 }}>Net Customer Payable</Typography>
                     <Typography variant="subtitle1" sx={{ fontWeight: 800, color: COLORS.primary }}>
                       ₹{netPayable.toLocaleString("en-IN")}
@@ -571,7 +585,7 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
             </Typography>
             <Paper elevation={0} sx={{ p: 2, mb: 2, bgcolor: "#FFFFFF", borderRadius: "10px", border: `1px solid ${COLORS.border}` }}>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Payment Received / Advance (₹) *
                   </Typography>
@@ -585,7 +599,7 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
                     sx={inputSx}
                   />
                 </Grid>
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 6, sm: 4 }}>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Remaining Balance Due (₹)
                   </Typography>
@@ -603,7 +617,7 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
                     }}
                   />
                 </Grid>
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 6, sm: 4 }}>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Payment Status
                   </Typography>
@@ -620,7 +634,7 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
                     />
                   </Box>
                 </Grid>
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 6, sm: 4 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Payment Mode
                   </Typography>
@@ -632,20 +646,20 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
                     <MenuItem value="Net Banking">Net Banking</MenuItem>
                   </TextField>
                 </Grid>
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 6, sm: 4 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Transaction / UTR Reference
                   </Typography>
                   <TextField fullWidth size="small" placeholder="e.g. UTR1234987654" value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={6} sm={4}>
+                <Grid size={{ xs: 6, sm: 4 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Invoice Due Date
                   </Typography>
                   <TextField type="date" fullWidth size="small"
                     InputLabelProps={{ shrink: true }} value={dueDate} onChange={(e) => setDueDate(e.target.value)} sx={inputSx} />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
                     Notes / Bank Wire Transfer Instructions
                   </Typography>
@@ -657,7 +671,7 @@ const ConvertInvoiceModal = ({ open, onClose, quotationData = null, onInvoiceCre
         )}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2, bgcolor: "#FFFFFF", borderTop: `1px solid ${COLORS.border}` }}>
+      <DialogActions sx={{ px: { xs: 2, sm: 3 }, py: 2, flexWrap: "wrap", gap: 1, bgcolor: "#FFFFFF", borderTop: `1px solid ${COLORS.border}`, "& .MuiButton-root": { minHeight: 40, borderRadius: "8px", textTransform: "none" } }}>
         {createdInvoice ? (
           <Button
             variant="contained"

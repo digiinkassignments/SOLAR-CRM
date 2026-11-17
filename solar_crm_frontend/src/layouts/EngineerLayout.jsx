@@ -43,6 +43,7 @@ export default function EngineerLayout() {
         component="main"
         sx={{
           flexGrow: 1,
+          minWidth: 0,
           width: { md: `calc(100% - ${currentSidebarWidth}px)` },
           minHeight: "100vh",
           display: "flex",
@@ -56,6 +57,7 @@ export default function EngineerLayout() {
         <Box
           sx={{
             flexGrow: 1,
+            minWidth: 0,
             p: { xs: 2, sm: 3 },
             overflowY: "auto",
           }}

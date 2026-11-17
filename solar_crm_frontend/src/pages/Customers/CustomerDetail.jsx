@@ -1,633 +1,96 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  Box,
-  Paper,
-  Typography,
-  Grid,
-  Button,
-  Chip,
-  IconButton,
-  Stack,
-  Tabs,
-  Tab,
-  CircularProgress,
-  Card,
-  Divider,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  MenuItem,
-} from "@mui/material";
-
-// Icons
+import { Box, Paper, Typography, Button, Chip, Stack, Tabs, Tab, Skeleton, Avatar, Alert, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, LinearProgress } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import PersonIcon from "@mui/icons-material/Person";
-import PhoneIcon from "@mui/icons-material/Phone";
-import EmailIcon from "@mui/icons-material/Email";
-import LocationOnIcon from "@mui/icons-material/LocationOn";
-import SolarPowerOutlinedIcon from "@mui/icons-material/SolarPowerOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutlined";
+import EngineeringOutlinedIcon from "@mui/icons-material/EngineeringOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
-import EngineeringOutlinedIcon from "@mui/icons-material/EngineeringOutlined";
-import WhatsAppIcon from "@mui/icons-material/WhatsApp";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import AddIcon from "@mui/icons-material/Add";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-
+import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
 import toast from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
 import { getCustomerById, updateCustomer } from "../../services/customerService";
+import CustomerWorkspace from "./CustomerWorkspace";
+import { money, dateLabel, initials, copyValue } from "./customerHelpers";
+import { ContactActions, Metric, Field, ViewToggle } from "./customerUi";
 
-const COLORS = {
-  primary: "#0F172A",
-  primaryDark: "#020617",
-  border: "#E2E8F0",
-  textPrimary: "#1E293B",
-  textSecondary: "#64748B",
-  bgSubtle: "#F8FAFC",
-  success: "#16A34A",
-  successSoft: "#DCFCE7",
-  warning: "#D97706",
-  warningSoft: "#FEF3C7",
-  danger: "#DC2626",
-  dangerSoft: "#FEE2E2",
-  info: "#0284C7",
-  infoSoft: "#E0F2FE",
-};
+const editFields=[['customer_name','Customer name'],['mobile_number','Mobile number'],['alternate_number','Alternate phone'],['email','Email','email'],['electricity_consumer_number','CA / consumer number'],['discom_name','DISCOM provider'],['sanctioned_load_kw','Sanctioned load (kW)','number'],['customer_gstin','GSTIN'],['address','Site address'],['city','City'],['state','State'],['pincode','PIN code']];
+const number=value=>Number(value)||0;
 
 export default function CustomerDetail() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const roleName = (user?.role_name || user?.role || "").toLowerCase();
-  const isManager = user?.role_id === 2 || roleName.includes("manager");
-  const customersBasePath = isManager ? "/manager/customers" : "/customers";
-  const projectsBasePath = isManager ? "/manager/projects" : "/projects";
-
-  const [customer, setCustomer] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(0);
-
-  // Edit Modal State
-  const [openEditModal, setOpenEditModal] = useState(false);
-  const [editData, setEditData] = useState({});
-  const [savingEdit, setSavingEdit] = useState(false);
-
-  const fetchProfile = useCallback(async () => {
-    setLoading(true);
+  const {id}=useParams(); const navigate=useNavigate(); const {user}=useAuth();
+  const manager=Number(user?.role_id)===2 || String(user?.role_name || user?.role || "").toLowerCase().includes("manager");
+  const base=manager?"/manager":"";
+  const [customer,setCustomer]=useState(null); const [loading,setLoading]=useState(true); const [error,setError]=useState("");
+  const [activeTab,setActiveTab]=useState(0); const [view,setView]=useState("cards"); const [invoiceFilter,setInvoiceFilter]=useState("all");
+  const [editing,setEditing]=useState(false); const [editData,setEditData]=useState({}); const [saving,setSaving]=useState(false); const [saveError,setSaveError]=useState("");
+  const sequence=useRef(0);
+  const fetchProfile=useCallback(async()=>{
+    const request=++sequence.current;setLoading(true);setError("");
+    try { const res=await getCustomerById(id); if(request!==sequence.current)return; if(!res?.success || !res.data)throw new Error(res?.message || "Customer not found.");setCustomer(res.data); }
+    catch(err){if(request===sequence.current){setCustomer(null);setError(err.response?.data?.message || err.message || "Could not load the customer.");}}
+    finally{if(request===sequence.current)setLoading(false);}
+  },[id]);
+  useEffect(()=>{const requests=sequence;const timer=setTimeout(fetchProfile,0);return()=>{clearTimeout(timer);requests.current++;};},[fetchProfile]);
+  const openEdit=()=>{setEditData({...customer});setSaveError("");setEditing(true);};
+  const handleSave=async e=>{
+    e.preventDefault(); if(saving)return;
+    if(!editData.customer_name?.trim() || !editData.mobile_number?.trim()){setSaveError("Customer name and mobile number are required.");return;}
+    setSaving(true);setSaveError("");
     try {
-      const res = await getCustomerById(id);
-      if (res?.success) {
-        setCustomer(res.data);
-        setEditData(res.data);
-      } else {
-        toast.error("Customer not found");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to load customer profile");
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
-
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditData((prev) => ({ ...prev, [name]: value }));
+      const payload=Object.fromEntries([...editFields.map(([field])=>field),'solar_requirement','status','notes','assigned_to'].map(field=>[field,editData[field] ?? null]));
+      const res=await updateCustomer(id,payload); if(!res?.success)throw new Error(res?.message || "Could not save the customer.");
+      toast.success("Customer profile updated");setEditing(false);fetchProfile();
+    } catch(err){setSaveError(err.response?.data?.message || err.message || "Could not save changes.");}
+    finally{setSaving(false);}
   };
-
-  const handleSaveEdit = async (e) => {
-    e.preventDefault();
-    setSavingEdit(true);
-    try {
-      const res = await updateCustomer(id, editData);
-      if (res?.success) {
-        toast.success("Customer profile updated!");
-        setOpenEditModal(false);
-        fetchProfile();
-      } else {
-        toast.error(res?.message || "Failed to update");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Error updating customer");
-    } finally {
-      setSavingEdit(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <Box sx={{ p: 6, textAlign: "center" }}>
-        <CircularProgress size={36} sx={{ color: COLORS.primary }} />
-        <Typography variant="body2" sx={{ mt: 1.5, color: COLORS.textSecondary }}>
-          Loading 360° customer profile...
-        </Typography>
+  const projects=customer?.projects || [];const quotations=customer?.quotations || [];const invoices=customer?.invoices || [];const leads=customer?.leads || [];
+  const billed=invoices.reduce((sum,row)=>sum+number(row.gross_total),0); const paid=invoices.reduce((sum,row)=>sum+number(row.amount_paid),0); const due=invoices.reduce((sum,row)=>sum+number(row.balance_due),0);
+  const capacity=projects.reduce((sum,row)=>sum+number(row.system_capacity_kw),0); const collection=billed>0?Math.min(100,Math.max(0,paid/billed*100)):0;
+  const rows=activeTab===1?projects:activeTab===2?quotations:activeTab===3?invoices.filter(row=>invoiceFilter!=="due" || number(row.balance_due)>0):leads;
+  const recordInfo=row=>activeTab===1?{title:row.project_number || `Project ${row.id}`,status:row.stage,fields:[['Capacity',row.system_capacity_kw==null?'Not recorded':`${row.system_capacity_kw} kW`],['Assigned engineer',row.assigned_to_name || 'Unassigned']],action:'Open project',onOpen:()=>navigate(`${base}/projects/${row.id}`)}
+    :activeTab===2?{title:row.quotation_number || `Quotation ${row.id}`,status:row.status,fields:[['System',`${row.system_capacity_kw ?? '--'} kW / ${row.system_type || 'Not recorded'}`],['Proposal amount',money(row.net_payable_amount)]],action:'Open proposal',publicPath:row.public_token?`/quote/${encodeURIComponent(row.public_token)}`:null}
+    :activeTab===3?{title:row.invoice_number || `Invoice ${row.id}`,status:row.payment_status,fields:[['Invoice date',dateLabel(row.invoice_date)],['Gross total',money(row.gross_total)],['Recorded paid',money(row.amount_paid)],['Balance due',money(row.balance_due)]],action:'View invoice',publicPath:row.public_token?`/invoice/${encodeURIComponent(row.public_token)}`:null}
+    :{title:row.lead_code || `Lead ${row.id}`,status:row.status,fields:[['Assigned to',row.assigned_to_name || 'Unassigned'],['Created',dateLabel(row.created_at)]]};
+  const recordAction=info=>info.onOpen?<Button variant="outlined" size="small" onClick={info.onOpen} endIcon={<OpenInNewIcon fontSize="small"/>}>{info.action}</Button>:info.action?<Button variant="outlined" size="small" component={info.publicPath?'a':'button'} href={info.publicPath || undefined} target={info.publicPath?'_blank':undefined} rel="noopener noreferrer" disabled={!info.publicPath} endIcon={<OpenInNewIcon fontSize="small"/>}>{info.publicPath?info.action:'Public link unavailable'}</Button>:null;
+  return <CustomerWorkspace><Box sx={{pb:4}}>
+    <Button size="small" startIcon={<ArrowBackIcon/>} onClick={()=>navigate(`${base}/customers`)} sx={{mb:2}}>Back to customers</Button>
+    {loading?<><Skeleton variant="rounded" height={230}/><Skeleton variant="rounded" height={330} sx={{mt:3}}/></>:error?<Alert severity="error" action={<Button onClick={fetchProfile}>Retry</Button>}>{error}</Alert>:customer&&<>
+    <Paper variant="outlined" sx={{p:{xs:2.5,md:3},borderRadius:3,boxShadow:"none",mb:3}}>
+      <Box sx={{display:"flex",justifyContent:"space-between",gap:2,flexWrap:"wrap"}}>
+        <Stack direction="row" sx={{gap:2,alignItems:"flex-start",flex:"1 1 320px",flexWrap:"nowrap !important"}}><Avatar sx={{width:56,height:56,bgcolor:"#F1F5F9",color:"#0F172A",fontWeight:700}}>{initials(customer.customer_name)}</Avatar><Box sx={{minWidth:0}}><Typography variant="overline" color="text.secondary">CUSTOMER PROFILE</Typography><Typography component="h1" variant="h4" sx={{fontWeight:700}}>{customer.customer_name}</Typography><Stack direction="row" sx={{gap:1,alignItems:"center",mt:1}}><Chip size="small" variant="outlined" label={customer.customer_code || 'Code not recorded'}/><Chip size="small" label={customer.solar_requirement || 'Type not recorded'}/>{customer.status&&<Chip size="small" variant="outlined" label={customer.status}/>}</Stack><Typography variant="body2" color="text.secondary" sx={{mt:1}}>{[customer.city,customer.state].filter(Boolean).join(', ') || 'Location not recorded'} / Customer since {dateLabel(customer.created_at)}</Typography></Box></Stack>
+        <Stack direction="row" sx={{gap:1,alignItems:"flex-start"}}><Button variant="outlined" startIcon={<RefreshIcon/>} onClick={fetchProfile}>Refresh</Button><Button variant="outlined" startIcon={<DescriptionOutlinedIcon/>} onClick={()=>navigate(`${base}/quotations`)}>Quotations</Button><Button variant="contained" startIcon={<EditOutlinedIcon/>} onClick={openEdit}>Edit profile</Button></Stack>
       </Box>
-    );
-  }
-
-  if (!customer) {
-    return (
-      <Box sx={{ p: 6, textAlign: "center" }}>
-        <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.primary }}>
-          Customer Not Found
-        </Typography>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(customersBasePath)}
-          sx={{ mt: 2, textTransform: "none" }}
-        >
-          Back to Directory
-        </Button>
+      <Box sx={{mt:2.5,pt:2,borderTop:'1px solid',borderColor:'divider',display:'flex',justifyContent:'space-between',gap:1,flexWrap:'wrap'}}><ContactActions customer={customer}/><Button size="small" disabled={!customer.customer_code} startIcon={<ContentCopyOutlinedIcon/>} onClick={()=>copyValue(customer.customer_code,'Customer code')}>Copy customer code</Button></Box>
+    </Paper>
+    <Box sx={{display:'grid',gridTemplateColumns:{xs:'1fr',sm:'repeat(2,minmax(0,1fr))',xl:'repeat(4,minmax(0,1fr))'},gap:2,mb:3}}><Metric label="Linked projects" value={projects.length} hint={`${capacity.toFixed(1)} kW combined capacity`}/><Metric label="Total billed" value={money(billed)} hint={`${invoices.length} linked invoices`}/><Metric label="Recorded payments" value={money(paid)} hint="Invoice payment records"/><Metric label="Outstanding balance" value={money(due)} color={due>0?'error.main':'text.primary'} hint={due>0?'Review unpaid invoices':'No outstanding invoice balance'}/></Box>
+    <Paper variant="outlined" sx={{borderRadius:3,boxShadow:'none',overflow:'hidden'}}>
+      <Tabs value={activeTab} onChange={(_,next)=>setActiveTab(next)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile aria-label="Customer profile sections" sx={{borderBottom:'1px solid',borderColor:'divider',bgcolor:'#F8FAFC'}}>
+        <Tab icon={<PersonOutlineIcon/>} iconPosition="start" label="Overview" id="customer-tab-0" aria-controls="customer-panel-0"/>
+        <Tab icon={<EngineeringOutlinedIcon/>} iconPosition="start" label={`Projects (${projects.length})`} id="customer-tab-1" aria-controls="customer-panel-1"/>
+        <Tab icon={<DescriptionOutlinedIcon/>} iconPosition="start" label={`Quotations (${quotations.length})`} id="customer-tab-2" aria-controls="customer-panel-2"/>
+        <Tab icon={<ReceiptLongOutlinedIcon/>} iconPosition="start" label={`Invoices (${invoices.length})`} id="customer-tab-3" aria-controls="customer-panel-3"/>
+        <Tab icon={<HistoryOutlinedIcon/>} iconPosition="start" label={`Leads (${leads.length})`} id="customer-tab-4" aria-controls="customer-panel-4"/>
+      </Tabs>
+      <Box role="tabpanel" id={`customer-panel-${activeTab}`} aria-labelledby={`customer-tab-${activeTab}`} sx={{p:{xs:2,md:3}}}>
+      {activeTab===0?<Box sx={{display:'grid',gridTemplateColumns:{xs:'1fr',lg:'repeat(2,minmax(0,1fr))'},gap:3}}>
+        <Paper variant="outlined" sx={{p:2.5,borderRadius:2,boxShadow:'none'}}><Typography variant="h6" sx={{fontWeight:700,mb:2}}>Contact & site</Typography><Box sx={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:2.5}}><Field label="Mobile" value={customer.mobile_number || 'Not recorded'}/><Field label="Alternate phone" value={customer.alternate_number || 'Not recorded'}/><Box sx={{gridColumn:'1 / -1'}}><Field label="Email" value={customer.email || 'Not recorded'}/></Box><Box sx={{gridColumn:'1 / -1'}}><Field label="Site address" value={[customer.address,customer.city,customer.state,customer.pincode].filter(Boolean).join(', ') || 'Not recorded'}/></Box><Field label="Assigned representative" value={customer.assigned_to_name || 'Unassigned'}/><Field label="Source lead" value={customer.lead_code || 'Not linked'}/></Box><Stack direction="row" sx={{gap:1,mt:2}}><Button size="small" disabled={!customer.mobile_number} startIcon={<ContentCopyOutlinedIcon/>} onClick={()=>copyValue(customer.mobile_number,'Phone')}>Copy phone</Button><Button size="small" disabled={!customer.email} onClick={()=>copyValue(customer.email,'Email')}>Copy email</Button></Stack></Paper>
+        <Paper variant="outlined" sx={{p:2.5,borderRadius:2,boxShadow:'none'}}><Typography variant="h6" sx={{fontWeight:700,mb:2}}>Electricity & tax details</Typography><Box sx={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:2.5}}><Field label="CA / consumer number" value={customer.electricity_consumer_number || 'Not recorded'}/><Field label="DISCOM" value={customer.discom_name || 'Not recorded'}/><Field label="Sanctioned load" value={customer.sanctioned_load_kw==null?'Not recorded':`${customer.sanctioned_load_kw} kW`}/><Field label="GSTIN" value={customer.customer_gstin || 'Not recorded'}/></Box></Paper>
+        <Paper variant="outlined" sx={{p:2.5,borderRadius:2,boxShadow:'none'}}><Typography variant="h6" sx={{fontWeight:700,mb:1}}>Invoice collection summary</Typography><Typography variant="body2" color="text.secondary">Based on recorded invoice amounts.</Typography><LinearProgress variant="determinate" value={collection} aria-label="Recorded invoice collection percentage" sx={{mt:2,height:8,borderRadius:2}}/><Typography variant="body2" sx={{mt:1.5}}>{money(paid)} recorded against {money(billed)} billed</Typography><Button size="small" onClick={()=>{setInvoiceFilter(due>0?'due':'all');setActiveTab(3);}} sx={{mt:1}}>Review {due>0?'unpaid ':''}invoices</Button></Paper>
+        <Paper variant="outlined" sx={{p:2.5,borderRadius:2,boxShadow:'none'}}><Typography variant="h6" sx={{fontWeight:700,mb:1}}>Customer notes</Typography><Typography variant="body2" color="text.secondary" sx={{whiteSpace:'pre-wrap'}}>{customer.notes || 'No notes recorded. Add site instructions or customer preferences from Edit profile.'}</Typography><Button size="small" onClick={openEdit} sx={{mt:1.5}}>Edit notes</Button></Paper>
+      </Box>:<>
+        <Stack direction="row" sx={{justifyContent:'space-between',alignItems:'center',gap:2,mb:2.5}}><Box><Typography component="h2" variant="h6" sx={{fontWeight:700}}>{['','Solar projects','Quotations','Invoice records','Lead history'][activeTab]}</Typography><Typography variant="body2" color="text.secondary">{rows.length} linked record{rows.length===1?'':'s'}</Typography></Box><Stack direction="row" sx={{gap:1.5,alignItems:'center'}}>{activeTab===3&&<TextField select size="small" label="Show invoices" value={invoiceFilter} onChange={e=>setInvoiceFilter(e.target.value)} sx={{minWidth:160}}><MenuItem value="all">All invoices</MenuItem><MenuItem value="due">Balance due</MenuItem></TextField>}<ViewToggle value={view} onChange={setView} label="Linked record view"/></Stack></Stack>
+        {!rows.length?<Box sx={{textAlign:'center',py:5}}><Typography variant="subtitle1" sx={{fontWeight:700}}>No {['','projects','quotations','invoices','leads'][activeTab]} to show</Typography><Typography variant="body2" color="text.secondary" sx={{mt:1}}>Linked records will appear here when available.</Typography>{activeTab===3&&invoiceFilter==='due'&&<Button onClick={()=>setInvoiceFilter('all')} sx={{mt:2}}>Show all invoices</Button>}</Box>:view==='cards'?<Box sx={{display:'grid',gridTemplateColumns:{xs:'1fr',lg:'repeat(2,minmax(0,1fr))'},gap:2}}>{rows.map(row=>{const info=recordInfo(row);return <Paper variant="outlined" key={row.id} sx={{p:2.5,borderRadius:2,boxShadow:'none'}}><Stack direction="row" sx={{gap:1,justifyContent:'space-between',alignItems:'flex-start',mb:2}}><Typography component="h3" variant="subtitle1" sx={{fontWeight:700}}>{info.title}</Typography>{info.status&&<Chip size="small" variant="outlined" label={info.status}/>}</Stack><Box sx={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:2,mb:2}}>{info.fields.map(([label,value])=><Field key={label} label={label} value={value}/>)}</Box>{recordAction(info)}</Paper>;})}</Box>:<TableContainer><Table size="small" sx={{minWidth:650}} aria-label="Linked customer records"><TableHead sx={{bgcolor:'#F8FAFC'}}><TableRow><TableCell>Record</TableCell><TableCell>Status</TableCell><TableCell>Details</TableCell><TableCell>Action</TableCell></TableRow></TableHead><TableBody>{rows.map(row=>{const info=recordInfo(row);return <TableRow key={row.id} hover><TableCell sx={{fontWeight:600}}>{info.title}</TableCell><TableCell>{info.status || 'Not recorded'}</TableCell><TableCell>{info.fields.map(([label,value])=><Typography key={label} variant="body2" sx={{mb:0.5}}>{label}: {value}</Typography>)}</TableCell><TableCell>{recordAction(info)}</TableCell></TableRow>;})}</TableBody></Table></TableContainer>}
+      </>}
       </Box>
-    );
-  }
-
-  const projects = customer.projects || [];
-  const quotations = customer.quotations || [];
-  const invoices = customer.invoices || [];
-  const leads = customer.leads || [];
-
-  const totalBilled = invoices.reduce((acc, inv) => acc + (parseFloat(inv.gross_total) || 0), 0);
-  const totalPaid = invoices.reduce((acc, inv) => acc + (parseFloat(inv.amount_paid) || 0), 0);
-  const totalBalance = invoices.reduce((acc, inv) => acc + (parseFloat(inv.balance_due) || 0), 0);
-  const totalKw = projects.reduce((acc, p) => acc + (parseFloat(p.system_capacity_kw) || 0), 0);
-
-  return (
-    <Box sx={{ pb: 6 }}>
-      {/* Back button & Breadcrumb */}
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-        <Button
-          size="small"
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(customersBasePath)}
-          sx={{ color: COLORS.textSecondary, textTransform: "none", fontWeight: 600 }}
-        >
-          Back to Customers
-        </Button>
-      </Stack>
-
-      {/* Header Customer Profile Card */}
-      <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: "12px", border: `1px solid ${COLORS.border}` }}>
-        <Grid container spacing={3} alignItems="center">
-          <Grid item xs={12} md={7}>
-            <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
-              <Box sx={{ p: 1.5, bgcolor: "#EFF6FF", borderRadius: "12px", color: "#1D4ED8", mt: 0.5 }}>
-                <PersonIcon sx={{ fontSize: 32 }} />
-              </Box>
-
-              <Box>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Typography variant="h5" sx={{ fontWeight: 800, color: COLORS.primary }}>
-                    {customer.customer_name}
-                  </Typography>
-                  <Chip
-                    size="small"
-                    label={customer.customer_code}
-                    sx={{ bgcolor: COLORS.primary, color: "#FFFFFF", fontWeight: 700, fontFamily: "monospace" }}
-                  />
-                  <Chip
-                    size="small"
-                    label={customer.solar_requirement || "Residential"}
-                    sx={{ bgcolor: COLORS.warningSoft, color: COLORS.warning, fontWeight: 700 }}
-                  />
-                </Stack>
-
-                <Stack direction="row" spacing={2} sx={{ mt: 1, flexWrap: "wrap" }}>
-                  <Typography variant="body2" sx={{ color: COLORS.textSecondary, display: "flex", alignItems: "center", gap: 0.5 }}>
-                    <PhoneIcon sx={{ fontSize: 16 }} /> {customer.mobile_number}
-                  </Typography>
-                  {customer.email && (
-                    <Typography variant="body2" sx={{ color: COLORS.textSecondary, display: "flex", alignItems: "center", gap: 0.5 }}>
-                      <EmailIcon sx={{ fontSize: 16 }} /> {customer.email}
-                    </Typography>
-                  )}
-                  {customer.city && (
-                    <Typography variant="body2" sx={{ color: COLORS.textSecondary, display: "flex", alignItems: "center", gap: 0.5 }}>
-                      <LocationOnIcon sx={{ fontSize: 16 }} /> {[customer.city, customer.state].filter(Boolean).join(", ")}
-                    </Typography>
-                  )}
-                </Stack>
-              </Box>
-            </Box>
-          </Grid>
-
-          {/* Quick Actions */}
-          <Grid item xs={12} md={5}>
-            <Stack direction="row" spacing={1} justifyContent={{ xs: "flex-start", md: "flex-end" }} flexWrap="wrap">
-              <Button
-                variant="outlined"
-                startIcon={<WhatsAppIcon sx={{ color: "#25D366" }} />}
-                onClick={() => {
-                  const phone = customer.mobile_number?.replace(/\D/g, "");
-                  window.open(`https://wa.me/91${phone.slice(-10)}`, "_blank");
-                }}
-                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600, borderColor: COLORS.border }}
-              >
-                WhatsApp
-              </Button>
-
-              <Button
-                variant="outlined"
-                startIcon={<EditOutlinedIcon />}
-                onClick={() => setOpenEditModal(true)}
-                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600, borderColor: COLORS.border }}
-              >
-                Edit Info
-              </Button>
-
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => navigate(isManager ? "/manager/quotations" : "/quotations")}
-                sx={{ bgcolor: COLORS.primary, borderRadius: "8px", textTransform: "none", fontWeight: 700, "&:hover": { bgcolor: COLORS.primaryDark } }}
-              >
-                + New Proposal
-              </Button>
-            </Stack>
-          </Grid>
-        </Grid>
-
-        <Divider sx={{ my: 2.5 }} />
-
-        {/* Aggregated KPI Strip */}
-        <Grid container spacing={2}>
-          <Grid item xs={6} sm={3}>
-            <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Active Projects</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.primary }}>
-              {projects.length} ({totalKw.toFixed(1)} kW)
-            </Typography>
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Total Billed Value</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.primary }}>
-              ₹{Math.round(totalBilled).toLocaleString("en-IN")}
-            </Typography>
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Total Paid in Bank</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.success }}>
-              ₹{Math.round(totalPaid).toLocaleString("en-IN")}
-            </Typography>
-          </Grid>
-          <Grid item xs={6} sm={3}>
-            <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Outstanding Balance</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: totalBalance > 0 ? COLORS.danger : COLORS.success }}>
-              ₹{Math.round(totalBalance).toLocaleString("en-IN")}
-            </Typography>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* 360° Tabs */}
-      <Paper elevation={0} sx={{ borderRadius: "12px", border: `1px solid ${COLORS.border}`, overflow: "hidden" }}>
-        <Tabs
-          value={activeTab}
-          onChange={(e, v) => setActiveTab(v)}
-          sx={{
-            borderBottom: `1px solid ${COLORS.border}`,
-            bgcolor: "#F8FAFC",
-            "& .MuiTab-root": { textTransform: "none", fontWeight: 700, fontSize: "0.82rem", minHeight: 48 },
-          }}
-        >
-          <Tab icon={<PersonIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Overview & Grid Specs" />
-          <Tab icon={<EngineeringOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label={`Projects (${projects.length})`} />
-          <Tab icon={<DescriptionOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label={`Quotations (${quotations.length})`} />
-          <Tab icon={<ReceiptLongOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label={`Invoices & Ledger (${invoices.length})`} />
-          <Tab icon={<SolarPowerOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label={`Original Leads (${leads.length})`} />
-        </Tabs>
-
-        <Box sx={{ p: 3 }}>
-          {/* TAB 0: Overview & Grid */}
-          {activeTab === 0 && (
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <Card elevation={0} sx={{ p: 2.5, border: `1px solid ${COLORS.border}`, borderRadius: "10px", height: "100%" }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: COLORS.primary, mb: 1.5 }}>
-                    Grid &amp; Electricity Consumer Details
-                  </Typography>
-                  <Stack spacing={1.5}>
-                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                      <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>CA / Consumer No:</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.primary }}>
-                        {customer.electricity_consumer_number || "Not specified"}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                      <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Discom Authority:</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.primary }}>
-                        {customer.discom_name || "Not specified"}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                      <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Sanctioned Grid Load:</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.primary }}>
-                        {customer.sanctioned_load_kw ? `${customer.sanctioned_load_kw} kW` : "Not specified"}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                      <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>GSTIN / Tax ID:</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.primary }}>
-                        {customer.customer_gstin || "N/A"}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Card>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Card elevation={0} sx={{ p: 2.5, border: `1px solid ${COLORS.border}`, borderRadius: "10px", height: "100%" }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: COLORS.primary, mb: 1.5 }}>
-                    Installation Address &amp; Metadata
-                  </Typography>
-                  <Stack spacing={1.5}>
-                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                      <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Site Address:</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.primary, textAlign: "right", maxWidth: "60%" }}>
-                        {customer.address || "Not specified"}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                      <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>City / State / PIN:</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.primary }}>
-                        {[customer.city, customer.state, customer.pincode].filter(Boolean).join(", ") || "—"}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                      <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Assigned Rep / Manager:</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.primary }}>
-                        {customer.assigned_to_name || "Not assigned"}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                      <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Customer Since:</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.primary }}>
-                        {new Date(customer.created_at).toLocaleDateString("en-IN", { dateStyle: "long" })}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Card>
-              </Grid>
-            </Grid>
-          )}
-
-          {/* TAB 1: Projects */}
-          {activeTab === 1 && (
-            <Box>
-              {projects.length === 0 ? (
-                <Typography variant="body2" sx={{ color: COLORS.textSecondary, py: 4, textAlign: "center" }}>
-                  No execution projects found for this customer yet.
-                </Typography>
-              ) : (
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead sx={{ bgcolor: COLORS.primary }}>
-                      <TableRow>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700 }}>PROJECT #</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700 }}>CAPACITY</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700 }}>CURRENT STAGE</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700 }}>ASSIGNED ENGINEER</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, textAlign: "right" }}>ACTION</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {projects.map((p) => (
-                        <TableRow key={p.id} hover>
-                          <TableCell sx={{ fontWeight: 700, fontFamily: "monospace" }}>{p.project_number}</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{p.system_capacity_kw} kW</TableCell>
-                          <TableCell>
-                            <Chip size="small" label={p.stage} sx={{ bgcolor: COLORS.warningSoft, color: COLORS.warning, fontWeight: 700 }} />
-                          </TableCell>
-                          <TableCell>{p.assigned_to_name || "Unassigned"}</TableCell>
-                          <TableCell align="right">
-                            <Button
-                              size="small"
-                              endIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
-                              onClick={() => navigate(`${projectsBasePath}/${p.id}`)}
-                              sx={{ textTransform: "none", fontWeight: 700 }}
-                            >
-                              Track Stage
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </Box>
-          )}
-
-          {/* TAB 2: Quotations */}
-          {activeTab === 2 && (
-            <Box>
-              {quotations.length === 0 ? (
-                <Typography variant="body2" sx={{ color: COLORS.textSecondary, py: 4, textAlign: "center" }}>
-                  No quotations created for this customer yet.
-                </Typography>
-              ) : (
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead sx={{ bgcolor: COLORS.primary }}>
-                      <TableRow>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700 }}>QUOTATION #</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700 }}>SYSTEM</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, textAlign: "right" }}>AMOUNT</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, textAlign: "center" }}>STATUS</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, textAlign: "right" }}>VIEW</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {quotations.map((q) => (
-                        <TableRow key={q.id} hover>
-                          <TableCell sx={{ fontWeight: 700, fontFamily: "monospace" }}>{q.quotation_number}</TableCell>
-                          <TableCell>{q.system_capacity_kw} kW ({q.system_type})</TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 700 }}>
-                            ₹{Math.round(q.net_payable_amount || 0).toLocaleString("en-IN")}
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip size="small" label={q.status} sx={{ fontWeight: 700 }} />
-                          </TableCell>
-                          <TableCell align="right">
-                            <Button
-                              size="small"
-                              onClick={() => window.open(`/quote/${q.public_token || q.id}`, "_blank")}
-                              sx={{ textTransform: "none", fontWeight: 700 }}
-                            >
-                              Open Proposal ↗
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </Box>
-          )}
-
-          {/* TAB 3: Invoices */}
-          {activeTab === 3 && (
-            <Box>
-              {invoices.length === 0 ? (
-                <Typography variant="body2" sx={{ color: COLORS.textSecondary, py: 4, textAlign: "center" }}>
-                  No tax invoices recorded for this customer yet.
-                </Typography>
-              ) : (
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead sx={{ bgcolor: COLORS.primary }}>
-                      <TableRow>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700 }}>INVOICE #</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700 }}>DATE</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, textAlign: "right" }}>GROSS TOTAL</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, textAlign: "right" }}>PAID</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, textAlign: "right" }}>BALANCE</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, textAlign: "center" }}>STATUS</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, textAlign: "right" }}>VIEW</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {invoices.map((inv) => (
-                        <TableRow key={inv.id} hover>
-                          <TableCell sx={{ fontWeight: 700, fontFamily: "monospace" }}>{inv.invoice_number}</TableCell>
-                          <TableCell>{new Date(inv.invoice_date).toLocaleDateString("en-IN")}</TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 700 }}>
-                            ₹{Math.round(inv.gross_total || 0).toLocaleString("en-IN")}
-                          </TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 600, color: COLORS.success }}>
-                            ₹{Math.round(inv.amount_paid || 0).toLocaleString("en-IN")}
-                          </TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 700, color: parseFloat(inv.balance_due) > 0 ? COLORS.danger : COLORS.success }}>
-                            ₹{Math.round(inv.balance_due || 0).toLocaleString("en-IN")}
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip size="small" label={inv.payment_status} sx={{ fontWeight: 700 }} />
-                          </TableCell>
-                          <TableCell align="right">
-                            <Button
-                              size="small"
-                              onClick={() => window.open(`/invoice/${inv.public_token || inv.id}`, "_blank")}
-                              sx={{ textTransform: "none", fontWeight: 700 }}
-                            >
-                              PDF / View ↗
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </Box>
-          )}
-
-          {/* TAB 4: Leads */}
-          {activeTab === 4 && (
-            <Box>
-              {leads.length === 0 ? (
-                <Typography variant="body2" sx={{ color: COLORS.textSecondary, py: 4, textAlign: "center" }}>
-                  No lead interactions logged.
-                </Typography>
-              ) : (
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead sx={{ bgcolor: COLORS.primary }}>
-                      <TableRow>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700 }}>LEAD CODE</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700 }}>STATUS</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700 }}>ASSIGNED TO</TableCell>
-                        <TableCell sx={{ color: "#FFFFFF", fontWeight: 700 }}>CREATED DATE</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {leads.map((l) => (
-                        <TableRow key={l.id} hover>
-                          <TableCell sx={{ fontWeight: 700, fontFamily: "monospace" }}>{l.lead_code}</TableCell>
-                          <TableCell>
-                            <Chip size="small" label={l.status} sx={{ fontWeight: 700 }} />
-                          </TableCell>
-                          <TableCell>{l.assigned_to_name || "Unassigned"}</TableCell>
-                          <TableCell>{new Date(l.created_at).toLocaleDateString("en-IN")}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </Box>
-          )}
-        </Box>
-      </Paper>
-
-      {/* Edit Customer Modal */}
-      <Dialog open={openEditModal} onClose={() => setOpenEditModal(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: "12px" } }}>
-        <DialogTitle sx={{ bgcolor: COLORS.primary, color: "#FFFFFF", py: 2 }}>
-          Edit Customer Profile ({customer.customer_code})
-        </DialogTitle>
-        <form onSubmit={handleSaveEdit}>
-          <DialogContent sx={{ p: 3 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth size="small" label="Customer Name" name="customer_name" value={editData.customer_name || ""} onChange={handleEditChange} required />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth size="small" label="Mobile Number" name="mobile_number" value={editData.mobile_number || ""} onChange={handleEditChange} required />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth size="small" label="Alternate Phone" name="alternate_number" value={editData.alternate_number || ""} onChange={handleEditChange} />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth size="small" label="Email" name="email" value={editData.email || ""} onChange={handleEditChange} />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth size="small" label="CA / Consumer Number" name="electricity_consumer_number" value={editData.electricity_consumer_number || ""} onChange={handleEditChange} />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth size="small" label="Discom Provider" name="discom_name" value={editData.discom_name || ""} onChange={handleEditChange} />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth size="small" type="number" label="Sanctioned Load (kW)" name="sanctioned_load_kw" value={editData.sanctioned_load_kw || ""} onChange={handleEditChange} />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth size="small" label="GSTIN" name="customer_gstin" value={editData.customer_gstin || ""} onChange={handleEditChange} />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField fullWidth size="small" label="Address" name="address" value={editData.address || ""} onChange={handleEditChange} />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField fullWidth size="small" label="City" name="city" value={editData.city || ""} onChange={handleEditChange} />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField fullWidth size="small" label="State" name="state" value={editData.state || ""} onChange={handleEditChange} />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField fullWidth size="small" label="Pincode" name="pincode" value={editData.pincode || ""} onChange={handleEditChange} />
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions sx={{ p: 2.5, borderTop: `1px solid ${COLORS.border}` }}>
-            <Button onClick={() => setOpenEditModal(false)} sx={{ color: COLORS.textSecondary }}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={savingEdit} sx={{ bgcolor: COLORS.primary, "&:hover": { bgcolor: COLORS.primaryDark } }}>
-              {savingEdit ? "Saving..." : "Save Changes"}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
-    </Box>
-  );
+    </Paper>
+    </>}
+    <Dialog open={editing} onClose={()=>!saving&&setEditing(false)} fullWidth maxWidth="md"><DialogTitle>Edit customer profile</DialogTitle><form onSubmit={handleSave}><DialogContent dividers>
+      {saveError&&<Alert severity="error" sx={{mb:2}}>{saveError}</Alert>}<Box sx={{display:'grid',gridTemplateColumns:{xs:'1fr',sm:'repeat(2,minmax(0,1fr))'},gap:2.5}}>{editFields.map(([field,label,type])=><TextField key={field} fullWidth size="small" label={label} type={type || 'text'} required={['customer_name','mobile_number'].includes(field)} value={editData[field] ?? ''} onChange={e=>setEditData(prev=>({...prev,[field]:e.target.value}))} inputProps={type==='number'?{min:0,step:'any'}:undefined} sx={field==='address'?{gridColumn:'1 / -1'}:{}}/>)}<TextField select label="Customer type" size="small" value={editData.solar_requirement || 'Residential'} onChange={e=>setEditData(prev=>({...prev,solar_requirement:e.target.value}))}>{['Residential','Commercial','Industrial'].map(type=><MenuItem key={type} value={type}>{type}</MenuItem>)}</TextField><TextField select label="Status" size="small" value={editData.status || 'Active'} onChange={e=>setEditData(prev=>({...prev,status:e.target.value}))}>{['Active','Inactive'].map(status=><MenuItem key={status} value={status}>{status}</MenuItem>)}</TextField><TextField label="Customer notes" multiline minRows={3} value={editData.notes || ''} onChange={e=>setEditData(prev=>({...prev,notes:e.target.value}))} sx={{gridColumn:'1 / -1'}}/></Box>
+    </DialogContent><DialogActions sx={{p:2}}><Button disabled={saving} onClick={()=>setEditing(false)}>Cancel</Button><Button variant="contained" type="submit" disabled={saving}>{saving?'Saving...':'Save changes'}</Button></DialogActions></form></Dialog>
+  </Box></CustomerWorkspace>;
 }

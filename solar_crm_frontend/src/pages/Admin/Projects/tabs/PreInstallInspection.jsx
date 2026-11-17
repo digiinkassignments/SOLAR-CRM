@@ -556,6 +556,21 @@ export default function PreInstallInspection({ project, projectId }) {
       ) : (
         /* Filled State: Read-Only Cards with Clean 04 Nov 2026 Dates */
         <Box>
+          {inspection.is_prefilled && !inspection.id && (
+            <Alert
+              severity="info"
+              sx={{
+                mb: 2.5,
+                borderRadius: "10px",
+                border: "1px solid #BAE6FD",
+                backgroundColor: "#F0F9FF",
+                "& .MuiAlert-icon": { color: "#0284C7" },
+              }}
+            >
+              ⚡ <strong>Pre-filled from Site Survey:</strong> Technical measurements, roof details, consumer number, and grid phase have been automatically populated from the completed Site Survey so nothing needs to be re-entered. Click <strong>Review & Save Inspection</strong> to confirm or adjust.
+            </Alert>
+          )}
+
           {/* Header Action Bar */}
           <Box
             sx={{
@@ -594,23 +609,24 @@ export default function PreInstallInspection({ project, projectId }) {
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
               <Chip {...getStatusChipProps(inspection.overall_status)} />
               <Button
-                variant="outlined"
+                variant={inspection.is_prefilled && !inspection.id ? "contained" : "outlined"}
                 size="small"
                 startIcon={<EditIcon sx={{ fontSize: 16 }} />}
                 onClick={handleOpenDialog}
                 sx={{
                   borderColor: COLORS.border,
-                  color: COLORS.textPrimary,
+                  backgroundColor: inspection.is_prefilled && !inspection.id ? "#0284C7" : undefined,
+                  color: inspection.is_prefilled && !inspection.id ? "#FFFFFF" : COLORS.textPrimary,
                   textTransform: "none",
                   fontWeight: 700,
                   borderRadius: "8px",
                   "&:hover": {
                     borderColor: COLORS.primary,
-                    backgroundColor: COLORS.bg,
+                    backgroundColor: inspection.is_prefilled && !inspection.id ? "#0369A1" : COLORS.bg,
                   },
                 }}
               >
-                Edit Inspection
+                {inspection.is_prefilled && !inspection.id ? "Review & Save Inspection" : "Edit Inspection"}
               </Button>
             </Box>
           </Box>
@@ -859,7 +875,7 @@ export default function PreInstallInspection({ project, projectId }) {
                     {inspection.signature_data && (
                       <Grid size={12}>
                         <Box sx={{ p: 1.5, borderRadius: "8px", border: "1px solid #10B981", backgroundColor: "#F0FDF4", mt: 1 }}>
-                          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                          <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mb: 1 }}>
                             <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#166534" }}>
                               Customer / Representative Digital Signature
                             </Typography>
@@ -922,7 +938,7 @@ export default function PreInstallInspection({ project, projectId }) {
 
         <DialogContent sx={{ p: 3 }}>
           <Box component="form" id="inspection-form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-            
+
             {/* CAPACITY / PHASE CONFLICT ADVISORY BANNER */}
             {systemKw > 5.0 && formData.meter_type === "Single Phase" && (
               <Alert

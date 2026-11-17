@@ -1,3 +1,4 @@
+import LeadActionDialog from "../../components/LeadActionDialog";
 import React, { useState, useEffect, useMemo } from "react";
 import { getTeamMembers } from "../../services/userServices";
 import { getTeamFollowupsList, addFollowup, getFollowups } from "../../services/leadService";
@@ -636,7 +637,7 @@ const TeamFollowups = () => {
 
       {/* 5. ADD FOLLOW-UP / NOTE MODAL */}
       <Dialog
-        open={openAddModal}
+        open={false}
         onClose={() => setOpenAddModal(false)}
         maxWidth="xs"
         fullWidth
@@ -777,6 +778,7 @@ const TeamFollowups = () => {
         </DialogActions>
       </Dialog>
 
+      <LeadActionDialog open={openAddModal} lead={selectedItem} onClose={() => setOpenAddModal(false)} onSaved={fetchData} />
       {/* TOAST SNACKBAR */}
       <Snackbar open={toast.open} autoHideDuration={3500} onClose={() => setToast((prev) => ({ ...prev, open: false }))}>
         <Alert severity={toast.severity} sx={{ borderRadius: "8px", fontWeight: 600 }}>{toast.message}</Alert>

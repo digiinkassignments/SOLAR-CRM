@@ -1,21 +1,13 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import {
   Box,
   Container,
   Paper,
   Typography,
-  Grid,
   Button,
   Chip,
-  Divider,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   CircularProgress,
   Dialog,
   DialogTitle,
@@ -34,28 +26,18 @@ import EmailIcon from "@mui/icons-material/Email";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ShareIcon from "@mui/icons-material/Share";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
-import BoltIcon from "@mui/icons-material/Bolt";
-import ForestIcon from "@mui/icons-material/Forest";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import { Menu, MenuItem } from "@mui/material";
 
 import api from "../../api/axios";
 import { getAIProposalSavings } from "../../services/aiService";
 import toast from "react-hot-toast";
 import ConvertInvoiceModal from "../Invoices/ConvertInvoiceModal";
+import SolarQuotationDocument from "./SolarQuotationDocument";
 
 const formatIndianCurrency = (val) => {
   if (val === undefined || val === null) return "₹0";
   const num = Number(val) || 0;
   return `₹${Math.round(num).toLocaleString("en-IN")}`;
-};
-
-const formatDate = (val) => {
-  if (!val) return "—";
-  const d = new Date(val);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
 
 // Helper to resolve company logo path same-origin via Vite proxy so canvas export never fails
@@ -99,7 +81,7 @@ const convertImageToBase64 = (url) => {
             const ctx = canvas.getContext("2d");
             ctx.drawImage(img, 0, 0);
             resolve(canvas.toDataURL("image/png"));
-          } catch (e) {
+          } catch {
             resolve(url);
           }
         };
@@ -164,7 +146,6 @@ const DynamicWebQuotationView = () => {
   }, [company]);
 
   const [aiInsights, setAiInsights] = useState(null);
-  const [aiLoading, setAiLoading] = useState(false);
 
   const fetchPublicQuotation = async () => {
     setLoading(true);
@@ -180,7 +161,6 @@ const DynamicWebQuotationView = () => {
 
         // Fetch AI ROI and Savings story for this quotation
         if (qData) {
-          setAiLoading(true);
           getAIProposalSavings({
             customer_name: qData.customer_name,
             city: qData.city,
@@ -200,8 +180,7 @@ const DynamicWebQuotationView = () => {
             })
             .catch((aiErr) => {
               console.warn("AI proposal fetch note:", aiErr);
-            })
-            .finally(() => setAiLoading(false));
+            });
         }
       }
     } catch (err) {
@@ -245,7 +224,7 @@ const DynamicWebQuotationView = () => {
     const element = document.getElementById("printable-zoho-quotation");
     if (!element) return;
 
-    toast.loading("Generating 1-page executive PDF download...", { id: "pdf-toast" });
+    toast.loading("Preparing your quotation PDF...", { id: "pdf-toast" });
 
     // Pre-convert any images in element to Base64 before exporting
     const imgs = element.querySelectorAll("img");
@@ -265,7 +244,7 @@ const DynamicWebQuotationView = () => {
     import("html2pdf.js").then((html2pdfModule) => {
       const html2pdf = html2pdfModule.default || html2pdfModule;
       const opt = {
-        margin: [5, 6, 5, 6],
+        margin: [12, 10, 15, 10],
         filename: `Solar_Quotation_${quotation?.quotation_number || "Proposal"}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: {
@@ -274,18 +253,29 @@ const DynamicWebQuotationView = () => {
           logging: false,
           scrollY: 0,
           scrollX: 0,
-          windowWidth: 1024,
+          windowWidth: Math.max(element.scrollWidth, 794),
         },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["avoid-all"] },
+        pagebreak: { mode: ["css", "legacy"], avoid: [".pdf-keep-together", "tr"] },
       };
 
       html2pdf()
         .set(opt)
         .from(element)
+        .toPdf()
+        .get("pdf")
+        .then((pdf) => {
+          const pageCount = pdf.internal.getNumberOfPages();
+          for (let page = 1; page <= pageCount; page += 1) {
+            pdf.setPage(page);
+            pdf.setFontSize(8);
+            pdf.setTextColor(90, 90, 90);
+            pdf.text(`${quotation?.quotation_number || "Solar Quotation"}  •  ${page} / ${pageCount}`, pdf.internal.pageSize.getWidth() - 10, pdf.internal.pageSize.getHeight() - 6, { align: "right" });
+          }
+        })
         .save()
         .then(() => {
-          toast.success("Executive 1-Page PDF downloaded!", { id: "pdf-toast" });
+          toast.success("Quotation PDF downloaded.", { id: "pdf-toast" });
         })
         .catch((err) => {
           console.error("PDF save error:", err);
@@ -311,22 +301,27 @@ const DynamicWebQuotationView = () => {
     window.open(whatsappUrl, "_blank");
   };
 
-  const handleShareEmail = () => {
+  const handleShareEmail = async () => {
     if (!quotation) return;
-    const publicUrl = `${window.location.origin}/quote/${quotation.public_token || quotation.quotation_number || quotation.id}`;
-    const compName = company?.company_name || "Solar Power Solutions";
-    const subject = `Solar Energy System Proposal (${quotation.system_capacity_kw} kW) - ${quotation.quotation_number}`;
-    const body = `Dear ${quotation.customer_name},\n\nPlease find your customized solar energy system quotation below:\n\nSystem Capacity: ${quotation.system_capacity_kw} kW (${quotation.system_type || "On-Grid"})\nNet Investment Payable: ${formatIndianCurrency(quotation.net_payable_amount)}\n\nView Digital Proposal Online & Download PDF:\n${publicUrl}\n\nBest Regards,\n${compName}\n${company?.company_phone || ""}`;
-
-    window.location.href = `mailto:${quotation.customer_email || ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    if (!localStorage.getItem("token")) { toast.error("Sign in to the CRM to send a quotation email."); return; }
+    if (!quotation.customer_email) { toast.error("Save the customer's email address first."); return; }
+    const button = document.activeElement;
+    if (button?.disabled) return;
+    if (button) button.disabled = true;
+    toast.loading("Sending quotation?", { id: "quotation-email" });
+    try {
+      const response = await api.post(`/quotations/${quotation.id}/send-email`, { to: quotation.customer_email });
+      toast.success(response.data.message, { id: "quotation-email" });
+    } catch (error) { toast.error(error.response?.data?.message || "Could not send email. Sign in and try again.", { id: "quotation-email" }); }
+    finally { if (button) button.disabled = false; }
   };
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", bgcolor: "#F8FAFC" }}>
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", bgcolor: "#F8F8F8" }}>
         <Stack alignItems="center" spacing={1.5}>
-          <CircularProgress size={42} sx={{ color: "#0F172A" }} />
-          <Typography variant="body2" sx={{ color: "#475569", fontWeight: 700 }}>
+          <CircularProgress size={42} sx={{ color: "#111111" }} />
+          <Typography variant="body2" sx={{ color: "#444444", fontWeight: 700 }}>
             Loading Official System-Generated Quotation...
           </Typography>
         </Stack>
@@ -336,13 +331,13 @@ const DynamicWebQuotationView = () => {
 
   if (!quotation) {
     return (
-      <Box sx={{ minHeight: "100vh", bgcolor: "#F8FAFC", display: "flex", alignItems: "center", justifyContent: "center", p: 3 }}>
-        <Paper elevation={0} sx={{ p: 4, textAlign: "center", maxWidth: 440, borderRadius: "14px", border: "1px solid #E2E8F0" }}>
-          <SolarPowerIcon sx={{ fontSize: 50, color: "#94A3B8", mb: 1.5 }} />
-          <Typography variant="h6" sx={{ fontWeight: 800, color: "#0F172A", mb: 0.8 }}>
+      <Box sx={{ minHeight: "100vh", bgcolor: "#F8F8F8", display: "flex", alignItems: "center", justifyContent: "center", p: 3 }}>
+        <Paper elevation={0} sx={{ p: 4, textAlign: "center", maxWidth: 440, borderRadius: "14px", border: "1px solid #DEDEDE" }}>
+          <SolarPowerIcon sx={{ fontSize: 50, color: "#888888", mb: 1.5 }} />
+          <Typography variant="h6" sx={{ fontWeight: 800, color: "#111111", mb: 0.8 }}>
             Proposal Not Found
           </Typography>
-          <Typography variant="body2" sx={{ color: "#64748B", fontSize: "0.8rem" }}>
+          <Typography variant="body2" sx={{ color: "#666666", fontSize: "0.8rem" }}>
             The quotation link may have expired or is invalid. Please contact your solar provider for an updated proposal link.
           </Typography>
         </Paper>
@@ -364,7 +359,7 @@ const DynamicWebQuotationView = () => {
   const numBase = Number(quotation.base_price) || 0;
   const numStructure = Number(quotation.structure_installation_cost) || 0;
   const numDiscount = Number(quotation.discount_amount) || 0;
-  const numGstRate = Number(quotation.gst_rate) || 13.8;
+  const numGstRate = Number(quotation.gst_rate ?? 0);
 
   let finalBase = numBase;
   let finalStructure = numStructure;
@@ -379,38 +374,31 @@ const DynamicWebQuotationView = () => {
   }
 
   const subtotalBeforeGst = Math.max(0, (finalBase + finalStructure) - numDiscount);
-  const numGstAmount = Number(quotation.gst_amount) || Math.round((subtotalBeforeGst * numGstRate) / 100);
+  const numGstAmount = quotation.gst_amount != null ? Number(quotation.gst_amount) : Math.round((subtotalBeforeGst * numGstRate) / 100);
   const totalGrossInvestment = numTotalGross || (subtotalBeforeGst + numGstAmount);
-
-  // Full Company Address from Settings
-  const companyFullAddress = [
-    company?.address,
-    company?.city,
-    company?.state,
-    company?.country,
-    company?.pincode ? `- ${company.pincode}` : "",
-  ]
-    .filter(Boolean)
-    .join(", ");
-
-  const companyPhone = company?.company_phone || "";
-  const companyEmail = company?.company_email || "";
-  const companyWebsite = company?.website || "";
+  const quotationLineItems = (() => {
+    try {
+      const parsed = typeof quotation.line_items_json === "string" ? JSON.parse(quotation.line_items_json) : quotation.line_items_json;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  })();
 
   return (
-    <Box sx={{ bgcolor: "#F1F5F9", minHeight: "100vh", pb: 5 }}>
-      {/* Strict CSS Rules for Crisp Vector 1-Page A4 Executive Document Printing */}
+    <Box sx={{ bgcolor: "#F3F3F3", minHeight: "100vh", pb: 5, "& .MuiAlert-root": { bgcolor: "#F7F7F7", color: "#333333", border: "1px solid #DEDEDE" }, "& .MuiAlert-icon": { color: "#444444" } }}>
+      {/* Print rules keep itemized quotations readable across multiple A4 pages. */}
       <style>{`
         @media print {
           @page {
             size: A4 portrait;
-            margin: 6mm 8mm;
+            margin: 12mm 10mm 15mm;
           }
           body {
             background-color: #ffffff !important;
             margin: 0 !important;
             padding: 0 !important;
-            color: #0F172A !important;
+            color: #111111 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -421,14 +409,19 @@ const DynamicWebQuotationView = () => {
             box-shadow: none !important;
             border: none !important;
             margin: 0 !important;
-            padding: 2mm 3mm !important;
+            padding: 0 !important;
             width: 100% !important;
-            max-height: 280mm !important;
-            overflow: hidden !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            overflow: visible !important;
             background: #ffffff !important;
-            page-break-after: avoid !important;
-            page-break-inside: avoid !important;
+            page-break-after: auto !important;
+            page-break-inside: auto !important;
           }
+          #printable-zoho-quotation table { width: 100% !important; border-collapse: collapse !important; }
+          #printable-zoho-quotation thead { display: table-header-group !important; }
+          #printable-zoho-quotation tr { break-inside: avoid !important; page-break-inside: avoid !important; }
+          #printable-zoho-quotation .pdf-keep-together { break-inside: avoid !important; page-break-inside: avoid !important; }
         }
       `}</style>
 
@@ -437,9 +430,9 @@ const DynamicWebQuotationView = () => {
         className="no-print"
         sx={{
           bgcolor: "#FFFFFF",
-          color: "#0F172A",
-          borderBottom: "1px solid #E2E8F0",
-          boxShadow: "0 2px 8px rgba(15, 23, 42, 0.05)",
+          color: "#111111",
+          borderBottom: "1px solid #DEDEDE",
+          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
           position: "sticky",
           top: 0,
           zIndex: 1100,
@@ -484,22 +477,22 @@ const DynamicWebQuotationView = () => {
                     width: 38,
                     height: 38,
                     borderRadius: "8px",
-                    bgcolor: "#0F172A",
+                    bgcolor: "#111111",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <SolarPowerIcon sx={{ color: "#F59E0B", fontSize: 22 }} />
+                  <SolarPowerIcon sx={{ color: "#444444", fontSize: 22 }} />
                 </Box>
               )}
 
-              <Box sx={{ borderLeft: "1px solid #E2E8F0", pl: 2, display: { xs: "none", sm: "block" } }}>
+              <Box sx={{ borderLeft: "1px solid #DEDEDE", pl: 2, display: { xs: "none", sm: "block" } }}>
                 <Typography
                   sx={{
                     fontFamily: "'Outfit', sans-serif",
                     fontWeight: 700,
-                    color: "#0F172A",
+                    color: "#111111",
                     fontSize: "0.95rem",
                     lineHeight: 1.2,
                   }}
@@ -509,7 +502,7 @@ const DynamicWebQuotationView = () => {
                 <Typography
                   sx={{
                     fontFamily: "'Inter', sans-serif",
-                    color: "#64748B",
+                    color: "#666666",
                     fontSize: "0.72rem",
                     fontWeight: 500,
                   }}
@@ -519,17 +512,17 @@ const DynamicWebQuotationView = () => {
               </Box>
 
               <Chip
-                icon={isAccepted ? <VerifiedIcon sx={{ color: "#16A34A !important", fontSize: "14px !important" }} /> : undefined}
+                icon={isAccepted ? <VerifiedIcon sx={{ color: "#333333 !important", fontSize: "14px !important" }} /> : undefined}
                 label={isAccepted ? "Accepted" : quotation.status || "Sent"}
                 size="small"
                 sx={{
-                  bgcolor: isAccepted ? "#DCFCE7" : "#F1F5F9",
-                  color: isAccepted ? "#15803D" : "#475569",
+                  bgcolor: isAccepted ? "#EFEFEF" : "#F3F3F3",
+                  color: isAccepted ? "#333333" : "#444444",
                   fontWeight: 700,
                   fontSize: "0.72rem",
                   height: 26,
                   borderRadius: "6px",
-                  border: isAccepted ? "1px solid #BBF7D0" : "1px solid #E2E8F0",
+                  border: isAccepted ? "1px solid #DDDDDD" : "1px solid #DEDEDE",
                 }}
               />
             </Stack>
@@ -540,12 +533,12 @@ const DynamicWebQuotationView = () => {
               <Button
                 variant="outlined"
                 size="small"
-                startIcon={<ShareIcon sx={{ fontSize: 16, color: "#64748B" }} />}
-                endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 16, color: "#64748B" }} />}
+                startIcon={<ShareIcon sx={{ fontSize: 16, color: "#666666" }} />}
+                endIcon={<KeyboardArrowDownIcon sx={{ fontSize: 16, color: "#666666" }} />}
                 onClick={(e) => setShareAnchorEl(e.currentTarget)}
                 sx={{
-                  color: "#334155",
-                  borderColor: "#CBD5E1",
+                  color: "#333333",
+                  borderColor: "#CCCCCC",
                   bgcolor: "#FFFFFF",
                   fontFamily: "'Inter', sans-serif",
                   fontWeight: 600,
@@ -554,7 +547,7 @@ const DynamicWebQuotationView = () => {
                   height: 36,
                   px: 1.5,
                   borderRadius: "8px",
-                  "&:hover": { borderColor: "#94A3B8", bgcolor: "#F8FAFC" },
+                  "&:hover": { borderColor: "#888888", bgcolor: "#F8F8F8" },
                 }}
               >
                 Share
@@ -570,7 +563,7 @@ const DynamicWebQuotationView = () => {
                       minWidth: 160,
                       borderRadius: "10px",
                       boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
-                      border: "1px solid #E2E8F0",
+                      border: "1px solid #DEDEDE",
                     },
                   },
                 }}
@@ -580,7 +573,7 @@ const DynamicWebQuotationView = () => {
                     setShareAnchorEl(null);
                     handleShareWhatsApp();
                   }}
-                  sx={{ gap: 1.2, py: 1, fontSize: "0.82rem", fontWeight: 600, color: "#16A34A" }}
+                  sx={{ gap: 1.2, py: 1, fontSize: "0.82rem", fontWeight: 600, color: "#333333" }}
                 >
                   <WhatsAppIcon sx={{ fontSize: 18 }} />
                   WhatsApp Share
@@ -590,7 +583,7 @@ const DynamicWebQuotationView = () => {
                     setShareAnchorEl(null);
                     handleShareEmail();
                   }}
-                  sx={{ gap: 1.2, py: 1, fontSize: "0.82rem", fontWeight: 600, color: "#334155" }}
+                  sx={{ gap: 1.2, py: 1, fontSize: "0.82rem", fontWeight: 600, color: "#333333" }}
                 >
                   <EmailIcon sx={{ fontSize: 18 }} />
                   Email Client
@@ -601,11 +594,11 @@ const DynamicWebQuotationView = () => {
               <Button
                 variant="outlined"
                 size="small"
-                startIcon={<PrintIcon sx={{ fontSize: 16, color: "#64748B" }} />}
+                startIcon={<PrintIcon sx={{ fontSize: 16, color: "#666666" }} />}
                 onClick={() => window.print()}
                 sx={{
-                  color: "#334155",
-                  borderColor: "#CBD5E1",
+                  color: "#333333",
+                  borderColor: "#CCCCCC",
                   bgcolor: "#FFFFFF",
                   fontFamily: "'Inter', sans-serif",
                   fontWeight: 600,
@@ -615,7 +608,7 @@ const DynamicWebQuotationView = () => {
                   px: 1.5,
                   borderRadius: "8px",
                   display: { xs: "none", sm: "inline-flex" },
-                  "&:hover": { borderColor: "#94A3B8", bgcolor: "#F8FAFC" },
+                  "&:hover": { borderColor: "#888888", bgcolor: "#F8F8F8" },
                 }}
               >
                 Print
@@ -625,12 +618,12 @@ const DynamicWebQuotationView = () => {
               <Button
                 variant="outlined"
                 size="small"
-                startIcon={<PictureAsPdfIcon sx={{ fontSize: 16, color: "#D97706" }} />}
+                startIcon={<PictureAsPdfIcon sx={{ fontSize: 16, color: "#444444" }} />}
                 onClick={handleDownloadPdf}
                 sx={{
-                  color: "#B45309",
-                  borderColor: "#FDE68A",
-                  bgcolor: "#FFFBEB",
+                  color: "#333333",
+                  borderColor: "#DDDDDD",
+                  bgcolor: "#FAFAFA",
                   fontFamily: "'Inter', sans-serif",
                   fontWeight: 600,
                   fontSize: "0.78rem",
@@ -638,7 +631,7 @@ const DynamicWebQuotationView = () => {
                   height: 36,
                   px: 1.6,
                   borderRadius: "8px",
-                  "&:hover": { bgcolor: "#FEF3C7", borderColor: "#F59E0B" },
+                  "&:hover": { bgcolor: "#EEEEEE", borderColor: "#444444" },
                 }}
               >
                 Download PDF
@@ -651,7 +644,7 @@ const DynamicWebQuotationView = () => {
                 startIcon={<ReceiptLongIcon sx={{ fontSize: 16 }} />}
                 onClick={() => setOpenConvertInvoiceModal(true)}
                 sx={{
-                  bgcolor: "#0284C7",
+                  bgcolor: "#111111",
                   color: "#FFFFFF",
                   fontFamily: "'Inter', sans-serif",
                   fontWeight: 600,
@@ -660,22 +653,22 @@ const DynamicWebQuotationView = () => {
                   height: 36,
                   px: 1.8,
                   borderRadius: "8px",
-                  boxShadow: "0 1px 3px rgba(2, 132, 199, 0.2)",
-                  "&:hover": { bgcolor: "#0369A1", boxShadow: "0 3px 8px rgba(2, 132, 199, 0.35)" },
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.12)",
+                  "&:hover": { bgcolor: "#333333", boxShadow: "0 3px 8px rgba(0, 0, 0, 0.12)" },
                 }}
               >
                 Invoice ➔
               </Button>
 
               {/* Accept Proposal (Hero Action) */}
-              {!isAccepted && (
+              {!isAccepted && !quotation.is_superseded && (
                 <Button
                   variant="contained"
                   size="small"
                   startIcon={<CheckCircleIcon sx={{ fontSize: 16 }} />}
                   onClick={() => setOpenAcceptModal(true)}
                   sx={{
-                    bgcolor: "#10B981",
+                    bgcolor: "#333333",
                     color: "#FFFFFF",
                     fontFamily: "'Inter', sans-serif",
                     fontWeight: 700,
@@ -684,8 +677,8 @@ const DynamicWebQuotationView = () => {
                     height: 36,
                     px: 2.2,
                     borderRadius: "8px",
-                    boxShadow: "0 2px 6px rgba(16, 185, 129, 0.25)",
-                    "&:hover": { bgcolor: "#059669", boxShadow: "0 4px 12px rgba(16, 185, 129, 0.4)" },
+                    boxShadow: "0 2px 6px rgba(0, 0, 0, 0.1)",
+                    "&:hover": { bgcolor: "#333333", boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)" },
                   }}
                 >
                   Accept Proposal
@@ -696,7 +689,7 @@ const DynamicWebQuotationView = () => {
         </Box>
       </Box>
 
-      {/* MAIN 1-PAGE PROFESSIONAL EXECUTIVE SOLAR QUOTATION SHEET */}
+      {/* Multi-page A4 solar quotation document */}
       <Container maxWidth="md" sx={{ mt: 2.5, mb: 3 }}>
         {acceptedSuccess && (
           <Alert severity="success" icon={<CheckCircleIcon fontSize="inherit" />} className="no-print" sx={{ mb: 2, borderRadius: "8px", fontSize: "0.85rem", fontWeight: 600 }}>
@@ -704,568 +697,26 @@ const DynamicWebQuotationView = () => {
           </Alert>
         )}
 
-        <Paper
-          id="printable-zoho-quotation"
-          elevation={0}
-          sx={{
-            p: { xs: 2, sm: 3 },
-            borderRadius: "10px",
-            bgcolor: "#FFFFFF",
-            border: "1px solid #CBD5E1",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
-            color: "#0F172A",
-            fontFamily: "'Inter', sans-serif",
-            boxSizing: "border-box",
-            width: "100%",
-            maxWidth: "794px",
-            mx: "auto",
-          }}
-        >
-          {/* ============================================================ */}
-          {/* 1. HEADER: COMPANY BRANDING & QUOTATION METADATA             */}
-          {/* ============================================================ */}
-          <Box
-            sx={{
-              pb: 1.5,
-              borderBottom: "2px solid #0F172A",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              width: "100%",
-              boxSizing: "border-box",
-              gap: 2,
-            }}
-          >
-            {/* Left: Logo + Company Name + Address + Contact from Settings */}
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Stack direction="row" spacing={1.5} alignItems="center">
-                {logoSrc ? (
-                  <Box
-                    component="img"
-                    src={logoSrc}
-                    alt={displayCompanyName}
-                    onError={() => setLogoSrc(null)}
-                    sx={{ maxHeight: 44, maxWidth: 140, objectFit: "contain" }}
-                  />
-                ) : (
-                  <Box sx={{ width: 40, height: 40, border: "1.5px solid #0F172A", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "6px" }}>
-                    <SolarPowerIcon sx={{ color: "#0F172A", fontSize: 24 }} />
-                  </Box>
-                )}
-                <Box>
-                  <Typography sx={{ fontWeight: 900, color: "#0F172A", fontSize: "1.05rem", lineHeight: 1.2 }}>
-                    {displayCompanyName}
-                  </Typography>
-                  {companyFullAddress && (
-                    <Typography sx={{ color: "#475569", fontSize: "0.68rem", mt: 0.2, lineHeight: 1.25 }}>
-                      {companyFullAddress}
-                    </Typography>
-                  )}
-                  <Typography sx={{ color: "#475569", fontSize: "0.66rem", mt: 0.2, fontWeight: 600 }}>
-                    {[companyPhone ? `Tel: ${companyPhone}` : "", companyEmail, companyWebsite].filter(Boolean).join(" • ")}
-                  </Typography>
-                  {company?.gst_number && (
-                    <Typography sx={{ color: "#0F172A", fontSize: "0.66rem", fontWeight: 700, mt: 0.1 }}>
-                      GSTIN: {company.gst_number} {company?.pan_number ? `| PAN: ${company.pan_number}` : ""}
-                    </Typography>
-                  )}
-                </Box>
-              </Stack>
-            </Box>
-
-            {/* Right: Quotation Number, Date, Valid Until, Status */}
-            <Box sx={{ flexShrink: 0, textAlign: "right" }}>
-              <Typography sx={{ fontSize: "1.1rem", fontWeight: 900, color: "#0F172A", letterSpacing: "0.02em", textTransform: "uppercase" }}>
-                SOLAR QUOTATION
-              </Typography>
-              <Typography sx={{ fontSize: "0.8rem", fontWeight: 800, color: "#0F172A", fontFamily: "monospace", mt: 0.2 }}>
-                Ref: #{quotation.quotation_number}
-              </Typography>
-              <Stack spacing={0.15} sx={{ mt: 0.4, fontSize: "0.68rem", color: "#475569" }}>
-                <div><strong>Date:</strong> {formatDate(quotation.created_at)}</div>
-                <div><strong>Valid Until:</strong> {quotation.valid_until ? formatDate(quotation.valid_until) : "30 Days from Issue"}</div>
-                <div>
-                  <strong>Status:</strong>{" "}
-                  <span style={{ color: isAccepted ? "#16A34A" : "#0F172A", fontWeight: 800 }}>
-                    {quotation.status || "Sent"}
-                  </span>
-                </div>
-              </Stack>
-            </Box>
-          </Box>
-
-          {/* ============================================================ */}
-          {/* 2. CLIENT & PROJECT SITE SUMMARY CARD                        */}
-          {/* ============================================================ */}
-          <Box
-            sx={{
-              my: 1.5,
-              p: 1.6,
-              px: 2,
-              bgcolor: "#F8FAFC",
-              borderRadius: "8px",
-              border: "1px solid #E2E8F0",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              width: "100%",
-              boxSizing: "border-box",
-              gap: 2,
-            }}
-          >
-            {/* Left Column: Prepared for / Site details */}
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography sx={{ fontSize: "0.62rem", color: "#64748B", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                PREPARED FOR / SITE LOCATION:
-              </Typography>
-              <Typography sx={{ fontWeight: 800, color: "#0F172A", fontSize: "0.95rem", mt: 0.25, letterSpacing: "-0.01em" }}>
-                {quotation.customer_name}
-              </Typography>
-              <Typography sx={{ color: "#475569", fontSize: "0.72rem", mt: 0.15, lineHeight: 1.3 }}>
-                {[quotation.customer_address, quotation.city, quotation.state, quotation.pincode].filter(Boolean).join(", ") || "Site Address"}
-              </Typography>
-              <Typography sx={{ color: "#475569", fontSize: "0.7rem", fontWeight: 600, mt: 0.3 }}>
-                Phone: <strong style={{ color: "#0F172A" }}>{quotation.customer_phone || "—"}</strong> {quotation.customer_email ? ` • Email: ${quotation.customer_email}` : ""}
-              </Typography>
-            </Box>
-
-            {/* Right Column: Proposed System Capacity Card - Cleanly docked on the right side */}
-            <Box
-              sx={{
-                flexShrink: 0,
-                p: 1.4,
-                px: 2.2,
-                bgcolor: "#FFFFFF",
-                borderRadius: "8px",
-                border: "1.5px solid #CBD5E1",
-                textAlign: "right",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-                minWidth: "220px",
-              }}
-            >
-              <Typography sx={{ fontSize: "0.62rem", color: "#64748B", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                PROPOSED SYSTEM CAPACITY
-              </Typography>
-              <Typography sx={{ fontSize: "1.25rem", color: "#0284C7", fontWeight: 900, lineHeight: 1.2, my: 0.2 }}>
-                {quotation.system_capacity_kw} kWp
-              </Typography>
-              <Typography sx={{ fontSize: "0.68rem", color: "#475569", fontWeight: 700 }}>
-                {quotation.system_type || "On-Grid Net-Metered"} Power Plant
-              </Typography>
-            </Box>
-          </Box>
-
-          {/* ============================================================ */}
-          {/* 1. EXECUTIVE SOLAR ASSESSMENT & LIFETIME ROI IMPACT          */}
-          {/* ============================================================ */}
-          {aiInsights && (
-            <Box sx={{ mb: 1.5 }}>
-              {/* Header Bar matching section 2 and 3 */}
-              <Box
-                sx={{
-                  bgcolor: "#F1F5F9",
-                  py: 0.5,
-                  px: 1.2,
-                  borderLeft: "3px solid #0F172A",
-                  mb: 0.8,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <Typography sx={{ fontWeight: 800, color: "#0F172A", fontSize: "0.74rem", textTransform: "uppercase", letterSpacing: "0.02em" }}>
-                  1. Executive Solar Assessment &amp; Projected Lifetime Returns
-                </Typography>
-                <Typography sx={{ fontSize: "0.62rem", fontWeight: 700, color: "#0284C7", textTransform: "uppercase" }}>
-                  Feasibility Analysis
-                </Typography>
-              </Box>
-
-              {/* Professional Description & Tagline */}
-              <Box sx={{ p: 1.2, px: 1.4, bgcolor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "6px", mb: 0.8 }}>
-                <Typography sx={{ fontSize: "0.72rem", color: "#334155", lineHeight: 1.5, fontWeight: 500 }}>
-                  {aiInsights.executive_proposal_summary}
-                </Typography>
-
-                {aiInsights.customer_pitch_tagline && (
-                  <Box
-                    sx={{
-                      mt: 0.8,
-                      pt: 0.8,
-                      borderTop: "1px dashed #E2E8F0",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 0.8,
-                    }}
-                  >
-                    <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#16A34A", flexShrink: 0 }} />
-                    <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: "#15803D" }}>
-                      Key Highlight: {aiInsights.customer_pitch_tagline}
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
-
-              {/* 3 Structured Metrics Grid */}
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: 1.2,
-                  width: "100%",
-                  boxSizing: "border-box",
-                }}
-              >
-                <Box sx={{ p: 1, bgcolor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "6px" }}>
-                  <Typography sx={{ fontSize: "0.6rem", color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>
-                    ANNUAL GENERATION &amp; SAVINGS
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.76rem", fontWeight: 800, color: "#0F172A", mt: 0.2 }}>
-                    {aiInsights.financial_highlights?.annual_units_generated || `${Math.round(quotation.system_capacity_kw * 1450)} kWh / Yr`}
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.64rem", color: "#16A34A", fontWeight: 700, mt: 0.1 }}>
-                    {aiInsights.financial_highlights?.annual_savings || "₹35,000 / Yr Saved"}
-                  </Typography>
-                </Box>
-
-                <Box sx={{ p: 1, bgcolor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "6px" }}>
-                  <Typography sx={{ fontSize: "0.6rem", color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>
-                    25-YEAR CUMULATIVE ROI
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.76rem", fontWeight: 800, color: "#0284C7", mt: 0.2 }}>
-                    {aiInsights.financial_highlights?.lifetime_savings_25yr || "₹12,50,000+ Savings"}
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.64rem", color: "#475569", fontWeight: 600, mt: 0.1 }}>
-                    Payback: {aiInsights.financial_highlights?.estimated_payback_years || "3.2 Years"} • {aiInsights.financial_highlights?.roi_percentage || "28% ROI"}
-                  </Typography>
-                </Box>
-
-                <Box sx={{ p: 1, bgcolor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "6px" }}>
-                  <Typography sx={{ fontSize: "0.6rem", color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>
-                    ENVIRONMENTAL IMPACT
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.76rem", fontWeight: 800, color: "#16A34A", mt: 0.2 }}>
-                    {aiInsights.environmental_impact?.co2_offset_tonnes || `${(quotation.system_capacity_kw * 1.25 * 25).toFixed(1)} Tonnes CO2`}
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.64rem", color: "#475569", fontWeight: 600, mt: 0.1 }}>
-                    {aiInsights.environmental_impact?.trees_equivalent || `${Math.round(quotation.system_capacity_kw * 45)} Trees Equivalent`}
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-          )}
-
-          {/* ============================================================ */}
-          {/* 3. TECHNICAL SPECIFICATIONS & HARDWARE BAR                   */}
-          {/* ============================================================ */}
-          <Box sx={{ mb: 1.5 }}>
-            <Box sx={{ bgcolor: "#F1F5F9", py: 0.5, px: 1.2, borderLeft: "3px solid #0F172A", mb: 0.8 }}>
-              <Typography sx={{ fontWeight: 800, color: "#0F172A", fontSize: "0.74rem", textTransform: "uppercase" }}>
-                2. System Specifications &amp; Hardware Included
-              </Typography>
-            </Box>
-
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4, 1fr)",
-                gap: 1.2,
-                width: "100%",
-                boxSizing: "border-box",
-              }}
-            >
-              <Box sx={{ p: 1, bgcolor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "6px" }}>
-                <Typography sx={{ fontSize: "0.6rem", color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>PV MODULES</Typography>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 800, color: "#0F172A", mt: 0.2 }}>
-                  {quotation.panel_brand || "Waaree Mono PERC"}
-                </Typography>
-                <Typography sx={{ fontSize: "0.64rem", color: "#475569", mt: 0.1 }}>
-                  {quotation.panel_count ? `${quotation.panel_count} Nos (550Wp)` : "550Wp Half-Cut"}
-                </Typography>
-              </Box>
-
-              <Box sx={{ p: 1, bgcolor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "6px" }}>
-                <Typography sx={{ fontSize: "0.6rem", color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>SOLAR INVERTER</Typography>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 800, color: "#0F172A", mt: 0.2 }}>
-                  {quotation.inverter_brand || "Growatt / Solis"}
-                </Typography>
-                <Typography sx={{ fontSize: "0.64rem", color: "#475569", mt: 0.1 }}>
-                  {quotation.inverter_capacity_kw || quotation.system_capacity_kw} kW Grid-Tie MPPT
-                </Typography>
-              </Box>
-
-              <Box sx={{ p: 1, bgcolor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "6px" }}>
-                <Typography sx={{ fontSize: "0.6rem", color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>STRUCTURE</Typography>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 800, color: "#0F172A", mt: 0.2 }}>
-                  HDGI Elevated
-                </Typography>
-                <Typography sx={{ fontSize: "0.64rem", color: "#475569", mt: 0.1 }}>
-                  {quotation.structure_type || "150 km/h Wind Rated"}
-                </Typography>
-              </Box>
-
-              <Box sx={{ p: 1, bgcolor: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: "6px" }}>
-                <Typography sx={{ fontSize: "0.6rem", color: "#64748B", fontWeight: 700, textTransform: "uppercase" }}>WARRANTY &amp; BOS</Typography>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 800, color: "#16A34A", mt: 0.2 }}>
-                  25Y Performance
-                </Typography>
-                <Typography sx={{ fontSize: "0.64rem", color: "#475569", mt: 0.1 }}>
-                  10Y Inverter • Turnkey
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-
-          {/* ============================================================ */}
-          {/* 4. COMMERCIAL SYSTEM BUDGET BREAKDOWN TABLE                  */}
-          {/* ============================================================ */}
-          <Box sx={{ mb: 1.5 }}>
-            <Box sx={{ bgcolor: "#F1F5F9", py: 0.5, px: 1.2, borderLeft: "3px solid #0F172A", mb: 0.8 }}>
-              <Typography sx={{ fontWeight: 800, color: "#0F172A", fontSize: "0.74rem", textTransform: "uppercase" }}>
-                3. Commercial Budget &amp; Subsidy Breakdown
-              </Typography>
-            </Box>
-
-            <TableContainer component={Box} sx={{ border: "1px solid #CBD5E1", borderRadius: "6px", overflow: "hidden" }}>
-              <Table
-                size="small"
-                sx={{
-                  "& .MuiTableRow-root:hover": {
-                    backgroundColor: "inherit !important",
-                  },
-                }}
-              >
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#0F172A", "&:hover": { bgcolor: "#0F172A !important" } }}>
-                    <TableCell sx={{ color: "#FFFFFF !important", fontWeight: 800, fontSize: "0.72rem", py: 0.7 }}>
-                      SERVICE / ITEM PARTICULAR
-                    </TableCell>
-                    <TableCell align="right" sx={{ color: "#FFFFFF !important", fontWeight: 800, fontSize: "0.72rem", py: 0.7 }}>
-                      AMOUNT (RS.)
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {/* Base Solar EPC System Cost */}
-                  <TableRow sx={{ borderBottom: "1px solid #E2E8F0", "&:hover": { bgcolor: "transparent !important" } }}>
-                    <TableCell sx={{ fontSize: "0.7rem", fontWeight: 600, color: "#0F172A", py: 0.5 }}>
-                      Base Solar EPC System Hardware ({quotation.system_capacity_kw} kW Plant Modules &amp; Inverter)
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#0F172A", py: 0.5 }}>
-                      Rs. {finalBase.toLocaleString("en-IN")}.00
-                    </TableCell>
-                  </TableRow>
-
-                  {/* Mounting Structure & Installation */}
-                  {finalStructure > 0 && (
-                    <TableRow sx={{ borderBottom: "1px solid #E2E8F0", "&:hover": { bgcolor: "transparent !important" } }}>
-                      <TableCell sx={{ fontSize: "0.7rem", fontWeight: 600, color: "#0F172A", py: 0.5 }}>
-                        Elevated HDGI Mounting Structure &amp; On-Site Technical Installation Charges
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#0F172A", py: 0.5 }}>
-                        Rs. {finalStructure.toLocaleString("en-IN")}.00
-                      </TableCell>
-                    </TableRow>
-                  )}
-
-                  {/* Promotional Discount (if any) */}
-                  {numDiscount > 0 && (
-                    <TableRow sx={{ borderBottom: "1px solid #E2E8F0", bgcolor: "#F0FDF4", "&:hover": { bgcolor: "#F0FDF4 !important" } }}>
-                      <TableCell sx={{ fontSize: "0.7rem", fontWeight: 700, color: "#16A34A", py: 0.5 }}>
-                        Special Promotional Discount
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontSize: "0.72rem", fontWeight: 800, color: "#16A34A", py: 0.5 }}>
-                        - Rs. {numDiscount.toLocaleString("en-IN")}.00
-                      </TableCell>
-                    </TableRow>
-                  )}
-
-                  {/* Subtotal Taxable Value */}
-                  <TableRow sx={{ borderBottom: "1px solid #E2E8F0", bgcolor: "#F8FAFC", "&:hover": { bgcolor: "#F8FAFC !important" } }}>
-                    <TableCell sx={{ fontSize: "0.7rem", fontWeight: 700, color: "#475569", py: 0.5 }}>
-                      Subtotal (Net System Taxable Value)
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#475569", py: 0.5 }}>
-                      Rs. {subtotalBeforeGst.toLocaleString("en-IN")}.00
-                    </TableCell>
-                  </TableRow>
-
-                  {/* Applicable Solar GST */}
-                  <TableRow sx={{ borderBottom: "1px solid #E2E8F0", "&:hover": { bgcolor: "transparent !important" } }}>
-                    <TableCell sx={{ fontSize: "0.7rem", fontWeight: 600, color: "#0F172A", py: 0.5 }}>
-                      Applicable Solar GST @ {numGstRate}%
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#0F172A", py: 0.5 }}>
-                      Rs. {numGstAmount.toLocaleString("en-IN")}.00
-                    </TableCell>
-                  </TableRow>
-
-                  {/* Total Gross System Investment */}
-                  <TableRow sx={{ borderBottom: "1px solid #CBD5E1", bgcolor: "#F1F5F9", "&:hover": { bgcolor: "#F1F5F9 !important" } }}>
-                    <TableCell sx={{ fontSize: "0.72rem", fontWeight: 800, color: "#0F172A", py: 0.6 }}>
-                      Total Gross System Investment (Inclusive of GST)
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontSize: "0.76rem", fontWeight: 800, color: "#0F172A", py: 0.6 }}>
-                      Rs. {totalGrossInvestment.toLocaleString("en-IN")}.00
-                    </TableCell>
-                  </TableRow>
-
-                  {/* PM Surya Ghar Govt. Subsidy */}
-                  {numSubsidy > 0 && (
-                    <TableRow sx={{ borderBottom: "1px solid #86EFAC", bgcolor: "#DCFCE7", "&:hover": { bgcolor: "#DCFCE7 !important" } }}>
-                      <TableCell sx={{ fontSize: "0.72rem", fontWeight: 800, color: "#15803D", py: 0.6 }}>
-                        PM Surya Ghar Govt. Central Financial Assistance (Direct DBT Subsidy)
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontSize: "0.8rem", fontWeight: 900, color: "#15803D", py: 0.6 }}>
-                        - Rs. {numSubsidy.toLocaleString("en-IN")}.00
-                      </TableCell>
-                    </TableRow>
-                  )}
-
-                  {/* Final Net Customer Payable */}
-                  <TableRow
-                    sx={{
-                      bgcolor: "#0F172A !important",
-                      "&:hover": {
-                        bgcolor: "#0F172A !important",
-                      },
-                      "& td": {
-                        color: "#FFFFFF !important",
-                        bgcolor: "#0F172A !important",
-                      },
-                    }}
-                  >
-                    <TableCell sx={{ color: "#FFFFFF !important", fontWeight: 900, fontSize: "0.84rem", py: 0.8 }}>
-                      FINAL NET CUSTOMER INVESTMENT PAYABLE
-                    </TableCell>
-                    <TableCell align="right" sx={{ color: "#FFFFFF !important", fontWeight: 900, fontSize: "1rem", py: 0.8 }}>
-                      Rs. {numNetPayable.toLocaleString("en-IN")}.00
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Box>
-
-          {/* ============================================================ */}
-          {/* 5. PAYMENT TERMS & SCOPE (COMPACT SIDE BY SIDE)              */}
-          {/* ============================================================ */}
-          <Box sx={{ mb: 1.5 }}>
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 1.2,
-                width: "100%",
-                boxSizing: "border-box",
-              }}
-            >
-              <Box sx={{ p: 1.2, border: "1px solid #E2E8F0", borderRadius: "6px", bgcolor: "#FAFAFA", boxSizing: "border-box" }}>
-                <Typography sx={{ fontSize: "0.6rem", color: "#64748B", fontWeight: 800, textTransform: "uppercase" }}>
-                  PAYMENT TERMS &amp; METHODS
-                </Typography>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 800, color: "#0F172A", mt: 0.25 }}>
-                  20% Advance • 70% Material Dispatch • 10% Net-Metering
-                </Typography>
-                <Typography sx={{ fontSize: "0.64rem", color: "#475569", mt: 0.2 }}>
-                  Modes: <strong>Bank Transfer / NEFT / RTGS / Cheque / UPI</strong>
-                </Typography>
-              </Box>
-
-              <Box sx={{ p: 1.2, border: "1px solid #E2E8F0", borderRadius: "6px", bgcolor: "#FAFAFA", boxSizing: "border-box" }}>
-                <Typography sx={{ fontSize: "0.6rem", color: "#64748B", fontWeight: 800, textTransform: "uppercase" }}>
-                  SCOPE &amp; STATUTORY COMPLIANCE
-                </Typography>
-                <Typography sx={{ fontSize: "0.66rem", color: "#334155", mt: 0.25, lineHeight: 1.35 }}>
-                  Turnkey execution with complete DISCOM liaisoning, testing, and net-meter setup. Quoted prices include complete supply &amp; transit insurance.
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-
-          {/* ============================================================ */}
-          {/* 6. SIGNATURES & ACCEPTANCE (ELEGANT CORPORATE BLOCK)         */}
-          {/* ============================================================ */}
-          <Box sx={{ pt: 1.2, borderTop: "1px dashed #CBD5E1", mb: 1.2 }}>
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 1.5,
-                width: "100%",
-                boxSizing: "border-box",
-              }}
-            >
-              <Box sx={{ p: 1.4, border: "1px solid #E2E8F0", borderRadius: "6px", bgcolor: "#FAFAFA", boxSizing: "border-box" }}>
-                <Typography sx={{ fontSize: "0.6rem", color: "#64748B", fontWeight: 800, textTransform: "uppercase" }}>
-                  FOR {displayCompanyName.toUpperCase()}
-                </Typography>
-
-                <Box sx={{ my: 1.2, height: 22, display: "flex", alignItems: "flex-end" }}>
-                  <Typography sx={{ fontSize: "0.7rem", color: "#94A3B8", letterSpacing: "0.1em" }}>
-                    ___________________________
-                  </Typography>
-                </Box>
-
-                <Typography sx={{ fontSize: "0.76rem", fontWeight: 800, color: "#0F172A" }}>
-                  Authorized Company Signatory
-                </Typography>
-                <Typography sx={{ fontSize: "0.64rem", color: "#64748B", mt: 0.2 }}>
-                  {displayCompanyName} {companyPhone ? `• Tel: ${companyPhone}` : ""}
-                </Typography>
-              </Box>
-
-              <Box sx={{ p: 1.4, border: isAccepted ? "1.5px solid #16A34A" : "1px solid #E2E8F0", borderRadius: "6px", bgcolor: isAccepted ? "#F0FDF4" : "#FAFAFA", boxSizing: "border-box" }}>
-                <Typography sx={{ fontSize: "0.6rem", color: isAccepted ? "#15803D" : "#64748B", fontWeight: 800, textTransform: "uppercase" }}>
-                  CUSTOMER ACCEPTANCE CONFIRMATION
-                </Typography>
-
-                <Box sx={{ my: 1.2, minHeight: 22, display: "flex", alignItems: "center" }}>
-                  {isAccepted ? (
-                    <Stack direction="row" alignItems="center" spacing={0.6}>
-                      <CheckCircleIcon sx={{ color: "#16A34A", fontSize: 16 }} />
-                      <Typography sx={{ fontSize: "0.76rem", fontWeight: 800, color: "#14532D" }}>
-                        Digitally Accepted by {quotation.customer_signature_name || quotation.customer_name}
-                      </Typography>
-                    </Stack>
-                  ) : (
-                    <Typography sx={{ fontSize: "0.7rem", color: "#94A3B8", letterSpacing: "0.1em" }}>
-                      ___________________________
-                    </Typography>
-                  )}
-                </Box>
-
-                <Typography sx={{ fontSize: "0.76rem", fontWeight: 800, color: "#0F172A" }}>
-                  {quotation.customer_name}
-                </Typography>
-                <Typography sx={{ fontSize: "0.64rem", color: "#64748B", mt: 0.2 }}>
-                  {isAccepted && quotation.accepted_at ? `Confirmed Online on ${formatDate(quotation.accepted_at)}` : "Customer Signature / Acceptance"}
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-
-          {/* ============================================================ */}
-          {/* 7. DOCUMENT COMPACT FOOTER STRIP                             */}
-          {/* ============================================================ */}
-          <Box sx={{ pt: 0.8, borderTop: "1px solid #E2E8F0", textAlign: "center" }}>
-            <Typography sx={{ color: "#64748B", fontSize: "0.64rem", fontWeight: 600 }}>
-              {displayCompanyName} {companyFullAddress ? `• ${companyFullAddress} ` : ""}{companyPhone ? `• Tel: ${companyPhone} ` : ""}{companyWebsite ? `• ${companyWebsite}` : ""}
-            </Typography>
-            <Typography sx={{ color: "#94A3B8", fontSize: "0.58rem", mt: 0.2 }}>
-              Official system-generated commercial quotation issued via Solar CRM Platform. Valid subject to site feasibility.
-            </Typography>
-          </Box>
-        </Paper>
+        {quotation.is_superseded && <Alert severity="info">This is an archived quotation revision. Ask your consultant for the latest proposal before accepting.</Alert>}
+      <SolarQuotationDocument
+          quotation={quotation}
+          company={company}
+          logoSrc={logoSrc}
+          onLogoError={() => setLogoSrc(null)}
+          lineItems={quotationLineItems}
+          totals={{ base: finalBase, structure: finalStructure, discount: numDiscount, taxable: subtotalBeforeGst, gst: numGstAmount, gstRate: numGstRate, total: totalGrossInvestment, subsidy: numSubsidy, net: numNetPayable }}
+          isAccepted={isAccepted}
+          aiInsights={aiInsights}
+        />
       </Container>
 
       {/* Accept Proposal Confirmation Dialog */}
       <Dialog open={openAcceptModal} onClose={() => setOpenAcceptModal(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: "12px", p: 1 } }}>
-        <DialogTitle sx={{ fontWeight: 800, color: "#0F172A", fontSize: "1rem" }}>
+        <DialogTitle sx={{ fontWeight: 800, color: "#111111", fontSize: "1rem" }}>
           Confirm Proposal Acceptance
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ color: "#64748B", mb: 2, fontSize: "0.82rem" }}>
+          <Typography variant="body2" sx={{ color: "#666666", mb: 2, fontSize: "0.82rem" }}>
             By accepting, you confirm your approval of the solar system specifications ({quotation.system_capacity_kw} kW) and net payable investment of {formatIndianCurrency(quotation.net_payable_amount)}.
           </Typography>
 
@@ -1274,21 +725,22 @@ const DynamicWebQuotationView = () => {
             required
             size="small"
             label="Digital Signature / Full Name"
+            sx={{ "& .MuiInputLabel-root.Mui-focused": { color: "#333333" }, "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#444444" } }}
             value={signatureName}
             onChange={(e) => setSignatureName(e.target.value)}
             helperText="Please enter your full name as digital approval confirmation"
           />
         </DialogContent>
 
-        <DialogActions sx={{ p: 2, borderTop: "1px solid #E2E8F0" }}>
-          <Button onClick={() => setOpenAcceptModal(false)} sx={{ color: "#64748B", fontWeight: 700, fontSize: "0.78rem" }}>
+        <DialogActions sx={{ p: 2, borderTop: "1px solid #DEDEDE" }}>
+          <Button onClick={() => setOpenAcceptModal(false)} sx={{ color: "#666666", fontWeight: 700, fontSize: "0.78rem" }}>
             Cancel
           </Button>
           <Button
             variant="contained"
             onClick={handleAcceptSubmit}
             disabled={accepting}
-            sx={{ bgcolor: "#16A34A", color: "#FFFFFF", fontWeight: 800, px: 2.5, height: 32, borderRadius: "6px", "&:hover": { bgcolor: "#15803D" } }}
+            sx={{ bgcolor: "#333333", color: "#FFFFFF", fontWeight: 800, px: 2.5, height: 32, borderRadius: "6px", "&:hover": { bgcolor: "#333333" } }}
           >
             {accepting ? "Confirming..." : "Confirm & Accept"}
           </Button>

@@ -20,6 +20,13 @@ const createInvoice = async (req, res) => {
       });
     }
 
+    if (req.body.quotation_id) {
+      await require("../services/quotationGovernance").ensure(db);
+      const [quotes] = await db.query("SELECT discount_approval,revision_number FROM quotations WHERE id=?",[req.body.quotation_id]);
+      if (quotes[0] && req.body.quotation_revision_number && Number(req.body.quotation_revision_number)!==Number(quotes[0].revision_number)) return res.status(409).json({success:false,message:"Quotation revision changed. Refresh before converting it."});
+      if (quotes[0]) req.body.notes = `${req.body.notes || ""}\nQuotation revision: R${quotes[0].revision_number || 1}`.trim();
+      if (quotes[0] && ["pending", "rejected"].includes(quotes[0].discount_approval)) return res.status(409).json({success:false,message:"Approve this quotation's discount before generating an invoice."});
+    }
     const created = await invoiceModel.createInvoice(req.body, userId, db);
 
     return res.status(201).json({
@@ -315,7 +322,45 @@ const bulkDeleteInvoices = async (req, res) => {
   }
 };
 
+const sendInvoiceEmail = async (req, res) => {
+  try {
+    const db = req.db || defaultDb;
+    let scope = "";
+    const params = [req.params.id];
+    if (Number(req.user.role_id) === 3) {
+      scope = " AND (inv.created_by = ? OR l.assigned_to = ?)";
+      params.push(req.user.id, req.user.id);
+    } else if (Number(req.user.role_id) === 2) {
+      scope = " AND (inv.created_by = ? OR inv.created_by IN (SELECT id FROM users WHERE manager_id = ?) OR l.assigned_to = ? OR l.assigned_to IN (SELECT id FROM users WHERE manager_id = ?))";
+      params.push(req.user.id, req.user.id, req.user.id, req.user.id);
+    }
+    const [rows] = await db.query(`SELECT inv.* FROM invoices inv LEFT JOIN leads l ON inv.lead_id = l.id WHERE inv.id = ?${scope} LIMIT 1`, params);
+    const invoice = rows[0];
+    if (!invoice) return res.status(404).json({ success: false, message: "Invoice not found or access denied." });
+    const recipient = String(req.body?.to || invoice.customer_email || "").trim();
+    if (recipient.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) return res.status(400).json({ success: false, message: "Save a valid customer email address first." });
+    if (!invoice.public_token) return res.status(409).json({ success: false, message: "Invoice share link is unavailable." });
+    if (!process.env.MAIL_HOST || !process.env.MAIL_USER || !process.env.MAIL_PASS) return res.status(503).json({ success: false, message: "Email is not configured. Contact your administrator." });
+    const host = String(req.get("host") || "").toLowerCase();
+    if (!/^[a-z0-9.-]+(?::\d{1,5})?$/.test(host)) return res.status(400).json({ success: false, message: "Invalid invoice link host." });
+    const url = `https://${host}/invoice/${encodeURIComponent(invoice.public_token)}`;
+    const port = Number(process.env.MAIL_PORT || 587);
+    const transport = require("nodemailer").createTransport({ host: process.env.MAIL_HOST, port, secure: port === 465, auth: { user: process.env.MAIL_USER, pass: process.env.MAIL_PASS }, connectionTimeout: 15000, socketTimeout: 30000 });
+    await transport.sendMail({
+      from: process.env.MAIL_FROM || { name: req.clientInfo?.business_name || "Solar CRM", address: process.env.MAIL_USER },
+      to: recipient, replyTo: process.env.MAIL_USER,
+      subject: `Tax invoice ${invoice.invoice_number}`,
+      text: `Dear ${invoice.customer_name || "Customer"},\n\nYour tax invoice ${invoice.invoice_number} is ready.\n\nView your invoice and download its PDF:\n${url}\n\nRegards,\n${req.clientInfo?.business_name || "Solar CRM"}`,
+    });
+    return res.json({ success: true, message: `Invoice sent to ${recipient}.` });
+  } catch (error) {
+    console.error("sendInvoiceEmail error:", error.code || "EMAIL_FAILED");
+    return res.status(502).json({ success: false, message: "Email could not be sent. Check mail settings and try again." });
+  }
+};
+
 module.exports = {
+  sendInvoiceEmail,
   createInvoice,
   getInvoices,
   getInvoiceById,

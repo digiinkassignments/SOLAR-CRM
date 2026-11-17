@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import * as XLSX from "xlsx";
 
 import {
+  TextField, MenuItem,
   Box,
   Typography,
   Dialog,
@@ -134,7 +135,8 @@ const StatusChip = ({ status }) => {
   return <Chip icon={<ErrorOutlineIcon sx={{ fontSize: "0.85rem !important" }} />} label="Invalid" size="small" sx={{ backgroundColor: COLORS.dangerSoft, color: COLORS.danger, fontWeight: 700, fontSize: "0.68rem", height: 22 }} />;
 };
 
-const ImportLeadsDialog = ({ open, onClose, onImportComplete, showSnackbar }) => {
+const ImportLeadsDialog = ({ open, onClose, onImportComplete, showSnackbar, managerMode=false, teamMembers=[] }) => {
+  const [assignedTo,setAssignedTo]=useState("");
   const [step, setStep] = useState(1);
   const [fileName, setFileName] = useState("");
   const [parsing, setParsing] = useState(false);
@@ -215,10 +217,11 @@ const ImportLeadsDialog = ({ open, onClose, onImportComplete, showSnackbar }) =>
   const handleImport = useCallback(async () => {
     const toImport = rows.filter((r) => r._status === "valid" || (includeDuplicates && r._status === "duplicate"));
     if (toImport.length === 0) return;
+    if(managerMode && !assignedTo) { showSnackbar?.("Choose a team salesperson for these leads.", "error"); return; }
 
     setImporting(true);
     try {
-      const payload = toImport.map(({ _status, _errors, ...rest }) => rest);
+      const payload = toImport.map(({ _status, _errors, ...rest }) => managerMode ? {...rest,assigned_to:Number(assignedTo)} : rest);
       const res = await bulkImportLeads(payload);
       if (res?.success) {
         setImportResult(res.data);
@@ -233,7 +236,7 @@ const ImportLeadsDialog = ({ open, onClose, onImportComplete, showSnackbar }) =>
     } finally {
       setImporting(false);
     }
-  }, [rows, includeDuplicates, onImportComplete, showSnackbar]);
+  }, [rows, includeDuplicates, onImportComplete, showSnackbar, managerMode, assignedTo]);
 
   return (
     <Dialog
@@ -281,6 +284,7 @@ const ImportLeadsDialog = ({ open, onClose, onImportComplete, showSnackbar }) =>
       </Box>
 
       <DialogContent sx={{ p: 0, ...customScrollbarSx }}>
+        {managerMode && <Box sx={{p:3,pb:1}}><TextField select required fullWidth size="small" label="Assign imported leads to" value={assignedTo} onChange={e=>setAssignedTo(e.target.value)}>{teamMembers.map(rep=><MenuItem key={rep.id} value={rep.id}>{rep.full_name}</MenuItem>)}</TextField></Box>}
         {/* STEP 1: UPLOAD ZONE */}
         {step === 1 && (
           <Box sx={{ p: 3.5, display: "flex", flexDirection: "column", alignItems: "center", gap: 2.5 }}>

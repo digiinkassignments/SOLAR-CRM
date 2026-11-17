@@ -47,6 +47,7 @@ import {
   calculateEMI,
   validateStageTransition,
   getLoanByLead,
+  getLoanByProject,
   createLoan,
   updateLoan,
   uploadLoanDoc,
@@ -76,7 +77,7 @@ export default function ProjectLoanTab({ project, projectId }) {
 
   // Try Another Lender Dialog
   const [tryAnotherLenderDialogOpen, setTryAnotherLenderDialogOpen] = useState(false);
-  const [newLenderName, setNewLenderName] = useState("State Bank of India (SBI)");
+  const [newLenderName, setNewLenderName] = useState("");
   const [newLenderAmount, setNewLenderAmount] = useState("");
   const [savingNewLender, setSavingNewLender] = useState(false);
 
@@ -103,18 +104,18 @@ export default function ProjectLoanTab({ project, projectId }) {
 
   // New Loan Form State
   const [formData, setFormData] = useState({
-    bank_name: "State Bank of India (SBI)",
+    bank_name: "",
     bank_branch: "",
     portal_application_no: "",
     loan_stage: "Eligibility & Docs",
-    system_capacity_kw: project?.system_capacity_kw || 3.0,
-    total_project_cost: project?.total_cost || 180000,
-    subsidy_expected: 78000,
-    down_payment_amount: 20000,
-    loan_amount_applied: 160000,
-    interest_rate: 7.0,
-    tenure_months: 60,
-    monthly_emi: 0,
+    system_capacity_kw: project?.system_capacity_kw || "",
+    total_project_cost: project?.total_cost || "",
+    subsidy_expected: "",
+    down_payment_amount: "",
+    loan_amount_applied: project?.total_cost || "",
+    interest_rate: "",
+    tenure_months: "",
+    monthly_emi: "",
     electricity_consumer_no: project?.consumer_number || "",
   });
 
@@ -122,7 +123,7 @@ export default function ProjectLoanTab({ project, projectId }) {
     if (!project?.lead_id && !projectId) return;
     setLoading(true);
     try {
-      const res = await getLoanByLead(project?.lead_id || projectId);
+      const res = await (projectId ? getLoanByProject(projectId) : getLoanByLead(project.lead_id));
       if (res?.success && res?.data) {
         setLoan(res.data);
       } else {
@@ -142,7 +143,7 @@ export default function ProjectLoanTab({ project, projectId }) {
   // Recalculate EMI in Create Modal
   useEffect(() => {
     const P = parseFloat(formData.loan_amount_applied) || 0;
-    const r = parseFloat(formData.interest_rate) || 7.0;
+    const r = Number(formData.interest_rate);
     const n = parseInt(formData.tenure_months) || 60;
     setFormData((prev) => ({ ...prev, monthly_emi: calculateEMI(P, r, n) }));
   }, [formData.loan_amount_applied, formData.interest_rate, formData.tenure_months]);
@@ -194,16 +195,16 @@ export default function ProjectLoanTab({ project, projectId }) {
 
     // If moving forward: check validation
     const validation = validateStageTransition(currentStage, targetStage, loan);
-    if (!validation.ok) {
+    if (!validation.ok || ["Applied", "Sanctioned", "Disbursed"].includes(targetStage)) {
       setAdvanceTargetStage(targetStage);
       setAdvanceFormData({
         applied_date: loan.applied_date ? loan.applied_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
         portal_application_no: loan.portal_application_no || "",
-        sanctioned_amount: loan.sanctioned_amount > 0 ? loan.sanctioned_amount : loan.loan_amount_applied || "",
-        sanction_date: loan.sanction_date ? loan.sanction_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        sanctioned_amount: loan.sanctioned_amount > 0 ? loan.sanctioned_amount : "",
+        sanction_date: loan.sanction_date ? loan.sanction_date.slice(0, 10) : "",
         sanction_letter_url: loan.sanction_letter_url || "",
-        disbursed_amount: loan.disbursed_amount > 0 ? loan.disbursed_amount : loan.sanctioned_amount || loan.loan_amount_applied || "",
-        disbursal_date: loan.disbursal_date ? loan.disbursal_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        disbursed_amount: loan.disbursed_amount > 0 ? loan.disbursed_amount : "",
+        disbursal_date: loan.disbursal_date ? loan.disbursal_date.slice(0, 10) : "",
         subsidy_credited_to_loan: Boolean(loan.subsidy_credited_to_loan),
       });
       setAdvanceReqDialogOpen(true);
@@ -244,10 +245,13 @@ export default function ProjectLoanTab({ project, projectId }) {
 
     setSavingAdvance(true);
     try {
-      const payload = {
-        loan_stage: advanceTargetStage,
-        ...advanceFormData,
-      };
+      const fields = advanceTargetStage === "Sanctioned" ? ["sanctioned_amount", "sanction_date", "sanction_letter_url"]
+        : advanceTargetStage === "Disbursed" ? ["disbursed_amount", "disbursal_date", "subsidy_credited_to_loan"]
+        : ["applied_date", "portal_application_no"];
+      const payload = { loan_stage: advanceTargetStage };
+      for (const field of fields) payload[field] = advanceFormData[field];
+      const validation = validateStageTransition(loan.loan_stage, advanceTargetStage, { ...loan, ...payload });
+      if (!validation.ok) { toast.error(validation.error); return; }
 
       const res = await updateLoan(loan.id, payload);
       if (res?.success) {
@@ -424,7 +428,7 @@ export default function ProjectLoanTab({ project, projectId }) {
               loan_stage: "Eligibility & Docs",
               system_capacity_kw: kw,
               total_project_cost: cost,
-              subsidy_expected: 78000,
+              subsidy_expected: 0,
               down_payment_amount: down,
               loan_amount_applied: cost - down,
               interest_rate: 7.0,
@@ -455,9 +459,11 @@ export default function ProjectLoanTab({ project, projectId }) {
                   <Select
                     fullWidth
                     size="small"
-                    value={formData.bank_name}
+                    displayEmpty
+                    value={formData.bank_name || ""}
                     onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
                   >
+                    <MenuItem value=""><em>Select Lender / Bank</em></MenuItem>
                     {POPULAR_BANKS.map((b) => (
                       <MenuItem key={b} value={b}>{b}</MenuItem>
                     ))}
@@ -469,6 +475,7 @@ export default function ProjectLoanTab({ project, projectId }) {
                   label="Loan Requested Amount (₹) *"
                   type="number"
                   required
+                  placeholder="e.g. 150000"
                   value={formData.loan_amount_applied}
                   onChange={(e) => setFormData({ ...formData, loan_amount_applied: e.target.value })}
                 />
@@ -484,6 +491,7 @@ export default function ProjectLoanTab({ project, projectId }) {
                   fullWidth
                   size="small"
                   label="Bank Branch Location"
+                  placeholder="e.g. Main Branch, MI Road, Jaipur"
                   value={formData.bank_branch}
                   onChange={(e) => setFormData({ ...formData, bank_branch: e.target.value })}
                 />
@@ -510,7 +518,7 @@ export default function ProjectLoanTab({ project, projectId }) {
       {/* Top Header Card */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2.5, flexWrap: "wrap", gap: 1.5 }}>
         <Box>
-          <Stack direction="row" alignItems="center" spacing={1}>
+          <Stack sx={{ alignItems: "center" }} direction="row"  spacing={1}>
             <Typography sx={{ fontWeight: 800, fontSize: "1.2rem", color: COLORS.textPrimary }}>
               {loan.bank_name}
             </Typography>
@@ -674,7 +682,7 @@ export default function ProjectLoanTab({ project, projectId }) {
       {/* Disbursed Stage Highlight: Subsidy Checkbox */}
       {loan.loan_stage === "Disbursed" && (
         <Box sx={{ p: 2, borderRadius: "10px", bgcolor: "#F0FDF4", border: "1px solid #86EFAC", mb: 3 }}>
-          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={1}>
+          <Stack sx={{ justifyContent: "space-between", alignItems: "center" }} direction={{ xs: "column", sm: "row" }}   spacing={1}>
             <Box>
               <Typography sx={{ fontWeight: 800, fontSize: "0.88rem", color: "#065F46" }}>
                 ✓ Loan Disbursed &amp; Recorded on Project
@@ -771,7 +779,7 @@ export default function ProjectLoanTab({ project, projectId }) {
           </Typography>
 
           <Stack spacing={2}>
-            {advanceTargetStage === "Applied" && (
+            {["Applied", "Under Review"].includes(advanceTargetStage) && (
               <>
                 <TextField
                   fullWidth

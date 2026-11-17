@@ -1,3 +1,5 @@
+import Dashboard from "../Dashboard/Dashboard";
+import MyNextActions from "../../components/MyNextActions";
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getManagerDashboardStats } from "../../services/dashboardService";
@@ -21,6 +23,7 @@ import {
 
 // MUI
 import {
+  Tabs, Tab,
   Box,
   Typography,
   Paper,
@@ -174,7 +177,7 @@ const SectionHeader = ({ icon, title, chipLabel, chipColor = "default" }) => (
   </Box>
 );
 
-const ManagerDashboard = () => {
+const ManagerOperations = () => {
   const navigate = useNavigate();
   const { user, token } = useAuth();
 
@@ -562,4 +565,4 @@ const ManagerDashboard = () => {
   );
 };
 
-export default ManagerDashboard;
+export default function ManagerDashboard() { const [tab,setTab]=useState(0); return <><Tabs value={tab} onChange={(_,value)=>setTab(value)} sx={{mb:2}}><Tab label="Dashboard overview"/><Tab label="Team operations"/></Tabs>{tab===0?<><Dashboard managerMode /><MyNextActions /></>:<ManagerOperations />}</>; }

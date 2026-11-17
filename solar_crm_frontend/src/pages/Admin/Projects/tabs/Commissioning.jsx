@@ -790,7 +790,7 @@ export default function Commissioning({ project, projectId }) {
                         <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase", mb: 0.3 }}>
                           Verification Status
                         </Typography>
-                        <Stack direction="row" gap={1} flexWrap="wrap">
+                        <Stack sx={{ gap: 1, flexWrap: "wrap" }} direction="row"  >
                           {commissioning.customer_acknowledged === 1 && (
                             <Chip size="small" icon={<CheckCircleIcon />} label="Customer Acknowledged" color="success" />
                           )}
@@ -803,7 +803,7 @@ export default function Commissioning({ project, projectId }) {
                     {commissioning.signature_data && (
                       <Grid size={12}>
                         <Box sx={{ p: 1.5, borderRadius: "8px", border: "1px solid #10B981", backgroundColor: "#F0FDF4", mt: 1 }}>
-                          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                          <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mb: 1 }}>
                             <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#166534" }}>
                               Official Commissioning Digital Signature
                             </Typography>

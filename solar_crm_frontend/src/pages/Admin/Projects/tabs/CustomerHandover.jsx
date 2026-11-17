@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import AmcPlanManager from '../../../../components/AmcPlanManager';
+import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
+import api from "../../../../api/axios";
 import {
   Box,
   Grid,
-  Card,
-  CardContent,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -28,28 +28,19 @@ import {
   FormHelperText,
   Paper,
   FormControlLabel,
-  Switch,
 } from "@mui/material";
 
 // Icons from @mui/icons-material
 import HandshakeIcon from "@mui/icons-material/Handshake";
 import EditIcon from "@mui/icons-material/Edit";
-import SaveIcon from "@mui/icons-material/Save";
-import CancelIcon from "@mui/icons-material/Cancel";
 import VerifiedIcon from "@mui/icons-material/Verified";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CloseIcon from "@mui/icons-material/Close";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import StarIcon from "@mui/icons-material/Star";
-import SmartphoneIcon from "@mui/icons-material/Smartphone";
-import SecurityIcon from "@mui/icons-material/Security";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import SignatureCapture from "../../../../components/SignatureCapture";
-import PersonIcon from "@mui/icons-material/Person";
 import SchoolIcon from "@mui/icons-material/School";
 import SolarPowerIcon from "@mui/icons-material/SolarPower";
 import ElectricBoltIcon from "@mui/icons-material/ElectricBolt";
@@ -114,32 +105,32 @@ const addDaysToDate = (baseDateStr, days) => {
 };
 
 const DEFAULT_DOSSIER_CHECKLIST = [
-  { id: "comm_cert", label: "Commissioning & Grid Synchronisation Certificate (COMM-2026-0004)", checked: true, required: true },
-  { id: "qc_report", label: "Final Quality & Safety Inspection Report (QC-2026-0004)", checked: true, required: true },
-  { id: "discom_metering", label: "DISCOM Net-Metering Feasibility & Bi-directional Meter Test Report", checked: true, required: true },
-  { id: "subsidy_doc", label: "PM Surya Ghar National Portal Subsidy Claim Submission Receipt", checked: true, required: false },
-  { id: "gst_invoice", label: "Final GST Commercial Tax Invoice & Zero-Balance Payment Receipt", checked: true, required: true },
-  { id: "oem_warranty", label: "OEM Warranty Certificates (25-Yr PV Modules & Inverter)", checked: true, required: true },
-  { id: "om_manual", label: "Customer Operation & Emergency Shutdown Safety Manual", checked: true, required: false },
+  { id: "comm_cert", label: "Commissioning & Grid Synchronisation Certificate ", checked: false, required: true },
+  { id: "qc_report", label: "Final Quality & Safety Inspection Report ", checked: false, required: true },
+  { id: "discom_metering", label: "DISCOM Net-Metering Feasibility & Bi-directional Meter Test Report", checked: false, required: true },
+  { id: "subsidy_doc", label: "PM Surya Ghar National Portal Subsidy Claim Submission Receipt", checked: false, required: false },
+  { id: "gst_invoice", label: "Final GST Commercial Tax Invoice & Zero-Balance Payment Receipt", checked: false, required: true },
+  { id: "oem_warranty", label: "OEM Warranty Certificates (25-Yr PV Modules & Inverter)", checked: false, required: true },
+  { id: "om_manual", label: "Customer Operation & Emergency Shutdown Safety Manual", checked: false, required: false },
 ];
 
 export default function CustomerHandover({ project, projectId }) {
   const targetProjectId = project?.id || projectId;
 
   // Sensible default dates: Handover 2 days after Final Inspection (12 Nov 2026)
-  const defaultHandoverDate = "2026-11-12";
-  const finalInspectionDate = "2026-11-10";
+  const defaultHandoverDate = new Date().toLocaleDateString("en-CA");
+  const finalInspectionDate = ""; // Final inspection date is not part of the project summary response.
 
   const [handover, setHandover] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [financials, setFinancials] = useState({
-    contractValue: 272500,
-    amountPaid: 272500,
+    contractValue: 0,
+    amountPaid: 0,
     balanceDue: 0,
-    paymentStatus: "Paid",
-    invoiceNumber: "INV-2026-1008",
+    paymentStatus: "Pending",
+    invoiceNumber: "",
   });
 
   const [bannerAlert, setBannerAlert] = useState(null);
@@ -158,7 +149,7 @@ export default function CustomerHandover({ project, projectId }) {
   // Form state
   const [formData, setFormData] = useState({
     handover_date: defaultHandoverDate,
-    handover_manager: "Vikram Rathore (Project Lead)",
+    handover_manager: "",
     warranty_start_date: defaultHandoverDate,
     module_warranty_years: 25,
     module_warranty_end: addYearsToDate(defaultHandoverDate, 25),
@@ -171,27 +162,27 @@ export default function CustomerHandover({ project, projectId }) {
     first_service_due_date: addDaysToDate(defaultHandoverDate, 90),
     training_completed: "", // Unselected by default
     app_demo_completed: "", // Unselected by default
-    monitoring_app_access_shared: 1,
-    emergency_contact_given: 1,
-    operation_manual: 1,
-    warranty_card: 1,
-    maintenance_schedule: 1,
-    inverter_manual: 1,
+    monitoring_app_access_shared: 0,
+    emergency_contact_given: 0,
+    operation_manual: 0,
+    warranty_card: 0,
+    maintenance_schedule: 0,
+    inverter_manual: 0,
     documents_pack_checklist: DEFAULT_DOSSIER_CHECKLIST,
     customer_signature: 0, // Unselected by default
-    signature_signatory_name: project?.customer_name || "Rajesh Sharma",
-    signature_phone: project?.customer_phone || "9876501234",
-    signed_docket_url: "https://diassignments.digiinksolutions.com/uploads/handover_dockets/DOCKET-PROJ-004-SIGNED.pdf",
+    signature_signatory_name: project?.customer_name || "",
+    signature_phone: project?.customer_phone || "",
+    signed_docket_url: "",
     signature_data: "",
-    handover_photo_url: "https://images.unsplash.com/photo-1509391365360-2e959784a276?w=800&auto=format&fit=crop&q=60",
-    customer_rating: 5,
-    customer_feedback: "Pleased with the rooftop solar installation speed and prompt DISCOM meter sync. Generation is visible clearly on the mobile phone app.",
+    handover_photo_url: "",
+    customer_rating: 0,
+    customer_feedback: "",
     review_token: "",
     review_status: "pending",
     review_submitted_at: null,
     customer_reviewer_name: "",
     handover_status: "Pending", // Default Pending as requested
-    remarks: "Customer oriented with inverter emergency shutoff and isolation MCB. Plant fully functional.",
+    remarks: "",
   });
 
   const getAuthHeader = () => {
@@ -203,7 +194,7 @@ export default function CustomerHandover({ project, projectId }) {
   };
 
   const getApiUrl = (endpoint) => {
-    const base = import.meta.env.VITE_API_URL || "https://diassignments.digiinksolutions.com/api";
+    const base = api.defaults.baseURL || "/api";
     return `${base.replace(/\/$/, "")}${endpoint}`;
   };
 
@@ -221,7 +212,7 @@ export default function CustomerHandover({ project, projectId }) {
         setHandover(record);
         setFormData({
           handover_date: record.handover_date ? record.handover_date.split("T")[0] : defaultHandoverDate,
-          handover_manager: record.handover_manager || "Vikram Rathore (Project Lead)",
+          handover_manager: record.handover_manager || "",
           warranty_start_date: record.warranty_start_date ? record.warranty_start_date.split("T")[0] : (record.handover_date ? record.handover_date.split("T")[0] : defaultHandoverDate),
           module_warranty_years: record.module_warranty_years || 25,
           module_warranty_end: record.module_warranty_end ? record.module_warranty_end.split("T")[0] : addYearsToDate(record.warranty_start_date || defaultHandoverDate, 25),
@@ -244,12 +235,12 @@ export default function CustomerHandover({ project, projectId }) {
             ? record.documents_pack_checklist
             : DEFAULT_DOSSIER_CHECKLIST,
           customer_signature: record.customer_signature ? 1 : 0,
-          signature_signatory_name: record.signature_signatory_name || project?.customer_name || "Rajesh Sharma",
-          signature_phone: record.signature_phone || project?.customer_phone || "9876501234",
-          signed_docket_url: record.signed_docket_url || "https://diassignments.digiinksolutions.com/uploads/handover_dockets/DOCKET-PROJ-004-SIGNED.pdf",
+          signature_signatory_name: record.signature_signatory_name || project?.customer_name || "",
+          signature_phone: record.signature_phone || project?.customer_phone || "",
+          signed_docket_url: record.signed_docket_url || "",
           signature_data: record.signature_data || "",
-          handover_photo_url: record.handover_photo_url || "https://images.unsplash.com/photo-1509391365360-2e959784a276?w=800&auto=format&fit=crop&q=60",
-          customer_rating: record.customer_rating || 5,
+          handover_photo_url: record.handover_photo_url || "",
+          customer_rating: record.customer_rating ?? 0,
           customer_feedback: record.customer_feedback || "",
           review_token: record.review_token || "",
           review_status: record.review_status || (record.customer_feedback ? "submitted" : "pending"),
@@ -317,7 +308,7 @@ export default function CustomerHandover({ project, projectId }) {
     } finally {
       setLoading(false);
     }
-  }, [targetProjectId, project]);
+  }, [targetProjectId, project, defaultHandoverDate]);
 
   useEffect(() => {
     fetchHandoverAndFinancials();
@@ -448,7 +439,7 @@ export default function CustomerHandover({ project, projectId }) {
 
   // Review URL generated for this project
   const reviewUrl = useMemo(() => {
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://diassignments.digiinksolutions.com";
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://solops.cloud";
     return `${origin}/review/${formData.review_token || targetProjectId}`;
   }, [formData.review_token, targetProjectId]);
 
@@ -570,7 +561,7 @@ export default function CustomerHandover({ project, projectId }) {
   }
 
   return (
-    <Box sx={{ p: { xs: 1.5, sm: 2.5 }, maxWidth: "1280px", margin: "0 auto" }}>
+    <Box sx={{ p: 0, width: "100%", minWidth: 0 }}>
       {bannerAlert && (
         <Alert
           severity={bannerAlert.severity}
@@ -594,13 +585,13 @@ export default function CustomerHandover({ project, projectId }) {
       >
         <Stack
           direction={{ xs: "column", sm: "row" }}
-          justifyContent="space-between"
-          alignItems={{ xs: "flex-start", sm: "center" }}
+
+
           spacing={2}
-          sx={{ mb: 2 }}
+          sx={{justifyContent: "space-between", alignItems: { xs: "flex-start", sm: "center" },  mb: 2 }}
         >
           <Box>
-            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 0.5 }}>
+            <Stack direction="row"  spacing={1.5} sx={{alignItems: "center",  mb: 0.5 }}>
               <Box
                 sx={{
                   backgroundColor: "#FEF3C7",
@@ -614,7 +605,7 @@ export default function CustomerHandover({ project, projectId }) {
                 <HandshakeIcon sx={{ color: "#D97706", fontSize: 24 }} />
               </Box>
               <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.textPrimary }}>
-                Stage 8: Customer Handover & System Walkthrough
+                Customer handover
               </Typography>
               <Chip
                 label={activeStatus}
@@ -652,55 +643,19 @@ export default function CustomerHandover({ project, projectId }) {
           </Button>
         </Stack>
 
-        {/* WORKFLOW PIPELINE BREADCRUMB */}
-        <Box
-          sx={{
-            p: 1.5,
-            borderRadius: "10px",
-            backgroundColor: "#F1F5F9",
-            display: "flex",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 1,
-            fontSize: "0.75rem",
-            color: COLORS.textSecondary,
-          }}
-        >
-          <Typography component="span" sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.primary }}>
-            Standard EPC Pipeline:
-          </Typography>
-          <span>Order Closed</span>
-          <span>→</span>
-          <span>DISCOM Feasibility</span>
-          <span>→</span>
-          <span>Pre-Install Inspection</span>
-          <span>→</span>
-          <span>Procurement</span>
-          <span>→</span>
-          <span>Installation</span>
-          <span>→</span>
-          <span>Commissioning (08 Nov)</span>
-          <span>→</span>
-          <span>QC Inspection (10 Nov)</span>
-          <span>→</span>
-          <Chip
-            label="Handover (12 Nov)"
-            size="small"
-            sx={{
-              fontWeight: 800,
-              fontSize: "0.7rem",
-              backgroundColor: COLORS.primary,
-              color: "#FFF",
-              height: 22,
-            }}
-          />
-          <span>→</span>
-          <span>Subsidy Claim</span>
-          <span>→</span>
-          <span>Subsidy Received</span>
-          <span>→</span>
-          <span>Warranty & AMC</span>
-        </Box>
+        <Alert severity="info" sx={{ mt: 2 }}>
+          Current project milestone: {project?.stage || "Not recorded"}. Check Stage History for saved changes and dates.
+        </Alert>
+      </Paper>
+
+      <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, mb: 3, border: `1px solid ${COLORS.border}`, borderRadius: 3 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography fontWeight={700}>Company AMC plans</Typography>
+            <Typography variant="body2" color="text.secondary">Define your own paid maintenance plans, fees and coverage. Select the agreed customer plan in the Warranty &amp; AMC tab. No paid plan is assigned automatically.</Typography>
+          </Box>
+          <AmcPlanManager />
+        </Stack>
       </Paper>
 
       {/* COMMERCIAL SAFETY GATE: PAYMENT CLEARANCE STATUS */}
@@ -716,7 +671,7 @@ export default function CustomerHandover({ project, projectId }) {
       >
         <Grid container spacing={2} alignItems="center">
           <Grid size={{ xs: 12, md: 3 }}>
-            <Stack direction="row" spacing={1.5} alignItems="center">
+            <Stack sx={{ alignItems: "center" }} direction="row" spacing={1.5} >
               <Box
                 sx={{
                   p: 1,
@@ -765,7 +720,7 @@ export default function CustomerHandover({ project, projectId }) {
           </Grid>
 
           <Grid size={{ xs: 12, md: 4 }} sx={{ textAlign: { xs: "left", md: "right" } }}>
-            <Stack direction="row" spacing={1} justifyContent={{ xs: "flex-start", md: "flex-end" }} alignItems="center">
+            <Stack sx={{ justifyContent: { xs: "flex-start", md: "flex-end" }, alignItems: "center" }} direction="row" spacing={1}  >
               <Chip
                 icon={financials.balanceDue > 0 ? <WarningAmberIcon /> : <CheckCircleIcon />}
                 label={financials.balanceDue > 0 ? `₹${financials.balanceDue.toLocaleString("en-IN")} Pending` : "Cleared for Handover"}
@@ -861,7 +816,7 @@ export default function CustomerHandover({ project, projectId }) {
                 borderTop: "4px solid #3B82F6",
               }}
             >
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+              <Stack direction="row" spacing={1}  sx={{alignItems: "center",  mb: 1 }}>
                 <SolarPowerIcon sx={{ color: "#2563EB", fontSize: 20 }} />
                 <Typography sx={{ fontWeight: 800, fontSize: "0.85rem", color: COLORS.textPrimary }}>
                   Solar PV Modules
@@ -896,7 +851,7 @@ export default function CustomerHandover({ project, projectId }) {
                 borderTop: "4px solid #F59E0B",
               }}
             >
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+              <Stack direction="row" spacing={1}  sx={{alignItems: "center",  mb: 1 }}>
                 <ElectricBoltIcon sx={{ color: "#D97706", fontSize: 20 }} />
                 <Typography sx={{ fontWeight: 800, fontSize: "0.85rem", color: COLORS.textPrimary }}>
                   Grid Inverter
@@ -931,7 +886,7 @@ export default function CustomerHandover({ project, projectId }) {
                 borderTop: "4px solid #10B981",
               }}
             >
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+              <Stack direction="row" spacing={1}  sx={{alignItems: "center",  mb: 1 }}>
                 <BuildIcon sx={{ color: "#059669", fontSize: 20 }} />
                 <Typography sx={{ fontWeight: 800, fontSize: "0.85rem", color: COLORS.textPrimary }}>
                   EPC Workmanship
@@ -966,17 +921,17 @@ export default function CustomerHandover({ project, projectId }) {
                 borderTop: "4px solid #8B5CF6",
               }}
             >
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+              <Stack direction="row" spacing={1}  sx={{alignItems: "center",  mb: 1 }}>
                 <SupportAgentIcon sx={{ color: "#7C3AED", fontSize: 20 }} />
                 <Typography sx={{ fontWeight: 800, fontSize: "0.85rem", color: COLORS.textPrimary }}>
                   Free Scheduled AMC
                 </Typography>
               </Stack>
               <Typography sx={{ fontSize: "1.2rem", fontWeight: 900, color: COLORS.primary }}>
-                {formData.amc_warranty_years} Year (4 Visits)
+                {formData.amc_warranty_years} Year free service period
               </Typography>
               <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mb: 1 }}>
-                Periodic Module Wash & Electrical Health Check
+                Confirm included visits and services in the agreed handover terms.
               </Typography>
               <Divider sx={{ my: 1 }} />
               <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
@@ -1004,7 +959,7 @@ export default function CustomerHandover({ project, projectId }) {
               height: "100%",
             }}
           >
-            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+            <Stack direction="row" spacing={1.5}  sx={{alignItems: "center",  mb: 2 }}>
               <SchoolIcon sx={{ color: COLORS.primary }} />
               <Typography variant="subtitle1" sx={{ fontWeight: 800, color: COLORS.textPrimary }}>
                 Customer Training & Mobile App Onboarding
@@ -1113,7 +1068,7 @@ export default function CustomerHandover({ project, projectId }) {
               <Box sx={{ p: 1.5, borderRadius: "8px", backgroundColor: "#F8FAFC", border: `1px solid ${COLORS.border}` }}>
                 <Typography sx={{ fontSize: "0.7rem", color: COLORS.textMuted }}>Handover Manager</Typography>
                 <Typography sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.textPrimary }}>
-                  {formData.handover_manager || "Vikram Rathore (Project Lead)"}
+                  {formData.handover_manager || ""}
                 </Typography>
               </Box>
             </Stack>
@@ -1132,7 +1087,7 @@ export default function CustomerHandover({ project, projectId }) {
               height: "100%",
             }}
           >
-            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+            <Stack direction="row" spacing={1.5}  sx={{alignItems: "center",  mb: 2 }}>
               <PictureAsPdfIcon sx={{ color: "#DC2626" }} />
               <Typography variant="subtitle1" sx={{ fontWeight: 800, color: COLORS.textPrimary }}>
                 Statutory Document Dossier (Delivered to Client)
@@ -1153,7 +1108,7 @@ export default function CustomerHandover({ project, projectId }) {
                     backgroundColor: doc.checked ? "#F0FDF4" : "#FFFFFF",
                   }}
                 >
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack sx={{ alignItems: "center" }} direction="row" spacing={1} >
                     {doc.checked ? (
                       <CheckCircleIcon sx={{ color: "#16A34A", fontSize: 18 }} />
                     ) : (
@@ -1222,7 +1177,7 @@ export default function CustomerHandover({ project, projectId }) {
                   backgroundColor: formData.customer_signature ? "#F0FDF4" : "#FEF3C7",
                 }}
               >
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack sx={{ justifyContent: "space-between", alignItems: "center" }} direction="row"  >
                   <Box>
                     <Typography sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.textPrimary }}>
                       Digital Signoff Status
@@ -1246,7 +1201,7 @@ export default function CustomerHandover({ project, projectId }) {
 
               {formData.signature_data && (
                 <Box sx={{ p: 1.5, borderRadius: "8px", border: "1px solid #10B981", backgroundColor: "#F0FDF4" }}>
-                  <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                  <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mb: 1 }}>
                     <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#166534" }}>
                       Customer Handover Signature
                     </Typography>
@@ -1308,7 +1263,7 @@ export default function CustomerHandover({ project, projectId }) {
 
           {/* CUSTOMER SATISFACTION & VERIFIED REVIEW (NON-EDITABLE) */}
           <Grid size={{ xs: 12, md: 6 }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+            <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mb: 1.5 }}>
               <Typography
                 sx={{
                   fontSize: "0.75rem",
@@ -1373,7 +1328,7 @@ export default function CustomerHandover({ project, projectId }) {
                 <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase", mb: 0.6 }}>
                   Customer Feedback Link
                 </Typography>
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="center">
+                <Stack sx={{ alignItems: "center" }} direction={{ xs: "column", sm: "row" }} spacing={1} >
                   <TextField
                     fullWidth
                     size="small"
@@ -1442,11 +1397,11 @@ export default function CustomerHandover({ project, projectId }) {
 
               {/* NON-EDITABLE STARS & REVIEW DISPLAY */}
               <Box sx={{ p: 1.5, borderRadius: "8px", bgcolor: "#FFFFFF", border: `1px solid ${COLORS.border}` }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }} flexWrap="wrap" gap={1}>
-                  <Stack direction="row" spacing={1.5} alignItems="center">
-                    <Rating value={Number(formData.customer_rating) || 5} readOnly precision={0.5} />
+                <Stack direction="row"   sx={{justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1,  mb: 1 }}  >
+                  <Stack sx={{ alignItems: "center" }} direction="row" spacing={1.5} >
+                    <Rating value={Number(formData.customer_rating) || 0} readOnly precision={0.5} />
                     <Typography sx={{ fontWeight: 800, fontSize: "0.85rem", color: COLORS.textPrimary }}>
-                      {formData.customer_rating || 5}.0 / 5.0 Rating
+                      {formData.customer_rating ? `${formData.customer_rating} / 5 Rating` : "No rating submitted"}
                     </Typography>
                   </Stack>
 
@@ -1479,7 +1434,7 @@ export default function CustomerHandover({ project, projectId }) {
                   "{formData.customer_feedback || "Review pending. Customer will enter their star rating and comments via the review link above."}"
                 </Typography>
 
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }} flexWrap="wrap" gap={1}>
+                <Stack direction="row"   sx={{justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1,  mt: 1 }}  >
                   <Typography sx={{ fontSize: "0.7rem", color: COLORS.textMuted, fontWeight: 600 }}>
                     Reviewer: {formData.customer_reviewer_name || formData.signature_signatory_name || project?.customer_name || "Customer"}
                   </Typography>
@@ -1595,7 +1550,7 @@ export default function CustomerHandover({ project, projectId }) {
               </Grid>
               <Grid size={12}>
                 <Paper elevation={0} sx={{ p: 1.5, bgcolor: "#F8FAFC", border: "1px dashed #CBD5E1", borderRadius: "8px" }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Stack sx={{ justifyContent: "space-between", alignItems: "center" }} direction="row"  >
                     <Typography sx={{ fontSize: "0.82rem", color: COLORS.textSecondary }}>Net Balance After Collection:</Typography>
                     <Typography
                       sx={{
@@ -1691,7 +1646,7 @@ export default function CustomerHandover({ project, projectId }) {
                     type="date"
                     required
                     value={formData.handover_date}
-                    helperText={`Final Inspection was on ${formatDate(finalInspectionDate)}`}
+                    helperText="Confirm that final inspection is complete before handover"
                     onChange={(e) => handleHandoverDateChange(e.target.value)}
                   />
                 </Grid>
@@ -2126,7 +2081,7 @@ export default function CustomerHandover({ project, projectId }) {
                 <Typography sx={{ fontSize: "0.7rem", color: COLORS.textSecondary, mb: 1 }}>
                   Customer opens this link on their phone, selects stars, and writes their review. It automatically syncs here.
                 </Typography>
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="center">
+                <Stack sx={{ alignItems: "center" }} direction={{ xs: "column", sm: "row" }} spacing={1} >
                   <TextField
                     fullWidth
                     size="small"
@@ -2169,17 +2124,17 @@ export default function CustomerHandover({ project, projectId }) {
 
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12 }}>
-                  <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }} flexWrap="wrap" gap={1}>
+                  <Stack direction="row" spacing={1.5}  sx={{alignItems: "center", flexWrap: "wrap", gap: 1,  mb: 1 }}  >
                     <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: COLORS.textPrimary }}>
                       Customer Star Rating:
                     </Typography>
                     <Rating
-                      value={Number(formData.customer_rating) || 5}
+                      value={Number(formData.customer_rating) || 0}
                       readOnly
                       precision={1}
                     />
                     <Typography sx={{ fontSize: "0.82rem", fontWeight: 800, color: COLORS.secondary }}>
-                      {formData.customer_rating || 5} Star{Number(formData.customer_rating) > 1 ? "s" : ""}
+                      {formData.customer_rating || 0} Star{Number(formData.customer_rating) > 1 ? "s" : ""}
                     </Typography>
                     <Chip
                       icon={<LockOutlinedIcon sx={{ fontSize: "12px !important" }} />}

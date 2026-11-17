@@ -97,6 +97,9 @@ const RecordPaymentModal = ({ open, onClose, invoice = null, onPaymentRecorded =
       fullWidth
       PaperProps={{
         sx: {
+          m: { xs: 1, sm: 3 },
+          width: { xs: "calc(100% - 16px)", sm: "calc(100% - 48px)" },
+          maxHeight: { xs: "calc(100dvh - 16px)", sm: "calc(100dvh - 48px)" },
           borderRadius: "14px",
           border: `1px solid ${COLORS.border}`,
           boxShadow: "0 20px 40px -15px rgba(15, 23, 42, 0.15)",
@@ -107,7 +110,7 @@ const RecordPaymentModal = ({ open, onClose, invoice = null, onPaymentRecorded =
         sx={{
           bgcolor: COLORS.primary,
           color: "#FFFFFF",
-          px: 3,
+          px: { xs: 2, sm: 3 },
           py: 2,
           display: "flex",
           justifyContent: "space-between",
@@ -130,13 +133,13 @@ const RecordPaymentModal = ({ open, onClose, invoice = null, onPaymentRecorded =
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ p: 3, bgcolor: "#FAFBFC" }}>
+      <DialogContent sx={{ p: { xs: 2, sm: 3 }, bgcolor: "#FAFBFC", "& .MuiTextField-root, & .MuiGrid-root": { minWidth: 0 } }}>
         <Alert severity="info" sx={{ mb: 2.5, borderRadius: "8px" }}>
           Current Outstanding Balance: <strong>₹{currentBalance.toLocaleString("en-IN")}</strong>
         </Alert>
 
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
               Payment Amount (₹) *
             </Typography>
@@ -150,7 +153,7 @@ const RecordPaymentModal = ({ open, onClose, invoice = null, onPaymentRecorded =
               sx={inputSx}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
               Payment Date *
             </Typography>
@@ -164,7 +167,7 @@ const RecordPaymentModal = ({ open, onClose, invoice = null, onPaymentRecorded =
               sx={inputSx}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
               Payment Mode
             </Typography>
@@ -176,7 +179,7 @@ const RecordPaymentModal = ({ open, onClose, invoice = null, onPaymentRecorded =
               <MenuItem value="Net Banking">Net Banking</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
               Reference / UTR / Cheque No
             </Typography>
@@ -189,7 +192,7 @@ const RecordPaymentModal = ({ open, onClose, invoice = null, onPaymentRecorded =
               sx={inputSx}
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textPrimary, mb: 0.5, display: "block" }}>
               Payment Notes
             </Typography>
@@ -216,7 +219,7 @@ const RecordPaymentModal = ({ open, onClose, invoice = null, onPaymentRecorded =
         )}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2, bgcolor: "#FFFFFF", borderTop: `1px solid ${COLORS.border}` }}>
+      <DialogActions sx={{ px: { xs: 2, sm: 3 }, py: 2, bgcolor: "#FFFFFF", borderTop: `1px solid ${COLORS.border}`, "& .MuiButton-root": { minHeight: 40, borderRadius: "8px", textTransform: "none" } }}>
         <Button variant="outlined" onClick={onClose} sx={{ borderColor: COLORS.border, color: COLORS.textSecondary }}>
           Cancel
         </Button>

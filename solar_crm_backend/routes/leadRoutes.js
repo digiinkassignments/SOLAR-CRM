@@ -25,7 +25,7 @@ router.post("/", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER, ROL
 // ⚠️ /:id se UPAR rakhna zaroori hai
 router.patch("/bulk-reassign", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), bulkReassign);
 router.post("/bulk-import", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), bulkImport);
-router.post("/bulk-delete", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN), bulkDeleteLeads);
+router.post("/bulk-delete", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), bulkDeleteLeads);
 router.get("/team/followups", verifyToken, authorizeRoles(ROLE_MANAGER), getTeamFollowupsList);
 
 // Date-wise Follow-ups (Today, Overdue, Upcoming, Custom Date Filter)
@@ -46,6 +46,6 @@ router.post("/:id/assign", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MA
 router.post("/:id/followups", verifyToken, addFollowup);
 router.get("/:id/followups", verifyToken, getFollowups);
 router.get("/:id/logs", verifyToken, getActivityLogs);
-router.delete("/:id", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN), deleteLead);
+router.delete("/:id", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), deleteLead);
 
 module.exports = router;

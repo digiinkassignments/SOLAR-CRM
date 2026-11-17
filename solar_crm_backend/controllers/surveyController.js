@@ -12,9 +12,19 @@ const scheduleSurveyHandler = async (req, res) => {
       });
     }
 
+    if(![1,2,3,4].includes(Number(req.user.role_id)))return res.sendStatus(403);
+    if(!await require('../models/leadModel').isLeadAccessibleByUser(lead_id,req.user.role_id,req.user.id,req.db))return res.sendStatus(404);
+    if(!require('../services/field/definitions').validDate(scheduled_date))return res.status(400).json({success:false,message:'Enter a valid survey date.'});
+    const [[engineer]]=await req.db.query("SELECT id, full_name, role_id FROM users WHERE id=? AND role_id=4 AND is_deleted=0 AND LOWER(status)='active'",[assigned_engineer_id]);
+    if(!engineer)return res.status(400).json({success:false,message:'Choose an active Site Engineer.'});
+    const existing=await surveyModel.getSurveyByLeadId(lead_id,req.db);
+    if(existing?.status==='completed')return res.status(409).json({success:false,message:'Survey already completed. Assign a follow-up field task instead of overwriting the report.'});
+    const exactTime=require('../services/surveyBooking').time(scheduled_time);
+    if(!exactTime)return res.status(400).json({success:false,message:'Enter an exact survey time.'});
+    require('../services/surveyBooking').location(req.body);
     const createdBy = req.user?.id || null;
     const survey = await surveyModel.scheduleSurvey(
-      { lead_id, assigned_engineer_id, scheduled_date, scheduled_time, site_notes },
+      { ...req.body, lead_id, assigned_engineer_id, scheduled_date, scheduled_time:exactTime, site_notes },
       createdBy,
       req.db
     );
@@ -26,9 +36,9 @@ const scheduleSurveyHandler = async (req, res) => {
     });
   } catch (error) {
     console.error("scheduleSurveyHandler error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
-      message: "Failed to schedule site survey.",
+      message: error.status ? error.message : "Failed to schedule site survey.",
       error: error.message,
     });
   }
@@ -45,6 +55,7 @@ const getSurveyByLeadHandler = async (req, res) => {
       });
     }
 
+    if(!await require('../models/leadModel').isLeadAccessibleByUser(leadId,req.user.role_id,req.user.id,req.db))return res.sendStatus(404);
     const survey = await surveyModel.getSurveyByLeadId(leadId, req.db);
     return res.status(200).json({
       success: true,
@@ -64,7 +75,15 @@ const getSurveyByLeadHandler = async (req, res) => {
 // 3. Get All Surveys List
 const getSurveysListHandler = async (req, res) => {
   try {
-    const surveys = await surveyModel.getSurveysList(req.query, req.db);
+    const roleId = Number(req.user.role_id);
+    const surveys = await surveyModel.getSurveysList({
+      ...req.query,
+      user_role_id: roleId,
+      current_user_id: req.user.id,
+      scope_user_id: [2, 3, 4].includes(roleId) ? req.user.id : null,
+      is_engineer: roleId === 4,
+      is_sales: roleId === 3,
+    }, req.db);
     return res.status(200).json({
       success: true,
       message: "Site surveys fetched successfully.",
@@ -83,6 +102,7 @@ const getSurveysListHandler = async (req, res) => {
 // 4. Complete Survey Execution
 const completeSurveyHandler = async (req, res) => {
   try {
+    if(![1, 2, 3, 4].includes(Number(req.user.role_id))) return res.sendStatus(403);
     const { id } = req.params;
     if (!id) {
       return res.status(400).json({
@@ -143,10 +163,46 @@ const uploadPhotosHandler = async (req, res) => {
   }
 };
 
+// 6. Approve Survey & Convert to Project Handler
+const approveSurveyToProjectHandler = async (req, res) => {
+  try {
+    const roleId = Number(req.user?.role_id);
+    if (![1, 2, 4].includes(roleId)) return res.sendStatus(403);
+
+    const { id, leadId } = req.params;
+    const { notes, initialStage, assigned_to } = req.body || {};
+
+    const projectData = await surveyModel.approveSurveyAndCreateProject(
+      {
+        surveyId: id ? Number(id) : null,
+        leadId: leadId ? Number(leadId) : null,
+        approvedBy: req.user.id,
+        notes,
+        initialStage,
+        assignedTo: assigned_to ? Number(assigned_to) : null,
+      },
+      req.db
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Survey approved and Project ${projectData.project_number} created successfully!`,
+      data: projectData,
+    });
+  } catch (error) {
+    console.error("approveSurveyToProjectHandler error:", error);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.message || "Failed to approve survey and create project.",
+    });
+  }
+};
+
 module.exports = {
   scheduleSurveyHandler,
   getSurveyByLeadHandler,
   getSurveysListHandler,
   completeSurveyHandler,
   uploadPhotosHandler,
+  approveSurveyToProjectHandler,
 };

@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
+import useWorkspaceNavigate from "../../hooks/useWorkspaceNavigate";
+import ReminderInbox from "../ReminderInbox";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext"; // Agar aap useAuth Context use kar rahe hain
 
@@ -30,10 +32,19 @@ import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 
 const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
-  "http://localhost:5000";
+  (typeof window !== "undefined" && window.location.hostname !== "localhost" ? "" : "http://localhost:5000");
 
 // Dynamic Breadcrumbs and Page Title Mapping
 const getPageMetadata = (pathname) => {
+  if (pathname.startsWith("/field-work")) return { title: "Field Operations", breadcrumb: "Field Operations" };
+  if (pathname.startsWith("/team")) return { title: "Sales Team", breadcrumb: "Team" };
+  if (pathname.startsWith("/followups")) return { title: "Team Follow-ups", breadcrumb: "Follow-ups" };
+  if (pathname.startsWith("/stock")) return { title: "Stock Management", breadcrumb: "Stock" };
+  if (pathname.startsWith("/quotations")) return { title: "Quotations", breadcrumb: "Quotations" };
+  if (pathname.startsWith("/invoices")) return { title: "Invoices & Billing", breadcrumb: "Invoices" };
+  if (pathname.startsWith("/customers")) return { title: pathname === "/customers" ? "Customers" : "Customer Profile", breadcrumb: "Customers" };
+  if (pathname.startsWith("/subsidies") || pathname === "/loans") return { title: "Subsidy & Finance", breadcrumb: "Subsidy & Finance" };
+  if (pathname.startsWith("/projects")) return { title: "Projects", breadcrumb: "Projects" };
   if (pathname.startsWith("/users")) return { title: "User Management", breadcrumb: "Users" };
   if (pathname.startsWith("/leads")) return { title: "Lead Management", breadcrumb: "Leads" };
   if (pathname.startsWith("/reports")) return { title: "Reports & Analytics", breadcrumb: "Reports" };
@@ -44,14 +55,14 @@ const getPageMetadata = (pathname) => {
 
 const Navbar = ({ handleDrawerToggle, handleToggleCollapse, collapsed, sidebarWidth = 260, navbarHeight = 64 }) => {
   const location = useLocation();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
 
   // Try using AuthContext if available, otherwise fallback to state/localStorage
   let authUser = null;
   try {
     const auth = useAuth();
     authUser = auth?.user;
-  } catch (e) {
+  } catch {
     // AuthProvider missing fallback
   }
 
@@ -151,7 +162,7 @@ const Navbar = ({ handleDrawerToggle, handleToggleCollapse, collapsed, sidebarWi
       .toUpperCase()
     : "U";
 
-  const pageMeta = getPageMetadata(location.pathname);
+  const pageMeta = getPageMetadata(location.pathname.replace(/^\/manager(?=\/)/, ""));
 
   // Formatting Date and Time
   const dayName = currentTime.toLocaleDateString("en-US", { weekday: "long" });
@@ -229,7 +240,7 @@ const Navbar = ({ handleDrawerToggle, handleToggleCollapse, collapsed, sidebarWi
                   "& .MuiBreadcrumbs-separator": { color: "#94A3B8" },
                 }}
               >
-                <Link underline="hover" color="inherit" href="/dashboard">
+                <Link underline="hover" color="inherit" href={Number(user?.role_id)===2 ? "/manager/dashboard" : "/dashboard"}>
                   Dashboard
                 </Link>
                 <Typography sx={{ fontSize: "0.75rem", color: "#D97706", fontWeight: 600 }}>
@@ -302,6 +313,7 @@ const Navbar = ({ handleDrawerToggle, handleToggleCollapse, collapsed, sidebarWi
 
           {/* RIGHT SECTION: Interactive Profile Area + Fullscreen */}
           <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1.2, sm: 2 } }}>
+            <ReminderInbox />
             <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
               <IconButton
                 onClick={toggleFullscreen}

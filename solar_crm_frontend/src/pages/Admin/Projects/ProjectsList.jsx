@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import {
@@ -17,7 +17,6 @@ import {
   TablePagination,
   TableRow,
   IconButton,
-  Tooltip,
   Stack,
   InputAdornment,
   MenuItem,
@@ -32,18 +31,15 @@ import {
   DialogActions,
   Autocomplete,
   LinearProgress,
-  Avatar,
   Divider,
   Alert,
 } from "@mui/material";
 
 // Icons
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
-import NavigateNextRoundedIcon from "@mui/icons-material/NavigateNextRounded";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
-import FilterListOffIcon from "@mui/icons-material/FilterListOff";
 import ViewListOutlinedIcon from "@mui/icons-material/ViewListOutlined";
 import TableChartOutlinedIcon from "@mui/icons-material/TableChartOutlined";
 import SolarPowerIcon from "@mui/icons-material/SolarPower";
@@ -51,21 +47,15 @@ import EngineeringOutlinedIcon from "@mui/icons-material/EngineeringOutlined";
 import CheckCircleOutlinedIcon from "@mui/icons-material/CheckCircleOutlined";
 import FolderSpecialOutlinedIcon from "@mui/icons-material/FolderSpecialOutlined";
 import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
-import PersonIcon from "@mui/icons-material/Person";
-import PhoneIcon from "@mui/icons-material/Phone";
-import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import DeleteIcon from "@mui/icons-material/Delete";
-import InboxIcon from "@mui/icons-material/Inbox";
 import CloseIcon from "@mui/icons-material/Close";
-import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
-import ElectricBoltOutlinedIcon from "@mui/icons-material/ElectricBoltOutlined";
 
+import ProjectWorkspace from "./ProjectWorkspace";
 import toast from "react-hot-toast";
 import api from "../../../utils/api";
 import {
   STAGES,
-  STAGE_CONFIG,
   getStageIndex,
   getProgressPercent,
   getStageConfig,
@@ -88,13 +78,19 @@ export default function ProjectsList() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const roleName = (user?.role_name || user?.role || "").toLowerCase();
-  const isManager = user?.role_id === 2 || roleName.includes("manager");
-  const projectBasePath = isManager ? "/manager/projects" : "/projects";
+  const isManager = Number(user?.role_id) === 2 || roleName.includes("manager");
+  const isEngineer = Number(user?.role_id) === 4 || roleName.includes("engineer");
+  const canCreate = [1, 2].includes(Number(user?.role_id));
+  const canDelete = [1,2].includes(Number(user?.role_id));
+  const projectBasePath = isEngineer ? "/engineer/projects" : isManager ? "/manager/projects" : "/projects";
+  const dashboardPath = isEngineer ? "/engineer/dashboard" : isManager ? "/manager/dashboard" : "/dashboard";
 
   // State
   const [projects, setProjects] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const requestSequence = useRef(0);
   const [stats, setStats] = useState({
     total: 0,
     inProgress: 0,
@@ -116,6 +112,11 @@ export default function ProjectsList() {
   const [quotationOptions, setQuotationOptions] = useState([]);
   const [loadingQuotations, setLoadingQuotations] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState(null);
+  const [surveyOptions, setSurveyOptions] = useState([]);
+  const [loadingSurveys, setLoadingSurveys] = useState(false);
+  const [selectedSurveyOption, setSelectedSurveyOption] = useState(null);
+  const [engineersList, setEngineersList] = useState([]);
+  const [linkSource, setLinkSource] = useState("survey"); // 'survey' or 'quotation'
 
   // Delete Project Dialog State
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -128,7 +129,7 @@ export default function ProjectsList() {
     customer_phone: "",
     lead_id: null,
     quotation_id: null,
-    system_capacity_kw: "5.00",
+    system_capacity_kw: "",
     panel_count: "",
     inverter_kw: "",
     total_cost: "",
@@ -138,32 +139,44 @@ export default function ProjectsList() {
     city: "",
     state: "",
     pincode: "",
-    stage: "Order Closed",
+    stage: "Pre-Install Inspection",
+    assigned_to: "",
     notes: "",
   });
 
-  // Fetch Quotation sent/accepted leads when modal opens
-  const fetchQuotationOptions = useCallback(async () => {
+  // Fetch Quotation sent/accepted leads and completed surveys when modal opens
+  const fetchModalOptions = useCallback(async () => {
     setLoadingQuotations(true);
+    setLoadingSurveys(true);
     try {
-      const res = await api.get("/quotations");
-      if (res.data?.success && Array.isArray(res.data.data)) {
-        setQuotationOptions(res.data.data);
-      } else {
-        setQuotationOptions([]);
+      const [quoteRes, surveyRes, engRes] = await Promise.allSettled([
+        api.get("/quotations"),
+        api.get("/projects/completed-surveys"),
+        api.get("/surveys/engineers"),
+      ]);
+
+      if (quoteRes.status === "fulfilled" && quoteRes.value.data?.success) {
+        setQuotationOptions(Array.isArray(quoteRes.value.data.data) ? quoteRes.value.data.data : []);
+      }
+      if (surveyRes.status === "fulfilled" && surveyRes.value.data?.success) {
+        setSurveyOptions(Array.isArray(surveyRes.value.data.data) ? surveyRes.value.data.data : []);
+      }
+      if (engRes.status === "fulfilled" && engRes.value.data?.success) {
+        setEngineersList(Array.isArray(engRes.value.data.data) ? engRes.value.data.data : []);
       }
     } catch (err) {
-      console.error("fetchQuotationOptions error:", err);
+      console.error("fetchModalOptions error:", err);
     } finally {
       setLoadingQuotations(false);
+      setLoadingSurveys(false);
     }
   }, []);
 
   useEffect(() => {
     if (newModalOpen) {
-      fetchQuotationOptions();
+      fetchModalOptions();
     }
-  }, [newModalOpen, fetchQuotationOptions]);
+  }, [newModalOpen, fetchModalOptions]);
 
   // Fetch Stats from GET /api/projects/stats
   const fetchStats = useCallback(async () => {
@@ -211,7 +224,9 @@ export default function ProjectsList() {
 
   // Fetch Projects List from GET /api/projects
   const fetchProjects = useCallback(async () => {
+    const sequence = ++requestSequence.current;
     setLoading(true);
+    setLoadError("");
     try {
       const params = {
         page: page + 1,
@@ -221,6 +236,7 @@ export default function ProjectsList() {
       };
 
       const res = await api.get("/projects", { params });
+      if (sequence !== requestSequence.current) return;
       if (res.data?.success) {
         setProjects(res.data.data?.projects || []);
         setTotalCount(res.data.data?.total || 0);
@@ -229,12 +245,13 @@ export default function ProjectsList() {
         setTotalCount(0);
       }
     } catch (err) {
+      if (sequence !== requestSequence.current) return;
       console.error("fetchProjects error:", err);
-      toast.error(err.response?.data?.message || "Failed to load projects.");
+      setLoadError(err.response?.data?.message || "Failed to load projects. Please try again.");
       setProjects([]);
       setTotalCount(0);
     } finally {
-      setLoading(false);
+      if (sequence === requestSequence.current) setLoading(false);
     }
   }, [page, rowsPerPage, selectedStage, search]);
 
@@ -264,6 +281,7 @@ export default function ProjectsList() {
   // Handle Create Submit
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
+    if (creating || !canCreate) return;
     if (!formData.customer_name.trim()) {
       toast.error("Customer name is required.");
       return;
@@ -273,6 +291,12 @@ export default function ProjectsList() {
       return;
     }
 
+    if (!Number.isFinite(Number(formData.system_capacity_kw)) || Number(formData.system_capacity_kw) <= 0) {
+      toast.error("System capacity must be greater than zero."); return;
+    }
+    if (Number(formData.total_cost) < 0 || Number(formData.amount_received) < 0) {
+      toast.error("Payment amounts cannot be negative."); return;
+    }
     setCreating(true);
     try {
       const res = await api.post("/projects", formData);
@@ -317,7 +341,7 @@ export default function ProjectsList() {
 
   // Confirm Delete Handler
   const handleConfirmDelete = async () => {
-    if (!projectToDelete) return;
+    if (!projectToDelete || deleting || !canDelete) return;
     setDeleting(true);
     try {
       const res = await api.delete(`/projects/${projectToDelete.id}`);
@@ -325,7 +349,8 @@ export default function ProjectsList() {
         toast.success(res.data.message || "Project deleted successfully!");
         setDeleteConfirmOpen(false);
         setProjectToDelete(null);
-        fetchProjects();
+        if (projects.length === 1 && page > 0) setPage(page - 1);
+        else fetchProjects();
         fetchStats();
       } else {
         toast.error(res.data?.message || "Failed to delete project");
@@ -336,44 +361,6 @@ export default function ProjectsList() {
     } finally {
       setDeleting(false);
     }
-  };
-
-  // Modern Stage Badge Renderer
-  const renderStageBadge = (stageName) => {
-    const config = getStageConfig(stageName);
-    return (
-      <Box
-        sx={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 0.8,
-          px: 1.4,
-          py: 0.45,
-          borderRadius: "8px",
-          backgroundColor: config.bg,
-          border: `1px solid ${config.border}`,
-          color: config.color,
-          fontWeight: 700,
-          fontSize: "0.76rem",
-          letterSpacing: "-0.01em",
-          whiteSpace: "nowrap",
-        }}
-      >
-        <Box
-          sx={{
-            width: 7,
-            height: 7,
-            borderRadius: "50%",
-            backgroundColor: config.dot,
-            flexShrink: 0,
-            boxShadow: `0 0 0 2px ${config.bg}`,
-          }}
-        />
-        <span>
-          Step {config.step}/10 • {config.label}
-        </span>
-      </Box>
-    );
   };
 
   const formatDate = (dateVal) => {
@@ -394,1361 +381,112 @@ export default function ProjectsList() {
   const hasActiveFilters = Boolean(search || selectedStage !== "All");
 
   return (
-    <Box
-      sx={{
-        backgroundColor: COLORS.background,
-        minHeight: "100vh",
-        p: { xs: 1.5, sm: 2.5, md: 3 },
-        boxSizing: "border-box",
-        width: "100%",
-      }}
-    >
-      <Box sx={{ width: "100%", maxWidth: "100%", mx: "auto" }}>
-        {/* 1. BREADCRUMBS */}
-        <Breadcrumbs
-          separator={
-            <NavigateNextRoundedIcon
-              sx={{ fontSize: "0.8rem", color: COLORS.textMuted }}
-            />
-          }
-          sx={{ mb: 1.5 }}
-        >
-          <Stack
-            direction="row"
-            alignItems="center"
-            gap={0.5}
-            sx={{ cursor: "pointer" }}
-            onClick={() => navigate("/dashboard")}
-          >
-            <HomeOutlinedIcon
-              sx={{ fontSize: "0.85rem", color: COLORS.textMuted }}
-            />
-            <Typography
-              sx={{
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                color: COLORS.textMuted,
-                "&:hover": { color: COLORS.primary },
-              }}
-            >
-              Dashboard
-            </Typography>
-          </Stack>
-          <Typography
-            sx={{
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              color: COLORS.textPrimary,
-            }}
-          >
-            Projects
-          </Typography>
+    <ProjectWorkspace>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <Breadcrumbs aria-label="Breadcrumb">
+          <Button size="small" onClick={() => navigate(dashboardPath)} startIcon={<HomeOutlinedIcon />}>Dashboard</Button>
+          <Typography variant="body2">Projects</Typography>
         </Breadcrumbs>
-
-        {/* 2. HERO HEADER (RESPONSIVE NO-OVERLAP) */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 2, sm: 2.5 },
-            mb: 2.5,
-            borderRadius: "14px",
-            border: `1px solid ${COLORS.border}`,
-            backgroundColor: COLORS.card,
-            display: "flex",
-            flexDirection: { xs: "column", md: "row" },
-            justifyContent: "space-between",
-            alignItems: { xs: "flex-start", md: "center" },
-            gap: 2,
-            boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
-          }}
-        >
-          <Box sx={{ flex: 1, minWidth: 260 }}>
-            <Typography
-              variant="h5"
-              sx={{
-                fontWeight: 900,
-                color: COLORS.textPrimary,
-                fontSize: { xs: "1.15rem", sm: "1.3rem" },
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Project Execution & Handover
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                color: COLORS.textSecondary,
-                fontSize: "0.82rem",
-                mt: 0.3,
-              }}
-            >
-              10-stage end-to-end solar engineering pipeline from order closure to subsidy & AMC warranty
-            </Typography>
+        <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
+          <Box sx={{ minWidth: 0, flex: "1 1 260px" }}>
+            <Typography variant="overline" sx={{ color: "text.secondary", fontWeight: 700 }}>SOLAR DELIVERY</Typography>
+            <Typography variant="h4" component="h1" sx={{ fontSize: { xs: 26, md: 30 }, fontWeight: 700 }}>Projects</Typography>
+            <Typography color="text.secondary" sx={{ mt: 0.75 }}>From confirmed order to installation, handover and ongoing care.</Typography>
           </Box>
-
-          <Stack
-            direction="row"
-            alignItems="center"
-            gap={1.2}
-            sx={{ flexShrink: 0, flexWrap: "nowrap" }}
-          >
-            {/* View Mode Toggle */}
-            <ToggleButtonGroup
-              value={viewMode}
-              exclusive
-              onChange={(e, newView) => newView && setViewMode(newView)}
-              size="small"
-              sx={{
-                height: 36,
-                backgroundColor: "#F1F5F9",
-                borderRadius: "6px",
-                p: 0.3,
-                "& .MuiToggleButton-root": {
-                  border: 0,
-                  borderRadius: "4px",
-                  px: 1.4,
-                  py: 0.4,
-                  color: COLORS.textSecondary,
-                  "&.Mui-selected": {
-                    backgroundColor: COLORS.card,
-                    color: COLORS.primary,
-                    fontWeight: 700,
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                  },
-                },
-              }}
-            >
-              <ToggleButton value="box">
-                <Tooltip title="Modern Card View">
-                  <Stack direction="row" alignItems="center" gap={0.5}>
-                    <ViewListOutlinedIcon sx={{ fontSize: 17 }} />
-                    <Typography sx={{ fontSize: "0.75rem", fontWeight: 700 }}>
-                      Cards
-                    </Typography>
-                  </Stack>
-                </Tooltip>
-              </ToggleButton>
-              <ToggleButton value="table">
-                <Tooltip title="Data Table View">
-                  <Stack direction="row" alignItems="center" gap={0.5}>
-                    <TableChartOutlinedIcon sx={{ fontSize: 17 }} />
-                    <Typography sx={{ fontSize: "0.75rem", fontWeight: 700 }}>
-                      Table
-                    </Typography>
-                  </Stack>
-                </Tooltip>
-              </ToggleButton>
+          <Stack direction="row"  sx={{gap: 1,  flexWrap: "wrap" }}>
+            <Button variant="outlined" startIcon={<RefreshIcon />} disabled={loading} onClick={() => { fetchProjects(); fetchStats(); }}>Refresh</Button>
+            {canCreate && <Button variant="contained" startIcon={<AddIcon />} onClick={() => setNewModalOpen(true)}>New project</Button>}
+          </Stack>
+        </Box>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", lg: "repeat(4, minmax(0, 1fr))" }, gap: 2 }}>
+          {[
+            ["Total projects", stats.total, "All project records", <FolderSpecialOutlinedIcon />],
+            ["In execution", stats.inProgress, "Approvals through commissioning", <EngineeringOutlinedIcon />],
+            ["Subsidy pipeline", stats.subsidy, "Applied and received", <AccountBalanceOutlinedIcon />],
+            ["Handover & care", stats.completed, "Handover and warranty", <CheckCircleOutlinedIcon />],
+          ].map(([label, count, caption, icon]) => <Paper key={label} variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, boxShadow: "none" }}>
+            <Stack sx={{ alignItems: "center", justifyContent: "space-between", gap: 1 }} direction="row"   >
+              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>{label}</Typography>
+              <Box sx={{ color: "text.secondary", display: { xs: "none", sm: "flex" } }}>{icon}</Box>
+            </Stack>
+            <Typography sx={{ fontSize: 30, fontWeight: 700, fontVariantNumeric: "tabular-nums", my: 0.5 }}>{count}</Typography>
+            <Typography variant="caption">{caption}</Typography>
+          </Paper>)}
+        </Box>
+        <Paper variant="outlined" sx={{ p: 2, boxShadow: "none" }}>
+          <Box component="form" onSubmit={handleSearchSubmit} sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5 }}>
+            <TextField label="Search projects" placeholder="Customer, phone or project number" size="small" value={searchInput} onChange={e => setSearchInput(e.target.value)} sx={{ flex: "2 1 240px", minWidth: 0 }}
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }} />
+            <TextField select label="Project stage" size="small" value={selectedStage} onChange={e => { setSelectedStage(e.target.value); setPage(0); }} sx={{ flex: "1 1 220px", minWidth: 0 }}>
+              <MenuItem value="All">All stages</MenuItem>
+              {STAGES.map(stage => <MenuItem key={stage} value={stage}>{stage}</MenuItem>)}
+            </TextField>
+            <Button type="submit" variant="outlined">Search</Button>
+            {hasActiveFilters && <Button onClick={handleClearFilters}>Clear filters</Button>}
+            <ToggleButtonGroup value={viewMode} exclusive onChange={(_, value) => value && setViewMode(value)} size="small" aria-label="Project view">
+              <ToggleButton value="box" aria-label="Card view"><ViewListOutlinedIcon fontSize="small" /></ToggleButton>
+              <ToggleButton value="table" aria-label="Table view"><TableChartOutlinedIcon fontSize="small" /></ToggleButton>
             </ToggleButtonGroup>
-
-            {/* Refresh */}
-            <Tooltip title="Refresh Projects">
-              <span>
-                <IconButton
-                  onClick={() => {
-                    fetchProjects();
-                    fetchStats();
-                  }}
-                  disabled={loading}
-                  sx={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: "8px",
-                    border: `1px solid ${COLORS.border}`,
-                    backgroundColor: COLORS.card,
-                    color: COLORS.textPrimary,
-                    "&:hover": { backgroundColor: "#F8FAFC" },
-                  }}
-                >
-                  <RefreshIcon
-                    sx={{
-                      fontSize: 18,
-                      animation: loading ? "spin 0.8s linear infinite" : "none",
-                      "@keyframes spin": {
-                        from: { transform: "rotate(0deg)" },
-                        to: { transform: "rotate(360deg)" },
-                      },
-                    }}
-                  />
-                </IconButton>
-              </span>
-            </Tooltip>
-
-            {/* Create Project Button */}
-            <Button
-              variant="contained"
-              startIcon={<AddIcon sx={{ fontSize: 18 }} />}
-              onClick={() => setNewModalOpen(true)}
-              sx={{
-                height: 36,
-                borderRadius: "8px",
-                textTransform: "none",
-                fontWeight: 700,
-                fontSize: "0.82rem",
-                px: 2.2,
-                backgroundColor: "#005BAC",
-                color: "#FFFFFF",
-                boxShadow: "0 2px 6px rgba(0, 91, 172, 0.25)",
-                whiteSpace: "nowrap",
-                "&:hover": { backgroundColor: "#004785" },
-              }}
-            >
-              New Project
-            </Button>
-          </Stack>
-        </Paper>
-
-        {/* 3. STATS CARDS (4 KPI BOXES WITH EXACT 10-STAGE AWARENESS) */}
-        <Grid container spacing={2} sx={{ mb: 2.5 }}>
-          {/* Total Projects */}
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Paper
-              elevation={0}
-              onClick={() => {
-                setSelectedStage("All");
-                setPage(0);
-              }}
-              sx={{
-                p: 2.2,
-                borderRadius: "14px",
-                border: `1px solid ${selectedStage === "All" ? COLORS.primary : COLORS.border}`,
-                backgroundColor: COLORS.card,
-                cursor: "pointer",
-                transition: "all 0.18s ease-in-out",
-                "&:hover": {
-                  borderColor: COLORS.primary,
-                  boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
-                  transform: "translateY(-1px)",
-                },
-              }}
-            >
-              <Stack direction="row" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography
-                    sx={{
-                      fontSize: "0.74rem",
-                      fontWeight: 800,
-                      color: COLORS.textSecondary,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    Total Projects
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: "1.7rem",
-                      fontWeight: 900,
-                      color: COLORS.textPrimary,
-                      mt: 0.3,
-                    }}
-                  >
-                    {stats.total}
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                    All active & historical orders
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: "12px",
-                    backgroundColor: "#EFF6FF",
-                    color: "#2563EB",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <FolderSpecialOutlinedIcon sx={{ fontSize: 24 }} />
-                </Box>
-              </Stack>
-            </Paper>
-          </Grid>
-
-          {/* Execution In Progress */}
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Paper
-              elevation={0}
-              onClick={() => {
-                setSelectedStage("Installation In Progress");
-                setPage(0);
-              }}
-              sx={{
-                p: 2.2,
-                borderRadius: "14px",
-                border: `1px solid ${selectedStage === "Installation In Progress" ? "#F59E0B" : COLORS.border}`,
-                backgroundColor: COLORS.card,
-                cursor: "pointer",
-                transition: "all 0.18s ease-in-out",
-                "&:hover": {
-                  borderColor: "#F59E0B",
-                  boxShadow: "0 4px 12px rgba(245, 158, 11, 0.1)",
-                  transform: "translateY(-1px)",
-                },
-              }}
-            >
-              <Stack direction="row" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography
-                    sx={{
-                      fontSize: "0.74rem",
-                      fontWeight: 800,
-                      color: COLORS.textSecondary,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    In Execution
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: "1.7rem",
-                      fontWeight: 900,
-                      color: "#D97706",
-                      mt: 0.3,
-                    }}
-                  >
-                    {stats.inProgress}
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                    DISCOM, Survey, Procurement & Build
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: "12px",
-                    backgroundColor: "#FFFBEB",
-                    color: "#D97706",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <EngineeringOutlinedIcon sx={{ fontSize: 24 }} />
-                </Box>
-              </Stack>
-            </Paper>
-          </Grid>
-
-          {/* Subsidy Tracking (Applied & Received) */}
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Paper
-              elevation={0}
-              onClick={() => {
-                setSelectedStage("Subsidy Received");
-                setPage(0);
-              }}
-              sx={{
-                p: 2.2,
-                borderRadius: "14px",
-                border: `1px solid ${selectedStage === "Subsidy Received" ? "#0891B2" : COLORS.border}`,
-                backgroundColor: COLORS.card,
-                cursor: "pointer",
-                transition: "all 0.18s ease-in-out",
-                "&:hover": {
-                  borderColor: "#0891B2",
-                  boxShadow: "0 4px 12px rgba(8, 145, 178, 0.1)",
-                  transform: "translateY(-1px)",
-                },
-              }}
-            >
-              <Stack direction="row" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography
-                    sx={{
-                      fontSize: "0.74rem",
-                      fontWeight: 800,
-                      color: COLORS.textSecondary,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    Subsidy Pipeline
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: "1.7rem",
-                      fontWeight: 900,
-                      color: "#0891B2",
-                      mt: 0.3,
-                    }}
-                  >
-                    {stats.subsidy}
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                    Subsidy Applied & DBT Credited
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: "12px",
-                    backgroundColor: "#ECFEFF",
-                    color: "#0891B2",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <AccountBalanceOutlinedIcon sx={{ fontSize: 24 }} />
-                </Box>
-              </Stack>
-            </Paper>
-          </Grid>
-
-          {/* Handover & Warranty */}
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Paper
-              elevation={0}
-              onClick={() => {
-                setSelectedStage("Handover Done");
-                setPage(0);
-              }}
-              sx={{
-                p: 2.2,
-                borderRadius: "14px",
-                border: `1px solid ${selectedStage === "Handover Done" ? "#059669" : COLORS.border}`,
-                backgroundColor: COLORS.card,
-                cursor: "pointer",
-                transition: "all 0.18s ease-in-out",
-                "&:hover": {
-                  borderColor: "#059669",
-                  boxShadow: "0 4px 12px rgba(5, 150, 105, 0.1)",
-                  transform: "translateY(-1px)",
-                },
-              }}
-            >
-              <Stack direction="row" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography
-                    sx={{
-                      fontSize: "0.74rem",
-                      fontWeight: 800,
-                      color: COLORS.textSecondary,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    Handover & AMC
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: "1.7rem",
-                      fontWeight: 900,
-                      color: "#059669",
-                      mt: 0.3,
-                    }}
-                  >
-                    {stats.completed}
-                  </Typography>
-                  <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                    Delivered & 25-yr warranty period
-                  </Typography>
-                </Box>
-                <Box
-                  sx={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: "12px",
-                    backgroundColor: "#ECFDF5",
-                    color: "#059669",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <CheckCircleOutlinedIcon sx={{ fontSize: 24 }} />
-                </Box>
-              </Stack>
-            </Paper>
-          </Grid>
-        </Grid>
-
-        {/* 4. FILTER BAR (SEARCH + 10 STAGES DROPDOWN + RESET) */}
-        <Paper
-          elevation={0}
-          component="form"
-          onSubmit={handleSearchSubmit}
-          sx={{
-            p: 1.8,
-            mb: 2.5,
-            borderRadius: "14px",
-            border: `1px solid ${COLORS.border}`,
-            backgroundColor: COLORS.card,
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: 1.5,
-          }}
-        >
-          {/* Search Box */}
-          <Box sx={{ flex: "1 1 280px", minWidth: 220 }}>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Search by project #, customer name, phone, city..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ fontSize: 19, color: COLORS.textMuted }} />
-                  </InputAdornment>
-                ),
-                endAdornment: searchInput && (
-                  <InputAdornment position="end">
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setSearchInput("");
-                        setSearch("");
-                        setPage(0);
-                      }}
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "8px",
-                  backgroundColor: "#F8FAFC",
-                },
-              }}
-            />
           </Box>
-
-          {/* Stage Dropdown (10 Stages in Sequential Order) */}
-          <Box sx={{ minWidth: 230 }}>
-            <Select
-              fullWidth
-              size="small"
-              value={selectedStage}
-              onChange={(e) => {
-                setSelectedStage(e.target.value);
-                setPage(0);
-              }}
-              sx={{
-                borderRadius: "8px",
-                backgroundColor: "#F8FAFC",
-                fontSize: "0.82rem",
-                fontWeight: 600,
-              }}
-            >
-              <MenuItem value="All">
-                <strong>All Stages (Complete Pipeline)</strong>
-              </MenuItem>
-              {STAGES.map((stg, i) => (
-                <MenuItem key={stg} value={stg} sx={{ fontSize: "0.82rem" }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Box
-                      sx={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: "50%",
-                        backgroundColor: STAGE_CONFIG[stg]?.dot || "#94A3B8",
-                      }}
-                    />
-                    <span>
-                      {i + 1}. {stg}
-                    </span>
-                  </Box>
-                </MenuItem>
-              ))}
-            </Select>
-          </Box>
-
-          <Button
-            type="submit"
-            variant="contained"
-            size="small"
-            sx={{
-              height: 38,
-              borderRadius: "8px",
-              px: 2.2,
-              backgroundColor: COLORS.primary,
-              textTransform: "none",
-              fontWeight: 700,
-              fontSize: "0.8rem",
-              "&:hover": { backgroundColor: COLORS.primaryHover },
-            }}
-          >
-            Search
-          </Button>
-
-          {hasActiveFilters && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<FilterListOffIcon sx={{ fontSize: 16 }} />}
-              onClick={handleClearFilters}
-              sx={{
-                height: 38,
-                borderRadius: "8px",
-                px: 2,
-                borderColor: COLORS.border,
-                color: COLORS.textSecondary,
-                textTransform: "none",
-                fontWeight: 600,
-                fontSize: "0.8rem",
-                "&:hover": { backgroundColor: "#F1F5F9" },
-              }}
-            >
-              Reset Filters
-            </Button>
-          )}
         </Paper>
-
-        {/* 5. CONTENT AREA: SKELETON / EMPTY / BOX / TABLE */}
-        {loading ? (
-          <Stack spacing={2}>
-            {[1, 2, 3].map((n) => (
-              <Skeleton
-                key={n}
-                variant="rounded"
-                height={160}
-                sx={{ borderRadius: "14px" }}
-              />
-            ))}
-          </Stack>
-        ) : projects.length === 0 ? (
-          <Paper
-            elevation={0}
-            sx={{
-              py: 8,
-              px: 3,
-              borderRadius: "14px",
-              border: `1px solid ${COLORS.border}`,
-              backgroundColor: COLORS.card,
-              textAlign: "center",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Box
-              sx={{
-                width: 64,
-                height: 64,
-                borderRadius: "50%",
-                backgroundColor: "#F1F5F9",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: COLORS.textMuted,
-                mb: 2,
-              }}
-            >
-              <InboxIcon sx={{ fontSize: 32 }} />
-            </Box>
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 800,
-                color: COLORS.textPrimary,
-                fontSize: "1.1rem",
-                mb: 0.5,
-              }}
-            >
-              No projects found
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                color: COLORS.textSecondary,
-                fontSize: "0.82rem",
-                maxWidth: 440,
-                mb: 2.5,
-              }}
-            >
-              {hasActiveFilters
-                ? "No solar installation projects match your search criteria or selected stage. Try adjusting your filters."
-                : "No solar projects have been initiated yet. Create your first project to begin tracking from order to handover."}
-            </Typography>
-            {hasActiveFilters ? (
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={handleClearFilters}
-                sx={{
-                  borderRadius: "8px",
-                  textTransform: "none",
-                  fontWeight: 700,
-                }}
-              >
-                Clear Filters
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={() => setNewModalOpen(true)}
-                sx={{
-                  borderRadius: "8px",
-                  textTransform: "none",
-                  fontWeight: 700,
-                  backgroundColor: COLORS.primary,
-                  "&:hover": { backgroundColor: COLORS.primaryHover },
-                }}
-              >
-                New Project
-              </Button>
-            )}
+        <Stack direction="row"   sx={{justifyContent: "space-between", gap: 1,  flexWrap: "wrap" }}>
+          <Typography variant="subtitle1">{hasActiveFilters ? "Filtered projects" : "Project workspace"}</Typography>
+          <Typography variant="body2" color="text.secondary" role="status">{loading ? "Loading projects..." : `${totalCount} ${totalCount === 1 ? "project" : "projects"}`}</Typography>
+        </Stack>
+        {loadError ? <Alert severity="error" action={<Button color="inherit" onClick={fetchProjects}>Retry</Button>}>{loadError}</Alert>
+          : loading ? <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "repeat(2, minmax(0, 1fr))" }, gap: 2 }}>{[1, 2, 3, 4].map(i => <Skeleton key={i} variant="rounded" height={260} />)}</Box>
+          : projects.length === 0 ? <Paper variant="outlined" sx={{ py: 7, px: 3, textAlign: "center", boxShadow: "none" }}>
+            <SolarPowerIcon sx={{ fontSize: 40, color: "text.secondary", mb: 1.5 }} />
+            <Typography variant="h6">{hasActiveFilters ? "No matching projects" : "Your next installation starts here"}</Typography>
+            <Typography color="text.secondary" sx={{ mt: 1, mb: 2 }}>{hasActiveFilters ? "Try a different customer name or stage." : "Create a project to bring your customer, site and delivery milestones together."}</Typography>
+            {hasActiveFilters ? <Button variant="outlined" onClick={handleClearFilters}>Clear filters</Button> : canCreate && <Button variant="contained" startIcon={<AddIcon />} onClick={() => setNewModalOpen(true)}>Create project</Button>}
           </Paper>
-        ) : viewMode === "box" ? (
-          /* ============================================================== */
-          /* 6. REDESIGNED CARD VIEW (ZERO OVERLAPPING, MODERN SAAS GRID)   */
-          /* ============================================================== */
-          <Stack spacing={2}>
-            {projects.map((proj) => {
-              const currentStep = getStageIndex(proj.stage) + 1;
-              const progressPct = getProgressPercent(proj.stage);
-              const stageConfig = getStageConfig(proj.stage);
-
-              return (
-                <Paper
-                  key={proj.id}
-                  elevation={0}
-                  sx={{
-                    p: { xs: 2, sm: 2.5 },
-                    borderRadius: "14px",
-                    border: `1px solid ${COLORS.border}`,
-                    backgroundColor: COLORS.card,
-                    transition: "all 0.2s ease-in-out",
-                    "&:hover": {
-                      borderColor: COLORS.primary,
-                      boxShadow: "0 6px 20px rgba(15, 23, 42, 0.08)",
-                      transform: "translateY(-1px)",
-                    },
-                  }}
-                >
-                  {/* Top Header: Project Code + Customer Info & Stage Badge */}
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: { xs: "flex-start", sm: "center" },
-                      flexWrap: "wrap",
-                      gap: 1.5,
-                      mb: 1.2,
-                    }}
-                  >
-                    {/* Left: Project Number + Customer Name */}
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-                      <Chip
-                        label={proj.project_number}
-                        size="small"
-                        sx={{
-                          px: 0.5,
-                          height: 26,
-                          borderRadius: "6px",
-                          backgroundColor: "#EFF6FF",
-                          border: "1px solid #BFDBFE",
-                          color: "#1D4ED8",
-                          fontWeight: 800,
-                          fontSize: "0.8rem",
-                          fontFamily: "monospace",
-                          letterSpacing: "0.02em",
-                        }}
-                      />
-
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          fontWeight: 800,
-                          fontSize: "1.05rem",
-                          color: COLORS.textPrimary,
-                          letterSpacing: "-0.01em",
-                        }}
-                      >
-                        {proj.customer_name}
-                      </Typography>
-                    </Box>
-
-                    {/* Right: Stage Badge */}
-                    <Box sx={{ flexShrink: 0 }}>
-                      {renderStageBadge(proj.stage)}
-                    </Box>
-                  </Box>
-
-                  {/* Location Subtitle */}
-                  <Stack
-                    direction="row"
-                    alignItems="center"
-                    gap={0.6}
-                    sx={{ color: COLORS.textSecondary, mb: 1.8 }}
-                  >
-                    <LocationOnOutlinedIcon sx={{ fontSize: 16, color: COLORS.textMuted }} />
-                    <Typography sx={{ fontSize: "0.78rem" }}>
-                      {[proj.city, proj.state].filter(Boolean).join(", ") ||
-                        proj.customer_address ||
-                        "Site location not specified"}
-                    </Typography>
+          : viewMode === "box" ? <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "repeat(2, minmax(0, 1fr))" }, gap: 2 }}>
+            {projects.map(project => {
+              const stage = getStageConfig(project.stage);
+              const openProject = () => navigate(`${projectBasePath}/${project.project_uuid || project.id}`);
+              return <Paper key={project.id} variant="outlined" sx={{ p: 2.5, display: "flex", flexDirection: "column", gap: 2, boxShadow: "none", borderRadius: 3 }}>
+                <Stack direction="row"    sx={{alignItems: "center", justifyContent: "space-between", gap: 1,  flexWrap: "wrap" }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, fontFamily: "monospace" }}>{project.project_number}</Typography>
+                  <Chip size="small" label={project.stage} sx={{ bgcolor: stage.bg, color: stage.color, height: "auto", minHeight: 26, "& .MuiChip-label": { whiteSpace: "normal", py: 0.5 } }} />
+                </Stack>
+                <Box>
+                  <Typography component="h2" variant="h6" sx={{ fontSize: 19, mb: 0.5 }}>{project.customer_name}</Typography>
+                  <Typography variant="body2" color="text.secondary">{[project.customer_address, project.city, project.state].filter(Boolean).join(", ") || "Site address not added"}</Typography>
+                </Box>
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2 }}>
+                  <Box><Typography variant="caption">System capacity</Typography><Typography sx={{ fontWeight: 700 }} >{Number(project.system_capacity_kw || 0).toFixed(2)} kW</Typography></Box>
+                  <Box><Typography variant="caption">Project owner</Typography><Typography sx={{ fontWeight: 600 }} >{project.assigned_to_name || "Unassigned"}</Typography></Box>
+                  <Box><Typography variant="caption">Installation start</Typography><Typography variant="body2">{formatDate(project.installation_start_date)}</Typography></Box>
+                  <Box><Typography variant="caption">Customer phone</Typography><Typography variant="body2" component="a" href={`tel:${project.customer_phone}`} sx={{ display: "block", color: "inherit", textDecoration: "none" }}>{project.customer_phone || "Not added"}</Typography></Box>
+                </Box>
+                <Box sx={{ mt: "auto" }}>
+                  <Stack direction="row"   sx={{justifyContent: "space-between", gap: 1,  mb: 1 }}><Typography variant="caption">Stage {getStageIndex(project.stage) + 1} of {STAGES.length}</Typography><Typography variant="caption">{getProgressPercent(project.stage)}% of workflow</Typography></Stack>
+                  <LinearProgress variant="determinate" value={getProgressPercent(project.stage)} aria-label="Project workflow progress" sx={{ bgcolor: "#F1F5F9", "& .MuiLinearProgress-bar": { bgcolor: "#F59E0B" } }} />
+                </Box>
+                <Stack direction="row"    sx={{alignItems: "center", justifyContent: "space-between", gap: 1,  pt: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
+                  <Typography variant="caption">Created {formatDate(project.created_at)}</Typography>
+                  <Stack direction="row"  sx={{gap: 0.5,  flexShrink: 0 }}>
+                    {canDelete && <IconButton aria-label={`Delete project ${project.project_number}`} onClick={() => handleDeleteClick(project)} color="error"><DeleteIcon fontSize="small" /></IconButton>}
+                    <Button variant="outlined" size="small" endIcon={<ArrowForwardIcon />} onClick={openProject}>Open project</Button>
                   </Stack>
-
-                  {/* 10-Stage Milestone Progress Bar */}
-                  <Box sx={{ mb: 2 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mb: 0.6,
-                      }}
-                    >
-                      <Typography
-                        sx={{
-                          fontSize: "0.72rem",
-                          fontWeight: 700,
-                          color: COLORS.textSecondary,
-                        }}
-                      >
-                        Stage {currentStep} of 10:{" "}
-                        <Box
-                          component="span"
-                          sx={{ color: stageConfig.color, fontWeight: 800 }}
-                        >
-                          {stageConfig.label}
-                        </Box>
-                      </Typography>
-                      <Typography
-                        sx={{
-                          fontSize: "0.72rem",
-                          fontWeight: 800,
-                          color: COLORS.textPrimary,
-                        }}
-                      >
-                        {progressPct}% Completed
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={progressPct}
-                      sx={{
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor: "#F1F5F9",
-                        "& .MuiLinearProgress-bar": {
-                          borderRadius: 3,
-                          backgroundColor: stageConfig.dot,
-                        },
-                      }}
-                    />
-                  </Box>
-
-                  {/* 4 Distinct Data Metric Cards (NO COLLISION / OVERLAP) */}
-                  <Grid container spacing={1.5} sx={{ mb: 2 }}>
-                    {/* Metric 1: System Capacity */}
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                      <Box
-                        sx={{
-                          p: 1.5,
-                          borderRadius: "10px",
-                          backgroundColor: "#F8FAFC",
-                          border: `1px solid ${COLORS.border}`,
-                          height: "100%",
-                          boxSizing: "border-box",
-                          display: "flex",
-                          flexDirection: "column",
-                          justifyContent: "space-between",
-                          minHeight: 82,
-                        }}
-                      >
-                        <Typography
-                          sx={{
-                            fontSize: "0.68rem",
-                            fontWeight: 800,
-                            color: COLORS.textMuted,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.04em",
-                            mb: 0.4,
-                          }}
-                        >
-                          System Capacity
-                        </Typography>
-                        <Stack direction="row" alignItems="center" gap={0.8}>
-                          <SolarPowerIcon sx={{ fontSize: 20, color: "#D97706" }} />
-                          <Typography
-                            sx={{
-                              fontSize: "0.95rem",
-                              fontWeight: 800,
-                              color: COLORS.textPrimary,
-                            }}
-                          >
-                            {parseFloat(proj.system_capacity_kw || 1).toFixed(2)} kW
-                          </Typography>
-                        </Stack>
-                        <Typography
-                          sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mt: 0.3 }}
-                        >
-                          {proj.panel_count ? `${proj.panel_count} Panels` : "Solar Array"} •{" "}
-                          {proj.inverter_kw ? `${proj.inverter_kw} kW Inverter` : "Grid Inverter"}
-                        </Typography>
-                      </Box>
-                    </Grid>
-
-                    {/* Metric 2: Customer Contact */}
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                      <Box
-                        sx={{
-                          p: 1.5,
-                          borderRadius: "10px",
-                          backgroundColor: "#F8FAFC",
-                          border: `1px solid ${COLORS.border}`,
-                          height: "100%",
-                          boxSizing: "border-box",
-                          display: "flex",
-                          flexDirection: "column",
-                          justifyContent: "space-between",
-                          minHeight: 82,
-                        }}
-                      >
-                        <Typography
-                          sx={{
-                            fontSize: "0.68rem",
-                            fontWeight: 800,
-                            color: COLORS.textMuted,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.04em",
-                            mb: 0.4,
-                          }}
-                        >
-                          Customer Contact
-                        </Typography>
-                        <Stack direction="row" alignItems="center" gap={0.8}>
-                          <PhoneIcon sx={{ fontSize: 17, color: "#2563EB" }} />
-                          <Typography
-                            component="a"
-                            href={`tel:${proj.customer_phone}`}
-                            sx={{
-                              fontSize: "0.92rem",
-                              fontWeight: 700,
-                              color: "#2563EB",
-                              textDecoration: "none",
-                              "&:hover": { textDecoration: "underline" },
-                            }}
-                          >
-                            {proj.customer_phone || "—"}
-                          </Typography>
-                        </Stack>
-                        <Typography
-                          sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mt: 0.3 }}
-                        >
-                          Direct Customer Mobile
-                        </Typography>
-                      </Box>
-                    </Grid>
-
-                    {/* Metric 3: Assigned Rep */}
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                      <Box
-                        sx={{
-                          p: 1.5,
-                          borderRadius: "10px",
-                          backgroundColor: "#F8FAFC",
-                          border: `1px solid ${COLORS.border}`,
-                          height: "100%",
-                          boxSizing: "border-box",
-                          display: "flex",
-                          flexDirection: "column",
-                          justifyContent: "space-between",
-                          minHeight: 82,
-                        }}
-                      >
-                        <Typography
-                          sx={{
-                            fontSize: "0.68rem",
-                            fontWeight: 800,
-                            color: COLORS.textMuted,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.04em",
-                            mb: 0.4,
-                          }}
-                        >
-                          Project Engineer
-                        </Typography>
-                        <Stack direction="row" alignItems="center" gap={0.8}>
-                          <Avatar
-                            sx={{
-                              width: 22,
-                              height: 22,
-                              fontSize: "0.68rem",
-                              backgroundColor: COLORS.primary,
-                              fontWeight: 800,
-                            }}
-                          >
-                            {(proj.assigned_to_name || "U")[0]}
-                          </Avatar>
-                          <Typography
-                            sx={{
-                              fontSize: "0.88rem",
-                              fontWeight: 700,
-                              color: COLORS.textPrimary,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {proj.assigned_to_name || "Unassigned"}
-                          </Typography>
-                        </Stack>
-                        <Typography
-                          sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mt: 0.3 }}
-                        >
-                          Lead Execution Manager
-                        </Typography>
-                      </Box>
-                    </Grid>
-
-                    {/* Metric 4: Installation Target */}
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                      <Box
-                        sx={{
-                          p: 1.5,
-                          borderRadius: "10px",
-                          backgroundColor: "#F8FAFC",
-                          border: `1px solid ${COLORS.border}`,
-                          height: "100%",
-                          boxSizing: "border-box",
-                          display: "flex",
-                          flexDirection: "column",
-                          justifyContent: "space-between",
-                          minHeight: 82,
-                        }}
-                      >
-                        <Typography
-                          sx={{
-                            fontSize: "0.68rem",
-                            fontWeight: 800,
-                            color: COLORS.textMuted,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.04em",
-                            mb: 0.4,
-                          }}
-                        >
-                          Target Timeline
-                        </Typography>
-                        <Stack direction="row" alignItems="center" gap={0.8}>
-                          <CalendarTodayIcon sx={{ fontSize: 16, color: COLORS.textMuted }} />
-                          <Typography
-                            sx={{
-                              fontSize: "0.88rem",
-                              fontWeight: 700,
-                              color: COLORS.textPrimary,
-                            }}
-                          >
-                            {formatDate(proj.installation_start_date)}
-                          </Typography>
-                        </Stack>
-                        <Typography
-                          sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mt: 0.3 }}
-                        >
-                          {proj.completion_date
-                            ? `Done by ${formatDate(proj.completion_date)}`
-                            : "On-site construction"}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
-
-                  {/* Card Bottom Row: Timestamps + Action Buttons */}
-                  <Box
-                    sx={{
-                      pt: 1.4,
-                      borderTop: `1px solid ${COLORS.border}`,
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                      gap: 1,
-                    }}
-                  >
-                    <Typography
-                      sx={{
-                        fontSize: "0.74rem",
-                        color: COLORS.textMuted,
-                      }}
-                    >
-                      Created on {formatDate(proj.created_at)}
-                    </Typography>
-
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Button
-                        size="small"
-                        variant="contained"
-                        endIcon={<ArrowForwardIcon sx={{ fontSize: 15 }} />}
-                        onClick={() => navigate(`${projectBasePath}/${proj.project_uuid || proj.id}`)}
-                        sx={{
-                          height: 34,
-                          borderRadius: "6px",
-                          textTransform: "none",
-                          fontWeight: 700,
-                          fontSize: "0.78rem",
-                          px: 2,
-                          backgroundColor: COLORS.primary,
-                          color: "#FFFFFF",
-                          whiteSpace: "nowrap",
-                          "&:hover": { backgroundColor: COLORS.primaryHover },
-                        }}
-                      >
-                        View Project Details
-                      </Button>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteClick(proj)}
-                        sx={{
-                          height: 34,
-                          width: 34,
-                          borderRadius: "6px",
-                          border: `1px solid ${COLORS.border}`,
-                          color: "#EF4444",
-                          "&:hover": {
-                            backgroundColor: "#FEF2F2",
-                            borderColor: "#FCA5A5",
-                          },
-                        }}
-                      >
-                        <Tooltip title="Delete Project">
-                          <DeleteIcon sx={{ fontSize: 17 }} />
-                        </Tooltip>
-                      </IconButton>
-                    </Stack>
-                  </Box>
-                </Paper>
-              );
+                </Stack>
+              </Paper>;
             })}
-          </Stack>
-        ) : (
-          /* ============================================================== */
-          /* 7. DATA TABLE VIEW                                             */
-          /* ============================================================== */
-          <Paper
-            elevation={0}
-            sx={{
-              borderRadius: "14px",
-              border: `1px solid ${COLORS.border}`,
-              backgroundColor: COLORS.card,
-              overflow: "hidden",
-              width: "100%",
-            }}
-          >
-            <TableContainer sx={{ width: "100%", overflowX: "auto" }}>
-              <Table size="small" sx={{ minWidth: 950 }}>
-                <TableHead sx={{ backgroundColor: COLORS.primary }}>
-                  <TableRow>
-                    <TableCell
-                      sx={{
-                        color: "#FFFFFF",
-                        fontWeight: 700,
-                        fontSize: "0.78rem",
-                        py: 1.4,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Project No
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "#FFFFFF",
-                        fontWeight: 700,
-                        fontSize: "0.78rem",
-                        py: 1.4,
-                        whiteSpace: "nowrap",
-                        minWidth: 160,
-                      }}
-                    >
-                      Customer
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "#FFFFFF",
-                        fontWeight: 700,
-                        fontSize: "0.78rem",
-                        py: 1.4,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Capacity
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "#FFFFFF",
-                        fontWeight: 700,
-                        fontSize: "0.78rem",
-                        py: 1.4,
-                        whiteSpace: "nowrap",
-                        minWidth: 200,
-                      }}
-                    >
-                      Execution Stage (1-10)
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "#FFFFFF",
-                        fontWeight: 700,
-                        fontSize: "0.78rem",
-                        py: 1.4,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Engineer
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        color: "#FFFFFF",
-                        fontWeight: 700,
-                        fontSize: "0.78rem",
-                        py: 1.4,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Install Date
-                    </TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{
-                        color: "#FFFFFF",
-                        fontWeight: 700,
-                        fontSize: "0.78rem",
-                        py: 1.4,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Actions
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {projects.map((proj) => (
-                    <TableRow
-                      key={proj.id}
-                      hover
-                      sx={{
-                        "&:last-child td, &:last-child th": { border: 0 },
-                        "& td": { py: 1.3, px: 2 },
-                      }}
-                    >
-                      <TableCell sx={{ fontSize: "0.78rem", fontWeight: 700 }}>
-                        <Box
-                          sx={{
-                            px: 1,
-                            py: 0.3,
-                            borderRadius: "6px",
-                            backgroundColor: "#EFF6FF",
-                            color: "#1D4ED8",
-                            fontFamily: "monospace",
-                            fontWeight: 800,
-                            display: "inline-block",
-                          }}
-                        >
-                          {proj.project_number}
-                        </Box>
-                      </TableCell>
-
-                      <TableCell>
-                        <Typography sx={{ fontSize: "0.84rem", fontWeight: 700 }}>
-                          {proj.customer_name}
-                        </Typography>
-                        <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                          {proj.customer_phone || "—"}
-                        </Typography>
-                      </TableCell>
-
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                          <SolarPowerIcon sx={{ fontSize: 16, color: "#D97706" }} />
-                          <Typography sx={{ fontSize: "0.82rem", fontWeight: 800 }}>
-                            {parseFloat(proj.system_capacity_kw || 1).toFixed(2)} kW
-                          </Typography>
-                        </Box>
-                      </TableCell>
-
-                      <TableCell>{renderStageBadge(proj.stage)}</TableCell>
-
-                      <TableCell sx={{ fontSize: "0.8rem", color: COLORS.textSecondary }}>
-                        {proj.assigned_to_name || "Unassigned"}
-                      </TableCell>
-
-                      <TableCell sx={{ fontSize: "0.78rem", color: COLORS.textSecondary }}>
-                        {formatDate(proj.installation_start_date)}
-                      </TableCell>
-
-                      <TableCell align="right">
-                        <Stack direction="row" spacing={0.8} justifyContent="flex-end">
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => navigate(`${projectBasePath}/${proj.project_uuid || proj.id}`)}
-                            sx={{
-                              height: 30,
-                              borderRadius: "6px",
-                              textTransform: "none",
-                              fontWeight: 700,
-                              fontSize: "0.74rem",
-                              px: 1.5,
-                              borderColor: COLORS.border,
-                              color: COLORS.textPrimary,
-                            }}
-                          >
-                            Details
-                          </Button>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeleteClick(proj)}
-                            sx={{
-                              height: 30,
-                              width: 30,
-                              borderRadius: "6px",
-                              border: `1px solid ${COLORS.border}`,
-                              color: "#EF4444",
-                              "&:hover": { backgroundColor: "#FEF2F2" },
-                            }}
-                          >
-                            <DeleteIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
-        )}
-
-        {/* PAGINATION */}
-        {totalCount > 0 && (
-          <Box sx={{ mt: 2.5, display: "flex", justifyContent: "flex-end" }}>
-            <TablePagination
-              component="div"
-              count={totalCount}
-              page={page}
-              onPageChange={(e, newPage) => setPage(newPage)}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={(e) => {
-                setRowsPerPage(parseInt(e.target.value, 10));
-                setPage(0);
-              }}
-              rowsPerPageOptions={[10, 15, 25, 50]}
-              sx={{
-                border: "none",
-                "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": {
-                  fontSize: "0.78rem",
-                  color: COLORS.textSecondary,
-                },
-              }}
-            />
-          </Box>
-        )}
+          </Box> : <Paper variant="outlined" sx={{ boxShadow: "none", overflow: "hidden" }}>
+            <TableContainer><Table size="small" sx={{ minWidth: 850 }} aria-label="Projects">
+              <TableHead><TableRow>{["Project / customer", "Stage", "Capacity", "Owner", "Installation", "Actions"].map(label => <TableCell key={label}>{label}</TableCell>)}</TableRow></TableHead>
+              <TableBody>{projects.map(project => <TableRow key={project.id} hover>
+                <TableCell><Typography sx={{ fontWeight: 600 }} >{project.customer_name}</Typography><Typography variant="caption">{project.project_number}</Typography></TableCell>
+                <TableCell><Chip size="small" label={project.stage} /></TableCell>
+                <TableCell>{Number(project.system_capacity_kw || 0).toFixed(2)} kW</TableCell>
+                <TableCell>{project.assigned_to_name || "Unassigned"}</TableCell><TableCell>{formatDate(project.installation_start_date)}</TableCell>
+                <TableCell><Stack sx={{ gap: 0.5 }} direction="row" ><Button size="small" onClick={() => navigate(`${projectBasePath}/${project.project_uuid || project.id}`)}>Open project</Button>{canDelete && <IconButton aria-label={`Delete project ${project.project_number}`} color="error" onClick={() => handleDeleteClick(project)}><DeleteIcon fontSize="small" /></IconButton>}</Stack></TableCell>
+              </TableRow>)}</TableBody>
+            </Table></TableContainer>
+          </Paper>}
+        {!loadError && totalCount > 0 && <TablePagination component="div" count={totalCount} page={page} rowsPerPage={rowsPerPage} rowsPerPageOptions={[15, 30, 50]} onPageChange={(_, value) => setPage(value)} onRowsPerPageChange={e => { setRowsPerPage(Number(e.target.value)); setPage(0); }} sx={{ "& .MuiTablePagination-toolbar": { flexWrap: "wrap", justifyContent: "flex-end", px: 0 }, "& .MuiTablePagination-spacer": { display: { xs: "none", sm: "block" } } }} />}
       </Box>
-
       {/* ============================================================== */}
       {/* CREATE NEW PROJECT MODAL (SPACIOUS maxWidth="md" - NO OVERLAPPING)*/}
       {/* ============================================================== */}
@@ -1784,66 +522,117 @@ export default function ProjectsList() {
         <Box component="form" onSubmit={handleCreateSubmit}>
           <DialogContent dividers sx={{ borderColor: COLORS.border, py: 2.5 }}>
             <Stack spacing={3}>
-              {/* SECTION A: Quotation Link / Lead Selection */}
+              {/* SECTION A: Quotation Link / Completed Survey Selection */}
               <Box>
-                <Typography
-                  sx={{
-                    fontSize: "0.75rem",
-                    fontWeight: 800,
-                    color: COLORS.primary,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                    mb: 1,
-                  }}
-                >
-                  Step 1: Select Approved Quotation / Customer
-                </Typography>
-                <Autocomplete
-                  options={quotationOptions}
-                  loading={loadingQuotations}
-                  value={selectedQuotation}
-                  getOptionLabel={(option) => {
-                    if (typeof option === "string") return option;
-                    return `${option.customer_name || "Unknown"} (${option.customer_phone || "No phone"}) • [${option.quotation_number || "QUO"}] • ${option.system_capacity_kw || 0} kW (${option.status || "Sent"})`;
-                  }}
-                  isOptionEqualToValue={(option, val) => option.id === val.id}
-                  onChange={(e, newValue) => {
-                    setSelectedQuotation(newValue);
-                    if (newValue) {
-                      setFormData((prev) => ({
-                        ...prev,
-                        customer_name: newValue.customer_name || "",
-                        customer_phone: newValue.customer_phone || "",
-                        lead_id: newValue.lead_id || null,
-                        quotation_id: newValue.id || null,
-                        total_cost: (newValue.grand_total || newValue.total_amount || newValue.net_payable_amount || newValue.final_amount) ? String(newValue.grand_total || newValue.total_amount || newValue.net_payable_amount || newValue.final_amount) : prev.total_cost,
-                        system_capacity_kw: newValue.system_capacity_kw ? String(newValue.system_capacity_kw) : prev.system_capacity_kw,
-                        customer_address: newValue.customer_address || prev.customer_address || "",
-                        city: newValue.city || prev.city || "",
-                        state: newValue.state || prev.state || "",
-                        pincode: newValue.pincode || prev.pincode || "",
-                      }));
-                    } else {
-                      setFormData((prev) => ({
-                        ...prev,
-                        lead_id: null,
-                        quotation_id: null,
-                      }));
-                    }
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      size="small"
-                      placeholder="Search and select approved quotation..."
-                    />
-                  )}
-                  noOptionsText={
-                    loadingQuotations
-                      ? "Loading quotations..."
-                      : "No quotation found. You can enter details manually below."
-                  }
-                />
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5, flexWrap: "wrap", gap: 1 }}>
+                  <Typography
+                    sx={{
+                      fontSize: "0.75rem",
+                      fontWeight: 800,
+                      color: COLORS.primary,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    Step 1: Link Customer & Project Source
+                  </Typography>
+
+                  <ToggleButtonGroup
+                    value={linkSource}
+                    exclusive
+                    onChange={(_, val) => val && setLinkSource(val)}
+                    size="small"
+                  >
+                    <ToggleButton value="survey" sx={{ fontSize: "0.7rem", py: 0.3, px: 1, textTransform: "none", fontWeight: 700 }}>
+                      From Completed Survey
+                    </ToggleButton>
+                    <ToggleButton value="quotation" sx={{ fontSize: "0.7rem", py: 0.3, px: 1, textTransform: "none", fontWeight: 700 }}>
+                      From Quotation
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </Stack>
+
+                {linkSource === "survey" ? (
+                  <Autocomplete
+                    options={surveyOptions}
+                    loading={loadingSurveys}
+                    value={selectedSurveyOption}
+                    getOptionLabel={(option) => {
+                      if (typeof option === "string") return option;
+                      return `${option.customer_name || "Unknown"} (${option.mobile_number || "No phone"}) • [${option.lead_code || "LEAD"}] • ${option.proposed_capacity_kw || option.required_kw || 0} kW • Eng: ${option.engineer_name || "Assigned"}`;
+                    }}
+                    isOptionEqualToValue={(option, val) => option.survey_id === val.survey_id}
+                    onChange={(e, newValue) => {
+                      setSelectedSurveyOption(newValue);
+                      if (newValue) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          customer_name: newValue.customer_name || "",
+                          customer_phone: newValue.mobile_number || "",
+                          customer_address: newValue.address || "",
+                          city: newValue.city || "",
+                          state: newValue.state || "",
+                          pincode: newValue.pincode || "",
+                          lead_id: newValue.lead_id || null,
+                          system_capacity_kw: String(newValue.proposed_capacity_kw || newValue.required_kw || "3.0"),
+                          assigned_to: newValue.assigned_engineer_id || "",
+                          stage: "Pre-Install Inspection",
+                        }));
+                      }
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        size="small"
+                        placeholder="Search and select completed site survey..."
+                      />
+                    )}
+                    noOptionsText={loadingSurveys ? "Loading surveys..." : "No completed surveys found."}
+                  />
+                ) : (
+                  <Autocomplete
+                    options={quotationOptions}
+                    loading={loadingQuotations}
+                    value={selectedQuotation}
+                    getOptionLabel={(option) => {
+                      if (typeof option === "string") return option;
+                      return `${option.customer_name || "Unknown"} (${option.customer_phone || "No phone"}) • [${option.quotation_number || "QUO"}] • ${option.system_capacity_kw || 0} kW (${option.status || "Sent"})`;
+                    }}
+                    isOptionEqualToValue={(option, val) => option.id === val.id}
+                    onChange={(e, newValue) => {
+                      setSelectedQuotation(newValue);
+                      if (newValue) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          customer_name: newValue.customer_name || "",
+                          customer_phone: newValue.customer_phone || "",
+                          lead_id: newValue.lead_id || null,
+                          quotation_id: newValue.id || null,
+                          total_cost: (newValue.grand_total || newValue.total_amount || newValue.net_payable_amount || newValue.final_amount) ? String(newValue.grand_total || newValue.total_amount || newValue.net_payable_amount || newValue.final_amount) : prev.total_cost,
+                          system_capacity_kw: newValue.system_capacity_kw ? String(newValue.system_capacity_kw) : prev.system_capacity_kw,
+                          customer_address: newValue.customer_address || prev.customer_address || "",
+                          city: newValue.city || prev.city || "",
+                          state: newValue.state || prev.state || "",
+                          pincode: newValue.pincode || prev.pincode || "",
+                        }));
+                      } else {
+                        setFormData((prev) => ({
+                          ...prev,
+                          lead_id: null,
+                          quotation_id: null,
+                        }));
+                      }
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        size="small"
+                        placeholder="Search and select approved quotation..."
+                      />
+                    )}
+                    noOptionsText={loadingQuotations ? "Loading quotations..." : "No quotation found."}
+                  />
+                )}
               </Box>
 
               <Divider />
@@ -1869,6 +658,7 @@ export default function ProjectsList() {
                       size="small"
                       required
                       label="Customer Full Name *"
+                      placeholder="e.g. Ramesh Kumar"
                       value={formData.customer_name}
                       onChange={(e) =>
                         setFormData({ ...formData, customer_name: e.target.value })
@@ -1882,6 +672,7 @@ export default function ProjectsList() {
                       size="small"
                       required
                       label="Customer Mobile Phone *"
+                      placeholder="e.g. 9876543210"
                       value={formData.customer_phone}
                       onChange={(e) =>
                         setFormData({ ...formData, customer_phone: e.target.value })
@@ -1894,7 +685,7 @@ export default function ProjectsList() {
                       fullWidth
                       size="small"
                       label="Installation Site Address"
-                      placeholder="e.g. Plot 42, Sunrise Enclave..."
+                      placeholder="e.g. Plot 42, Sunrise Enclave, Sector 5"
                       value={formData.customer_address}
                       onChange={(e) =>
                         setFormData({ ...formData, customer_address: e.target.value })
@@ -1907,6 +698,7 @@ export default function ProjectsList() {
                       fullWidth
                       size="small"
                       label="City"
+                      placeholder="e.g. Jaipur"
                       value={formData.city}
                       onChange={(e) =>
                         setFormData({ ...formData, city: e.target.value })
@@ -1919,6 +711,7 @@ export default function ProjectsList() {
                       fullWidth
                       size="small"
                       label="State"
+                      placeholder="e.g. Rajasthan"
                       value={formData.state}
                       onChange={(e) =>
                         setFormData({ ...formData, state: e.target.value })
@@ -1931,6 +724,7 @@ export default function ProjectsList() {
                       fullWidth
                       size="small"
                       label="Pincode"
+                      placeholder="e.g. 302021"
                       value={formData.pincode}
                       onChange={(e) =>
                         setFormData({ ...formData, pincode: e.target.value })
@@ -1965,6 +759,7 @@ export default function ProjectsList() {
                       step="0.1"
                       required
                       label="System Capacity (kW) *"
+                      placeholder="e.g. 5.0"
                       value={formData.system_capacity_kw}
                       onChange={(e) =>
                         setFormData({
@@ -1981,6 +776,7 @@ export default function ProjectsList() {
                       size="small"
                       type="number"
                       label="Solar Panel Count (pcs)"
+                      placeholder="e.g. 10"
                       value={formData.panel_count}
                       onChange={(e) =>
                         setFormData({ ...formData, panel_count: e.target.value })
@@ -1995,6 +791,7 @@ export default function ProjectsList() {
                       type="number"
                       step="0.1"
                       label="Inverter Size (kW)"
+                      placeholder="e.g. 5.0"
                       value={formData.inverter_kw}
                       onChange={(e) =>
                         setFormData({ ...formData, inverter_kw: e.target.value })
@@ -2003,9 +800,11 @@ export default function ProjectsList() {
                   </Grid>
 
                   <Grid size={{ xs: 12, sm: 6 }}>
-                    <Select
+                    <TextField
+                      select
                       fullWidth
                       size="small"
+                      label="Initial Project Stage *"
                       value={formData.stage}
                       onChange={(e) =>
                         setFormData({ ...formData, stage: e.target.value })
@@ -2016,7 +815,29 @@ export default function ProjectsList() {
                           {i + 1}. {stg}
                         </MenuItem>
                       ))}
-                    </Select>
+                    </TextField>
+                  </Grid>
+
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      label="Assign Site Engineer"
+                      value={formData.assigned_to || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, assigned_to: e.target.value })
+                      }
+                    >
+                      <MenuItem value="">
+                        <em>Unassigned</em>
+                      </MenuItem>
+                      {engineersList.map((eng) => (
+                        <MenuItem key={eng.id} value={eng.id}>
+                          {eng.full_name} (Site Engineer)
+                        </MenuItem>
+                      ))}
+                    </TextField>
                   </Grid>
 
                   <Grid size={12}>
@@ -2181,6 +1002,7 @@ export default function ProjectsList() {
       {/* DELETE PROJECT CONFIRMATION DIALOG */}
       <Dialog
         open={deleteConfirmOpen}
+        role="alertdialog"
         onClose={() => !deleting && setDeleteConfirmOpen(false)}
         maxWidth="xs"
         fullWidth
@@ -2220,6 +1042,6 @@ export default function ProjectsList() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </ProjectWorkspace>
   );
 }

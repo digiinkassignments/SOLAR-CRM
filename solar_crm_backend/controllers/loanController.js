@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 const loanModel = require("../models/loanModel");
+const { validateStageTransition } = require("../utils/loanWorkflow");
 
 // Configure Multer for Loan Sanction Letters & Documents
 const loanUploadDir = path.join(__dirname, "../uploads/loans");
@@ -32,6 +33,14 @@ const createLoanHandler = async (req, res) => {
     if (!lead_id) {
       return res.status(400).json({ success: false, message: "lead_id is required." });
     }
+
+    const stage = req.body.loan_stage || "Eligibility & Docs";
+    const validation = validateStageTransition("Eligibility & Docs", stage, req.body);
+    if (!validation.ok) return res.status(400).json({success:false, message:validation.error});
+    for (const field of ["loan_amount_applied", "sanctioned_amount", "disbursed_amount", "interest_rate", "subsidy_expected", "down_payment_amount", "total_project_cost"]) {
+      if (req.body[field] != null && (req.body[field] === "" || !Number.isFinite(Number(req.body[field])) || Number(req.body[field]) < 0)) return res.status(400).json({success:false, message:`Invalid ${field}.`});
+    }
+    if (stage !== "Disbursed" && Number(req.body.disbursed_amount) > 0) return res.status(400).json({success:false, message:"Record disbursement against the Disbursed stage."});
 
     const newLoan = await loanModel.createLoan(
       { ...req.body, created_by: req.user?.id },
@@ -149,22 +158,36 @@ const updateLoanHandler = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Rule: Disbursed amount can't exceed the sanctioned amount
-    if (req.body.disbursed_amount !== undefined) {
-      const existing = await loanModel.getLoanById(id, req.db);
-      const sancAmt = req.body.sanctioned_amount !== undefined
-        ? parseFloat(req.body.sanctioned_amount)
-        : parseFloat(existing?.sanctioned_amount || 0);
-      const disbAmt = parseFloat(req.body.disbursed_amount) || 0;
-
-      if (sancAmt > 0 && disbAmt > sancAmt) {
-        return res.status(400).json({
-          success: false,
-          message: `Disbursed amount (₹${disbAmt.toLocaleString("en-IN")}) cannot exceed the sanctioned amount (₹${sancAmt.toLocaleString("en-IN")}).`,
-        });
+    const existing = await loanModel.getLoanById(id, req.db);
+    if (!existing) return res.status(404).json({ success:false, message:"Loan application not found." });
+    const candidate = { ...existing, ...req.body };
+    const financialFields = ["loan_amount_applied", "sanctioned_amount", "disbursed_amount", "interest_rate", "subsidy_expected", "down_payment_amount", "total_project_cost"];
+    for (const field of financialFields) {
+      if (req.body[field] != null && (req.body[field] === "" || !Number.isFinite(Number(req.body[field])) || Number(req.body[field]) < 0)) {
+        return res.status(400).json({success:false, message:`Invalid ${field}: enter a non-negative number.`});
       }
     }
+    if (req.body.side_status && !["Active", "Rejected", "Withdrawn"].includes(req.body.side_status)) return res.status(400).json({success:false, message:"Invalid side status."});
+    if (["Rejected", "Withdrawn"].includes(req.body.side_status) && !String(req.body.rejection_reason || "").trim()) return res.status(400).json({success:false, message:"Record the rejection or withdrawal reason."});
+    // Existing project receipts require reconciliation before changing lender/payment history.
+    if (existing.loan_synced_to_project && ["disbursed_amount", "bank_name", "project_id"].some(field => req.body[field] != null && String(req.body[field]) !== String(existing[field]))) {
+      return res.status(409).json({success:false, message:"This payment is already posted to the project. Reconcile the project receipt before changing the amount, lender or project."});
+    }
+    const reopening = req.body.clear_rejection === true && ["Rejected", "Withdrawn"].includes(existing.side_status) && candidate.loan_stage === "Eligibility & Docs" && String(req.body.bank_name || "").trim() && String(req.body.internal_notes || "").trim();
+    if (reopening && !req.body.backward_reason) req.body.backward_reason = "New lender application after " + existing.side_status;
+    const evidenceFields = ["loan_stage", "applied_date", "portal_application_no", "sanctioned_amount", "sanction_date", "sanction_letter_url", "disbursed_amount", "disbursal_date"];
+    if (evidenceFields.some(field => req.body[field] !== undefined)) {
+      const validation = validateStageTransition(existing.loan_stage, candidate.loan_stage, candidate);
+      if (!validation.ok) return res.status(400).json({success:false, message:validation.error});
+      if (validation.isBackward && !String(req.body.backward_reason || "").trim()) return res.status(400).json({success:false, message:"Record a reason for moving the loan backward."});
+      if (validation.isBackward && Number(existing.disbursed_amount) > 0) return res.status(409).json({success:false, message:"A recorded disbursement must be reconciled before rolling back its stage."});
+    }
 
+    if (req.body.tenure_months != null && (!Number.isInteger(Number(req.body.tenure_months)) || Number(req.body.tenure_months) <= 0)) return res.status(400).json({success:false, message:"Tenure must be a positive number of months."});
+    if (Number(candidate.disbursed_amount) > Number(candidate.sanctioned_amount)) return res.status(400).json({success:false, message:"Disbursed amount cannot exceed sanctioned amount."});
+    if (["sanctioned_amount", "loan_amount_applied", "interest_rate", "tenure_months"].some(field => req.body[field] != null)) {
+      req.body.monthly_emi = loanModel.calculateMonthlyEMI(Number(candidate.sanctioned_amount) || Number(candidate.loan_amount_applied), candidate.interest_rate ?? 7, candidate.tenure_months ?? 60);
+    }
     const updated = await loanModel.updateLoan(id, req.body, req.db);
     return res.status(200).json({
       success: true,

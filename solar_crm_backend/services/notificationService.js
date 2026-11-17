@@ -18,38 +18,21 @@ try {
   console.error('Firebase init error:', e.message);
 }
 
-const sendToUser = async (userId, { title, body, type, referenceId }, db = defaultDb) => {
+const pushToUser = async (userId, { title, body, type, referenceId }, db = defaultDb) => {
+  if (!admin.apps?.length) return { pushed: false };
   try {
-    const [rows] = await db.query(
-      "SELECT fcm_token FROM users WHERE id = ? AND fcm_token IS NOT NULL",
-      [userId]
-    );
-    if (rows.length === 0 || !rows[0].fcm_token) {
-      console.log(`No FCM token for user ${userId}`);
-      return;
-    }
-    const token = rows[0].fcm_token;
-    const message = {
-      token,
-      notification: { title, body },
-      data: {
-        type: type || '',
-        reference_id: referenceId ? String(referenceId) : '',
-      },
-      android: {
-        priority: 'high',
-        notification: { channelId: 'solar_crm_channel', sound: 'default' },
-      },
-    };
-    await admin.messaging().send(message);
-    console.log(`Notification sent to user ${userId}: ${title}`);
-    await db.query(
-      'INSERT INTO notifications (user_id, title, body, type, reference_id) VALUES (?, ?, ?, ?, ?)',
-      [userId, title, body, type || null, referenceId || null]
-    );
-  } catch (err) {
-    console.error(`Notification failed for user ${userId}:`, err.message);
-  }
+    const [rows] = await db.query("SELECT fcm_token FROM users WHERE id=? AND fcm_token IS NOT NULL",[userId]);
+    if (!rows[0]?.fcm_token) return { pushed: false };
+    await admin.messaging().send({token: rows[0].fcm_token, notification:{title,body}, data:{type:type||'',reference_id:referenceId?String(referenceId):''}, android:{priority:'high',notification:{channelId:'solar_crm_channel',sound:'default'}}});
+    return { pushed: true };
+  } catch (error) { console.error('Push notification failed:', error.code || 'PUSH_FAILED'); return { pushed: false }; }
+};
+const sendToUser = async (userId, notification, db = defaultDb) => {
+  try {
+    await db.query('INSERT INTO notifications (user_id,title,body,type,reference_id) VALUES (?,?,?,?,?)',[userId,notification.title,notification.body,notification.type||null,notification.referenceId||null]);
+    const push = await pushToUser(userId, notification, db);
+    return { stored: true, ...push };
+  } catch (error) { console.error('In-app notification failed:', error.code || 'NOTIFICATION_FAILED'); return { stored: false, pushed: false }; }
 };
 
 const sendToRole = async (roleId, { title, body, type, referenceId }, db = defaultDb) => {
@@ -146,6 +129,7 @@ const notifyLeadCreated = async (leadId, leadCode, customerName, createdByName, 
 };
 
 module.exports = {
+  pushToUser,
   sendToUser,
   sendToRole,
   notifyLeadAssigned,

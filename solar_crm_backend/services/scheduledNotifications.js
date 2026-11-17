@@ -1,161 +1,18 @@
-const cron = require('node-cron');
-const { db } = require('../config/db');
-const { sendToUser } = require('./notificationService');
-
-const startScheduledNotifications = () => {
-
-  // ==========================================
-  // Har roz subah 9 AM — Aaj ke follow-ups
-  // Sales rep + Manager dono ko
-  // ==========================================
-  cron.schedule('0 9 * * *', async () => {
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const [leads] = await db.query(
-        `SELECT l.id, l.lead_code, l.customer_name,
-                l.assigned_to, u.manager_id
-         FROM leads l
-         LEFT JOIN users u ON l.assigned_to = u.id
-         WHERE DATE(l.next_follow_up_date) = ?
-           AND l.is_deleted = 0
-           AND l.status NOT IN ('Won', 'Lost', 'Not Interested')`,
-        [today]
-      );
-
-      for (const lead of leads) {
-        if (lead.assigned_to) {
-          await sendToUser(lead.assigned_to, {
-            title: '📅 Follow-up Today',
-            body: `${lead.customer_name} (${lead.lead_code}) — follow-up aaj scheduled hai.`,
-            type: 'followup_today',
-            referenceId: lead.id,
-          });
-        }
-        if (lead.manager_id) {
-          await sendToUser(lead.manager_id, {
-            title: '📅 Team Follow-up Today',
-            body: `${lead.customer_name} (${lead.lead_code}) — team ka follow-up aaj hai.`,
-            type: 'followup_today',
-            referenceId: lead.id,
-          });
-        }
-      }
-      console.log(`Follow-up reminders sent for ${leads.length} leads.`);
-    } catch (err) {
-      console.error('Follow-up reminder error:', err);
-    }
-  }, { timezone: 'Asia/Kolkata' });
-
-  // ==========================================
-  // Har roz subah 8 AM — Kal ki Site Visits
-  // Sales rep ko 1 din pehle remind karo
-  // ==========================================
-  cron.schedule('0 8 * * *', async () => {
-    try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStr = tomorrow.toISOString().slice(0, 10);
-
-      const [leads] = await db.query(
-        `SELECT l.id, l.lead_code, l.customer_name, l.assigned_to
-         FROM leads l
-         WHERE DATE(l.site_visit_date) = ?
-           AND l.is_deleted = 0`,
-        [tomorrowStr]
-      );
-
-      for (const lead of leads) {
-        if (lead.assigned_to) {
-          await sendToUser(lead.assigned_to, {
-            title: '🏠 Site Visit Tomorrow',
-            body: `${lead.customer_name} (${lead.lead_code}) — site visit kal scheduled hai. Taiyar raho!`,
-            type: 'site_visit_reminder',
-            referenceId: lead.id,
-          });
-        }
-      }
-      console.log(`Site visit reminders sent for ${leads.length} leads.`);
-    } catch (err) {
-      console.error('Site visit reminder error:', err);
-    }
-  }, { timezone: 'Asia/Kolkata' });
-
-  // ==========================================
-  // Har roz shaam 6 PM — Overdue Follow-ups
-  // Sales rep ko batao kitni leads overdue hain
-  // ==========================================
-  cron.schedule('0 18 * * *', async () => {
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-
-      const [reps] = await db.query(
-        `SELECT l.assigned_to, COUNT(*) as overdue_count
-         FROM leads l
-         WHERE DATE(l.next_follow_up_date) < ?
-           AND l.is_deleted = 0
-           AND l.status NOT IN ('Won', 'Lost', 'Not Interested')
-           AND l.assigned_to IS NOT NULL
-         GROUP BY l.assigned_to`,
-        [today]
-      );
-
-      for (const rep of reps) {
-        await sendToUser(rep.assigned_to, {
-          title: '⚠️ Overdue Follow-ups',
-          body: `Tumhare ${rep.overdue_count} follow-up(s) overdue hain. Aaj action lo!`,
-          type: 'overdue_summary',
-          referenceId: null,
-        });
-      }
-      console.log(`Overdue reminders sent to ${reps.length} reps.`);
-    } catch (err) {
-      console.error('Overdue summary error:', err);
-    }
-  }, { timezone: 'Asia/Kolkata' });
-
-  // ==========================================
-  // Har Somwar subah 9 AM — Weekly Summary
-  // Manager ko poori team ka weekly report
-  // ==========================================
-  cron.schedule('0 9 * * 1', async () => {
-    try {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      const weekAgoStr = weekAgo.toISOString().slice(0, 10);
-
-      const [managers] = await db.query(
-        "SELECT id FROM users WHERE role_id = 2 AND status = 'Active'"
-      );
-
-      for (const manager of managers) {
-        const [stats] = await db.query(
-          `SELECT
-            COUNT(*) as total,
-            SUM(CASE WHEN l.status = 'Won' THEN 1 ELSE 0 END) as won,
-            SUM(CASE WHEN l.status = 'Lost' THEN 1 ELSE 0 END) as lost
-           FROM leads l
-           LEFT JOIN users u ON l.assigned_to = u.id
-           WHERE u.manager_id = ?
-             AND l.created_at >= ?
-             AND l.is_deleted = 0`,
-          [manager.id, weekAgoStr]
-        );
-
-        const s = stats[0];
-        await sendToUser(manager.id, {
-          title: '📊 Weekly Team Summary',
-          body: `Is hafte: ${s.total} leads, ${s.won || 0} Won, ${s.lost || 0} Lost.`,
-          type: 'weekly_summary',
-          referenceId: null,
-        });
-      }
-      console.log(`Weekly summaries sent to ${managers.length} managers.`);
-    } catch (err) {
-      console.error('Weekly summary error:', err);
-    }
-  }, { timezone: 'Asia/Kolkata' });
-
-  console.log('Scheduled notifications started (IST timezone)');
-};
-
-module.exports = { startScheduledNotifications };
+const cron=require('node-cron');
+const {masterDb}=require('../config/masterDb');
+const {getClientPool}=require('../config/clientDb');
+const workflow=require('./salesWorkflow');
+const {pushToUser}=require('./notificationService');
+async function deliver(db,key,userId,kind,referenceId,title,body){const connection=await db.getConnection();try{await connection.beginTransaction();await connection.query("INSERT INTO crm_reminder_deliveries (dedupe_key,user_id,kind,status) VALUES (?,?,?,'stored')",[key,userId,kind]);await connection.query('INSERT INTO notifications (user_id,title,body,type,reference_id) VALUES (?,?,?,?,?)',[userId,title,body,kind,referenceId]);await connection.commit();await pushToUser(userId,{title,body,type:kind,referenceId},db);return true;}catch(error){await connection.rollback();if(error.code!=='ER_DUP_ENTRY')throw error;return false;}finally{connection.release();}}
+async function processTenant(db,now=new Date()){const settings=await workflow.preferences(db);const clock=workflow.localClock(settings.timezone,now);
+ try{const[tasks]=await db.query("SELECT t.id,t.assigned_to,t.version,t.title,t.due_date,t.due_time,t.next_action FROM crm_field_tasks t JOIN users u ON t.assigned_to=u.id AND u.role_id=4 AND u.is_deleted=0 AND u.status='Active' WHERE t.status IN ('Open','In progress','Blocked') AND (t.due_date<? OR (t.due_date=? AND t.due_time<=?))",[clock.date,clock.date,clock.time]);for(const task of tasks){const date=typeof task.due_date==='string'?task.due_date.slice(0,10):task.due_date.toLocaleDateString('en-CA');const time=String(task.due_time).slice(0,5);await deliver(db,`field:${task.id}:${task.version}:${date}:${time}:${task.assigned_to}`,task.assigned_to,'field_task_due',task.id,'Field task due',`${task.title}: ${String(task.next_action).slice(0,1000)}; due ${date} ${time} (${settings.timezone}).`);}}catch(error){if(error.code!=='ER_NO_SUCH_TABLE')throw error;}
+ const [leads]=await db.query(`SELECT l.id,l.lead_code,l.customer_name,l.assigned_to,l.next_action,l.next_follow_up_date,l.next_follow_up_time,u.manager_id FROM leads l LEFT JOIN users u ON l.assigned_to=u.id WHERE l.is_deleted=0 AND l.assigned_to IS NOT NULL AND l.status NOT IN ('Won','Lost','Invalid','Not Interested') AND l.next_follow_up_date<=?`,[clock.date]);
+ for(const lead of leads){const date=typeof lead.next_follow_up_date==='string'?lead.next_follow_up_date.slice(0,10):lead.next_follow_up_date?.toLocaleDateString('en-CA');if(!lead.next_follow_up_time||!lead.next_action)continue;const time=String(lead.next_follow_up_time).slice(0,5);if(date<clock.date||time>clock.time)continue;const key=`due:${lead.id}:${date}:${time}:${lead.assigned_to}`;const body=`${lead.customer_name} (${lead.lead_code}): ${lead.next_action||'Follow up with customer'}; due ${date} ${time} (${settings.timezone}).`;await deliver(db,key,lead.assigned_to,'followup_due',lead.id,'Follow-up due',body);if(lead.manager_id)await deliver(db,key+':manager:'+lead.manager_id,lead.manager_id,'team_followup_due',lead.id,'Team follow-up due',body);}
+ if(clock.time>='18:00'){const[reps]=await db.query("SELECT assigned_to,COUNT(*) AS total FROM leads WHERE is_deleted=0 AND assigned_to IS NOT NULL AND status NOT IN ('Won','Lost','Invalid','Not Interested') AND next_follow_up_date<? GROUP BY assigned_to",[clock.date]);for(const rep of reps)await deliver(db,`overdue:${clock.date}:${rep.assigned_to}`,rep.assigned_to,'overdue_summary',null,'Overdue follow-ups',`${rep.total} follow-up(s) are overdue. Review your next actions.`);}
+ if(new Intl.DateTimeFormat('en',{timeZone:settings.timezone,weekday:'short'}).format(now)==='Mon'&&clock.time>='09:00'){const start=new Date(clock.date+'T12:00:00Z');start.setUTCDate(start.getUTCDate()-7);const[managers]=await db.query("SELECT id FROM users WHERE role_id=2 AND status='Active'");for(const manager of managers){const[stats]=await db.query("SELECT COUNT(*) AS total,SUM(l.status='Won') AS won,SUM(l.status='Lost') AS lost FROM leads l JOIN users u ON l.assigned_to=u.id WHERE u.manager_id=? AND l.created_at>=? AND l.is_deleted=0",[manager.id,start.toISOString().slice(0,10)]);const item=stats[0]||{};await deliver(db,`weekly:${clock.date}:${manager.id}`,manager.id,'weekly_summary',null,'Weekly team summary',`${item.total||0} leads created in the last seven days; current outcomes: ${item.won||0} Won, ${item.lost||0} Lost.`);}}
+ if(clock.time>='08:00'){const tomorrow=new Date(clock.date+'T12:00:00Z');tomorrow.setUTCDate(tomorrow.getUTCDate()+1);const date=tomorrow.toISOString().slice(0,10);const[visits]=await db.query("SELECT id,customer_name,assigned_to FROM leads WHERE is_deleted=0 AND assigned_to IS NOT NULL AND status NOT IN ('Won','Lost','Invalid','Not Interested') AND site_visit_date=?",[date]);for(const visit of visits)await deliver(db,`visit:${visit.id}:${date}`,visit.assigned_to,'site_visit_reminder',visit.id,'Site visit tomorrow',`${visit.customer_name}: site visit scheduled for ${date}.`);}
+}
+let running=false;
+async function run(now=new Date()){if(running)return;running=true;try{const[clients]=await masterDb.query("SELECT db_name FROM clients WHERE status='Active'");for(const client of clients){try{await processTenant(getClientPool(client.db_name),now);}catch(error){console.error('Tenant reminder job failed:',error.code||'REMINDER_FAILED');}}}finally{running=false;}}
+function startScheduledNotifications(){cron.schedule('* * * * *',()=>run().catch(error=>console.error('Reminder scheduler failed:',error.code||'SCHEDULER_FAILED')),{timezone:'UTC'});console.log('Tenant-aware reminders started; timezone comes from company sales settings.');}
+module.exports={startScheduledNotifications,processTenant,deliver};

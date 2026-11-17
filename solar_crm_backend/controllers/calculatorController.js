@@ -218,6 +218,8 @@ const saveCalculation = async (req, res) => {
 // 3. GET SAVED CALCULATIONS
 // GET /api/calculator
 // ============================================================
+const managerScope=require("../utils/managerScope");
+const engineerCalculationScope=(db,alias)=>db.engineerScopeId ? ` AND ${alias}.created_by=${Number(db.engineerScopeId)} AND (${alias}.lead_id IS NULL OR ${alias}.lead_id IN (${require('../services/field/workflow').assignedLeadSQL(db.engineerScopeId)}))` : '';
 const getCalculations = async (req, res) => {
   try {
     const db = req.db || defaultDb;
@@ -226,9 +228,10 @@ const getCalculations = async (req, res) => {
     let rows = [];
     try {
       const [data] = await db.query(`
-        SELECT sc.*, l.customer_name, l.phone, l.city
+        SELECT sc.*, l.customer_name, l.mobile_number AS phone, l.city
         FROM solar_calculations sc
         LEFT JOIN leads l ON sc.lead_id = l.id
+        WHERE 1=1${managerScope.linked(db,"sc.lead_id")}${engineerCalculationScope(db,"sc")}
         ORDER BY sc.created_at DESC
         LIMIT 100
       `);
@@ -236,7 +239,7 @@ const getCalculations = async (req, res) => {
     } catch (joinErr) {
       console.warn("getCalculations join fallback:", joinErr.message);
       const [plain] = await db.query(`
-        SELECT * FROM solar_calculations ORDER BY created_at DESC LIMIT 100
+        SELECT * FROM solar_calculations WHERE 1=1${managerScope.linked(db,"solar_calculations.lead_id")}${engineerCalculationScope(db,"solar_calculations")} ORDER BY created_at DESC LIMIT 100
       `);
       rows = plain;
     }
@@ -265,10 +268,10 @@ const getCalculationById = async (req, res) => {
     const { id } = req.params;
     const [rows] = await db.query(
       `
-      SELECT sc.*, l.customer_name, l.phone, l.email, l.address, l.city, l.state
+      SELECT sc.*, l.customer_name, l.mobile_number AS phone, l.email, l.address, l.city, l.state
       FROM solar_calculations sc
       LEFT JOIN leads l ON sc.lead_id = l.id
-      WHERE sc.id = ?
+      WHERE sc.id = ?${managerScope.linked(db,"sc.lead_id")}${engineerCalculationScope(db,"sc")}
     `,
       [id]
     );

@@ -1,466 +1,83 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Box,
-  Typography,
-  Button,
-  Grid,
-  TextField,
-  MenuItem,
-  InputAdornment,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
-  IconButton,
-  Tooltip,
-  CircularProgress,
-  Stack,
-  Card,
-  Divider,
-} from "@mui/material";
-
-// Icons
+import { Box, Typography, Button, TextField, MenuItem, InputAdornment, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip, Stack, Avatar, Alert, Skeleton, Pagination, IconButton, Tooltip } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import PersonAddOutlinedIcon from "@mui/icons-material/PersonAddOutlined";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
 import SolarPowerOutlinedIcon from "@mui/icons-material/SolarPowerOutlined";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
-import PhoneInTalkIcon from "@mui/icons-material/PhoneInTalk";
-import WhatsAppIcon from "@mui/icons-material/WhatsApp";
-import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import RefreshIcon from "@mui/icons-material/Refresh";
-
+import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
+import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import { useAuth } from "../../context/AuthContext";
 import { getCustomers } from "../../services/customerService";
 import AddCustomerModal from "./AddCustomerModal";
-
-const COLORS = {
-  primary: "#0F172A",
-  primaryDark: "#020617",
-  border: "#E2E8F0",
-  textPrimary: "#1E293B",
-  textSecondary: "#64748B",
-  bgSubtle: "#F8FAFC",
-  success: "#16A34A",
-  successSoft: "#DCFCE7",
-  warning: "#D97706",
-  warningSoft: "#FEF3C7",
-  danger: "#DC2626",
-  dangerSoft: "#FEE2E2",
-  info: "#0284C7",
-  infoSoft: "#E0F2FE",
-};
+import CustomerWorkspace from "./CustomerWorkspace";
+import { money, initials, copyValue } from "./customerHelpers";
+import { ContactActions, Metric, Field, ViewToggle, CustomerBadges, customerTypeTone } from "./customerUi";
 
 export default function CustomersList() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const roleName = (user?.role_name || user?.role || "").toLowerCase();
-  const isManager = user?.role_id === 2 || roleName.includes("manager");
-  const basePath = isManager ? "/manager/customers" : "/customers";
-
-  const [customers, setCustomers] = useState([]);
-  const [stats, setStats] = useState({
-    totalCustomers: 0,
-    totalCapacityKw: 0,
-    totalBilled: 0,
-    totalPaid: 0,
-    totalBalance: 0,
-  });
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [requirementFilter, setRequirementFilter] = useState("All");
-  const [openAddModal, setOpenAddModal] = useState(false);
-
-  const fetchCustomersList = useCallback(async () => {
-    setLoading(true);
+  const navigate=useNavigate(); const {user}=useAuth();
+  const isManager=Number(user?.role_id)===2 || String(user?.role_name || user?.role || "").toLowerCase().includes("manager");
+  const basePath=isManager?"/manager/customers":"/customers";
+  const [customers,setCustomers]=useState([]); const [stats,setStats]=useState({});
+  const [loading,setLoading]=useState(true); const [error,setError]=useState("");
+  const [search,setSearch]=useState(""); const [type,setType]=useState("All");
+  const [balance,setBalance]=useState("all"); const [sort,setSort]=useState("newest");
+  const [view,setView]=useState("cards"); const [page,setPage]=useState(1); const [openAdd,setOpenAdd]=useState(false);
+  const sequence=useRef(0);
+  const fetchCustomers=useCallback(async()=>{
+    const request=++sequence.current; setLoading(true); setError("");
     try {
-      const params = {};
-      if (search.trim()) params.search = search.trim();
-      if (requirementFilter !== "All") params.requirement = requirementFilter;
-
-      const res = await getCustomers(params);
-      if (res?.success) {
-        setCustomers(res.data || []);
-        if (res.stats) setStats(res.stats);
-      }
-    } catch (err) {
-      console.error("fetchCustomersList error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [search, requirementFilter]);
-
-  useEffect(() => {
-    fetchCustomersList();
-  }, [fetchCustomersList]);
-
-  const handleShareWhatsApp = (cust) => {
-    const phone = cust.mobile_number?.replace(/\D/g, "");
-    if (!phone) return;
-    const text = encodeURIComponent(
-      `Hello ${cust.customer_name},\nGreetings from Solar CRM! How can we assist you with your solar power system today?`
-    );
-    window.open(`https://wa.me/91${phone.slice(-10)}?text=${text}`, "_blank");
-  };
-
-  return (
-    <Box sx={{ pb: 6 }}>
-      {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: COLORS.primary, letterSpacing: "-0.02em" }}>
-            Customer Directory
-          </Typography>
-          <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
-            Official customer records converted from Won leads with 360° solar assets, projects, and invoices
-          </Typography>
-        </Box>
-
-        <Stack direction="row" spacing={1.5}>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={fetchCustomersList}
-            sx={{
-              borderRadius: "8px",
-              borderColor: COLORS.border,
-              color: COLORS.primary,
-              textTransform: "none",
-              fontWeight: 600,
-            }}
-          >
-            Refresh
-          </Button>
-
-          <Button
-            variant="contained"
-            startIcon={<PersonAddOutlinedIcon />}
-            onClick={() => setOpenAddModal(true)}
-            sx={{
-              bgcolor: COLORS.primary,
-              color: "#FFFFFF",
-              fontWeight: 700,
-              textTransform: "none",
-              borderRadius: "8px",
-              px: 2.5,
-              "&:hover": { bgcolor: COLORS.primaryDark },
-            }}
-          >
-            + Add Customer
-          </Button>
-        </Stack>
-      </Box>
-
-      {/* KPI Stats Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={0} sx={{ p: 2, bgcolor: "#FFFFFF", borderRadius: "12px", border: `1px solid ${COLORS.border}` }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Box>
-                <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Total Converted Customers</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.primary, mt: 0.5 }}>
-                  {stats.totalCustomers}
-                </Typography>
-                <Typography variant="caption" sx={{ color: COLORS.info, fontWeight: 600 }}>Verified Commercial & Homes</Typography>
-              </Box>
-              <Box sx={{ p: 1.2, bgcolor: COLORS.infoSoft, borderRadius: "10px", color: COLORS.info }}>
-                <PeopleAltOutlinedIcon />
-              </Box>
-            </Box>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={0} sx={{ p: 2, bgcolor: "#FFFFFF", borderRadius: "12px", border: `1px solid ${COLORS.border}` }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Box>
-                <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Total Solar Installed</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.warning, mt: 0.5 }}>
-                  {stats.totalCapacityKw.toFixed(1)} kW
-                </Typography>
-                <Typography variant="caption" sx={{ color: COLORS.warning, fontWeight: 600 }}>Commissioned Plant Size</Typography>
-              </Box>
-              <Box sx={{ p: 1.2, bgcolor: COLORS.warningSoft, borderRadius: "10px", color: COLORS.warning }}>
-                <SolarPowerOutlinedIcon />
-              </Box>
-            </Box>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={0} sx={{ p: 2, bgcolor: "#FFFFFF", borderRadius: "12px", border: `1px solid ${COLORS.border}` }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Box>
-                <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Total Billed Revenue</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.primary, mt: 0.5 }}>
-                  ₹{Math.round(stats.totalBilled).toLocaleString("en-IN")}
-                </Typography>
-                <Typography variant="caption" sx={{ color: COLORS.success, fontWeight: 600 }}>
-                  ₹{Math.round(stats.totalPaid).toLocaleString("en-IN")} Collected
-                </Typography>
-              </Box>
-              <Box sx={{ p: 1.2, bgcolor: COLORS.successSoft, borderRadius: "10px", color: COLORS.success }}>
-                <ReceiptLongIcon />
-              </Box>
-            </Box>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={0} sx={{ p: 2, bgcolor: "#FFFFFF", borderRadius: "12px", border: `1px solid ${COLORS.border}` }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Box>
-                <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Total Balance Due</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: stats.totalBalance > 0 ? COLORS.danger : COLORS.success, mt: 0.5 }}>
-                  ₹{Math.round(stats.totalBalance).toLocaleString("en-IN")}
-                </Typography>
-                <Typography variant="caption" sx={{ color: COLORS.danger, fontWeight: 600 }}>Customer Receivables</Typography>
-              </Box>
-              <Box sx={{ p: 1.2, bgcolor: COLORS.dangerSoft, borderRadius: "10px", color: COLORS.danger }}>
-                <AccountBalanceWalletIcon />
-              </Box>
-            </Box>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Filter and Search Bar */}
-      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: "12px", border: `1px solid ${COLORS.border}` }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={7}>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Search by customer name, code (CUST-...), phone number, or city..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: COLORS.textSecondary, fontSize: 20 }} />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={5}>
-            <Stack direction="row" spacing={1} alignItems="center" justifyContent={{ xs: "flex-start", md: "flex-end" }}>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textSecondary }}>Type:</Typography>
-              {["All", "Residential", "Commercial", "Industrial"].map((req) => (
-                <Chip
-                  key={req}
-                  label={req}
-                  clickable
-                  onClick={() => setRequirementFilter(req)}
-                  sx={{
-                    fontWeight: 600,
-                    fontSize: "0.78rem",
-                    bgcolor: requirementFilter === req ? COLORS.primary : "#F1F5F9",
-                    color: requirementFilter === req ? "#FFFFFF" : COLORS.textSecondary,
-                    "&:hover": {
-                      bgcolor: requirementFilter === req ? COLORS.primaryDark : "#E2E8F0",
-                    },
-                  }}
-                />
-              ))}
-            </Stack>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Customers Table */}
-      <Paper elevation={0} sx={{ borderRadius: "12px", border: `1px solid ${COLORS.border}`, overflow: "hidden" }}>
-        {loading ? (
-          <Box sx={{ p: 6, textAlign: "center" }}>
-            <CircularProgress size={36} sx={{ color: COLORS.primary }} />
-            <Typography variant="body2" sx={{ mt: 1.5, color: COLORS.textSecondary }}>
-              Loading customer profiles...
-            </Typography>
-          </Box>
-        ) : customers.length === 0 ? (
-          <Box sx={{ p: 6, textAlign: "center" }}>
-            <PeopleAltOutlinedIcon sx={{ fontSize: 52, color: "#CBD5E1", mb: 1 }} />
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.primary }}>
-              No Customers Found
-            </Typography>
-            <Typography variant="body2" sx={{ color: COLORS.textSecondary, mb: 2 }}>
-              When a lead is marked as "Won", an official customer profile will automatically be created here.
-            </Typography>
-            <Button
-              variant="outlined"
-              onClick={() => setOpenAddModal(true)}
-              sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600 }}
-            >
-              + Create Customer Manually
-            </Button>
-          </Box>
-        ) : (
-          <TableContainer>
-            <Table sx={{ minWidth: 900 }}>
-              <TableHead sx={{ bgcolor: COLORS.primary }}>
-                <TableRow>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem" }}>CUSTOMER CODE</TableCell>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem" }}>CUSTOMER / ENTITY</TableCell>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem" }}>CATEGORY &amp; LOCATION</TableCell>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem", textAlign: "center" }}>PROJECTS / KW</TableCell>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem", textAlign: "right" }}>TOTAL BILLED</TableCell>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem", textAlign: "right" }}>BALANCE DUE</TableCell>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem", textAlign: "center" }}>DISCOM / CA NO</TableCell>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem", textAlign: "center" }}>ACTIONS</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {customers.map((c) => {
-                  const bal = parseFloat(c.total_balance_amount) || 0;
-                  const billed = parseFloat(c.total_billed_amount) || 0;
-
-                  return (
-                    <TableRow key={c.id} hover sx={{ "&:last-child td, &:last-child th": { border: 0 } }}>
-                      {/* Code */}
-                      <TableCell sx={{ fontWeight: 700, color: COLORS.primary, fontSize: "0.85rem" }}>
-                        <Box sx={{ px: 1, py: 0.4, bgcolor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: "6px", display: "inline-block", fontFamily: "monospace" }}>
-                          {c.customer_code}
-                        </Box>
-                        {c.lead_code && (
-                          <Typography variant="caption" sx={{ color: COLORS.textSecondary, display: "block", mt: 0.3 }}>
-                            Lead: {c.lead_code}
-                          </Typography>
-                        )}
-                      </TableCell>
-
-                      {/* Name & Contact */}
-                      <TableCell>
-                        <Typography
-                          variant="body2"
-                          onClick={() => navigate(`${basePath}/${c.id}`)}
-                          sx={{ fontWeight: 700, color: COLORS.primary, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
-                        >
-                          {c.customer_name}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: COLORS.textSecondary, display: "block" }}>
-                          📞 {c.mobile_number}
-                        </Typography>
-                        {c.email && (
-                          <Typography variant="caption" sx={{ color: COLORS.textSecondary, display: "block" }}>
-                            ✉️ {c.email}
-                          </Typography>
-                        )}
-                      </TableCell>
-
-                      {/* Category & City */}
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          label={c.solar_requirement || "Residential"}
-                          sx={{
-                            fontWeight: 700,
-                            fontSize: "0.72rem",
-                            bgcolor: c.solar_requirement === "Commercial" ? COLORS.warningSoft : "#F1F5F9",
-                            color: c.solar_requirement === "Commercial" ? COLORS.warning : COLORS.textPrimary,
-                            mb: 0.5,
-                          }}
-                        />
-                        <Typography variant="caption" sx={{ display: "block", color: COLORS.textSecondary }}>
-                          📍 {[c.city, c.state].filter(Boolean).join(", ") || "Site Address"}
-                        </Typography>
-                      </TableCell>
-
-                      {/* Projects & Capacity */}
-                      <TableCell sx={{ textAlign: "center" }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.primary }}>
-                          {c.total_projects} Project{c.total_projects === 1 ? "" : "s"}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: COLORS.warning, fontWeight: 700 }}>
-                          {parseFloat(c.total_system_kw) > 0 ? `${c.total_system_kw} kW` : "—"}
-                        </Typography>
-                      </TableCell>
-
-                      {/* Billed */}
-                      <TableCell sx={{ textAlign: "right", fontWeight: 700, color: COLORS.primary }}>
-                        ₹{Math.round(billed).toLocaleString("en-IN")}
-                      </TableCell>
-
-                      {/* Balance Due */}
-                      <TableCell sx={{ textAlign: "right", fontWeight: 700, color: bal > 0 ? COLORS.danger : COLORS.success }}>
-                        ₹{Math.round(bal).toLocaleString("en-IN")}
-                      </TableCell>
-
-                      {/* Discom / CA */}
-                      <TableCell sx={{ textAlign: "center" }}>
-                        {c.electricity_consumer_number ? (
-                          <Box>
-                            <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.primary, display: "block" }}>
-                              {c.electricity_consumer_number}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
-                              {c.discom_name || "Grid"}
-                            </Typography>
-                          </Box>
-                        ) : (
-                          <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
-                            —
-                          </Typography>
-                        )}
-                      </TableCell>
-
-                      {/* Actions */}
-                      <TableCell sx={{ textAlign: "center" }}>
-                        <Stack direction="row" spacing={0.8} justifyContent="center">
-                          {/* 360 View */}
-                          <Tooltip title="View 360° Customer Profile">
-                            <IconButton
-                              size="small"
-                              onClick={() => navigate(`${basePath}/${c.id}`)}
-                              sx={{ color: COLORS.primary, bgcolor: "#F1F5F9", "&:hover": { bgcolor: "#E2E8F0" } }}
-                            >
-                              <VisibilityOutlinedIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-
-                          {/* WhatsApp */}
-                          <Tooltip title="WhatsApp Direct">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleShareWhatsApp(c)}
-                              sx={{ color: "#25D366", bgcolor: "#DCFCE7", "&:hover": { bgcolor: "#BBF7D0" } }}
-                            >
-                              <WhatsAppIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-
-                          {/* Call */}
-                          <Tooltip title={`Call ${c.mobile_number}`}>
-                            <IconButton
-                              size="small"
-                              onClick={() => window.open(`tel:${c.mobile_number}`)}
-                              sx={{ color: COLORS.info, bgcolor: COLORS.infoSoft, "&:hover": { bgcolor: "#BAE6FD" } }}
-                            >
-                              <PhoneInTalkIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-      </Paper>
-
-      {/* Add Customer Modal */}
-      <AddCustomerModal
-        open={openAddModal}
-        onClose={() => setOpenAddModal(false)}
-        onCustomerCreated={fetchCustomersList}
-      />
+      const res=await getCustomers({ ...(search.trim()?{search:search.trim()}:{}), ...(type!=="All"?{requirement:type}:{}) });
+      if(request!==sequence.current)return;
+      if(!res?.success)throw new Error(res?.message || "Unable to load customers.");
+      setCustomers(Array.isArray(res.data)?res.data:[]); setStats(res.stats || {});
+    } catch(err) { if(request===sequence.current)setError(err.response?.data?.message || err.message || "Unable to load customers."); }
+    finally { if(request===sequence.current)setLoading(false); }
+  },[search,type]);
+  useEffect(()=>{const requests=sequence;const timer=setTimeout(fetchCustomers,250);return()=>{clearTimeout(timer);requests.current++;};},[fetchCustomers]);
+  const filtered=useMemo(()=>customers.filter(c=>{
+    const text=[c.customer_name,c.customer_code,c.mobile_number,c.email,c.city].filter(Boolean).join(" ").toLowerCase();
+    return (!search.trim() || text.includes(search.trim().toLowerCase())) && (type==="All" || c.solar_requirement===type)
+      && (balance==="all" || (balance==="due"?Number(c.total_balance_amount)>0:Number(c.total_balance_amount)<=0));
+  }).sort((a,b)=>sort==="name"?String(a.customer_name || "").localeCompare(String(b.customer_name || "")):sort==="balance"?Number(b.total_balance_amount || 0)-Number(a.total_balance_amount || 0):Number(b.id)-Number(a.id)),[customers,search,type,balance,sort]);
+  const pages=Math.max(1,Math.ceil(filtered.length/12)); const currentPage=Math.min(page,pages); const visible=filtered.slice((currentPage-1)*12,currentPage*12);
+  const change=(setter,value)=>{setter(value);setPage(1);};
+  const reset=()=>{setSearch("");setType("All");setBalance("all");setSort("newest");setPage(1);};
+  const activeFilters=Boolean(search || type!=="All" || balance!=="all");
+  return <CustomerWorkspace><Box sx={{pb:4}}>
+    <Box sx={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:2,mb:3}}>
+      <Box sx={{flex:"1 1 260px"}}><Typography variant="overline" color="text.secondary">CUSTOMER RELATIONSHIPS</Typography><Typography component="h1" variant="h4" sx={{fontWeight:700}}>Customer directory</Typography><Typography color="text.secondary" variant="body2" sx={{mt:1}}>Contacts, solar projects and billing in one place.</Typography></Box>
+      <Stack direction="row" sx={{gap:1,flexWrap:"wrap"}}><Button variant="outlined" startIcon={<RefreshIcon/>} onClick={fetchCustomers} disabled={loading}>Refresh</Button><Button variant="contained" startIcon={<PersonAddOutlinedIcon/>} onClick={()=>setOpenAdd(true)}>Add customer</Button></Stack>
     </Box>
-  );
+    <Box sx={{display:"grid",gridTemplateColumns:{xs:"1fr",sm:"repeat(2,minmax(0,1fr))",xl:"repeat(4,minmax(0,1fr))"},gap:2,mb:3}}>
+      <Metric label="Customers" value={loading?"--":Number(stats.totalCustomers ?? customers.length).toLocaleString("en-IN")} hint="In current search results" icon={PeopleAltOutlinedIcon} tone="blue"/>
+      <Metric label="Linked project capacity" value={loading?"--":`${Number(stats.totalCapacityKw || 0).toFixed(1)} kW`} hint="Linked capacity in current results" icon={SolarPowerOutlinedIcon} tone="amber"/>
+      <Metric label="Total billed" value={loading?"--":money(stats.totalBilled ?? 0)} hint={loading?"Loading totals":`${money(stats.totalPaid ?? 0)} recorded payments`} icon={ReceiptLongOutlinedIcon} tone="green"/>
+      <Metric label="Outstanding balance" value={loading?"--":money(stats.totalBalance ?? 0)} hint="Invoices in current results" color={Number(stats.totalBalance)>0?"error.main":"text.primary"} icon={AccountBalanceWalletOutlinedIcon} tone={Number(stats.totalBalance)>0?"red":"violet"}/>
+    </Box>
+    <Paper variant="outlined" sx={{p:{xs:2,md:2.5},mb:2.5,borderRadius:3,boxShadow:"none"}}>
+      <Box sx={{display:"grid",gridTemplateColumns:{xs:"1fr",md:"minmax(240px,2fr) repeat(3,minmax(145px,1fr))"},gap:2}}>
+        <TextField size="small" label="Search customers" placeholder="Name, code, phone, email or city" value={search} onChange={e=>change(setSearch,e.target.value)} InputProps={{startAdornment:<InputAdornment position="start"><SearchIcon fontSize="small"/></InputAdornment>}}/>
+        <TextField select size="small" label="Customer type" value={type} onChange={e=>change(setType,e.target.value)}>{["All","Residential","Commercial","Industrial"].map(v=><MenuItem key={v} value={v}>{v==="All"?"All types":v}</MenuItem>)}</TextField>
+        <TextField select size="small" label="Invoice balance" value={balance} onChange={e=>change(setBalance,e.target.value)}><MenuItem value="all">All balances</MenuItem><MenuItem value="due">Balance due</MenuItem><MenuItem value="clear">No balance due</MenuItem></TextField>
+        <TextField select size="small" label="Sort by" value={sort} onChange={e=>change(setSort,e.target.value)}><MenuItem value="newest">Newest first</MenuItem><MenuItem value="name">Name A-Z</MenuItem><MenuItem value="balance">Highest balance</MenuItem></TextField>
+      </Box>
+      <Stack direction="row" sx={{justifyContent:"space-between",alignItems:"center",gap:1.5,mt:2}}><Typography variant="body2" color="text.secondary" role="status">{loading?"Loading customers...":`${filtered.length} of ${customers.length} customers`}</Typography><Stack direction="row" sx={{gap:1,alignItems:"center"}}>{activeFilters&&<Button size="small" onClick={reset}>Clear filters</Button>}<ViewToggle value={view} onChange={setView}/></Stack></Stack>
+    </Paper>
+    {customers.length>=150&&!loading&&<Alert severity="info" sx={{mb:2}}>Showing up to 150 matching records. Narrow the search or select a customer type to find older records.</Alert>}
+    {error?<Alert severity="error" action={<Button onClick={fetchCustomers}>Retry</Button>}>{error}</Alert>:loading?<Box sx={{display:"grid",gridTemplateColumns:{xs:"1fr",lg:"repeat(2,minmax(0,1fr))"},gap:2}}>{[1,2,3,4].map(n=><Skeleton key={n} variant="rounded" height={270}/>)}</Box>:!filtered.length?<Paper variant="outlined" sx={{p:5,textAlign:"center",borderRadius:3}}><PeopleAltOutlinedIcon sx={{fontSize:40,color:"text.secondary"}}/><Typography variant="h6" sx={{mt:1,fontWeight:700}}>{activeFilters?"No matching customers":"Your customer directory is ready"}</Typography><Typography variant="body2" color="text.secondary" sx={{my:1.5}}>{activeFilters?"Try a different search or clear the filters.":"Add a customer to keep contact, project and billing details together."}</Typography><Button variant="outlined" onClick={activeFilters?reset:()=>setOpenAdd(true)}>{activeFilters?"Clear filters":"Add customer"}</Button></Paper>:view==="cards"?
+    <Box sx={{display:"grid",gridTemplateColumns:{xs:"1fr",lg:"repeat(2,minmax(0,1fr))",xl:"repeat(3,minmax(0,1fr))"},gap:2}}>{visible.map(c=><Paper variant="outlined" key={c.id} sx={{p:2.5,borderRadius:3,display:"flex",flexDirection:"column",gap:2,boxShadow:"none",borderColor:"#E2E8F0",backgroundColor:"#FFFFFF"}}>
+      <Stack direction="row" sx={{gap:1.5,alignItems:"flex-start",flexWrap:"nowrap !important"}}><Avatar sx={{bgcolor:"#F1F5F9",color:"#334155",fontWeight:700,width:44,height:44}}>{initials(c.customer_name)}</Avatar><Box sx={{flex:1,minWidth:0}}><Typography component="h2" variant="subtitle1" sx={{fontWeight:700}}>{c.customer_name || "Unnamed customer"}</Typography><Typography variant="caption" color="text.secondary">{c.customer_code || "Code not recorded"}</Typography></Box><Tooltip title="Copy customer code"><IconButton size="small" disabled={!c.customer_code} aria-label={`Copy code for ${c.customer_name}`} onClick={()=>copyValue(c.customer_code,"Customer code")}><ContentCopyOutlinedIcon fontSize="small"/></IconButton></Tooltip></Stack>
+      <Stack direction="row" sx={{gap:1,alignItems:"center",justifyContent:"space-between",flexWrap:"wrap"}}><CustomerBadges type={c.solar_requirement} status={c.status}/><Typography variant="caption" sx={{color:"#64748B"}}>{[c.city,c.state].filter(Boolean).join(", ") || "Location not recorded"}</Typography></Stack>
+      <Box sx={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:2,p:1.5,borderRadius:2,bgcolor:"#F8FAFC",border:"1px solid #E2E8F0"}}><Field label="Phone" value={c.mobile_number || "Not recorded"}/><Field label="Projects / capacity" value={`${Number(c.total_projects || 0)} projects / ${Number(c.total_system_kw || 0)} kW`} valueColor="#1E293B"/><Field label="Total billed" value={money(c.total_billed_amount ?? 0)} valueColor="#1E293B"/><Field label="Balance due" value={money(c.total_balance_amount ?? 0)} valueColor={Number(c.total_balance_amount)>0?"#B91C1C":"#15803D"}/></Box>
+      {c.email&&<Typography variant="body2" color="text.secondary">{c.email}</Typography>}
+      <Box sx={{mt:"auto",pt:2,borderTop:"1px solid",borderColor:"divider"}}><ContactActions customer={c} compact/><Button variant="contained" fullWidth endIcon={<ArrowForwardIcon/>} onClick={()=>navigate(`${basePath}/${c.id}`)} sx={{mt:1.5,bgcolor:"#0284C7","&:hover":{bgcolor:"#0369A1"}}}>Open customer</Button></Box>
+    </Paper>)}</Box>:
+    <Paper variant="outlined" sx={{borderRadius:3,overflow:"hidden",boxShadow:"none"}}><TableContainer><Table sx={{minWidth:1000}} aria-label="Customer directory"><TableHead sx={{bgcolor:"#F8FAFC"}}><TableRow>{["Customer","Contact","Type / location","Projects","Total billed","Balance due","Actions"].map(label=><TableCell key={label} sx={{fontWeight:700}}>{label}</TableCell>)}</TableRow></TableHead><TableBody>{visible.map(c=><TableRow key={c.id} hover><TableCell><Button onClick={()=>navigate(`${basePath}/${c.id}`)} sx={{justifyContent:"flex-start",px:0,textAlign:"left"}}>{c.customer_name}</Button><Typography variant="caption" display="block" color="text.secondary">{c.customer_code}</Typography></TableCell><TableCell>{c.mobile_number || "Not recorded"}<Typography variant="caption" display="block" color="text.secondary">{c.email}</Typography></TableCell><TableCell><CustomerBadges type={c.solar_requirement} status={c.status}/><Typography variant="caption" display="block" color="text.secondary" sx={{mt:0.5}}>{[c.city,c.state].filter(Boolean).join(", ") || "Location not recorded"}</Typography></TableCell><TableCell>{Number(c.total_projects || 0)}<Typography variant="caption" display="block" color="text.secondary">{Number(c.total_system_kw || 0)} kW</Typography></TableCell><TableCell>{money(c.total_billed_amount ?? 0)}</TableCell><TableCell sx={{color:Number(c.total_balance_amount)>0?"error.main":"text.primary",fontWeight:600}}>{money(c.total_balance_amount ?? 0)}</TableCell><TableCell><Button size="small" onClick={()=>navigate(`${basePath}/${c.id}`)}>Open customer</Button><ContactActions customer={c} compact/></TableCell></TableRow>)}</TableBody></Table></TableContainer></Paper>}
+    {!loading&&!error&&filtered.length>12&&<Stack direction="row" sx={{justifyContent:"space-between",alignItems:"center",gap:2,mt:3}}><Typography variant="body2" color="text.secondary">Showing {(currentPage-1)*12+1}-{Math.min(currentPage*12,filtered.length)} of {filtered.length}</Typography><Pagination count={pages} page={currentPage} onChange={(_,value)=>setPage(value)} size="small"/></Stack>}
+    <AddCustomerModal open={openAdd} onClose={()=>setOpenAdd(false)} onCustomerCreated={fetchCustomers}/>
+  </Box></CustomerWorkspace>;
 }

@@ -1,3 +1,6 @@
+import { LEAD_STATUSES } from '../../utils/leadStages';
+import useWorkspaceNavigate from "../../hooks/useWorkspaceNavigate";
+import LeadActionDialog from "../../components/LeadActionDialog";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import usePlanFeatures from "../../hooks/usePlanFeatures";
@@ -126,17 +129,7 @@ const COLORS = {
   purpleSoft: "#EDE9FE",
 };
 
-const STATUS_OPTIONS = [
-  "New Lead",
-  "Contacted",
-  "Follow-up Pending",
-  "Site Visit Scheduled",
-  "Quotation Sent",
-  "Negotiation",
-  "Won",
-  "Lost",
-  "Not Interested",
-];
+const STATUS_OPTIONS = LEAD_STATUSES;
 
 const PRIORITY_OPTIONS = ["Low", "Medium", "High"];
 const LEAD_SOURCE_OPTIONS = ["Website", "Call", "WhatsApp", "Reference", "Facebook", "Google", "Cold Call", "Direct", "Other"];
@@ -148,18 +141,18 @@ const INITIAL_FORM_STATE = {
   alternate_number: "",
   email: "",
   address: "",
-  city: "Jaipur",
-  state: "Rajasthan",
+  city: "",
+  state: "",
   pincode: "",
   solar_requirement: "Residential",
   interest_status: "Pending",
-  required_kw: "5",
+  required_kw: "",
   remark: "",
   lead_source: "Website",
   priority: "Medium",
   status: "New Lead",
   assigned_to: "",
-  next_follow_up_date: "",
+  next_follow_up_date: "", next_action: "", next_follow_up_time: "",
   site_visit_date: "",
   quotation_amount: "",
   dob: "",
@@ -291,10 +284,14 @@ const formatDateTime = (value) => {
 };
 
 const STATUS_STYLES = {
+  Qualified: {color:"#047857", bg:"#D1FAE5"},
+  "Site Survey Done": {color:"#0369A1",bg:"#E0F2FE"},
+  "On Hold": {color:"#B45309",bg:"#FEF3C7"},
+  Invalid: {color:"#64748B",bg:"#F1F5F9"},
   "New Lead": { color: "#0284C7", bg: "#E0F2FE" },
   Contacted: { color: "#D97706", bg: "#FEF3C7" },
   "Follow-up Pending": { color: COLORS.warning, bg: COLORS.warningSoft },
-  "Site Visit Scheduled": { color: COLORS.purple, bg: COLORS.purpleSoft },
+  "Site Survey Scheduled": { color: COLORS.purple, bg: COLORS.purpleSoft },
   "Quotation Sent": { color: "#9333EA", bg: "#F3E8FF" },
   Negotiation: { color: "#C026D3", bg: "#FCE7F3" },
   Won: { color: COLORS.success, bg: COLORS.successSoft },
@@ -425,9 +422,9 @@ const QuickRemarkInput = ({ lead, onSave }) => {
   );
 };
 
-export default function TodayFollowups() {
+export default function TodayFollowups({ salesMode = false }) {
   const location = useLocation();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
 
   // State
   const [leads, setLeads] = useState([]);
@@ -440,7 +437,7 @@ export default function TodayFollowups() {
 
   // Date Filter: "today" (DEFAULT), "overdue", "upcoming", "date"
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const [dateFilterMode, setDateFilterMode] = useState("today");
+  const [dateFilterMode, setDateFilterMode] = useState(() => { const value = new URLSearchParams(location.search).get("filter"); return ["today", "overdue", "upcoming", "not_set", "all"].includes(value) ? value : "today"; });
   const [selectedDate, setSelectedDate] = useState(todayStr); // Defaults to today!
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -555,8 +552,8 @@ export default function TodayFollowups() {
   }, [dateFilterMode, selectedDate, searchInput, statusFilter, priorityFilter, assignedToFilter, page, rowsPerPage, showSnackbar]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    if (!salesMode) fetchUsers();
+  }, [fetchUsers, salesMode]);
 
   useEffect(() => {
     fetchFollowups();
@@ -571,15 +568,13 @@ export default function TodayFollowups() {
       await addFollowup(lead.id, {
         note: formattedNote,
         followup_type: "Call",
-        next_follow_up_date: todayStr,
       });
 
       try {
         await updateLead(lead.id, {
           ...lead,
           remark: formattedNote,
-          next_follow_up_date: todayStr,
-        });
+          });
       } catch (e) {}
 
       showSnackbar(`Remark saved for ${lead.customer_name || "Lead"}`, "success");
@@ -619,7 +614,6 @@ export default function TodayFollowups() {
       await addFollowup(remarksModalLead.id, {
         note: formattedNote,
         followup_type: newRemarkType || "Call",
-        next_follow_up_date: todayStr,
       });
       showSnackbar("New remark added successfully.", "success");
       setNewRemarkText("");
@@ -780,6 +774,7 @@ export default function TodayFollowups() {
       status: target.status || "New Lead",
       assigned_to: target.assigned_to || "",
       next_follow_up_date: target.next_follow_up_date ? target.next_follow_up_date.slice(0, 10) : "",
+      next_action: target.next_action || "", next_follow_up_time: String(target.next_follow_up_time || "").slice(0,5),
       site_visit_date: target.site_visit_date ? target.site_visit_date.slice(0, 10) : "",
       quotation_amount: target.quotation_amount || "",
       dob: target.dob ? target.dob.slice(0, 10) : "",
@@ -876,7 +871,7 @@ export default function TodayFollowups() {
             </Typography>
           </Stack>
           <Typography
-            onClick={() => navigate("/leads")}
+            onClick={() => navigate(salesMode ? "/sales/leads" : "/leads")}
             sx={{ fontSize: "0.75rem", fontWeight: 600, color: COLORS.textMuted, cursor: "pointer", "&:hover": { color: COLORS.primary } }}
           >
             Lead Management
@@ -1167,7 +1162,7 @@ export default function TodayFollowups() {
               </Box>
 
               {/* Assigned Rep */}
-              <Box sx={{ flex: "0 1 160px", minWidth: 140 }}>
+              {!salesMode && (<Box sx={{ flex: "0 1 160px", minWidth: 140 }}>
                 <FieldLabel>Assigned To</FieldLabel>
                 <Select
                   fullWidth
@@ -1185,7 +1180,7 @@ export default function TodayFollowups() {
                     <MenuItem key={u.id} value={u.id} sx={{ fontSize: "0.78rem" }}>{u.full_name}</MenuItem>
                   ))}
                 </Select>
-              </Box>
+              </Box>)}
 
               {/* Reset */}
               <Button
@@ -1353,7 +1348,7 @@ export default function TodayFollowups() {
                 {/* 3 Column Grid Layout */}
                 <Grid container spacing={2}>
                   {/* Column 1 */}
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <Stack spacing={0.8}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
                         <DescriptionIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
@@ -1456,7 +1451,7 @@ export default function TodayFollowups() {
                   </Grid>
 
                   {/* Column 2 */}
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <Stack spacing={0.8}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
                         <CalendarIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
@@ -1498,7 +1493,7 @@ export default function TodayFollowups() {
                   </Grid>
 
                   {/* Column 3 */}
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <Stack spacing={0.8}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
                         <SolarIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
@@ -1592,7 +1587,7 @@ export default function TodayFollowups() {
              ============================================================ */
           <Grid container spacing={2}>
             {leads.map((row) => (
-              <Grid item xs={12} sm={6} md={4} key={row.id}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={row.id}>
                 <Paper elevation={0} sx={{ ...cardSx, p: 2 }}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
                     <Box>
@@ -1650,25 +1645,25 @@ export default function TodayFollowups() {
           <MenuItem onClick={() => { handleMenuClose(); openViewModal(activeLead); }} sx={{ fontSize: "0.78rem" }}>
             <ViewIcon sx={{ fontSize: 16, mr: 1, color: COLORS.primary }} /> View Profile
           </MenuItem>
-          <MenuItem onClick={() => { handleMenuClose(); openEditDialog(activeLead); }} sx={{ fontSize: "0.78rem" }}>
+          {!salesMode && (<MenuItem onClick={() => { handleMenuClose(); openEditDialog(activeLead); }} sx={{ fontSize: "0.78rem" }}>
             <EditIcon sx={{ fontSize: 16, mr: 1, color: COLORS.secondaryDark }} /> Edit Details
-          </MenuItem>
+          </MenuItem>)}
           <MenuItem onClick={() => { handleMenuClose(); openFollowupModal(activeLead); }} sx={{ fontSize: "0.78rem" }}>
             <FollowupIcon sx={{ fontSize: 16, mr: 1, color: COLORS.primary }} /> Log Follow-up &amp; Date
           </MenuItem>
           <MenuItem onClick={() => { handleMenuClose(); handleOpenRemarksHistory(activeLead); }} sx={{ fontSize: "0.78rem" }}>
             <HistoryIcon sx={{ fontSize: 16, mr: 1, color: COLORS.purple }} /> View Remarks History
           </MenuItem>
-          <MenuItem onClick={() => { handleMenuClose(); openAssignModal(activeLead); }} sx={{ fontSize: "0.78rem" }}>
+          {!salesMode && (<MenuItem onClick={() => { handleMenuClose(); openAssignModal(activeLead); }} sx={{ fontSize: "0.78rem" }}>
             <AssignIcon sx={{ fontSize: 16, mr: 1, color: COLORS.primary }} /> Assign Lead
-          </MenuItem>
+          </MenuItem>)}
           <MenuItem onClick={() => { handleMenuClose(); openScheduleSurvey(activeLead); }} sx={{ fontSize: "0.78rem" }}>
             <SiteVisitIcon sx={{ fontSize: 16, mr: 1, color: COLORS.warning }} /> Schedule Site Survey
           </MenuItem>
           <Divider />
-          <MenuItem onClick={() => { handleMenuClose(); openDeleteDialog(activeLead); }} sx={{ fontSize: "0.78rem", color: COLORS.danger }}>
+          {!salesMode && (<MenuItem onClick={() => { handleMenuClose(); openDeleteDialog(activeLead); }} sx={{ fontSize: "0.78rem", color: COLORS.danger }}>
             <DeleteIcon sx={{ fontSize: 16, mr: 1, color: COLORS.danger }} /> Delete Lead
-          </MenuItem>
+          </MenuItem>)}
         </Menu>
 
         {/* ================= VIEW PROFILE MODAL ================= */}
@@ -1680,12 +1675,12 @@ export default function TodayFollowups() {
           <DialogContent sx={{ p: 2.5 }}>
             {viewLead && (
               <Grid container spacing={1.5}>
-                <Grid item xs={6}><FieldLabel>Customer Name</FieldLabel><Typography sx={{ fontSize: "0.85rem", fontWeight: 700 }}>{viewLead.customer_name}</Typography></Grid>
-                <Grid item xs={6}><FieldLabel>Mobile</FieldLabel><Typography sx={{ fontSize: "0.85rem", fontWeight: 600 }}>{viewLead.mobile_number}</Typography></Grid>
-                <Grid item xs={6}><FieldLabel>Status</FieldLabel><StatusChip status={viewLead.status} /></Grid>
-                <Grid item xs={6}><FieldLabel>Location</FieldLabel><Typography sx={{ fontSize: "0.85rem" }}>{[viewLead.city, viewLead.state].filter(Boolean).join(", ") || "—"}</Typography></Grid>
-                <Grid item xs={6}><FieldLabel>Assigned To</FieldLabel><Typography sx={{ fontSize: "0.85rem", fontWeight: 600 }}>{viewLead.assigned_to_name || "Unassigned"}</Typography></Grid>
-                <Grid item xs={6}><FieldLabel>Next Follow-up</FieldLabel><Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: COLORS.primary }}>{formatDate(viewLead.next_follow_up_date)}</Typography></Grid>
+                <Grid size={{ xs: 6 }}><FieldLabel>Customer Name</FieldLabel><Typography sx={{ fontSize: "0.85rem", fontWeight: 700 }}>{viewLead.customer_name}</Typography></Grid>
+                <Grid size={{ xs: 6 }}><FieldLabel>Mobile</FieldLabel><Typography sx={{ fontSize: "0.85rem", fontWeight: 600 }}>{viewLead.mobile_number}</Typography></Grid>
+                <Grid size={{ xs: 6 }}><FieldLabel>Status</FieldLabel><StatusChip status={viewLead.status} /></Grid>
+                <Grid size={{ xs: 6 }}><FieldLabel>Location</FieldLabel><Typography sx={{ fontSize: "0.85rem" }}>{[viewLead.city, viewLead.state].filter(Boolean).join(", ") || "—"}</Typography></Grid>
+                <Grid size={{ xs: 6 }}><FieldLabel>Assigned To</FieldLabel><Typography sx={{ fontSize: "0.85rem", fontWeight: 600 }}>{viewLead.assigned_to_name || "Unassigned"}</Typography></Grid>
+                <Grid size={{ xs: 6 }}><FieldLabel>Next Follow-up</FieldLabel><Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: COLORS.primary }}>{formatDate(viewLead.next_follow_up_date)}</Typography></Grid>
               </Grid>
             )}
           </DialogContent>
@@ -1695,7 +1690,7 @@ export default function TodayFollowups() {
         </Dialog>
 
         {/* ================= LOG FOLLOW-UP MODAL ================= */}
-        <Dialog open={followupDialogOpen} onClose={() => setFollowupDialogOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: "12px", overflow: "hidden" } }}>
+        <Dialog open={false} onClose={() => setFollowupDialogOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: "12px", overflow: "hidden" } }}>
           <Box sx={{ p: 2, backgroundColor: COLORS.primary, color: "#FFFFFF" }}>
             <Typography sx={{ fontWeight: 800, fontSize: "0.95rem" }}>Log Follow-up Note &amp; Next Date</Typography>
           </Box>
@@ -1806,40 +1801,40 @@ export default function TodayFollowups() {
           </Box>
           <DialogContent sx={{ p: 3, maxHeight: "75vh", overflowY: "auto", ...customScrollbarSx }}>
             <Grid container spacing={1.5}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Customer Name *</FieldLabel>
-                <TextField fullWidth size="small" value={formData.customer_name} onChange={(e) => handleFormFieldChange("customer_name", e.target.value)} sx={controlSx} />
+                <TextField fullWidth size="small" placeholder="e.g. Ramesh Kumar" value={formData.customer_name} onChange={(e) => handleFormFieldChange("customer_name", e.target.value)} sx={controlSx} />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Mobile Number *</FieldLabel>
-                <TextField fullWidth size="small" value={formData.mobile_number} onChange={(e) => handleFormFieldChange("mobile_number", e.target.value.replace(/\D/g, "").slice(0, 10))} sx={controlSx} />
+                <TextField fullWidth size="small" placeholder="e.g. 9876543210" value={formData.mobile_number} onChange={(e) => handleFormFieldChange("mobile_number", e.target.value.replace(/\D/g, "").slice(0, 10))} sx={controlSx} />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Email</FieldLabel>
-                <TextField fullWidth size="small" value={formData.email} onChange={(e) => handleFormFieldChange("email", e.target.value)} sx={controlSx} />
+                <TextField fullWidth size="small" placeholder="e.g. ramesh@example.com" value={formData.email} onChange={(e) => handleFormFieldChange("email", e.target.value)} sx={controlSx} />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Required Capacity (kW)</FieldLabel>
-                <TextField fullWidth size="small" type="number" value={formData.required_kw} onChange={(e) => handleFormFieldChange("required_kw", e.target.value)} sx={controlSx} />
+                <TextField fullWidth size="small" type="number" placeholder="e.g. 5.0" value={formData.required_kw} onChange={(e) => handleFormFieldChange("required_kw", e.target.value)} sx={controlSx} />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Next Follow-up Date</FieldLabel>
                 <TextField fullWidth size="small" type="date" value={formData.next_follow_up_date} onChange={(e) => handleFormFieldChange("next_follow_up_date", e.target.value)} InputLabelProps={{ shrink: true }} sx={dateControlSx} />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Date of Birth</FieldLabel>
                 <TextField fullWidth size="small" type="date" value={formData.dob} onChange={(e) => handleFormFieldChange("dob", e.target.value)} InputLabelProps={{ shrink: true }} sx={dateControlSx} />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Anniversary Date</FieldLabel>
                 <TextField fullWidth size="small" type="date" value={formData.anniversary_date} onChange={(e) => handleFormFieldChange("anniversary_date", e.target.value)} InputLabelProps={{ shrink: true }} sx={dateControlSx} />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <FieldLabel>Initial Remark</FieldLabel>
-                <TextField fullWidth size="small" multiline minRows={2} value={formData.remark} onChange={(e) => handleFormFieldChange("remark", e.target.value)} sx={controlSx} />
+                <TextField fullWidth size="small" multiline minRows={2} placeholder="e.g. Customer interested in 5kW residential rooftop solar" value={formData.remark} onChange={(e) => handleFormFieldChange("remark", e.target.value)} sx={controlSx} />
               </Grid>
             </Grid>
-          </DialogContent>
+          <Box sx={{display:"grid",gridTemplateColumns:{xs:"1fr",sm:"repeat(3,1fr)"},gap:2,mt:2}}><TextField required label="Next action" placeholder="e.g. Share quotation over WhatsApp & follow up" value={formData.next_action || ""} onChange={e=>handleFormFieldChange("next_action",e.target.value)} /><TextField required type="date" label="Next follow-up date" value={formData.next_follow_up_date || ""} onChange={e=>handleFormFieldChange("next_follow_up_date",e.target.value)} slotProps={{inputLabel:{shrink:true}}} /><TextField required type="time" label="Exact follow-up time" value={formData.next_follow_up_time || ""} onChange={e=>handleFormFieldChange("next_follow_up_time",e.target.value)} slotProps={{inputLabel:{shrink:true}}} helperText="Company scheduling timezone" /></Box></DialogContent>
           <DialogActions sx={{ p: 2.5, borderTop: `1px solid ${COLORS.border}` }}>
             <Button variant="outlined" onClick={() => setFormDialogOpen(false)} sx={outlinedButtonSx}>Cancel</Button>
             <Button variant="contained" onClick={handleFormSubmit} disabled={saving} sx={primaryButtonSx}>
@@ -1879,6 +1874,7 @@ export default function TodayFollowups() {
           </MuiAlert>
         </Snackbar>
       </Box>
-    </Box>
+    <LeadActionDialog open={followupDialogOpen} lead={activeLead} onClose={() => setFollowupDialogOpen(false)} onSaved={fetchFollowups} />
+</Box>
   );
 }

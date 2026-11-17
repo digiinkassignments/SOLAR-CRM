@@ -1,3 +1,4 @@
+import useWorkspaceNavigate from "../../hooks/useWorkspaceNavigate";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -207,8 +208,8 @@ const formatDate = (value) => {
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-export default function BirthdayEvents() {
-  const navigate = useNavigate();
+export default function BirthdayEvents({ salesMode = false }) {
+  const navigate = useWorkspaceNavigate();
 
   // State
   const [events, setEvents] = useState([]);
@@ -412,7 +413,7 @@ export default function BirthdayEvents() {
             </Typography>
           </Stack>
           <Typography
-            onClick={() => navigate("/leads")}
+            onClick={() => navigate(salesMode ? "/sales/leads" : "/leads")}
             sx={{ fontSize: "0.75rem", fontWeight: 600, color: COLORS.textMuted, cursor: "pointer", "&:hover": { color: COLORS.primary } }}
           >
             Lead Management
@@ -508,7 +509,7 @@ export default function BirthdayEvents() {
             <Button
               variant="outlined"
               size="small"
-              onClick={() => navigate("/leads")}
+              onClick={() => navigate(salesMode ? "/sales/leads" : "/leads")}
               sx={outlinedButtonSx}
             >
               All Leads Directory
@@ -963,7 +964,7 @@ export default function BirthdayEvents() {
                   {/* 3 Column Details Layout */}
                   <Grid container spacing={2}>
                     {/* Column 1: Milestone Dates */}
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Stack spacing={0.8}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
                           <CalendarIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
@@ -982,7 +983,7 @@ export default function BirthdayEvents() {
                     </Grid>
 
                     {/* Column 2: Contact Details */}
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Stack spacing={0.8}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
                           <PhoneIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
@@ -1010,7 +1011,7 @@ export default function BirthdayEvents() {
                     </Grid>
 
                     {/* Column 3: Assignment & System */}
-                    <Grid item xs={12} sm={4}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Stack spacing={0.8}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
                           <PersonIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />

@@ -1,3 +1,4 @@
+import { loadReportLeads } from "../Reports/reportData";
 import React, { useState, useEffect, useMemo } from "react";
 import { getTeamMembers } from "../../services/userServices";
 import { getLeads } from "../../services/leadService";
@@ -73,7 +74,7 @@ const fetchData = async () => {
   try {
     const [teamRes, leadsRes] = await Promise.all([
       getTeamMembers(),
-      getLeads({ page: 1, limit: 5000 }),   // 👈 fix
+      loadReportLeads(),   // 👈 fix
     ]);
     setTeamMembers(teamRes?.data || teamRes || []);
     setLeads(leadsRes?.data || leadsRes || []);

@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import AmcPlanManager from '../../../../components/AmcPlanManager';
+import { AMC_FREQUENCIES } from '../../../../utils/amcPlans';
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import api from "../../../../api/axios";
 import {
   Box,
   Grid,
-  Card,
-  CardContent,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -30,7 +31,6 @@ import {
   TableHead,
   TableRow,
   Paper,
-  FormHelperText,
 } from "@mui/material";
 
 // Icons from @mui/icons-material
@@ -38,19 +38,12 @@ import VerifiedIcon from "@mui/icons-material/Verified";
 import EditIcon from "@mui/icons-material/Edit";
 import AddIcon from "@mui/icons-material/Add";
 import BuildIcon from "@mui/icons-material/Build";
-import HandymanIcon from "@mui/icons-material/Handyman";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import ShieldIcon from "@mui/icons-material/Shield";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import CloseIcon from "@mui/icons-material/Close";
 import SolarPowerIcon from "@mui/icons-material/SolarPower";
 import ElectricBoltIcon from "@mui/icons-material/ElectricBolt";
-import SupportAgentIcon from "@mui/icons-material/SupportAgent";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-import SmartphoneIcon from "@mui/icons-material/Smartphone";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
 
 const COLORS = {
@@ -83,7 +76,7 @@ const formatDate = (dateVal) => {
 };
 
 const addYearsToDate = (baseDateStr, years) => {
-  if (!baseDateStr) return "";
+  if (!baseDateStr || years === "" || years == null) return "";
   try {
     const d = new Date(baseDateStr);
     if (isNaN(d.getTime())) return "";
@@ -106,59 +99,23 @@ const addDaysToDate = (baseDateStr, days) => {
   }
 };
 
-const DEFAULT_SCHEDULED_VISITS = [
-  {
-    id: 1,
-    quarter: "Q1 Routine Service",
-    scheduled_date: "2027-02-12",
-    technician: "Amit Verma (Site Supervisor)",
-    scope: "Solar PV Module washing, string Voc verification, DC isolator & MCB screw torque check.",
-    status: "Completed",
-    completed_date: "2027-02-12",
-  },
-  {
-    id: 2,
-    quarter: "Q2 Pre-Monsoon Audit",
-    scheduled_date: "2027-05-12",
-    technician: "Rakesh Singh Shekhawat (QC Engineer)",
-    scope: "Earth resistance Megger test (<5 Ω), lightning arrestor bonding, roof waterproofing inspection.",
-    status: "Scheduled",
-    completed_date: null,
-  },
-  {
-    id: 3,
-    quarter: "Q3 Post-Monsoon Health Check",
-    scheduled_date: "2027-08-12",
-    technician: "Vikram Rathore (Project Lead)",
-    scope: "Thermal hot-spot scanning, inverter heat dissipation, cloud monitoring data logger sync.",
-    status: "Scheduled",
-    completed_date: null,
-  },
-  {
-    id: 4,
-    quarter: "Q4 Annual Comprehensive Audit",
-    scheduled_date: "2027-11-12",
-    technician: "Amit Verma (Site Supervisor)",
-    scope: "Annual Performance Ratio (PR) calculation, degradation verification, AMC renewal inspection.",
-    status: "Scheduled",
-    completed_date: null,
-  },
-];
-
 export default function WarrantyAMC({ project, projectId }) {
   const targetProjectId = project?.id || projectId;
 
-  // Defaults: Handover on 12 Nov 2026.
-  // 1st year free warranty: 12 Nov 2026 -> 11 Nov 2027
-  // Paid AMC begins 1 year after handover: 12 Nov 2027 -> 11 Nov 2028
-  const defaultWarrantyStart = "2026-11-12";
-  const defaultFreeServiceEnd = "2027-11-11";
-  const defaultAmcStart = "2027-11-12";
-  const defaultAmcEnd = "2028-11-11";
+  // Use the project's actual handover date when recorded; leave dates blank otherwise.
+  const defaultWarrantyStart = project?.completion_date?.split("T")[0] || "";
+  const defaultFreeServiceEnd = addDaysToDate(defaultWarrantyStart, 365);
 
+  const [companyPlans, setCompanyPlans] = useState([]);
+  const [planError, setPlanError] = useState('');
+  const loadPlans = useCallback(async () => {
+    try { const response = await api.get('/amc-plans'); setCompanyPlans(response.data.plans || []); setPlanError(''); }
+    catch { setPlanError('Could not load company AMC plans. Retry before selecting a plan.'); }
+  }, []);
+  useEffect(() => { loadPlans(); }, [loadPlans]);
   const [warrantyData, setWarrantyData] = useState(null);
   const [visits, setVisits] = useState([]);
-  const [scheduledVisits, setScheduledVisits] = useState(DEFAULT_SCHEDULED_VISITS);
+  const [scheduledVisits, setScheduledVisits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -169,38 +126,44 @@ export default function WarrantyAMC({ project, projectId }) {
 
   // Form State
   const [warrantyForm, setWarrantyForm] = useState({
-    warranty_certificate_no: `WAR-2026-${String(targetProjectId || 4).padStart(4, "0")}`,
+    warranty_certificate_no: `WAR-${new Date().getFullYear()}-${String(targetProjectId).padStart(4, "0")}`,
     warranty_start_date: defaultWarrantyStart,
     free_service_end_date: defaultFreeServiceEnd,
-    panel_product_warranty_years: 12,
-    panel_product_warranty_end: addYearsToDate(defaultWarrantyStart, 12),
-    panel_performance_warranty_years: 25,
-    panel_performance_warranty_end: addYearsToDate(defaultWarrantyStart, 25),
-    inverter_warranty_years: 5,
-    inverter_warranty_end: addYearsToDate(defaultWarrantyStart, 5),
-    installation_warranty_years: 5,
-    installation_warranty_end: addYearsToDate(defaultWarrantyStart, 5),
-    amc_start_date: defaultAmcStart,
-    amc_end_date: defaultAmcEnd,
-    amc_plan: "Standard",
-    amc_amount: 4500.0,
-    amc_payment_status: "Paid",
-    amc_renewal_date: defaultAmcEnd,
-    visit_frequency: "Quarterly",
-    panel_serial_numbers: "JKM550-2026-001 to JKM550-2026-010 (10x 550W Tier-1 Panels)",
-    inverter_serial_number: "SOL-5K-2026-8841 (5.0 kW Grid-Tied Inverter)",
-    monitoring_portal_url: "https://monitoring.solaxcloud.com",
-    monitoring_plant_id: "SOLAR-PLANT-004",
-    monitoring_username: "rajesh.sharma@solax",
-    warranty_docket_url: "https://diassignments.digiinksolutions.com/uploads/handover_dockets/DOCKET-PROJ-004-SIGNED.pdf",
+    panel_product_warranty_years: "",
+    panel_product_warranty_end: "",
+    panel_performance_warranty_years: "",
+    panel_performance_warranty_end: "",
+    inverter_warranty_years: "",
+    inverter_warranty_end: "",
+    installation_warranty_years: "",
+    installation_warranty_end: "",
+    amc_start_date: "",
+    amc_end_date: "",
+    amc_plan: "",
+    amc_plan_id: null,
+    amc_plan_snapshot: null,
+    amc_apply_plan: false,
+    amc_amount: "",
+    amc_payment_status: "",
+    amc_renewal_date: "",
+    visit_frequency: "",
+    panel_serial_numbers: "",
+    inverter_serial_number: "",
+    monitoring_portal_url: "",
+    monitoring_plant_id: "",
+    monitoring_username: "",
+    warranty_docket_url: "",
   });
+  const serviceVisitsPerYear = { Monthly: 12, Quarterly: 4, "Half-yearly": 2, Annual: 1 }[warrantyForm.visit_frequency] || 0;
+  const annualAmcFee = warrantyForm.amc_amount === "" ? null : Number(warrantyForm.amc_amount);
+  const amcFeePerVisit = serviceVisitsPerYear && annualAmcFee !== null ? annualAmcFee / serviceVisitsPerYear : null;
 
   const [newVisitForm, setNewVisitForm] = useState({
     visit_date: new Date().toISOString().split("T")[0],
-    technician: "Amit Verma (Site Supervisor)",
-    issue_reported: "Routine quarterly cleaning & electrical connection check",
-    resolution: "Cleaned panels with de-ionized water, verified string voltages, inverter operating normally.",
-    status: "Completed",
+    technician: "",
+    issue_reported: "",
+    resolution: "",
+    status: "Pending",
   });
 
   const getAuthHeader = () => {
@@ -212,7 +175,7 @@ export default function WarrantyAMC({ project, projectId }) {
   };
 
   const getApiUrl = (endpoint) => {
-    const base = import.meta.env.VITE_API_URL || "https://diassignments.digiinksolutions.com/api";
+    const base = api.defaults.baseURL || "/api";
     return `${base.replace(/\/$/, "")}${endpoint}`;
   };
 
@@ -235,38 +198,39 @@ export default function WarrantyAMC({ project, projectId }) {
       if (w) {
         setWarrantyData(w);
         const wStart = w.warranty_start_date ? w.warranty_start_date.split("T")[0] : defaultWarrantyStart;
-        const amcStart = w.amc_start_date ? w.amc_start_date.split("T")[0] : defaultAmcStart;
+        const amcStart = w.amc_start_date ? w.amc_start_date.split("T")[0] : "";
 
         setWarrantyForm({
-          warranty_certificate_no: w.warranty_certificate_no || `WAR-2026-${String(targetProjectId).padStart(4, "0")}`,
+          warranty_certificate_no: w.warranty_certificate_no || `WAR-${new Date().getFullYear()}-${String(targetProjectId).padStart(4, "0")}`,
           warranty_start_date: wStart,
           free_service_end_date: w.free_service_end_date ? w.free_service_end_date.split("T")[0] : addDaysToDate(wStart, 365),
-          panel_product_warranty_years: w.panel_product_warranty_years || 12,
-          panel_product_warranty_end: w.panel_product_warranty_end ? w.panel_product_warranty_end.split("T")[0] : addYearsToDate(wStart, 12),
-          panel_performance_warranty_years: w.panel_performance_warranty_years || 25,
-          panel_performance_warranty_end: w.panel_performance_warranty_end ? w.panel_performance_warranty_end.split("T")[0] : addYearsToDate(wStart, 25),
-          inverter_warranty_years: w.inverter_warranty_years || 5,
-          inverter_warranty_end: w.inverter_warranty_end ? w.inverter_warranty_end.split("T")[0] : addYearsToDate(wStart, 5),
-          installation_warranty_years: w.installation_warranty_years || 5,
-          installation_warranty_end: w.installation_warranty_end ? w.installation_warranty_end.split("T")[0] : addYearsToDate(wStart, 5),
+          panel_product_warranty_years: w.panel_product_warranty_years ?? "",
+          panel_product_warranty_end: w.panel_product_warranty_end ? w.panel_product_warranty_end.split("T")[0] : addYearsToDate(wStart, w.panel_product_warranty_years),
+          panel_performance_warranty_years: w.panel_performance_warranty_years ?? "",
+          panel_performance_warranty_end: w.panel_performance_warranty_end ? w.panel_performance_warranty_end.split("T")[0] : addYearsToDate(wStart, w.panel_performance_warranty_years),
+          inverter_warranty_years: w.inverter_warranty_years ?? "",
+          inverter_warranty_end: w.inverter_warranty_end ? w.inverter_warranty_end.split("T")[0] : addYearsToDate(wStart, w.inverter_warranty_years),
+          installation_warranty_years: w.installation_warranty_years ?? "",
+          installation_warranty_end: w.installation_warranty_end ? w.installation_warranty_end.split("T")[0] : addYearsToDate(wStart, w.installation_warranty_years),
           amc_start_date: amcStart,
-          amc_end_date: w.amc_end_date ? w.amc_end_date.split("T")[0] : addYearsToDate(amcStart, 1),
-          amc_plan: w.amc_plan || "Standard",
-          amc_amount: w.amc_amount || 4500.0,
-          amc_payment_status: w.amc_payment_status || "Paid",
-          amc_renewal_date: w.amc_renewal_date ? w.amc_renewal_date.split("T")[0] : addYearsToDate(amcStart, 1),
-          visit_frequency: w.visit_frequency || "Quarterly",
-          panel_serial_numbers: w.panel_serial_numbers || "JKM550-2026-001 to JKM550-2026-010 (10x 550W Tier-1 Panels)",
-          inverter_serial_number: w.inverter_serial_number || "SOL-5K-2026-8841 (5.0 kW Grid-Tied Inverter)",
-          monitoring_portal_url: w.monitoring_portal_url || "https://monitoring.solaxcloud.com",
-          monitoring_plant_id: w.monitoring_plant_id || "SOLAR-PLANT-004",
-          monitoring_username: w.monitoring_username || "rajesh.sharma@solax",
-          warranty_docket_url: w.warranty_docket_url || "https://diassignments.digiinksolutions.com/uploads/handover_dockets/DOCKET-PROJ-004-SIGNED.pdf",
+          amc_end_date: w.amc_end_date ? w.amc_end_date.split("T")[0] : "",
+          amc_plan: w.amc_plan || "",
+          amc_plan_id: w.amc_plan_id || null,
+          amc_plan_snapshot: w.amc_plan_snapshot || null,
+          amc_apply_plan: false,
+          amc_amount: w.amc_amount ?? "",
+          amc_payment_status: w.amc_payment_status || "",
+          amc_renewal_date: w.amc_renewal_date ? w.amc_renewal_date.split("T")[0] : "",
+          visit_frequency: w.visit_frequency || "",
+          panel_serial_numbers: w.panel_serial_numbers || "",
+          inverter_serial_number: w.inverter_serial_number || "",
+          monitoring_portal_url: w.monitoring_portal_url || "",
+          monitoring_plant_id: w.monitoring_plant_id || "",
+          monitoring_username: w.monitoring_username || "",
+          warranty_docket_url: w.warranty_docket_url || "",
         });
 
-        if (Array.isArray(w.scheduled_visits) && w.scheduled_visits.length > 0) {
-          setScheduledVisits(w.scheduled_visits);
-        }
+        setScheduledVisits(Array.isArray(w.scheduled_visits) ? w.scheduled_visits : []);
       }
       setVisits(v);
     } catch (err) {
@@ -274,7 +238,7 @@ export default function WarrantyAMC({ project, projectId }) {
     } finally {
       setLoading(false);
     }
-  }, [targetProjectId]);
+  }, [targetProjectId, defaultWarrantyStart]);
 
   useEffect(() => {
     fetchData();
@@ -285,7 +249,7 @@ export default function WarrantyAMC({ project, projectId }) {
     setWarrantyForm((prev) => {
       const freeEnd = addDaysToDate(newStart, 365);
       const amcStart = addDaysToDate(freeEnd, 1);
-      const amcEnd = addYearsToDate(amcStart, 1);
+      const amcEnd = planEndDate(amcStart, prev.amc_plan_snapshot?.term_months || 12);
       return {
         ...prev,
         warranty_start_date: newStart,
@@ -301,10 +265,28 @@ export default function WarrantyAMC({ project, projectId }) {
     });
   };
 
+  const planEndDate = (start, months) => {
+    if (!start) return '';
+    const [year, month, day] = start.split('-').map(Number);
+    const end = new Date(Date.UTC(year, month - 1 + Number(months), 1));
+    const lastDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate();
+    end.setUTCDate(Math.min(day, lastDay));
+    end.setUTCDate(end.getUTCDate() - 1);
+    return end.toISOString().slice(0, 10);
+  };
+  const selectPlan = id => {
+    const plan = companyPlans.find(p => Number(p.id) === Number(id) && Number(p.is_active));
+    if (!plan) return;
+    setWarrantyForm(prev => ({ ...prev, amc_plan: plan.name, amc_plan_id: plan.id,
+      amc_plan_version: plan.version, amc_apply_plan: true, amc_plan_snapshot: plan,
+      amc_amount: plan.annual_amount, visit_frequency: plan.visit_frequency,
+      amc_end_date: planEndDate(prev.amc_start_date, plan.term_months),
+      amc_renewal_date: planEndDate(prev.amc_start_date, plan.term_months) }));
+  };
   // Recalculate AMC end date when amc_start_date changes
   const handleAmcStartDateChange = (newStart) => {
     setWarrantyForm((prev) => {
-      const amcEnd = addYearsToDate(newStart, 1);
+      const amcEnd = planEndDate(newStart, prev.amc_plan_snapshot?.term_months || 12);
       return {
         ...prev,
         amc_start_date: newStart,
@@ -350,6 +332,12 @@ export default function WarrantyAMC({ project, projectId }) {
       const url = getApiUrl(`/projects/${targetProjectId}/warranty`);
       const payload = {
         ...warrantyForm,
+        amc_plan: warrantyForm.amc_plan || null,
+        amc_plan_id: warrantyForm.amc_plan_id || undefined,
+        amc_amount: warrantyForm.amc_amount === "" ? null : Number(warrantyForm.amc_amount),
+        amc_payment_status: warrantyForm.amc_payment_status || null,
+        amc_renewal_date: warrantyForm.amc_renewal_date || null,
+        visit_frequency: warrantyForm.visit_frequency || null,
         scheduled_visits: scheduledVisits,
       };
 
@@ -403,7 +391,7 @@ export default function WarrantyAMC({ project, projectId }) {
   }
 
   return (
-    <Box sx={{ p: { xs: 1.5, sm: 2.5 }, maxWidth: "1280px", margin: "0 auto" }}>
+    <Box sx={{ p: 0, width: "100%", minWidth: 0 }}>
       {bannerAlert && (
         <Alert
           severity={bannerAlert.severity}
@@ -427,13 +415,13 @@ export default function WarrantyAMC({ project, projectId }) {
       >
         <Stack
           direction={{ xs: "column", sm: "row" }}
-          justifyContent="space-between"
-          alignItems={{ xs: "flex-start", sm: "center" }}
+
+
           spacing={2}
-          sx={{ mb: 2 }}
+          sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", sm: "center" }, flexWrap: "wrap", mb: 2 }}
         >
-          <Box>
-            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 0.5 }}>
+          <Box sx={{ flex: "1 1 320px", minWidth: 0, maxWidth: "100%" }}>
+            <Stack direction="row"  spacing={1.5} sx={{alignItems: "center",  mb: 0.5 }}>
               <Box
                 sx={{
                   backgroundColor: "#ECFDF5",
@@ -447,10 +435,10 @@ export default function WarrantyAMC({ project, projectId }) {
                 <ShieldIcon sx={{ color: "#059669", fontSize: 24 }} />
               </Box>
               <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.textPrimary }}>
-                Stage 9: Warranty Certification & Annual Maintenance Contract (AMC)
+                Warranty & AMC
               </Typography>
               <Chip
-                label="Active (Free 1st Year)"
+                label={warrantyData ? "Warranty record saved" : "Not configured"}
                 size="small"
                 sx={{
                   fontWeight: 800,
@@ -462,11 +450,11 @@ export default function WarrantyAMC({ project, projectId }) {
               />
             </Stack>
             <Typography variant="body2" sx={{ color: COLORS.textSecondary, fontSize: "0.85rem" }}>
-              Multi-tier component guarantees, automated quarterly preventive maintenance schedules, and paid AMC contract lifecycle.
+              Component warranties, recorded service visits and company-defined AMC contracts.
             </Typography>
           </Box>
 
-          <Stack direction="row" spacing={1.5}>
+          <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap", maxWidth: "100%", minWidth: 0 }}>
             <Button
               variant="contained"
               startIcon={<EditIcon />}
@@ -504,51 +492,17 @@ export default function WarrantyAMC({ project, projectId }) {
           </Stack>
         </Stack>
 
-        {/* WORKFLOW PIPELINE BREADCRUMB WITH BACKDATED TIMELINE */}
-        <Box
-          sx={{
-            p: 1.5,
-            borderRadius: "10px",
-            backgroundColor: "#F1F5F9",
-            display: "flex",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 1,
-            fontSize: "0.75rem",
-            color: COLORS.textSecondary,
-          }}
-        >
-          <Typography component="span" sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.primary }}>
-            Verified Solar EPC Timeline:
-          </Typography>
-          <span>Pre-Install (25 Oct)</span>
-          <span>→</span>
-          <span>Procurement (28 Oct)</span>
-          <span>→</span>
-          <span>Installation (04 Nov)</span>
-          <span>→</span>
-          <span>Commissioning (08 Nov)</span>
-          <span>→</span>
-          <span>QC Pass (10 Nov)</span>
-          <span>→</span>
-          <span>Handover (12 Nov)</span>
-          <span>→</span>
-          <Chip
-            label="Warranty & AMC Active"
-            size="small"
-            sx={{
-              fontWeight: 800,
-              fontSize: "0.7rem",
-              backgroundColor: "#059669",
-              color: "#FFF",
-              height: 22,
-            }}
-          />
-          <span>→</span>
-          <span>Paid AMC Starts (12 Nov 2027)</span>
-        </Box>
+        <Alert severity="info" sx={{ mt: 2 }}>
+          Current project milestone: {project?.stage || "Not recorded"}. Check Stage History for saved changes and dates.
+        </Alert>
       </Paper>
 
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3, alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
+        <Typography variant="body2" color="text.secondary">AMC plans are defined by your company. Select a plan explicitly for each contract.</Typography>
+        <AmcPlanManager onChanged={loadPlans} />
+      </Stack>
+      {planError && <Alert severity="error" sx={{ mb: 2 }} action={<Button onClick={loadPlans}>Retry</Button>}>{planError}</Alert>}
+      {!warrantyData && <Alert severity="info" sx={{ mb: 3 }}>No warranty or AMC record has been saved. Values below are draft setup values; confirm dates, terms and hardware details before saving.</Alert>}
       {/* ASSET IDENTIFICATION & CERTIFICATE CARD */}
       <Paper
         elevation={0}
@@ -561,8 +515,8 @@ export default function WarrantyAMC({ project, projectId }) {
         }}
       >
         <Grid container spacing={2} alignItems="center">
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Stack direction="row" spacing={1.5} alignItems="center">
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <Stack sx={{ alignItems: "center" }} direction="row" spacing={1.5} >
               <Box sx={{ p: 1, borderRadius: "8px", backgroundColor: "#EFF6FF" }}>
                 <VerifiedIcon sx={{ color: "#2563EB" }} />
               </Box>
@@ -577,40 +531,20 @@ export default function WarrantyAMC({ project, projectId }) {
             </Stack>
           </Grid>
 
-          <Grid size={{ xs: 6, sm: 6, md: 3 }}>
+          <Grid size={{ xs: 6, sm: 6, md: 4 }}>
             <Typography sx={{ fontSize: "0.7rem", color: COLORS.textSecondary }}>Warranty Start Date</Typography>
             <Typography variant="body2" sx={{ fontWeight: 800, color: COLORS.textPrimary }}>
               {formatDate(warrantyForm.warranty_start_date)}
             </Typography>
           </Grid>
 
-          <Grid size={{ xs: 6, sm: 6, md: 3 }}>
+          <Grid size={{ xs: 6, sm: 6, md: 4 }}>
             <Typography sx={{ fontSize: "0.7rem", color: COLORS.textSecondary }}>Free 1st-Year Service</Typography>
             <Typography variant="body2" sx={{ fontWeight: 800, color: "#059669" }}>
               Ends {formatDate(warrantyForm.free_service_end_date)}
             </Typography>
           </Grid>
 
-          <Grid size={{ xs: 12, sm: 6, md: 3 }} sx={{ textAlign: { xs: "left", md: "right" } }}>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<PictureAsPdfIcon sx={{ color: "#DC2626" }} />}
-              endIcon={<OpenInNewIcon sx={{ fontSize: 13 }} />}
-              href={warrantyForm.warranty_docket_url}
-              target="_blank"
-              rel="noreferrer"
-              sx={{
-                fontSize: "0.75rem",
-                fontWeight: 700,
-                textTransform: "none",
-                borderColor: COLORS.border,
-                color: COLORS.primary,
-              }}
-            >
-              View Signed Docket
-            </Button>
-          </Grid>
         </Grid>
 
         <Divider sx={{ my: 2 }} />
@@ -644,7 +578,7 @@ export default function WarrantyAMC({ project, projectId }) {
                   Plant ID: <strong>{warrantyForm.monitoring_plant_id}</strong> | User: <strong>{warrantyForm.monitoring_username}</strong>
                 </Typography>
               </Box>
-              <Chip label="Connected" size="small" sx={{ height: 20, fontSize: "0.68rem", fontWeight: 800, backgroundColor: "#DCFCE7", color: "#166534" }} />
+              <Chip label={warrantyForm.monitoring_portal_url ? "Portal recorded" : "Not configured"} size="small" sx={{ height: 20, fontSize: "0.68rem", fontWeight: 800, backgroundColor: "#DCFCE7", color: "#166534" }} />
             </Box>
           </Grid>
         </Grid>
@@ -679,14 +613,14 @@ export default function WarrantyAMC({ project, projectId }) {
                 borderTop: "4px solid #0284C7",
               }}
             >
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+              <Stack direction="row" spacing={1}  sx={{alignItems: "center",  mb: 1 }}>
                 <SolarPowerIcon sx={{ color: "#0284C7", fontSize: 20 }} />
                 <Typography sx={{ fontWeight: 800, fontSize: "0.85rem", color: COLORS.textPrimary }}>
                   Panel Product Warranty
                 </Typography>
               </Stack>
               <Typography sx={{ fontSize: "1.2rem", fontWeight: 900, color: COLORS.primary }}>
-                {warrantyForm.panel_product_warranty_years} Years
+                {warrantyForm.panel_product_warranty_years ? `${warrantyForm.panel_product_warranty_years} Years` : "Not set"}
               </Typography>
               <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mb: 1 }}>
                 Materials & Manufacturing Workmanship
@@ -714,14 +648,14 @@ export default function WarrantyAMC({ project, projectId }) {
                 borderTop: "4px solid #2563EB",
               }}
             >
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+              <Stack direction="row" spacing={1}  sx={{alignItems: "center",  mb: 1 }}>
                 <FactCheckIcon sx={{ color: "#2563EB", fontSize: 20 }} />
                 <Typography sx={{ fontWeight: 800, fontSize: "0.85rem", color: COLORS.textPrimary }}>
                   Panel Power Performance
                 </Typography>
               </Stack>
               <Typography sx={{ fontSize: "1.2rem", fontWeight: 900, color: COLORS.primary }}>
-                {warrantyForm.panel_performance_warranty_years} Years
+                {warrantyForm.panel_performance_warranty_years ? `${warrantyForm.panel_performance_warranty_years} Years` : "Not set"}
               </Typography>
               <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mb: 1 }}>
                 Linear Retention Guarantee (&gt;84.8% at 25y)
@@ -749,14 +683,14 @@ export default function WarrantyAMC({ project, projectId }) {
                 borderTop: "4px solid #D97706",
               }}
             >
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+              <Stack direction="row" spacing={1}  sx={{alignItems: "center",  mb: 1 }}>
                 <ElectricBoltIcon sx={{ color: "#D97706", fontSize: 20 }} />
                 <Typography sx={{ fontWeight: 800, fontSize: "0.85rem", color: COLORS.textPrimary }}>
                   Grid Inverter Warranty
                 </Typography>
               </Stack>
               <Typography sx={{ fontSize: "1.2rem", fontWeight: 900, color: COLORS.primary }}>
-                {warrantyForm.inverter_warranty_years} Years
+                {warrantyForm.inverter_warranty_years ? `${warrantyForm.inverter_warranty_years} Years` : "Not set"}
               </Typography>
               <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mb: 1 }}>
                 OEM Inverter Hardware Replacement
@@ -784,14 +718,14 @@ export default function WarrantyAMC({ project, projectId }) {
                 borderTop: "4px solid #059669",
               }}
             >
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+              <Stack direction="row" spacing={1}  sx={{alignItems: "center",  mb: 1 }}>
                 <BuildIcon sx={{ color: "#059669", fontSize: 20 }} />
                 <Typography sx={{ fontWeight: 800, fontSize: "0.85rem", color: COLORS.textPrimary }}>
                   EPC Installation Warranty
                 </Typography>
               </Stack>
               <Typography sx={{ fontSize: "1.2rem", fontWeight: 900, color: COLORS.primary }}>
-                {warrantyForm.installation_warranty_years} Years
+                {warrantyForm.installation_warranty_years ? `${warrantyForm.installation_warranty_years} Years` : "Not set"}
               </Typography>
               <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mb: 1 }}>
                 GI Rooftop Structure & Waterproofing
@@ -819,18 +753,13 @@ export default function WarrantyAMC({ project, projectId }) {
           backgroundColor: COLORS.cardBg,
         }}
       >
-        <Typography
-          sx={{
-            fontSize: "0.8rem",
-            fontWeight: 800,
-            color: COLORS.primary,
-            textTransform: "uppercase",
-            letterSpacing: "0.04em",
-            mb: 1.5,
-          }}
-        >
-          Paid Annual Maintenance Contract (Starts Post Free Period: {formatDate(warrantyForm.amc_start_date)})
-        </Typography>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ alignItems: { xs: "stretch", sm: "center" }, justifyContent: "space-between", mb: 1.5 }}>
+          <Box>
+            <Typography sx={{ fontSize: "0.8rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase", letterSpacing: "0.04em" }}>Paid Annual Maintenance Contract</Typography>
+            <Typography sx={{ fontSize: "0.74rem", color: COLORS.textSecondary, mt: 0.35 }}>Starts after the free-service period. Confirm plan, pricing and term before saving.</Typography>
+          </Box>
+          <Button variant="outlined" size="small" startIcon={<EditIcon />} onClick={() => setWarrantyModalOpen(true)} sx={{ alignSelf: { xs: "flex-start", sm: "center" }, textTransform: "none", fontWeight: 700, borderColor: COLORS.border, color: COLORS.primary, whiteSpace: "nowrap" }}>Edit AMC details</Button>
+        </Stack>
 
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 4 }}>
@@ -838,19 +767,18 @@ export default function WarrantyAMC({ project, projectId }) {
               <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted, textTransform: "uppercase", fontWeight: 800 }}>
                 Selected Plan
               </Typography>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5, mb: 1 }}>
+              <Stack direction="row" spacing={1}  sx={{alignItems: "center",  mt: 0.5, mb: 1 }}>
                 <Typography variant="h6" sx={{ fontWeight: 900, color: COLORS.primary }}>
-                  {warrantyForm.amc_plan} AMC Plan
+                  {warrantyForm.amc_plan ? warrantyForm.amc_plan : "Plan not selected"}
                 </Typography>
-                <Chip label={warrantyForm.visit_frequency} size="small" sx={{ fontWeight: 800, height: 22 }} />
+                {warrantyForm.visit_frequency && <Chip label={warrantyForm.visit_frequency} size="small" sx={{ fontWeight: 800, height: 22 }} />}
               </Stack>
-              <Typography sx={{ fontSize: "0.75rem", color: COLORS.textSecondary, lineHeight: 1.5 }}>
-                {warrantyForm.amc_plan === "Basic"
-                  ? "Covers quarterly module washing & dust cleaning only."
-                  : warrantyForm.amc_plan === "Premium"
-                  ? "Comprehensive: Cleaning + Inverter diagnostics + Consumables replacement (MCB/fuses) + Earth pit treatment + 24hr priority breakdown."
-                  : "Standard: Module washing + Inverter health inspection + Electrical terminal torque & generation performance audit."}
+              <Typography sx={{ fontSize: "0.75rem", color: COLORS.textSecondary, lineHeight: 1.5, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                {warrantyForm.amc_plan_snapshot?.coverage || (warrantyForm.amc_plan
+                  ? 'Legacy contract: coverage was not recorded. Review the agreed terms before selecting a company plan.'
+                  : 'No plan selected. Create company plans and select one in Edit AMC details.')}
               </Typography>
+              {warrantyForm.amc_plan_snapshot?.exclusions && <Typography variant="caption" sx={{ display: 'block', mt: 1, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>Exclusions: {warrantyForm.amc_plan_snapshot.exclusions}</Typography>}
             </Box>
           </Grid>
 
@@ -860,18 +788,19 @@ export default function WarrantyAMC({ project, projectId }) {
                 Commercial Terms & Fee
               </Typography>
               <Typography variant="h6" sx={{ fontWeight: 900, color: COLORS.primary, mt: 0.5 }}>
-                ₹{Number(warrantyForm.amc_amount || 4500).toLocaleString("en-IN")}{" "}
+                {warrantyForm.amc_amount === "" ? "Not set" : `₹${Number(warrantyForm.amc_amount).toLocaleString("en-IN")}`}{" "}
                 <span style={{ fontSize: "0.75rem", fontWeight: 600, color: COLORS.textMuted }}>/ year</span>
               </Typography>
               <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mt: 0.5 }}>
-                Calculated for 5.45 kW system (₹1,125 per quarterly visit)
+                {Number(project?.system_capacity_kw) > 0 ? `Calculated for ${Number(project.system_capacity_kw).toLocaleString("en-IN")} kW system` : "System capacity not recorded"}
+                {amcFeePerVisit !== null && serviceVisitsPerYear ? ` · ₹${amcFeePerVisit.toLocaleString("en-IN", { maximumFractionDigits: 2 })} per ${warrantyForm.visit_frequency.toLowerCase()} visit` : " · Per-visit fee not calculated"}
               </Typography>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5 }}>
+              <Stack direction="row" spacing={1}  sx={{alignItems: "center",  mt: 1.5 }}>
                 <Chip
-                  icon={<CheckCircleIcon />}
-                  label={`Payment Status: ${warrantyForm.amc_payment_status}`}
+                  icon={warrantyForm.amc_payment_status === "Paid" ? <CheckCircleIcon /> : undefined}
+                  label={`Payment Status: ${warrantyForm.amc_payment_status || "Not set"}`}
                   size="small"
-                  sx={{ fontWeight: 800, backgroundColor: "#DCFCE7", color: "#166534" }}
+                  sx={{ fontWeight: 800, backgroundColor: warrantyForm.amc_payment_status === "Paid" ? "#DCFCE7" : "#F1F5F9", color: warrantyForm.amc_payment_status === "Paid" ? "#166534" : COLORS.textSecondary }}
                 />
               </Stack>
             </Box>
@@ -883,13 +812,13 @@ export default function WarrantyAMC({ project, projectId }) {
                 Contract Term & Renewal
               </Typography>
               <Typography sx={{ fontSize: "0.82rem", fontWeight: 800, color: COLORS.textPrimary, mt: 0.5 }}>
-                Effective: {formatDate(warrantyForm.amc_start_date)} — {formatDate(warrantyForm.amc_end_date)}
+                Effective: {warrantyForm.amc_start_date && warrantyForm.amc_end_date ? `${formatDate(warrantyForm.amc_start_date)} — ${formatDate(warrantyForm.amc_end_date)}` : "Term not set"}
               </Typography>
               <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mt: 0.5 }}>
-                Renewal Date: <strong>{formatDate(warrantyForm.amc_renewal_date)}</strong>
+                Renewal Date: <strong>{warrantyForm.amc_renewal_date ? formatDate(warrantyForm.amc_renewal_date) : "Not set"}</strong>
               </Typography>
               <Alert severity="info" sx={{ mt: 1.5, py: 0.2, px: 1, fontSize: "0.72rem" }}>
-                Auto Reminder: Renewal invoice will trigger 30 days prior to contract expiry.
+                Review the renewal date and arrange the next AMC invoice with your finance team.
               </Alert>
             </Box>
           </Grid>
@@ -907,13 +836,13 @@ export default function WarrantyAMC({ project, projectId }) {
           backgroundColor: COLORS.cardBg,
         }}
       >
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+        <Stack direction="row"   sx={{justifyContent: "space-between", alignItems: "center",  mb: 2 }}>
           <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 800, color: COLORS.textPrimary }}>
-              Preventive Maintenance Visit Schedule (4 Quarterly Visits)
+              Preventive maintenance schedule
             </Typography>
             <Typography variant="body2" sx={{ color: COLORS.textSecondary, fontSize: "0.75rem" }}>
-              Automated service intervals with technical scope. Click status to mark visits Done.
+              Saved service intervals and technical scope. Click a status to update a scheduled visit.
             </Typography>
           </Box>
         </Stack>
@@ -922,7 +851,7 @@ export default function WarrantyAMC({ project, projectId }) {
           <Table size="small">
             <TableHead sx={{ backgroundColor: "#F8FAFC" }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", color: COLORS.textPrimary }}>Quarter / Milestone</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", color: COLORS.textPrimary }}>Service milestone</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", color: COLORS.textPrimary }}>Scheduled Date</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", color: COLORS.textPrimary }}>Assigned Engineer</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", color: COLORS.textPrimary }}>Preventive Maintenance Scope</TableCell>
@@ -930,6 +859,7 @@ export default function WarrantyAMC({ project, projectId }) {
               </TableRow>
             </TableHead>
             <TableBody>
+              {scheduledVisits.length === 0 && <TableRow><TableCell colSpan={5}>No maintenance visits have been scheduled.</TableCell></TableRow>}
               {scheduledVisits.map((v) => (
                 <TableRow key={v.id} sx={{ "&:hover": { backgroundColor: "#F8FAFC" } }}>
                   <TableCell sx={{ fontWeight: 800, fontSize: "0.8rem", color: COLORS.primary }}>
@@ -1034,7 +964,7 @@ export default function WarrantyAMC({ project, projectId }) {
           }}
         >
           Update Warranty Certification & Annual Maintenance Contract
-          <IconButton size="small" onClick={() => setWarrantyModalOpen(false)} disabled={saving}>
+          <IconButton size="small" onClick={() => { if (!saving) { setWarrantyModalOpen(false); fetchData(); } }} disabled={saving}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
@@ -1076,7 +1006,7 @@ export default function WarrantyAMC({ project, projectId }) {
                     type="date"
                     required
                     value={warrantyForm.warranty_start_date}
-                    helperText="Starts on Handover Date (12 Nov 2026)"
+                    helperText="Set the actual warranty commencement date"
                     onChange={(e) => handleWarrantyStartDateChange(e.target.value)}
                   />
                 </Grid>
@@ -1091,7 +1021,7 @@ export default function WarrantyAMC({ project, projectId }) {
                     type="date"
                     required
                     value={warrantyForm.free_service_end_date}
-                    helperText="1 Year from Handover (11 Nov 2027)"
+                    helperText="Confirm the contractual free-service end date"
                     onChange={(e) => setWarrantyForm({ ...warrantyForm, free_service_end_date: e.target.value })}
                   />
                 </Grid>
@@ -1217,6 +1147,14 @@ export default function WarrantyAMC({ project, projectId }) {
               >
                 3. Paid Annual Maintenance Contract (AMC) Setup
               </Typography>
+              <Box sx={{ mb: 2 }}><AmcPlanManager onChanged={loadPlans} /></Box>
+              {!companyPlans.some(p => Number(p.is_active)) && <Alert severity="info" sx={{ mb: 2 }}>No active company plans. Create a plan before selecting a new AMC contract.</Alert>}
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Selecting a plan copies its fee, service frequency and term. Review the contract amount and dates before saving.</Typography>
+
+              {warrantyForm.amc_plan_snapshot && <Alert severity="info" sx={{ mb: 2, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                <strong>{warrantyForm.amc_plan}</strong><br />{warrantyForm.amc_plan_snapshot.coverage}
+                {warrantyForm.amc_plan_snapshot.exclusions && <><br />Exclusions: {warrantyForm.amc_plan_snapshot.exclusions}</>}
+              </Alert>}
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 4 }}>
                   <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textSecondary, mb: 0.6 }}>
@@ -1243,7 +1181,7 @@ export default function WarrantyAMC({ project, projectId }) {
                     type="date"
                     required
                     value={warrantyForm.amc_end_date}
-                    helperText="Auto calculated 1 year"
+                    helperText="Calculated from the selected plan term; editable"
                     onChange={(e) => setWarrantyForm({ ...warrantyForm, amc_end_date: e.target.value })}
                   />
                 </Grid>
@@ -1267,16 +1205,23 @@ export default function WarrantyAMC({ project, projectId }) {
                     <Select
                       labelId="amc-plan-label"
                       label="AMC Plan Coverage *"
-                      value={warrantyForm.amc_plan}
-                      onChange={(e) => {
-                        const plan = e.target.value;
-                        const amt = plan === "Basic" ? 3000 : plan === "Premium" ? 7500 : 4500;
-                        setWarrantyForm({ ...warrantyForm, amc_plan: plan, amc_amount: amt });
-                      }}
+                      value={warrantyForm.amc_plan_id || (warrantyForm.amc_plan ? 'legacy' : '')}
+                      onChange={(e) => selectPlan(e.target.value)}
                     >
-                      <MenuItem value="Basic">Basic (Cleaning Only - ₹3,000/yr)</MenuItem>
-                      <MenuItem value="Standard">Standard (Cleaning + Inspection - ₹4,500/yr)</MenuItem>
-                      <MenuItem value="Premium">Premium (Cleaning + Inspection + Parts - ₹7,500/yr)</MenuItem>
+                      <MenuItem value="" disabled>Select company AMC plan</MenuItem>
+                      {warrantyForm.amc_plan && !warrantyForm.amc_plan_id && <MenuItem value="legacy">{warrantyForm.amc_plan} (existing contract)</MenuItem>}
+                      {warrantyForm.amc_plan_id && !companyPlans.some(p => Number(p.id) === Number(warrantyForm.amc_plan_id) && Number(p.is_active)) && <MenuItem value={warrantyForm.amc_plan_id}>{warrantyForm.amc_plan} (saved contract)</MenuItem>}
+                      {companyPlans.filter(p => Number(p.is_active)).map(p => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="amc-frequency-label">Service Frequency</InputLabel>
+                    <Select labelId="amc-frequency-label" label="Service Frequency" value={warrantyForm.visit_frequency} onChange={(e) => setWarrantyForm({ ...warrantyForm, visit_frequency: e.target.value })}>
+                      <MenuItem value="">Not set</MenuItem>
+                      {AMC_FREQUENCIES.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
                     </Select>
                   </FormControl>
                 </Grid>
@@ -1294,13 +1239,14 @@ export default function WarrantyAMC({ project, projectId }) {
 
                 <Grid size={{ xs: 12, sm: 4 }}>
                   <FormControl fullWidth size="small">
-                    <InputLabel id="amc-pay-label">AMC Payment Status *</InputLabel>
+                    <InputLabel id="amc-pay-label">AMC Payment Status</InputLabel>
                     <Select
                       labelId="amc-pay-label"
-                      label="AMC Payment Status *"
+                      label="AMC Payment Status"
                       value={warrantyForm.amc_payment_status}
                       onChange={(e) => setWarrantyForm({ ...warrantyForm, amc_payment_status: e.target.value })}
                     >
+                      <MenuItem value="">Select status</MenuItem>
                       <MenuItem value="Paid">Paid (Confirmed)</MenuItem>
                       <MenuItem value="Pending">Pending Payment</MenuItem>
                       <MenuItem value="Due">Due for Renewal</MenuItem>
@@ -1383,7 +1329,7 @@ export default function WarrantyAMC({ project, projectId }) {
 
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button
-            onClick={() => setWarrantyModalOpen(false)}
+            onClick={() => { if (!saving) { setWarrantyModalOpen(false); fetchData(); } }}
             disabled={saving}
             sx={{ textTransform: "none", fontWeight: 600, color: COLORS.textSecondary }}
           >

@@ -190,6 +190,10 @@ const createUserController = async (req, res) => {
 // ======================================
 const getUsersController = async (req, res) => {
     try {
+        if (Number(req.user.role_id) === 2) {
+            const data = await getTeamMembersByManager(req.user.id, req.db);
+            return res.json({ success: true, data, pagination: { page: 1, limit: data.length, totalRecords: data.length, totalPages: 1 } });
+        }
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const search = req.query.search || "";

@@ -1717,7 +1717,7 @@ const Users = () => {
             {loading ? (
               <Grid container spacing={2}>
                 {Array.from(new Array(6)).map((_, idx) => (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={idx}>
+                  <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={idx}>
                     <Paper elevation={0} sx={{ ...cardSx, p: 2, borderRadius: "12px" }}>
                       <Box sx={{ display: "flex", gap: 1.5, mb: 1.5 }}>
                         <Skeleton variant="circular" width={44} height={44} />
@@ -1779,7 +1779,7 @@ const Users = () => {
                       String(user.id) === String(currentUserId);
 
                     return (
-                      <Grid item xs={12} sm={6} md={4} lg={3} key={user.id}>
+                      <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={user.id}>
                         <Paper
                           elevation={0}
                           sx={{
@@ -1904,12 +1904,12 @@ const Users = () => {
                           </Box>
 
                           {/* Card Action Buttons */}
-                          <Box sx={{ pt: 1.2, borderTop: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1 }}>
-                            <Typography sx={{ fontSize: "0.68rem", color: COLORS.textMuted, fontWeight: 600 }}>
+                          <Box sx={{ pt: 1.2, borderTop: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", columnGap: 1, rowGap: 0.75, mt: 1 }}>
+                            <Typography sx={{ fontSize: "0.68rem", color: COLORS.textMuted, fontWeight: 600, flex: "1 1 120px", whiteSpace: "nowrap" }}>
                               Joined {formatDate(user.created_at)}
                             </Typography>
 
-                            <Stack direction="row" alignItems="center" gap={0.4}>
+                            <Stack direction="row" alignItems="center" gap={0.4} sx={{ flexShrink: 0 }}>
                               <Tooltip title="View Details">
                                 <IconButton
                                   size="small"
@@ -2035,7 +2035,7 @@ const Users = () => {
               <SectionTitle>Basic Information</SectionTitle>
               
               <Grid container spacing={1.5}>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FieldLabel>Full Name *</FieldLabel>
                   <TextField
                     fullWidth
@@ -2049,7 +2049,7 @@ const Users = () => {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FieldLabel>Username *</FieldLabel>
                   <TextField
                     fullWidth
@@ -2063,7 +2063,7 @@ const Users = () => {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FieldLabel>Email Address *</FieldLabel>
                   <TextField
                     fullWidth
@@ -2078,7 +2078,7 @@ const Users = () => {
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FieldLabel>Phone Number *</FieldLabel>
                   <TextField
                     fullWidth
@@ -2096,7 +2096,7 @@ const Users = () => {
               <SectionTitle>Role &amp; Reporting</SectionTitle>
 
               <Grid container spacing={1.5}>
-                <Grid item xs={12} sm={Number(userForm.role_id) === ROLE_SALES ? 6 : 12}>
+                <Grid size={{ xs: 12, sm: Number(userForm.role_id) === ROLE_SALES ? 6 : 12 }}>
                   <FieldLabel>Assign Role *</FieldLabel>
                   <Select
                     fullWidth
@@ -2126,7 +2126,7 @@ const Users = () => {
                 </Grid>
 
                 {Number(userForm.role_id) === ROLE_SALES && (
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <FieldLabel>Reporting Manager *</FieldLabel>
                     <Select
                       fullWidth
@@ -2165,7 +2165,7 @@ const Users = () => {
                   <SectionTitle>Security Credentials</SectionTitle>
 
                   <Grid container spacing={1.5}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <FieldLabel>Password *</FieldLabel>
                       <TextField
                         fullWidth
@@ -2189,7 +2189,7 @@ const Users = () => {
                       />
                     </Grid>
 
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <FieldLabel>Confirm Password *</FieldLabel>
                       <TextField
                         fullWidth

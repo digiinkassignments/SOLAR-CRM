@@ -36,6 +36,10 @@ const applySubsidyHandler = async (req, res) => {
       });
     }
 
+    const capacity = req.body.sanctioned_capacity_kw;
+    if (capacity !== undefined && capacity !== null && capacity !== "" && (typeof capacity === "boolean" || !/^\d+(\.\d{1,3})?$/.test(String(capacity)) || Number(capacity) <= 0 || Number(capacity) > 9999999.999)) {
+      return res.status(400).json({ success: false, message: "Sanctioned capacity must be a positive kW value with up to 3 decimal places." });
+    }
     const result = await subsidyModel.applySubsidy(req.body, req.db);
     return res.status(200).json({
       success: true,
@@ -92,6 +96,7 @@ const uploadDocHandler = async (req, res) => {
 
     try {
       const { lead_id, document_type } = req.body;
+      if(Number(req.user.role_id)===2 && !await require('../services/salesWorkflow').scopedLead(req.db,lead_id,req.user))return res.status(404).json({success:false,message:'Lead not found in your sales team.'});
       if (!lead_id || !document_type) {
         return res.status(400).json({
           success: false,

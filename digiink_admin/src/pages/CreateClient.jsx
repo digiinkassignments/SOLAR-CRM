@@ -109,7 +109,7 @@ const CreateClient = () => {
       const res = await api.post("/clients", form);
       const data = res.data?.data;
       setSuccess(
-        `Client provisioned successfully! Subdomain: ${data.subdomain}.digiinksolutions.com | Temp Password: ${data.tempPassword}`
+        `Client provisioned successfully! Subdomain: ${data.subdomain}.solops.cloud | Temp Password: ${data.tempPassword}`
       );
       setTimeout(() => navigate("/clients"), 4000);
     } catch (err) {
@@ -366,7 +366,7 @@ const CreateClient = () => {
                 size="small"
                 helperText={
                   form.subdomain
-                    ? `Tenant Route: https://${form.subdomain}.digiinksolutions.com`
+                    ? `Tenant Route: https://${form.subdomain}.solops.cloud`
                     : "Auto-generated slug based on business name"
                 }
                 InputProps={{

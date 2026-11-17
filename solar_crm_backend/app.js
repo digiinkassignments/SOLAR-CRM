@@ -6,7 +6,7 @@ const app = express();
 
 // ── Middlewares ──────────────────────────────────────────────
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ verify: (req, res, buffer) => { if (req.originalUrl.startsWith("/api/integrations/webhooks/")) req.integrationRawBody = Buffer.from(buffer); } }));
 app.use(express.urlencoded({ extended: true }));
 
 // ── Static Uploads ───────────────────────────────────────────
@@ -25,6 +25,9 @@ app.use((req, res, next) => {
 });
 
 // ── Route Imports (existing) ─────────────────────────────────
+app.use(require("./middleware/managerContext"));
+app.use(require("./middleware/engineerContext"));
+
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const profileRoutes = require("./routes/profileRoutes");
@@ -57,7 +60,12 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/integrations", require("./routes/integrationRoutes"));
 app.use("/api/leads", leadRoutes);
+app.use("/api/amc-plans", require("./routes/amcPlanRoutes"));
+app.use("/api/field-work", require("./routes/fieldWorkRoutes"));
+app.use("/api/sales-workflow", require("./routes/salesWorkflowRoutes"));
+app.use("/api/quotation-governance", require("./routes/quotationGovernanceRoutes"));
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/custom-fields", require("./routes/customFieldRoutes"));
 app.use("/api/lead-config", require("./routes/leadConfigRoutes"));

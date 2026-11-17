@@ -975,7 +975,7 @@ export default function InstallationProgress({ project, projectId }) {
         <Grid container spacing={2.5} alignItems="center">
           {/* Left stats info */}
           <Grid size={{ xs: 12, md: 7 }}>
-            <Stack direction="row" alignItems="center" gap={1.2} sx={{ mb: 0.5 }}>
+            <Stack direction="row"   sx={{alignItems: "center", gap: 1.2,  mb: 0.5 }}>
               <ConstructionIcon sx={{ color: COLORS.secondary, fontSize: 24 }} />
               <Typography sx={{ fontSize: "1.05rem", fontWeight: 800, color: COLORS.textPrimary }}>
                 Installation Execution & Daily Site Progress
@@ -991,7 +991,7 @@ export default function InstallationProgress({ project, projectId }) {
                 <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Start Date
                 </Typography>
-                <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.3 }}>
+                <Stack direction="row"   sx={{alignItems: "center", gap: 0.6,  mt: 0.3 }}>
                   <CalendarTodayIcon sx={{ fontSize: 13, color: COLORS.textSecondary }} />
                   <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: COLORS.textPrimary }}>
                     {formatCleanDate(autoStartDate)}
@@ -1007,7 +1007,7 @@ export default function InstallationProgress({ project, projectId }) {
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, mt: 0.3, flexWrap: "wrap" }}>
                   {localProjectDates.end ? (
                     <>
-                      <Stack direction="row" alignItems="center" gap={0.5}>
+                      <Stack sx={{ alignItems: "center", gap: 0.5 }} direction="row"  >
                         <CalendarTodayIcon sx={{ fontSize: 14, color: COLORS.textSecondary }} />
                         <Typography sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.textPrimary }}>
                           {formatCleanDate(localProjectDates.end)}
@@ -1166,7 +1166,7 @@ export default function InstallationProgress({ project, projectId }) {
                     }}
                   >
                     <Box>
-                      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.2 }}>
+                      <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mb: 1.2 }}>
                         <Box
                           sx={{
                             width: 26,
@@ -1235,7 +1235,7 @@ export default function InstallationProgress({ project, projectId }) {
       {/* 2. DAILY PROGRESS LOGS LIST                                    */}
       {/* ============================================================== */}
       <Box sx={{ mb: 4 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+        <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mb: 2 }}>
           <Typography sx={{ fontSize: "1.05rem", fontWeight: 800, color: COLORS.textPrimary }}>
             Daily Field Logs & Timeline ({logs.length})
           </Typography>
@@ -1401,7 +1401,7 @@ export default function InstallationProgress({ project, projectId }) {
                         )}
                       </Box>
 
-                      <Stack direction="row" alignItems="center" gap={1}>
+                      <Stack sx={{ alignItems: "center", gap: 1 }} direction="row"  >
                         <IconButton
                           size="small"
                           onClick={() => handleOpenEditModal(log)}
@@ -1430,7 +1430,7 @@ export default function InstallationProgress({ project, projectId }) {
                           <Inventory2OutlinedIcon sx={{ fontSize: 14 }} />
                           Materials Consumed on Site
                         </Typography>
-                        <Stack direction="row" flexWrap="wrap" gap={1}>
+                        <Stack sx={{ flexWrap: "wrap", gap: 1 }} direction="row"  >
                           {materials.map((m, mIdx) => (
                             <Box
                               key={mIdx}
@@ -1476,14 +1476,14 @@ export default function InstallationProgress({ project, projectId }) {
                         </Typography>
                       )}
 
-                      <Stack direction="row" alignItems="center" gap={0.5}>
+                      <Stack sx={{ alignItems: "center", gap: 0.5 }} direction="row"  >
                         <PeopleIcon sx={{ fontSize: 15, color: COLORS.textSecondary }} />
                         <Typography sx={{ fontSize: "0.75rem", color: COLORS.textSecondary }}>
                           Workers: <strong>{log.workers_count || 0}</strong>
                         </Typography>
                       </Stack>
 
-                      <Stack direction="row" alignItems="center" gap={0.5}>
+                      <Stack sx={{ alignItems: "center", gap: 0.5 }} direction="row"  >
                         <AccessTimeIcon sx={{ fontSize: 15, color: COLORS.textSecondary }} />
                         <Typography sx={{ fontSize: "0.75rem", color: COLORS.textSecondary }}>
                           Hours: <strong>{log.hours_worked || 0}h</strong>
@@ -1497,7 +1497,7 @@ export default function InstallationProgress({ project, projectId }) {
                       )}
 
                       {log.supervisor_signoff === 1 && (
-                        <Stack direction="row" alignItems="center" gap={0.4} sx={{ color: "#16A34A" }}>
+                        <Stack direction="row"   sx={{alignItems: "center", gap: 0.4,  color: "#16A34A" }}>
                           <VerifiedIcon sx={{ fontSize: 14 }} />
                           <Typography sx={{ fontSize: "0.72rem", fontWeight: 700 }}>
                             Supervisor Verified
@@ -1645,7 +1645,7 @@ export default function InstallationProgress({ project, projectId }) {
         <DialogContent sx={{ p: 3 }}>
           <Box component="form" id="installation-log-form" onSubmit={handleSaveLog} sx={{ mt: 1 }}>
             <Stack spacing={3}>
-              
+
               {/* SECTION A: DATE, PHASE & STATUS */}
               <Box>
                 <Typography sx={{ fontSize: "0.75rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase", letterSpacing: "0.04em", mb: 1.5 }}>
@@ -1883,7 +1883,7 @@ export default function InstallationProgress({ project, projectId }) {
 
               {/* SECTION D: STRUCTURED MATERIALS USED (ROW-BASED) */}
               <Box>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.2 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mb: 1.2 }}>
                   <Box>
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                       Materials Consumed on Site Today
@@ -2266,7 +2266,7 @@ export default function InstallationProgress({ project, projectId }) {
 
               {/* SECTION G: PHOTOS UPLOAD (UP TO 10 PHOTOS WITH CAPTIONS & TAGS) */}
               <Box>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mb: 1 }}>
                   <Typography sx={{ fontSize: "0.75rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                     Site Photos (Up to 10 with Before/After Captions)
                   </Typography>

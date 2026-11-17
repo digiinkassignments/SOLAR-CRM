@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { LEAD_STATUSES } from '../../utils/leadStages';
+import useWorkspaceNavigate from "../../hooks/useWorkspaceNavigate";
+import LeadActionDialog from "../../components/LeadActionDialog";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import usePlanFeatures from "../../hooks/usePlanFeatures";
 import * as XLSX from "xlsx";
@@ -87,6 +90,7 @@ import {
   History as HistoryIcon,
   Send as SendIcon,
   AutoAwesome as AutoAwesomeIcon,
+  Engineering as EngineeringIcon,
 } from "@mui/icons-material";
 
 import { State, City } from "country-state-city";
@@ -112,6 +116,7 @@ import { useAuth } from "../../context/AuthContext";
 import WhatsAppDrawer from "../../components/WhatsAppDrawer";
 import AICopilotModal from "../../components/AICopilotModal";
 import ScheduleSurveyModal from "../../components/ScheduleSurveyModal";
+import ApproveSurveyModal from "../../components/ApproveSurveyModal";
 import { getSurveyByLead } from "../../services/surveyService";
 import {
   getLeadSources,
@@ -152,17 +157,7 @@ const COLORS = {
   purpleSoft: "#EDE9FE",
 };
 
-const STATUS_OPTIONS = [
-  "New Lead",
-  "Contacted",
-  "Follow-up Pending",
-  "Site Visit Scheduled",
-  "Quotation Sent",
-  "Negotiation",
-  "Won",
-  "Lost",
-  "Not Interested",
-];
+const STATUS_OPTIONS = LEAD_STATUSES;
 
 const PRIORITY_OPTIONS = ["Low", "Medium", "High"];
 const LEAD_SOURCE_OPTIONS = ["Website", "Call", "WhatsApp", "Reference", "Facebook", "Google", "Cold Call", "Direct", "Other"];
@@ -174,18 +169,19 @@ const INITIAL_FORM_STATE = {
   alternate_number: "",
   email: "",
   address: "",
-  city: "Jaipur",
-  state: "Rajasthan",
+  city: "",
+  state: "",
   pincode: "",
   solar_requirement: "Residential",
   interest_status: "Pending",
-  required_kw: "5",
+  required_kw: "",
   remark: "",
   lead_source: "Website",
   priority: "Medium",
   status: "New Lead",
   assigned_to: "",
   next_follow_up_date: "",
+  next_action: "", next_follow_up_time: "",
   site_visit_date: "",
   quotation_amount: "",
   dob: "",
@@ -355,10 +351,14 @@ const getInitials = (name = "") =>
     .join("") || "L";
 
 const STATUS_STYLES = {
+  Qualified: {color:"#047857", bg:"#D1FAE5"},
+  "Site Survey Done": {color:"#0369A1",bg:"#E0F2FE"},
+  "On Hold": {color:"#B45309",bg:"#FEF3C7"},
+  Invalid: {color:"#64748B",bg:"#F1F5F9"},
   "New Lead": { color: "#0284C7", bg: "#E0F2FE" },
   Contacted: { color: "#D97706", bg: "#FEF3C7" },
   "Follow-up Pending": { color: COLORS.warning, bg: COLORS.warningSoft },
-  "Site Visit Scheduled": { color: COLORS.purple, bg: COLORS.purpleSoft },
+  "Site Survey Scheduled": { color: COLORS.purple, bg: COLORS.purpleSoft },
   "Quotation Sent": { color: "#9333EA", bg: "#F3E8FF" },
   Negotiation: { color: "#C026D3", bg: "#FCE7F3" },
   Won: { color: COLORS.success, bg: COLORS.successSoft },
@@ -675,14 +675,16 @@ const exportLeadsToPdf = (rows, companyData) => {
    ============================================================ */
 export default function Leads() {
   const location = useLocation();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
   const [leads, setLeads] = useState([]);
+  const latestLeadRequest = useRef(0);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [usersList, setUsersList] = useState([]);
   const [companySettings, setCompanySettings] = useState(null);
   const { can } = usePlanFeatures();
   const { user } = useAuth();
+  const isSales = Number(user?.role_id) === 3 || /sales/i.test(user?.role_name || user?.role || "");
 
   // View Mode: "box" (Default), "table", "grid"
   const [viewMode, setViewMode] = useState("box");
@@ -706,11 +708,19 @@ export default function Leads() {
 
   const [scheduleSurveyOpen, setScheduleSurveyOpen] = useState(false);
   const [surveyLead, setSurveyLead] = useState(null);
+  const [approveSurveyModalOpen, setApproveSurveyModalOpen] = useState(false);
+  const [approveSurveyLead, setApproveSurveyLead] = useState(null);
+
+  const handleOpenApproveSurveyModal = useCallback((lead) => {
+    setApproveSurveyLead(lead);
+    setApproveSurveyModalOpen(true);
+    setAnchorEl(null);
+  }, []);
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(12);
 
-  const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const [filters, setFilters] = useState(() => ({ ...INITIAL_FILTERS, status: new URLSearchParams(location.search).get("status") || "" }));
   const [searchInput, setSearchInput] = useState("");
 
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
@@ -794,11 +804,12 @@ export default function Leads() {
   }, [user]);
 
   const canExportData = useMemo(() => {
+    if (isSales) return false;
     if (!userRole) return true;
     const isBlocked = userRole.includes("sales") || userRole.includes("telecaller") || userRole.includes("caller");
     if (isBlocked) return false;
     return userRole.includes("admin") || userRole.includes("manager") || userRole === "super_admin";
-  }, [userRole]);
+  }, [userRole, isSales]);
 
   const openWhatsAppDrawer = useCallback((lead) => {
     setWhatsappLead(lead);
@@ -859,26 +870,32 @@ export default function Leads() {
       lead_source: filters.lead_source,
       assigned_to: filters.assigned_to,
       solar_requirement: filters.solar_requirement,
+      capacity_range: filters.capacity_range,
+      sort_by: sortBy,
+      visit_filter: new URLSearchParams(location.search).get("visit_filter") || "",
+      followup_filter: new URLSearchParams(location.search).get("followup_filter") || "",
       date_from: filters.date_from,
       date_to: filters.date_to,
       ...overrides,
     }),
-    [filters]
+    [filters, sortBy, location.search]
   );
 
   const fetchLeadsList = useCallback(async () => {
+    const requestId = ++latestLeadRequest.current;
     setLoading(true);
     try {
       const res = await getLeads(buildQueryParams({ page: page + 1, limit: rowsPerPage }));
+      if (requestId !== latestLeadRequest.current) return;
       if (res?.success) {
         setLeads(res.data || []);
         setTotalCount(res.total || 0);
       }
     } catch (err) {
       console.error(err);
-      showSnackbar("Unable to load leads. Please try again.", "error");
+      if (requestId === latestLeadRequest.current) showSnackbar("Unable to load leads. Please try again.", "error");
     } finally {
-      setLoading(false);
+      if (requestId === latestLeadRequest.current) setLoading(false);
     }
   }, [buildQueryParams, page, rowsPerPage, showSnackbar]);
 
@@ -892,7 +909,6 @@ export default function Leads() {
       await addFollowup(lead.id, {
         note: formattedNote,
         followup_type: "Call",
-        next_follow_up_date: todayDateStr,
       });
 
       // 2. Secondary: Update lead remark field with full payload to satisfy backend validation
@@ -900,8 +916,7 @@ export default function Leads() {
         await updateLead(lead.id, {
           ...lead,
           remark: formattedNote,
-          next_follow_up_date: todayDateStr,
-        });
+          });
       } catch (updateErr) {
         console.warn("Lead main record remark update warning:", updateErr);
       }
@@ -949,7 +964,6 @@ export default function Leads() {
       await addFollowup(remarksModalLead.id, {
         note: formattedNote,
         followup_type: newRemarkType || "Call",
-        next_follow_up_date: todayDateStr,
       });
       showSnackbar("New remark added successfully.", "success");
       setNewRemarkText("");
@@ -965,7 +979,7 @@ export default function Leads() {
   }, [newRemarkText, remarksModalLead, newRemarkSaving, newRemarkType, showSnackbar, fetchLeadsList]);
 
   useEffect(() => {
-    fetchUsers();
+    if (!isSales) fetchUsers();
     fetchCompanySettings();
 
     // Fetch dynamic sources & pipeline statuses
@@ -991,41 +1005,14 @@ export default function Leads() {
       }
     };
     fetchLeadConfigs();
-  }, [fetchUsers]);
+  }, [fetchUsers, isSales]);
 
   useEffect(() => {
     fetchLeadsList();
   }, [fetchLeadsList]);
 
-  // Client-side Filtered and Sorted Leads
-  const processedLeads = useMemo(() => {
-    let list = [...leads];
-
-    if (filters.capacity_range) {
-      if (filters.capacity_range === "1-3") {
-        list = list.filter((l) => Number(l.required_kw || 0) >= 1 && Number(l.required_kw || 0) <= 3);
-      } else if (filters.capacity_range === "3-5") {
-        list = list.filter((l) => Number(l.required_kw || 0) > 3 && Number(l.required_kw || 0) <= 5);
-      } else if (filters.capacity_range === "5-10") {
-        list = list.filter((l) => Number(l.required_kw || 0) > 5 && Number(l.required_kw || 0) <= 10);
-      } else if (filters.capacity_range === "10+") {
-        list = list.filter((l) => Number(l.required_kw || 0) > 10);
-      }
-    }
-
-    if (sortBy === "name_asc") {
-      list.sort((a, b) => (a.customer_name || "").localeCompare(b.customer_name || ""));
-    } else if (sortBy === "name_desc") {
-      list.sort((a, b) => (b.customer_name || "").localeCompare(a.customer_name || ""));
-    } else if (sortBy === "oldest") {
-      list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    } else if (sortBy === "kw_high") {
-      list.sort((a, b) => Number(b.required_kw || 0) - Number(a.required_kw || 0));
-    } else {
-      list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    }
-    return list;
-  }, [leads, sortBy, filters.capacity_range]);
+  // Filtering, sorting and counts are computed together before API pagination.
+  const processedLeads = leads;
 
   const resetForm = useCallback(() => {
     setSelectedLead(null);
@@ -1042,12 +1029,35 @@ export default function Leads() {
     setFormDialogOpen(true);
   }, [resetForm]);
 
+  const createHandledRef = useRef(false);
+
+  const handleCloseDialog = useCallback(() => {
+    if (saving) return;
+    setFormDialogOpen(false);
+    setSelectedLead(null);
+    setDuplicateWarning(null);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("create") === "true") {
+      params.delete("create");
+      const remaining = params.toString();
+      navigate(remaining ? `${location.pathname}?${remaining}` : location.pathname, { replace: true });
+    }
+  }, [saving, location.pathname, navigate]);
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get("create") === "true") {
-      openCreateDialog();
+      if (!createHandledRef.current) {
+        createHandledRef.current = true;
+        openCreateDialog();
+      }
+      params.delete("create");
+      const remaining = params.toString();
+      navigate(remaining ? `${location.pathname}?${remaining}` : location.pathname, { replace: true });
+    } else {
+      createHandledRef.current = false;
     }
-  }, [location.search, openCreateDialog]);
+  }, [location.search, location.pathname, navigate, openCreateDialog]);
 
   const openEditDialog = useCallback(async (lead) => {
     const target = lead || activeLead;
@@ -1079,13 +1089,14 @@ export default function Leads() {
       pincode: target.pincode || "",
       solar_requirement: target.solar_requirement || "Residential",
       interest_status: target.interest_status || "Pending",
-      required_kw: target.required_kw || "5",
+      required_kw: target.required_kw ?? "",
       remark: target.remark || "",
       lead_source: target.lead_source || "Website",
       priority: target.priority || "Medium",
       status: target.status || "New Lead",
       assigned_to: target.assigned_to || "",
       next_follow_up_date: target.next_follow_up_date ? target.next_follow_up_date.slice(0, 10) : "",
+      next_action: target.next_action || "", next_follow_up_time: String(target.next_follow_up_time || "").slice(0,5),
       site_visit_date: target.site_visit_date ? target.site_visit_date.slice(0, 10) : "",
       quotation_amount: target.quotation_amount || "",
       dob: target.dob ? target.dob.slice(0, 10) : "",
@@ -1123,6 +1134,12 @@ export default function Leads() {
 
   const validateForm = useCallback(() => {
     const errors = {};
+    if (isSales && selectedLead) {
+      if (formData.interest_status === "Interested" && Number(formData.required_kw) <= 0) errors.required_kw = "Enter a positive required capacity";
+      if (formData.interest_status === "Not Interested" && !formData.remark.trim()) errors.remark = "A remark is required";
+      setFormErrors(errors);
+      return Object.keys(errors).length === 0;
+    }
     if (!formData.customer_name.trim()) errors.customer_name = "Customer Name is required";
     if (!formData.mobile_number.trim()) {
       errors.mobile_number = "Mobile Number is required";
@@ -1145,9 +1162,10 @@ export default function Leads() {
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
-  }, [formData, customFields]);
+  }, [formData, customFields, isSales, selectedLead]);
 
   const handleFormSubmit = useCallback(async () => {
+    if (!["Won", "Lost", "Invalid", "Not Interested"].includes(formData.status) && (!formData.next_action.trim() || !formData.next_follow_up_date || !formData.next_follow_up_time)) { showSnackbar("Active leads require next action, date and exact time.", "error"); return; }
     if (!validateForm()) return;
     setSaving(true);
     try {
@@ -1160,7 +1178,9 @@ export default function Leads() {
       payload.custom_fields = formData.custom_fields || {};
 
       if (selectedLead) {
-        await updateLead(selectedLead.id, payload);
+        const salesFields = ["next_action", "next_follow_up_time", "interest_status", "required_kw", "remark", "priority", "next_follow_up_date", "site_visit_date", "quotation_amount"];
+        const updatePayload = isSales ? Object.fromEntries(salesFields.filter(key => payload[key] !== undefined).map(key => [key, payload[key]])) : payload;
+        await updateLead(selectedLead.id, updatePayload);
         showSnackbar("Lead updated successfully.");
       } else {
         await createLead(payload);
@@ -1168,6 +1188,12 @@ export default function Leads() {
       }
       setFormDialogOpen(false);
       resetForm();
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.get("create") === "true") {
+        searchParams.delete("create");
+        const remaining = searchParams.toString();
+        navigate(remaining ? `${location.pathname}?${remaining}` : location.pathname, { replace: true });
+      }
       fetchLeadsList();
     } catch (err) {
       console.error(err);
@@ -1175,7 +1201,7 @@ export default function Leads() {
     } finally {
       setSaving(false);
     }
-  }, [validateForm, formData, selectedLead, showSnackbar, resetForm, fetchLeadsList]);
+  }, [validateForm, formData, selectedLead, showSnackbar, resetForm, fetchLeadsList, isSales]);
 
   // Open View Lead Profile Modal Popup
   const openViewModal = useCallback(async (lead) => {
@@ -1319,6 +1345,11 @@ export default function Leads() {
     setActiveLead(lead);
   }, []);
 
+  useEffect(() => {
+    const status = new URLSearchParams(location.search).get("status");
+    if (status !== null) { setFilters(previous => ({ ...previous, status })); setPage(0); }
+  }, [location.search]);
+
   const handleMenuClose = useCallback(() => {
     setAnchorEl(null);
   }, []);
@@ -1407,7 +1438,7 @@ export default function Leads() {
             </Typography>
           </Stack>
           <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.primaryDark }}>
-            Lead Management
+            {isSales ? "My Leads" : "Lead Management"}
           </Typography>
         </Breadcrumbs>
 
@@ -1431,14 +1462,14 @@ export default function Leads() {
         >
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.textPrimary, fontSize: "1.05rem" }}>
-              Lead Management Directory
+              {isSales ? "My Leads" : Number(user?.role_id)===2 ? "Sales Team Leads" : "Lead Management Directory"}
             </Typography>
             <Typography variant="body2" sx={{ color: COLORS.textSecondary, fontSize: "0.75rem", mt: 0.1 }}>
               Manage customer enquiries, assignments, site surveys &amp; follow-up pipeline.
             </Typography>
           </Box>
 
-          <Stack direction="row" alignItems="center" gap={1} sx={{ flexShrink: 0, flexWrap: "wrap" }}>
+          <Stack direction="row" alignItems="center" gap={1} sx={{ minWidth: 0, maxWidth: "100%", flexShrink: 1, flexWrap: "wrap", gap: 1, alignItems: "center" }}>
             {/* View Mode Switcher (Box List / Table / Grid) */}
             <ToggleButtonGroup
               value={viewMode}
@@ -1504,7 +1535,7 @@ export default function Leads() {
               </IconButton>
             </Tooltip>
 
-            {can("has_csv_import_export") && (
+            {!isSales && can("has_csv_import_export") && (
               <Button
                 variant="outlined"
                 size="small"
@@ -1591,7 +1622,7 @@ export default function Leads() {
               </Box>
 
               {/* Assignee */}
-              <Box sx={{ flex: "0 1 140px", minWidth: 120 }}>
+              {isSales ? <Box sx={{ pb: 0.75 }}><Chip size="small" label="Assigned to me" sx={{ bgcolor: "#E0F2FE", color: "#0369A1", fontWeight: 700 }} /></Box> : (<Box sx={{ flex: "0 1 140px", minWidth: 120 }}>
                 <FieldLabel>Assigned Rep</FieldLabel>
                 <Select fullWidth displayEmpty size="small" value={filters.assigned_to} onChange={(e) => handleFilterChange("assigned_to", e.target.value)} sx={controlSx}>
                   <MenuItem value="" sx={{ fontSize: "0.78rem" }}>Everyone</MenuItem>
@@ -1599,7 +1630,7 @@ export default function Leads() {
                     <MenuItem key={u.id} value={u.id} sx={{ fontSize: "0.78rem" }}>{u.full_name}</MenuItem>
                   ))}
                 </Select>
-              </Box>
+              </Box>)}
 
               {/* Priority */}
               <Box sx={{ flex: "0 1 120px", minWidth: 100 }}>
@@ -1659,7 +1690,7 @@ export default function Leads() {
                   fullWidth
                   size="small"
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
+                  onChange={(e) => { setSortBy(e.target.value); setPage(0); }}
                   sx={controlSx}
                   startAdornment={
                     <InputAdornment position="start">
@@ -1690,7 +1721,7 @@ export default function Leads() {
         </Paper>
 
         {/* BULK ACTIONS BAR */}
-        <BulkDeleteBar
+        {!isSales && (<BulkDeleteBar
           selectedCount={selectedIds.length}
           totalCount={processedLeads.length}
           itemLabel="Leads"
@@ -1699,7 +1730,7 @@ export default function Leads() {
           isAllSelected={selectedIds.length === processedLeads.length && processedLeads.length > 0}
           onConfirmDelete={handleBulkDelete}
           loading={bulkDeleting}
-        />
+        />)}
 
         {/* MAIN DATA CONTENT (BOX LIST / TABLE / GRID) */}
         {loading ? (
@@ -1739,12 +1770,12 @@ export default function Leads() {
                 {/* Header Row */}
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.2 }}>
                   <Stack direction="row" alignItems="center" gap={1}>
-                    <Checkbox
+                    {!isSales && (<Checkbox
                       size="small"
                       checked={isSelected}
                       onChange={() => handleToggleSelect(row.id)}
                       sx={{ p: 0.5, color: COLORS.borderStrong, "&.Mui-checked": { color: COLORS.primary } }}
-                    />
+                    />)}
                     <Box
                       sx={{
                         px: 1,
@@ -1876,14 +1907,38 @@ export default function Leads() {
 
                 {/* 3 Column Grid Details Layout */}
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <Stack spacing={0.8}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, flexWrap: "wrap" }}>
                         <DescriptionIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
                         <Typography sx={{ fontSize: "0.75rem", color: COLORS.textSecondary, fontWeight: 600 }}>
                           Lead Status:
                         </Typography>
                         <StatusChip status={row.status} />
+                        {row.status === "Site Survey Done" && !isSales && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="success"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenApproveSurveyModal(row);
+                            }}
+                            sx={{
+                              fontSize: "0.68rem",
+                              py: 0.2,
+                              px: 0.8,
+                              height: 22,
+                              minHeight: 22,
+                              textTransform: "none",
+                              fontWeight: 800,
+                              backgroundColor: "#16A34A",
+                              "&:hover": { backgroundColor: "#15803D" },
+                            }}
+                          >
+                            ✓ Approve &amp; Create Project
+                          </Button>
+                        )}
                       </Box>
 
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
@@ -1997,7 +2052,7 @@ export default function Leads() {
                     </Stack>
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <Stack spacing={0.8}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
                         <CalendarIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
@@ -2036,7 +2091,7 @@ export default function Leads() {
                     </Stack>
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <Stack spacing={0.8}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
                         <HistoryIcon sx={{ fontSize: 15, color: COLORS.textMuted }} />
@@ -2081,7 +2136,7 @@ export default function Leads() {
                         borderBottom: `2px solid ${COLORS.border}`,
                       }}
                     >
-                      <Checkbox
+                      {!isSales && (<Checkbox
                         size="small"
                         indeterminate={selectedIds.length > 0 && selectedIds.length < processedLeads.length}
                         checked={processedLeads.length > 0 && selectedIds.length === processedLeads.length}
@@ -2094,7 +2149,7 @@ export default function Leads() {
                           color: COLORS.borderStrong,
                           "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: COLORS.primary },
                         }}
-                      />
+                      />)}
                     </TableCell>
                     {[
                       { label: "Lead ID", width: "80px" },
@@ -2146,12 +2201,12 @@ export default function Leads() {
                       }}
                     >
                       <TableCell sx={{ width: "44px", py: 0.5, px: 1 }}>
-                        <Checkbox
+                        {!isSales && (<Checkbox
                           size="small"
                           checked={isSelected}
                           onChange={() => handleToggleSelect(row.id)}
                           sx={{ p: 0.5, color: COLORS.borderStrong, "&.Mui-checked": { color: COLORS.primary } }}
-                        />
+                        />)}
                       </TableCell>
                       <TableCell>
                         <Typography sx={{ fontWeight: 800, color: COLORS.primary, fontSize: "0.75rem" }}>
@@ -2278,7 +2333,7 @@ export default function Leads() {
             {processedLeads.map((row) => {
               const isSelected = selectedIds.includes(row.id);
               return (
-              <Grid item xs={12} sm={6} md={4} lg={3} xl={3} key={row.id}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 3 }} key={row.id}>
                 <Paper
                   elevation={0}
                   sx={{
@@ -2298,12 +2353,12 @@ export default function Leads() {
                   <Box>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
                       <Stack direction="row" alignItems="center" gap={0.5}>
-                        <Checkbox
+                        {!isSales && (<Checkbox
                           size="small"
                           checked={isSelected}
                           onChange={() => handleToggleSelect(row.id)}
                           sx={{ p: 0.25, color: COLORS.borderStrong, "&.Mui-checked": { color: COLORS.primary } }}
-                        />
+                        />)}
                         <Typography sx={{ fontWeight: 800, fontSize: "0.8rem", color: COLORS.primary }}>
                           {row.lead_code || `LE${String(row.id).padStart(5, "0")}`}
                         </Typography>
@@ -2483,7 +2538,7 @@ export default function Leads() {
         >
           <DescriptionIcon sx={{ fontSize: 16, mr: 1.2, color: "#D97706" }} /> Generate Proposal / Quotation
         </MenuItem>
-        <MenuItem
+        {!isSales && (<MenuItem
           onClick={() => {
             const target = activeLead;
             handleMenuClose();
@@ -2492,7 +2547,7 @@ export default function Leads() {
           sx={{ fontSize: "0.8rem", py: 0.9 }}
         >
           <AssignIcon sx={{ fontSize: 16, mr: 1.2, color: COLORS.success }} /> Assign / Reassign Lead
-        </MenuItem>
+        </MenuItem>)}
         {can("has_site_survey") && (
           <MenuItem
             onClick={() => {
@@ -2505,6 +2560,18 @@ export default function Leads() {
             <SiteVisitIcon sx={{ fontSize: 16, mr: 1.2, color: "#D97706" }} /> Schedule Site Survey
           </MenuItem>
         )}
+        {!isSales && (
+          <MenuItem
+            onClick={() => {
+              const target = activeLead;
+              handleMenuClose();
+              handleOpenApproveSurveyModal(target);
+            }}
+            sx={{ fontSize: "0.8rem", py: 0.9, fontWeight: 700, color: "#16A34A" }}
+          >
+            <EngineeringIcon sx={{ fontSize: 16, mr: 1.2, color: "#16A34A" }} /> Approve Survey & Create Project
+          </MenuItem>
+        )}
         <MenuItem
           onClick={() => {
             const target = activeLead;
@@ -2515,7 +2582,7 @@ export default function Leads() {
         >
           <NotesIcon sx={{ fontSize: 16, mr: 1.2, color: COLORS.primary }} /> All Remarks History (LIFO)
         </MenuItem>
-        <MenuItem
+        {!isSales && (<MenuItem
           onClick={() => {
             const target = activeLead;
             handleMenuClose();
@@ -2524,7 +2591,7 @@ export default function Leads() {
           sx={{ fontSize: "0.8rem", py: 0.9, color: COLORS.danger }}
         >
           <DeleteIcon sx={{ fontSize: 16, mr: 1.2 }} /> Delete Lead
-        </MenuItem>
+        </MenuItem>)}
       </Menu>
 
       {/* ================= EXPORT DIALOG MODAL (EXCEL VS PDF RADIO SELECTION) ================= */}
@@ -2659,44 +2726,44 @@ export default function Leads() {
             <Divider sx={{ my: 1.5 }} />
 
             <Grid container spacing={1.5}>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <FieldLabel>Mobile Number</FieldLabel>
                 <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: COLORS.textPrimary }}>
                   {viewLead.mobile_number}
                 </Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <FieldLabel>Email Address</FieldLabel>
                 <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: COLORS.textPrimary }}>
                   {viewLead.email || "N/A"}
                 </Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <FieldLabel>Location</FieldLabel>
                 <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: COLORS.textPrimary }}>
                   {[viewLead.city, viewLead.state].filter(Boolean).join(", ") || "N/A"}
                 </Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <FieldLabel>Solar Requirement</FieldLabel>
                 <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: COLORS.primary }}>
                   {viewLead.solar_requirement || "Residential"} ({viewLead.required_kw || 1} kW)
                 </Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <FieldLabel>Assigned Sales Rep</FieldLabel>
                 <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: COLORS.textPrimary }}>
                   {viewLead.assigned_to_name || "Unassigned"}
                 </Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={{ xs: 6 }}>
                 <FieldLabel>Lead Source</FieldLabel>
                 <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: COLORS.textPrimary }}>
                   {viewLead.lead_source || "N/A"}
                 </Typography>
               </Grid>
               {viewLead.dob && (
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <FieldLabel>Date of Birth</FieldLabel>
                   <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: COLORS.textPrimary }}>
                     🎂 {formatDate(viewLead.dob)}
@@ -2704,7 +2771,7 @@ export default function Leads() {
                 </Grid>
               )}
               {viewLead.anniversary_date && (
-                <Grid item xs={6}>
+                <Grid size={{ xs: 6 }}>
                   <FieldLabel>Anniversary Date</FieldLabel>
                   <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: COLORS.textPrimary }}>
                     💍 {formatDate(viewLead.anniversary_date)}
@@ -2713,7 +2780,7 @@ export default function Leads() {
               )}
               {Array.isArray(viewLead.custom_field_details) && viewLead.custom_field_details.length > 0 && (
                 viewLead.custom_field_details.map((cf, idx) => (
-                  <Grid item xs={6} key={idx}>
+                  <Grid size={{ xs: 6 }} key={idx}>
                     <FieldLabel>{cf.field_name}</FieldLabel>
                     <Typography sx={{ fontSize: "0.85rem", fontWeight: 700, color: COLORS.textPrimary }}>
                       {cf.value || "—"}
@@ -2822,6 +2889,30 @@ export default function Leads() {
                 >
                   Generate Quotation
                 </Button>
+
+                {viewLead.status === "Site Survey Done" && !isSales && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<EngineeringIcon sx={{ fontSize: 16 }} />}
+                    onClick={() => {
+                      setViewModalOpen(false);
+                      handleOpenApproveSurveyModal(viewLead);
+                    }}
+                    sx={{
+                      borderRadius: "6px",
+                      bgcolor: "#16A34A",
+                      color: "#FFFFFF",
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      textTransform: "none",
+                      height: 32,
+                      "&:hover": { bgcolor: "#15803D" },
+                    }}
+                  >
+                    Approve Survey & Create Project
+                  </Button>
+                )}
               </>
             )}
           </Stack>
@@ -2855,7 +2946,7 @@ export default function Leads() {
       </Dialog>
 
       {/* ================= LOG FOLLOW-UP DIALOG MODAL ================= */}
-      <Dialog open={followupDialogOpen} onClose={() => setFollowupDialogOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: "12px", p: 0 } }}>
+      <Dialog open={false} onClose={() => setFollowupDialogOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: "12px", p: 0 } }}>
         <Box sx={{ p: 2, backgroundColor: COLORS.primary, color: "#FFFFFF" }}>
           <Typography sx={{ fontWeight: 800, fontSize: "0.95rem" }}>Add Follow-up Note &amp; Status</Typography>
         </Box>
@@ -2899,7 +2990,7 @@ export default function Leads() {
       {/* ADD / EDIT LEAD DIALOG MODAL */}
       <Dialog
         open={formDialogOpen}
-        onClose={() => !saving && setFormDialogOpen(false)}
+        onClose={handleCloseDialog}
         TransitionComponent={SlideTransition}
         maxWidth="md"
         fullWidth
@@ -2909,7 +3000,7 @@ export default function Leads() {
           <Typography sx={{ fontWeight: 800, fontSize: "0.95rem" }}>
             {selectedLead ? "Edit Lead Details" : "Create New Solar Lead"}
           </Typography>
-          <IconButton size="small" onClick={() => setFormDialogOpen(false)} disabled={saving} sx={{ color: "#FFFFFF", opacity: 0.8 }}>
+          <IconButton size="small" onClick={handleCloseDialog} disabled={saving} sx={{ color: "#FFFFFF", opacity: 0.8, "&:hover": { opacity: 1, backgroundColor: "rgba(255,255,255,0.1)" } }}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </Box>
@@ -2922,64 +3013,66 @@ export default function Leads() {
             </Typography>
 
             <Grid container spacing={1.5}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Customer Name *</FieldLabel>
-                <TextField fullWidth size="small" placeholder="e.g. Ramesh Kumar" value={formData.customer_name} onChange={(e) => handleFormFieldChange("customer_name", e.target.value)} error={Boolean(formErrors.customer_name)} helperText={formErrors.customer_name} sx={controlSx} />
+                <TextField disabled={isSales && Boolean(selectedLead)} fullWidth size="small" placeholder="e.g. Ramesh Kumar" value={formData.customer_name} onChange={(e) => handleFormFieldChange("customer_name", e.target.value)} error={Boolean(formErrors.customer_name)} helperText={formErrors.customer_name} sx={controlSx} />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Mobile Number *</FieldLabel>
-                <TextField fullWidth size="small" placeholder="10-digit number" value={formData.mobile_number} onChange={(e) => handleFormFieldChange("mobile_number", e.target.value.replace(/\D/g, "").slice(0, 10))} error={Boolean(formErrors.mobile_number)} helperText={formErrors.mobile_number} sx={controlSx} />
+                <TextField disabled={isSales && Boolean(selectedLead)} fullWidth size="small" placeholder="e.g. 9876543210" value={formData.mobile_number} onChange={(e) => handleFormFieldChange("mobile_number", e.target.value.replace(/\D/g, "").slice(0, 10))} error={Boolean(formErrors.mobile_number)} helperText={formErrors.mobile_number} sx={controlSx} />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Alternate Number</FieldLabel>
-                <TextField fullWidth size="small" placeholder="Optional" value={formData.alternate_number} onChange={(e) => handleFormFieldChange("alternate_number", e.target.value.replace(/\D/g, "").slice(0, 10))} sx={controlSx} />
+                <TextField disabled={isSales && Boolean(selectedLead)} fullWidth size="small" placeholder="e.g. 9876543211" value={formData.alternate_number} onChange={(e) => handleFormFieldChange("alternate_number", e.target.value.replace(/\D/g, "").slice(0, 10))} sx={controlSx} />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Email Address</FieldLabel>
-                <TextField fullWidth size="small" placeholder="customer@example.com" value={formData.email} onChange={(e) => handleFormFieldChange("email", e.target.value)} error={Boolean(formErrors.email)} helperText={formErrors.email} sx={controlSx} />
+                <TextField disabled={isSales && Boolean(selectedLead)} fullWidth size="small" placeholder="e.g. ramesh@example.com" value={formData.email} onChange={(e) => handleFormFieldChange("email", e.target.value)} error={Boolean(formErrors.email)} helperText={formErrors.email} sx={controlSx} />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>State</FieldLabel>
-                <Select fullWidth size="small" value={formData.state} onChange={handleStateChange} sx={controlSx}>
+                <Select disabled={isSales && Boolean(selectedLead)} fullWidth displayEmpty size="small" value={formData.state || ""} onChange={handleStateChange} sx={controlSx}>
+                  <MenuItem value=""><em>Select State</em></MenuItem>
                   {indianStates.map((s) => (
                     <MenuItem key={s.isoCode} value={s.name} sx={{ fontSize: "0.78rem" }}>{s.name}</MenuItem>
                   ))}
                 </Select>
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>City</FieldLabel>
-                <Select fullWidth size="small" value={formData.city} onChange={handleCityChange} sx={controlSx}>
+                <Select disabled={isSales && Boolean(selectedLead)} fullWidth displayEmpty size="small" value={formData.city || ""} onChange={handleCityChange} sx={controlSx}>
+                  <MenuItem value=""><em>Select City</em></MenuItem>
                   {cityOptions.map((c) => (
                     <MenuItem key={c.name} value={c.name} sx={{ fontSize: "0.78rem" }}>{c.name}</MenuItem>
                   ))}
                 </Select>
               </Grid>
 
-              <Grid item xs={12} sm={8}>
+              <Grid size={{ xs: 12, sm: 8 }}>
                 <FieldLabel>Full Address</FieldLabel>
-                <TextField fullWidth size="small" placeholder="Full address" value={formData.address} onChange={(e) => handleFormFieldChange("address", e.target.value)} sx={controlSx} />
+                <TextField disabled={isSales && Boolean(selectedLead)} fullWidth size="small" placeholder="e.g. 124, Sunrise Enclave, Sector 5" value={formData.address} onChange={(e) => handleFormFieldChange("address", e.target.value)} sx={controlSx} />
               </Grid>
 
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <FieldLabel>Pincode</FieldLabel>
-                <TextField fullWidth size="small" placeholder="Pincode" value={formData.pincode} onChange={(e) => handleFormFieldChange("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))} sx={controlSx} />
+                <TextField disabled={isSales && Boolean(selectedLead)} fullWidth size="small" placeholder="e.g. 302021" value={formData.pincode} onChange={(e) => handleFormFieldChange("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))} sx={controlSx} />
               </Grid>
             </Grid>
 
             {/* ================= DYNAMIC CUSTOM FIELDS SECTION ================= */}
-            {customFields.length > 0 && (
+            {customFields.length > 0 && !(isSales && selectedLead) && (
               <>
                 <Typography sx={{ fontSize: "0.72rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase", letterSpacing: "0.04em", pb: 0.5, borderBottom: `1px solid ${COLORS.border}`, mt: 2, mb: 1.5 }}>
                   Custom Fields (Configured from Settings)
                 </Typography>
                 <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
                   {customFields.map((field) => (
-                    <Grid item xs={12} sm={6} key={field.id}>
+                    <Grid size={{ xs: 12, sm: 6 }} key={field.id}>
                       <FieldLabel>{field.field_name}{field.is_required ? " *" : ""}</FieldLabel>
                       {field.field_type === "dropdown" ? (
                         <FormControl fullWidth size="small" error={Boolean(formErrors[`cf_${field.id}`])}>
@@ -3035,54 +3128,54 @@ export default function Leads() {
             </Typography>
 
             <Grid container spacing={1.5}>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Paper elevation={0} sx={{ p: 2, borderRadius: "10px", backgroundColor: "#F8FAFC", border: `1px solid ${COLORS.border}` }}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                     <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textPrimary }}>
                       Required Solar Capacity (kW)
                     </Typography>
-                    <Chip label={`${formData.required_kw || 1} kW System`} size="small" sx={{ fontWeight: 800, backgroundColor: COLORS.secondarySoft, color: COLORS.secondaryDark, fontSize: "0.75rem" }} />
+                    <Chip label={formData.required_kw ? `${formData.required_kw} kW System` : "Specify Capacity"} size="small" sx={{ fontWeight: 800, backgroundColor: COLORS.secondarySoft, color: COLORS.secondaryDark, fontSize: "0.75rem" }} />
                   </Box>
                   <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={9}>
+                    <Grid size={{ xs: 9 }}>
                       <Slider
-                        value={Number(formData.required_kw) || 1}
-                        min={1}
+                        value={Number(formData.required_kw) || 0}
+                        min={0}
                         max={100}
                         step={1}
-                        onChange={(e, val) => handleFormFieldChange("required_kw", String(val))}
+                        onChange={(e, val) => handleFormFieldChange("required_kw", val > 0 ? String(val) : "")}
                         sx={{
                           color: COLORS.primary,
                           "& .MuiSlider-thumb": { backgroundColor: COLORS.secondary, border: "2px solid #FFFFFF" },
                         }}
                       />
                     </Grid>
-                    <Grid item xs={3}>
-                      <TextField size="small" type="number" value={formData.required_kw} onChange={(e) => handleFormFieldChange("required_kw", e.target.value)} InputProps={{ endAdornment: <InputAdornment position="end">kW</InputAdornment> }} sx={controlSx} />
+                    <Grid size={{ xs: 3 }}>
+                      <TextField size="small" type="number" placeholder="e.g. 5.0" value={formData.required_kw} onChange={(e) => handleFormFieldChange("required_kw", e.target.value)} InputProps={{ endAdornment: <InputAdornment position="end">kW</InputAdornment> }} sx={controlSx} />
                     </Grid>
                   </Grid>
                 </Paper>
               </Grid>
 
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <FieldLabel>Requirement Type</FieldLabel>
-                <Select fullWidth size="small" value={formData.solar_requirement} onChange={(e) => handleFormFieldChange("solar_requirement", e.target.value)} sx={controlSx}>
+                <Select disabled={isSales && Boolean(selectedLead)} fullWidth size="small" value={formData.solar_requirement} onChange={(e) => handleFormFieldChange("solar_requirement", e.target.value)} sx={controlSx}>
                   {SOLAR_REQUIREMENT_OPTIONS.map((s) => (
                     <MenuItem key={s} value={s} sx={{ fontSize: "0.78rem" }}>{s}</MenuItem>
                   ))}
                 </Select>
               </Grid>
 
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <FieldLabel>Lead Source</FieldLabel>
-                <Select fullWidth size="small" value={formData.lead_source} onChange={(e) => handleFormFieldChange("lead_source", e.target.value)} sx={controlSx}>
+                <Select disabled={isSales && Boolean(selectedLead)} fullWidth size="small" value={formData.lead_source} onChange={(e) => handleFormFieldChange("lead_source", e.target.value)} sx={controlSx}>
                   {dynamicSources.map((s) => (
                     <MenuItem key={s} value={s} sx={{ fontSize: "0.78rem" }}>{s}</MenuItem>
                   ))}
                 </Select>
               </Grid>
 
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <FieldLabel>Priority Level</FieldLabel>
                 <Select fullWidth size="small" value={formData.priority} onChange={(e) => handleFormFieldChange("priority", e.target.value)} sx={controlSx}>
                   {PRIORITY_OPTIONS.map((p) => (
@@ -3091,26 +3184,26 @@ export default function Leads() {
                 </Select>
               </Grid>
 
-              <Grid item xs={12} sm={6}>
-                <FieldLabel>Assign Sales Rep / Manager</FieldLabel>
+              {!isSales && (<Grid size={{ xs: 12, sm: 6 }}>
+                <FieldLabel>{Number(user?.role_id)===2 ? "Assign team salesperson *" : "Assign Sales Rep / Manager"}</FieldLabel>
                 <Select fullWidth displayEmpty size="small" value={formData.assigned_to || ""} onChange={(e) => handleFormFieldChange("assigned_to", e.target.value)} sx={controlSx}>
-                  <MenuItem value="" sx={{ fontSize: "0.78rem" }}><em>Unassigned</em></MenuItem>
+                  <MenuItem disabled={Number(user?.role_id)===2} value="" sx={{ fontSize: "0.78rem" }}><em>{Number(user?.role_id)===2 ? "Select team salesperson" : "Unassigned"}</em></MenuItem>
                   {usersList.map((u) => (
                     <MenuItem key={u.id} value={u.id} sx={{ fontSize: "0.78rem" }}>{u.full_name} ({u.role_name || "Staff"})</MenuItem>
                   ))}
                 </Select>
-              </Grid>
+              </Grid>)}
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Pipeline Status</FieldLabel>
-                <Select fullWidth size="small" value={formData.status} onChange={(e) => handleFormFieldChange("status", e.target.value)} sx={controlSx}>
+                <Select disabled={isSales} fullWidth size="small" value={formData.status} onChange={(e) => handleFormFieldChange("status", e.target.value)} sx={controlSx}>
                   {dynamicStatuses.map((s) => (
                     <MenuItem key={s} value={s} sx={{ fontSize: "0.78rem" }}>{s}</MenuItem>
                   ))}
                 </Select>
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Deal / Quotation Amount (₹)</FieldLabel>
                 <TextField
                   fullWidth
@@ -3124,11 +3217,12 @@ export default function Leads() {
                   }}
                   sx={controlSx}
                 />
-              </Grid>
+              </Grid><Grid size={{ xs: 12, sm: 6 }}><FieldLabel>Next action *</FieldLabel><TextField fullWidth size="small" placeholder="e.g. Share quotation over WhatsApp & follow up" value={formData.next_action || ""} onChange={e=>handleFormFieldChange("next_action",e.target.value)} slotProps={{htmlInput:{maxLength:255}}} /></Grid><Grid size={{ xs: 12, sm: 6 }}><FieldLabel>Exact follow-up time *</FieldLabel><TextField fullWidth size="small" type="time" value={formData.next_follow_up_time || ""} onChange={e=>handleFormFieldChange("next_follow_up_time",e.target.value)} helperText="Use your company's configured scheduling timezone." /></Grid>
+              <Grid size={{ xs: 12, sm: 6 }}><FieldLabel>Next follow-up date *</FieldLabel><TextField fullWidth size="small" type="date" value={formData.next_follow_up_date || ""} onChange={e=>handleFormFieldChange("next_follow_up_date",e.target.value)} /></Grid>
 
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <FieldLabel>Remark / Initial Notes</FieldLabel>
-                <TextField fullWidth size="small" multiline minRows={2} placeholder="Add any specific requirements..." value={formData.remark} onChange={(e) => handleFormFieldChange("remark", e.target.value)} sx={controlSx} />
+                <TextField fullWidth size="small" multiline minRows={2} placeholder="e.g. Customer interested in 5kW residential rooftop solar" value={formData.remark} onChange={(e) => handleFormFieldChange("remark", e.target.value)} sx={controlSx} />
               </Grid>
             </Grid>
 
@@ -3137,20 +3231,20 @@ export default function Leads() {
             </Typography>
 
             <Grid container spacing={1.5}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Date of Birth</FieldLabel>
-                <TextField fullWidth size="small" type="date" value={formData.dob || ""} onChange={(e) => handleFormFieldChange("dob", e.target.value)} InputLabelProps={{ shrink: true }} sx={dateControlSx} />
+                <TextField disabled={isSales && Boolean(selectedLead)} fullWidth size="small" type="date" value={formData.dob || ""} onChange={(e) => handleFormFieldChange("dob", e.target.value)} InputLabelProps={{ shrink: true }} sx={dateControlSx} />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FieldLabel>Wedding / Anniversary Date</FieldLabel>
-                <TextField fullWidth size="small" type="date" value={formData.anniversary_date || ""} onChange={(e) => handleFormFieldChange("anniversary_date", e.target.value)} InputLabelProps={{ shrink: true }} sx={dateControlSx} />
+                <TextField disabled={isSales && Boolean(selectedLead)} fullWidth size="small" type="date" value={formData.anniversary_date || ""} onChange={(e) => handleFormFieldChange("anniversary_date", e.target.value)} InputLabelProps={{ shrink: true }} sx={dateControlSx} />
               </Grid>
             </Grid>
           </Box>
         </DialogContent>
 
         <DialogActions sx={{ p: 2.5, borderTop: `1px solid ${COLORS.border}`, gap: 1 }}>
-          <Button variant="outlined" onClick={() => setFormDialogOpen(false)} disabled={saving} sx={outlinedButtonSx}>
+          <Button variant="outlined" onClick={handleCloseDialog} disabled={saving} sx={outlinedButtonSx}>
             Cancel
           </Button>
           <Button variant="contained" onClick={handleFormSubmit} disabled={saving} startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <AddIcon sx={{ fontSize: 16 }} />} sx={primaryButtonSx}>
@@ -3502,13 +3596,27 @@ export default function Leads() {
       {surveyLead && (
         <ScheduleSurveyModal open={scheduleSurveyOpen} onClose={() => setScheduleSurveyOpen(false)} lead={surveyLead} onSurveyScheduled={fetchLeadsList} />
       )}
+      {approveSurveyLead && (
+        <ApproveSurveyModal
+          open={approveSurveyModalOpen}
+          onClose={() => {
+            setApproveSurveyModalOpen(false);
+            setApproveSurveyLead(null);
+          }}
+          lead={approveSurveyLead}
+          onApproved={(proj) => {
+            showSnackbar(`Survey approved! Project ${proj.project_number} created and assigned to Site Engineer.`, "success");
+            fetchLeadsList();
+          }}
+        />
+      )}
       {whatsappLead && (
         <WhatsAppDrawer open={whatsappDrawerOpen} onClose={() => setWhatsappDrawerOpen(false)} lead={whatsappLead} />
       )}
       {aiCopilotLead && (
         <AICopilotModal open={aiCopilotOpen} onClose={() => setAiCopilotOpen(false)} lead={aiCopilotLead} />
       )}
-      <ImportLeadsDialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)} onImportSuccess={fetchLeadsList} showSnackbar={showSnackbar} />
+      <ImportLeadsDialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)} managerMode={Number(user?.role_id) === 2} teamMembers={usersList} onImportComplete={fetchLeadsList} showSnackbar={showSnackbar} />
 
       {createQuotationOpen && (
         <CreateQuotationModal
@@ -3528,6 +3636,7 @@ export default function Leads() {
           {snackbar.message}
         </MuiAlert>
       </Snackbar>
-    </Box>
+    <LeadActionDialog open={followupDialogOpen} lead={activeLead} onClose={() => setFollowupDialogOpen(false)} onSaved={fetchLeadsList} />
+</Box>
   );
 }

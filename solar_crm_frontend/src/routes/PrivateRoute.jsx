@@ -11,7 +11,7 @@ const routeFeatureMap = {
 
 const PrivateRoute = ({ allowedRoles = [] }) => {
   const { user, token, loading } = useAuth();
-  const { can } = usePlanFeatures();
+  const { can, loading: planLoading } = usePlanFeatures();
 
   // 1. Context re-hydration wait
   if (loading) return null;
@@ -44,6 +44,7 @@ const PrivateRoute = ({ allowedRoles = [] }) => {
   // 5. Plan feature check — URL se bhi lock
   const currentPath = window.location.pathname;
   const requiredFeature = routeFeatureMap[currentPath];
+  if (requiredFeature && planLoading) return null;
   if (requiredFeature && !can(requiredFeature)) {
     // Role ke hisaab se dashboard pe bhejo
     if (userRole.includes("manager"))  return <Navigate to="/manager/dashboard" replace />;

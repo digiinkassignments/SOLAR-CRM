@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import {useAuth} from "../../context/AuthContext";
+import api from "../../api/axios";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -9,7 +11,6 @@ import {
   Grid,
   MenuItem,
   Typography,
-  Box,
   CircularProgress,
 } from "@mui/material";
 import PersonAddOutlinedIcon from "@mui/icons-material/PersonAddOutlined";
@@ -25,6 +26,10 @@ const COLORS = {
 };
 
 export default function AddCustomerModal({ open, onClose, onCustomerCreated }) {
+  const {user}=useAuth();
+  const managerMode=Number(user?.role_id)===2;
+  const [team,setTeam]=useState([]);
+  useEffect(()=>{if(open && managerMode) api.get("/users/team").then(r=>setTeam(r.data.data||[])).catch(()=>toast.error("Team could not be loaded."));},[open,managerMode]);
   const [formData, setFormData] = useState({
     customer_name: "",
     mobile_number: "",
@@ -58,6 +63,7 @@ export default function AddCustomerModal({ open, onClose, onCustomerCreated }) {
       return toast.error("Mobile number is required");
     }
 
+    if(managerMode && !formData.assigned_to) return toast.error("Choose a salesperson in your team.");
     setSaving(true);
     try {
       const res = await createCustomer(formData);
@@ -97,32 +103,34 @@ export default function AddCustomerModal({ open, onClose, onCustomerCreated }) {
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: "12px" } }}>
+    <Dialog open={open} onClose={() => !saving && handleClose()} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: "12px" } }}>
       <DialogTitle sx={{ bgcolor: COLORS.primary, color: "#FFFFFF", py: 2, display: "flex", alignItems: "center", gap: 1 }}>
         <PersonAddOutlinedIcon />
         <Typography variant="h6" sx={{ fontWeight: 700, fontSize: "1rem" }}>
-          + Add New Customer Record
+          Add customer
         </Typography>
       </DialogTitle>
 
       <form onSubmit={handleSubmit}>
         <DialogContent sx={{ p: 3 }}>
+          {managerMode && <TextField select required fullWidth size="small" label="Assigned salesperson" name="assigned_to" value={formData.assigned_to||""} onChange={handleChange} sx={{mb:2}}>{team.map(rep=><MenuItem key={rep.id} value={rep.id}>{rep.full_name}</MenuItem>)}</TextField>}
           <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.textSecondary, textTransform: "uppercase", letterSpacing: "0.05em" }}>
             1. Primary Information
           </Typography>
           <Grid container spacing={2} sx={{ mt: 0.5, mb: 2.5 }}>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 required
                 fullWidth
                 size="small"
                 label="Full Customer / Entity Name"
+                placeholder="e.g. Ramesh Kumar"
                 name="customer_name"
                 value={formData.customer_name}
                 onChange={handleChange}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 required
                 fullWidth
@@ -131,31 +139,33 @@ export default function AddCustomerModal({ open, onClose, onCustomerCreated }) {
                 name="mobile_number"
                 value={formData.mobile_number}
                 onChange={handleChange}
-                placeholder="10-digit mobile"
+                placeholder="e.g. 9876543210"
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 size="small"
                 label="Alternate Phone"
+                placeholder="e.g. 9876543211"
                 name="alternate_number"
                 value={formData.alternate_number}
                 onChange={handleChange}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 size="small"
                 type="email"
                 label="Email Address"
+                placeholder="e.g. ramesh@example.com"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 select
                 fullWidth
@@ -170,11 +180,12 @@ export default function AddCustomerModal({ open, onClose, onCustomerCreated }) {
                 <MenuItem value="Industrial">Industrial (Heavy Power)</MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 size="small"
                 label="GSTIN (Optional, for Business)"
+                placeholder="e.g. 08AAAAA0000A1Z5"
                 name="customer_gstin"
                 value={formData.customer_gstin}
                 onChange={handleChange}
@@ -186,41 +197,45 @@ export default function AddCustomerModal({ open, onClose, onCustomerCreated }) {
             2. Site / Installation Address
           </Typography>
           <Grid container spacing={2} sx={{ mt: 0.5, mb: 2.5 }}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 size="small"
                 label="Site Full Address"
+                placeholder="e.g. 124, Sunrise Enclave, Sector 5"
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 size="small"
                 label="City"
+                placeholder="e.g. Jaipur"
                 name="city"
                 value={formData.city}
                 onChange={handleChange}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 size="small"
                 label="State"
+                placeholder="e.g. Rajasthan"
                 name="state"
                 value={formData.state}
                 onChange={handleChange}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 size="small"
                 label="Pincode"
+                placeholder="e.g. 302021"
                 name="pincode"
                 value={formData.pincode}
                 onChange={handleChange}
@@ -232,7 +247,7 @@ export default function AddCustomerModal({ open, onClose, onCustomerCreated }) {
             3. Electricity Grid & Discom Info
           </Typography>
           <Grid container spacing={2} sx={{ mt: 0.5, mb: 1 }}>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -240,10 +255,10 @@ export default function AddCustomerModal({ open, onClose, onCustomerCreated }) {
                 name="electricity_consumer_number"
                 value={formData.electricity_consumer_number}
                 onChange={handleChange}
-                placeholder="From Electricity Bill"
+                placeholder="e.g. 10023456789"
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -251,27 +266,29 @@ export default function AddCustomerModal({ open, onClose, onCustomerCreated }) {
                 name="discom_name"
                 value={formData.discom_name}
                 onChange={handleChange}
-                placeholder="e.g. BSES, TPDDL, MSEDCL"
+                placeholder="e.g. JVVNL / BSES / TPDDL"
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 size="small"
                 type="number"
                 label="Sanctioned Load (kW)"
+                placeholder="e.g. 5.0"
                 name="sanctioned_load_kw"
                 value={formData.sanctioned_load_kw}
                 onChange={handleChange}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 multiline
                 rows={2}
                 size="small"
                 label="Special Notes / Remarks"
+                placeholder="e.g. Customer interested in 5kW residential rooftop solar"
                 name="notes"
                 value={formData.notes}
                 onChange={handleChange}
@@ -281,7 +298,7 @@ export default function AddCustomerModal({ open, onClose, onCustomerCreated }) {
         </DialogContent>
 
         <DialogActions sx={{ p: 2.5, borderTop: `1px solid ${COLORS.border}` }}>
-          <Button onClick={handleClose} sx={{ color: COLORS.textSecondary, textTransform: "none", fontWeight: 600 }}>
+          <Button onClick={handleClose} disabled={saving} sx={{ color: COLORS.textSecondary, textTransform: "none", fontWeight: 600 }}>
             Cancel
           </Button>
           <Button

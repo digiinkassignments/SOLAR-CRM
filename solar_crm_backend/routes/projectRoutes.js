@@ -15,13 +15,12 @@ const authMiddleware = verifyToken;
 
 // ── PROTECTED CRM ROUTES (All project endpoints require auth & client DB injection) ──
 router.use(authMiddleware);
-if (typeof clientDbMiddleware === "function") {
-  router.use(clientDbMiddleware);
-}
+// Tenant database and manager scope are established by app middleware.
 
 // ── PROJECT ROUTES ──
 // View routes allowed for Admin & Manager & Site Engineer
 router.get("/stats", projectController.getProjectStats);
+router.get("/completed-surveys", projectController.getCompletedSurveysHandler);
 router.get("/", projectController.getAllProjects);
 router.get("/:id", projectController.getProjectById);
 
@@ -31,6 +30,6 @@ router.put("/:id/stage", authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER, ROLE_SIT
 router.put("/:id", authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER, ROLE_SITE_ENGINEER), projectController.updateProject);
 
 // Only Super Admin can delete a project
-router.delete("/:id", authorizeRoles(ROLE_SUPER_ADMIN), projectController.deleteProject);
+router.delete("/:id", authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), projectController.deleteProject);
 
 module.exports = router;

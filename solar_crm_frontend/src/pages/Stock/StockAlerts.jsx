@@ -1,3 +1,4 @@
+import useWorkspaceNavigate from "../../hooks/useWorkspaceNavigate";
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -23,7 +24,7 @@ const API_BASE_URL =
   "http://localhost:5000";
 
 const StockAlerts = () => {
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
 
   const [loading, setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0); // 0: Active, 1: Resolved

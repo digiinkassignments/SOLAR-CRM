@@ -1,3 +1,4 @@
+import ReminderInbox from "../components/ReminderInbox";
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -21,6 +22,8 @@ import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import AccountCircleOutlinedIcon from "@mui/icons-material/AccountCircleOutlined";
 
 const getEngineerPageMetadata = (pathname) => {
+  if (pathname.includes("/engineer/tasks")) return { title: "My Tasks & Blockers", breadcrumb: "Tasks" };
+  if (pathname.includes("/engineer/service")) return { title: "Service & AMC", breadcrumb: "Service" };
   if (pathname.includes("/engineer/surveys"))
     return { title: "Site Surveys & Feasibility", breadcrumb: "Site Surveys" };
   if (pathname.includes("/engineer/projects"))
@@ -63,8 +66,8 @@ export default function EngineerNavbar({
       position="fixed"
       elevation={0}
       sx={{
-        width: { md: `calc(100% - ${sidebarWidth}px)` },
-        ml: { md: `${sidebarWidth}px` },
+        width: { xs: "100%", md: `calc(100% - ${sidebarWidth}px)` },
+        ml: { xs:0, md: `${sidebarWidth}px` },
         backgroundColor: "#FFFFFF",
         borderBottom: "1px solid #E2E8F0",
         color: "#1E293B",
@@ -75,9 +78,9 @@ export default function EngineerNavbar({
         transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
-      <Toolbar sx={{ justifyContent: "space-between", px: { xs: 2, sm: 3 } }}>
+      <Toolbar sx={{ justifyContent: "space-between", gap: 1, px: { xs: 2, sm: 3 } }}>
         {/* LEFT SECTION: Hamburger Toggle, Breadcrumbs & Page Title */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flex: 1, minWidth: 0 }}>
           <Tooltip title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}>
             <IconButton
               color="inherit"
@@ -96,10 +99,10 @@ export default function EngineerNavbar({
           </Tooltip>
 
         {/* PAGE TITLE & BREADCRUMBS */}
-        <Box sx={{ flexGrow: 1 }}>
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
           <Breadcrumbs
             separator={<KeyboardArrowRightIcon sx={{ fontSize: "0.85rem", color: "#94A3B8" }} />}
-            sx={{ fontSize: "0.75rem", mb: 0.2 }}
+            sx={{ display: { xs: "none", sm: "flex" }, fontSize: "0.75rem", mb: 0.2 }}
           >
             <Link
               underline="hover"
@@ -113,16 +116,17 @@ export default function EngineerNavbar({
               {breadcrumb}
             </Typography>
           </Breadcrumbs>
-          <Typography sx={{ fontSize: "1.05rem", fontWeight: 800, color: "#0F172A", lineHeight: 1.2 }}>
+          <Typography noWrap title={title} sx={{ fontSize: {xs:"0.9rem",sm:"1.05rem"}, fontWeight: 800, color: "#0F172A", lineHeight: 1.2 }}>
             {title}
           </Typography>
         </Box>
         </Box>
 
         {/* RIGHT ACTIONS */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
-            <IconButton onClick={toggleFullscreen} sx={{ color: "#64748B" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
+          <ReminderInbox />
+            <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+            <IconButton onClick={toggleFullscreen} sx={{ display:{xs:"none",sm:"inline-flex"}, color: "#64748B" }}>
               {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
             </IconButton>
           </Tooltip>

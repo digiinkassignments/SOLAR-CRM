@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, MenuItem, Grid, Typography, IconButton,
@@ -229,7 +229,7 @@ const StockOutModal = ({ open, onClose, onSuccess, items = [], preSelectedItem =
 
           <Grid container spacing={2}>
             {!preSelectedItem && (
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <FieldLabel>Select Stock Item *</FieldLabel>
                 <TextField
                   select
@@ -250,7 +250,7 @@ const StockOutModal = ({ open, onClose, onSuccess, items = [], preSelectedItem =
               </Grid>
             )}
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FieldLabel>Dispatch Quantity *</FieldLabel>
               <TextField
                 name="quantity"
@@ -265,7 +265,7 @@ const StockOutModal = ({ open, onClose, onSuccess, items = [], preSelectedItem =
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FieldLabel>Reference Type</FieldLabel>
               <TextField
                 select
@@ -283,7 +283,7 @@ const StockOutModal = ({ open, onClose, onSuccess, items = [], preSelectedItem =
               </TextField>
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FieldLabel>Project / Lead Code</FieldLabel>
               <TextField
                 name="reference_number"
@@ -296,7 +296,7 @@ const StockOutModal = ({ open, onClose, onSuccess, items = [], preSelectedItem =
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FieldLabel>Customer / Site Name</FieldLabel>
               <TextField
                 name="vendor_name"
@@ -309,7 +309,7 @@ const StockOutModal = ({ open, onClose, onSuccess, items = [], preSelectedItem =
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <FieldLabel>Remarks / Dispatch Notes</FieldLabel>
               <TextField
                 name="notes"

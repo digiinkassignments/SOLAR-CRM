@@ -25,15 +25,17 @@ const subdomainCache = new Map();
 const CACHE_TTL_MS = 3 * 60 * 1000;
 
 const clientDbMiddleware = async (req, res, next) => {
+  if (req.db?.managerScopeId || req.db?.engineerScopeId) return next();
   try {
     const host = req.headers.host || "";
     const parts = host.split(".");
     const subdomain = parts[0];
-    const reservedSubdomains = ["admin", "www", "api", "localhost", "crm-admin", "solar-crm"];
+    const reservedSubdomains = ["admin", "www", "api", "localhost", "crm-admin", "solar-crm", "solops"];
     const isClientDomain =
       host.includes("solarcrm.local") ||
       host.includes("solarcrm.com") ||
-      host.includes("digiinksolutions.com");
+      host.includes("digiinksolutions.com") ||
+      host.includes("solops.cloud");
 
     if (!isClientDomain || reservedSubdomains.includes(subdomain)) {
       return next();

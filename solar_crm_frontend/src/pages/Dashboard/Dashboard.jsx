@@ -1,6 +1,8 @@
+import useWorkspaceNavigate from "../../hooks/useWorkspaceNavigate";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import api from "../../api/axios";
 import { getAdminDashboardStats } from "../../services/dashboardService";
 
 import {
@@ -247,8 +249,8 @@ const StatCard = ({ label, value, caption, icon, color, softColor, loading, onCl
       elevation={0}
       onClick={onClick}
       sx={{
-        flex: "1 1 210px",
-        minWidth: 210,
+        minWidth: 0,
+        height: "100%",
         borderRadius: "14px",
         border: `1px solid ${COLORS.border}`,
         backgroundColor: COLORS.card,
@@ -263,7 +265,7 @@ const StatCard = ({ label, value, caption, icon, color, softColor, loading, onCl
           : {},
       }}
     >
-      <CardContent sx={{ p: 2 }}>
+      <CardContent sx={{ p: { xs: 1.75, sm: 2.25 }, height: "100%", boxSizing: "border-box" }}>
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.2 }}>
           <Typography sx={{ color: COLORS.textSecondary, fontWeight: 800, fontSize: "0.68rem", letterSpacing: "0.04em" }}>
             {label}
@@ -291,11 +293,11 @@ const StatCard = ({ label, value, caption, icon, color, softColor, loading, onCl
 );
 
 const SectionHeader = ({ icon, title, chipLabel, chipColor = "default" }) => (
-  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
-    <Stack direction="row" alignItems="center" gap={1.2}>
+  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, gap: 1.5, flexWrap: "wrap", minWidth: 0 }}>
+    <Stack direction="row" alignItems="center" gap={1.2} sx={{ minWidth: 0, flex: "1 1 240px" }}>
       <Box sx={{ width: 4, height: 18, borderRadius: "4px", backgroundColor: COLORS.primary }} />
       {icon}
-      <Typography sx={{ fontWeight: 800, color: COLORS.textPrimary, fontSize: "0.95rem" }}>{title}</Typography>
+      <Typography sx={{ fontWeight: 800, color: COLORS.textPrimary, fontSize: "0.95rem", minWidth: 0, overflowWrap: "anywhere" }}>{title}</Typography>
     </Stack>
     {chipLabel && (
       <Chip label={chipLabel} size="small" color={chipColor} variant="outlined" sx={{ fontWeight: 700, height: 22, fontSize: "0.68rem" }} />
@@ -306,8 +308,8 @@ const SectionHeader = ({ icon, title, chipLabel, chipColor = "default" }) => (
 // ======================================================
 // MAIN DASHBOARD COMPONENT
 // ======================================================
-const Dashboard = () => {
-  const navigate = useNavigate();
+const Dashboard = ({ managerMode = false }) => {
+  const navigate = useWorkspaceNavigate();
   const { user, logout } = useAuth();
 
   const [stats, setStats] = useState(null);
@@ -327,7 +329,7 @@ const Dashboard = () => {
     setError("");
 
     try {
-      const res = await getAdminDashboardStats();
+      const res = managerMode ? (await api.get("/dashboard/manager/overview")).data : await getAdminDashboardStats();
       if (res?.success) setStats(res.data);
       else setError(res?.message || "Failed to load dashboard.");
     } catch (err) {
@@ -347,6 +349,7 @@ const Dashboard = () => {
     active_leads = 0,
     total_revenue = 0,
     total_installed_kw = 0,
+    won_capacity_missing_count = 0,
     todays_followups = 0,
     top_performer = "N/A",
     top_performer_count = 0,
@@ -381,18 +384,20 @@ const Dashboard = () => {
       onClick: () => navigate("/leads?status=Won"),
     },
     {
-      label: "TOTAL REVENUE WON",
+      label: "WON DEAL VALUE",
       value: formatCompactINR(total_revenue),
-      caption: `${won_leads} deals successfully closed`,
+      caption: "Quoted value across won deals",
       icon: <AttachMoneyIcon sx={{ fontSize: 18 }} />,
       color: COLORS.warning,
       softColor: COLORS.warningSoft,
       onClick: () => navigate("/leads?status=Won"),
     },
     {
-      label: "TOTAL CAPACITY WON",
-      value: formatCapacity(total_installed_kw),
-      caption: "Cumulative solar system capacity",
+      label: "CAPACITY ON WON DEALS",
+      value: won_capacity_missing_count > 0 && Number(total_installed_kw) === 0 ? "Not recorded" : formatCapacity(total_installed_kw),
+      caption: won_capacity_missing_count > 0
+        ? `Capacity missing for ${won_capacity_missing_count} won ${won_capacity_missing_count === 1 ? "deal" : "deals"}`
+        : "Capacity entered on won leads",
       icon: <WbSunnyIcon sx={{ fontSize: 18 }} />,
       color: COLORS.purple,
       softColor: COLORS.purpleSoft,
@@ -405,7 +410,7 @@ const Dashboard = () => {
       icon: <EventAvailableOutlinedIcon sx={{ fontSize: 18 }} />,
       color: COLORS.danger,
       softColor: COLORS.dangerSoft,
-      onClick: () => navigate("/leads?followup=today"),
+      onClick: () => navigate("/leads/today-followups"),
     },
     {
       label: "TOP PERFORMER (SALES)",
@@ -414,12 +419,12 @@ const Dashboard = () => {
       icon: <StarsIcon sx={{ fontSize: 18 }} />,
       color: COLORS.secondaryDark,
       softColor: COLORS.secondarySoft,
-      onClick: () => navigate("/users"),
+      onClick: () => navigate(managerMode ? "/team" : "/users"),
     },
   ];
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, backgroundColor: COLORS.bg, minHeight: "100vh", width: "100%", boxSizing: "border-box" }}>
+    <Box sx={{ p: { xs: 1.5, sm: 2, lg: 3 }, backgroundColor: COLORS.bg, minHeight: "100vh", width: "100%", minWidth: 0, boxSizing: "border-box" }}>
       {/* HEADER */}
       <Paper
         elevation={0}
@@ -440,9 +445,9 @@ const Dashboard = () => {
             <ShieldOutlinedIcon sx={{ fontSize: 26 }} />
           </Avatar>
           <Box>
-            <Typography sx={{ fontWeight: 800, color: "#FFFFFF", fontSize: "1.15rem" }}>Admin Control Center</Typography>
+            <Typography sx={{ fontWeight: 800, color: "#FFFFFF", fontSize: "1.15rem" }}>{managerMode ? "Manager Control Center" : "Admin Control Center"}</Typography>
             <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "0.8rem", mt: 0.2 }}>
-              Welcome back, <strong style={{ color: "#FFFFFF" }}>{user?.full_name || user?.name || "Admin"}</strong> - Master CRM Analytics & Operations
+              Welcome back, <strong style={{ color: "#FFFFFF" }}>{user?.full_name || user?.name || "Admin"}</strong> - {managerMode ? "Sales Team Analytics & Operations" : "Master CRM Analytics & Operations"}
             </Typography>
           </Box>
         </Box>
@@ -483,7 +488,7 @@ const Dashboard = () => {
       )}
 
       {/* STAT CARDS ROW */}
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(3, 1fr)", xl: "repeat(6, 1fr)" }, gap: 2, mb: 2.5, width: "100%" }}>
+      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))", alignItems: "stretch", gap: { xs: 1.5, sm: 2 }, mb: { xs: 2, sm: 2.5 }, width: "100%", minWidth: 0 }}>
         {statCards.map((s, idx) => (
           <StatCard key={s.label} {...s} loading={loading} index={idx} />
         ))}
@@ -492,11 +497,11 @@ const Dashboard = () => {
       <Fade in={!loading} timeout={500}>
         <Box>
           {/* CHARTS ROW 1: MONTHLY TREND & PIPELINE STAGES */}
-          <Box sx={{ display: "flex", gap: 2, mb: 2.5, width: "100%", flexDirection: { xs: "column", lg: "row" } }}>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", xl: "minmax(0, 1.4fr) minmax(0, 1fr)" }, alignItems: "stretch", gap: { xs: 1.5, sm: 2 }, mb: { xs: 2, sm: 2.5 }, width: "100%", minWidth: 0 }}>
             {/* Chart 1: Monthly Trend */}
-            <Paper elevation={0} sx={{ flex: 1.4, p: 2.5, borderRadius: "16px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.card }}>
+            <Paper elevation={0} sx={{ minWidth: 0, p: { xs: 2, sm: 2.5 }, borderRadius: "16px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.card }}>
               <SectionHeader icon={<ShowChartIcon sx={{ color: COLORS.primary, fontSize: 20 }} />} title="Leads Created vs. Won (6-Month Trend)" />
-              <Box sx={{ height: 260, width: "100%" }}>
+              <Box sx={{ height: { xs: 230, sm: 260 }, width: "100%", minWidth: 0 }}>
                 {loading ? (
                   <Skeleton variant="rounded" height="100%" />
                 ) : (
@@ -515,14 +520,14 @@ const Dashboard = () => {
             </Paper>
 
             {/* Chart 2: Pipeline Stages Donut */}
-            <Paper elevation={0} sx={{ flex: 1, p: 2.5, borderRadius: "16px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.card }}>
+            <Paper elevation={0} sx={{ minWidth: 0, p: { xs: 2, sm: 2.5 }, borderRadius: "16px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.card }}>
               <SectionHeader
                 icon={<PieChartOutlinedIcon sx={{ color: COLORS.purple, fontSize: 20 }} />}
                 title="Pipeline Stage Distribution"
                 chipLabel={loading ? "" : `${conversionRate}% Conversion`}
                 chipColor="success"
               />
-              <Box sx={{ height: 230, width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Box sx={{ height: { xs: 230, sm: 250 }, width: "100%", minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {loading ? (
                   <Skeleton variant="circular" width={160} height={160} />
                 ) : statusBreakdown.length === 0 ? (
@@ -545,11 +550,11 @@ const Dashboard = () => {
           </Box>
 
           {/* CHARTS ROW 2: LEAD SOURCE PERFORMANCE (BAR/PIE GRAPH) & TEAM LEADERBOARD */}
-          <Box sx={{ display: "flex", gap: 2, mb: 2.5, width: "100%", flexDirection: { xs: "column", lg: "row" } }}>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", xl: "repeat(2, minmax(0, 1fr))" }, alignItems: "stretch", gap: { xs: 1.5, sm: 2 }, mb: { xs: 2, sm: 2.5 }, width: "100%", minWidth: 0 }}>
             {/* Chart 3: Lead Source Bar/Pie Chart */}
-            <Paper elevation={0} sx={{ flex: 1, p: 2.5, borderRadius: "16px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.card }}>
+            <Paper elevation={0} sx={{ minWidth: 0, p: { xs: 2, sm: 2.5 }, borderRadius: "16px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.card }}>
               <SectionHeader icon={<SourceOutlinedIcon sx={{ color: COLORS.primary, fontSize: 20 }} />} title="Lead Source Performance Chart" />
-              <Box sx={{ height: 250, width: "100%" }}>
+              <Box sx={{ height: { xs: 230, sm: 250 }, width: "100%", minWidth: 0 }}>
                 {loading ? (
                   <Skeleton variant="rounded" height="100%" />
                 ) : sourcePerformance.length === 0 ? (
@@ -570,9 +575,9 @@ const Dashboard = () => {
             </Paper>
 
             {/* Chart 4: Sales Team Performance / Leaderboard */}
-            <Paper elevation={0} sx={{ flex: 1, p: 2.5, borderRadius: "16px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.card }}>
+            <Paper elevation={0} sx={{ minWidth: 0, p: { xs: 2, sm: 2.5 }, borderRadius: "16px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.card }}>
               <SectionHeader icon={<LeaderboardIcon sx={{ color: COLORS.secondaryDark, fontSize: 20 }} />} title="Sales Executive Performance" chipLabel="Top Reps" chipColor="warning" />
-              <Box sx={{ height: 250, width: "100%" }}>
+              <Box sx={{ height: { xs: 230, sm: 250 }, width: "100%", minWidth: 0 }}>
                 {loading ? (
                   <Skeleton variant="rounded" height="100%" />
                 ) : teamLeaderboard.length === 0 ? (
@@ -593,13 +598,13 @@ const Dashboard = () => {
           </Box>
 
           {/* ROW 3: RECENT LEADS TABLE & ORGANIZATION-WIDE ACTIVITY */}
-          <Box sx={{ display: "flex", gap: 2, mb: 2.5, width: "100%", flexDirection: { xs: "column", lg: "row" } }}>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", xl: "minmax(0, 1.45fr) minmax(0, 1fr)" }, alignItems: "start", gap: { xs: 1.5, sm: 2 }, mb: { xs: 2, sm: 2.5 }, width: "100%", minWidth: 0 }}>
             {/* Recent Leads Table (Clickable) */}
             <Paper
               elevation={0}
               sx={{
-                flex: 1.45,
-                p: { xs: 2, sm: 2.5 },
+                minWidth: 0,
+                p: { xs: 1.5, sm: 2, lg: 2.5 },
                 borderRadius: "16px",
                 border: `1px solid ${COLORS.border}`,
                 backgroundColor: COLORS.card,
@@ -619,7 +624,7 @@ const Dashboard = () => {
                         Recent Leads
                       </Typography>
                       <Chip
-                        label={`${recentLeads.length} Total`}
+                        label={`${recentLeads.length} Recent`}
                         size="small"
                         sx={{
                           height: 20,
@@ -632,7 +637,7 @@ const Dashboard = () => {
                       />
                     </Stack>
                     <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mt: 0.2 }}>
-                      Latest organization-wide pipeline entries & deals
+                      {managerMode ? "Latest pipeline entries assigned to your sales team" : "Latest organization-wide pipeline entries & deals"}
                     </Typography>
                   </Box>
                 </Stack>
@@ -663,11 +668,11 @@ const Dashboard = () => {
                 sx={{
                   borderRadius: "12px",
                   border: `1px solid ${COLORS.border}`,
-                  overflow: "hidden",
+                  overflowX: "auto",
                   backgroundColor: "#FFFFFF",
                 }}
               >
-                <Table size="small">
+                <Table size="small" sx={{ minWidth: 720 }}>
                   <TableHead sx={{ bgcolor: COLORS.primary }}>
                     <TableRow>
                       <TableCell sx={{ color: "#FFFFFF !important", bgcolor: "#0F172A !important", fontWeight: 700, fontSize: "0.72rem", py: 1.2, px: 1.5, letterSpacing: "0.04em", textTransform: "uppercase" }}>
@@ -970,15 +975,15 @@ const Dashboard = () => {
             </Paper>
 
             {/* Organization-wide Activity Feed */}
-            <Paper elevation={0} sx={{ flex: 1, p: 2.5, borderRadius: "16px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.card }}>
-              <SectionHeader icon={<HistoryIcon sx={{ color: COLORS.primary, fontSize: 20 }} />} title="Organization-wide Activity" chipLabel="Live Stream" chipColor="primary" />
+            <Paper elevation={0} sx={{ minWidth: 0, p: { xs: 2, sm: 2.5 }, borderRadius: "16px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.card }}>
+              <SectionHeader icon={<HistoryIcon sx={{ color: COLORS.primary, fontSize: 20 }} />} title={managerMode ? "Sales Team Activity" : "Organization-wide Activity"} chipLabel="Live Stream" chipColor="primary" />
 
               {loading ? (
                 <Stack gap={1.2}>{Array.from(new Array(4)).map((_, i) => <Skeleton key={i} variant="rounded" height={60} sx={{ borderRadius: "10px" }} />)}</Stack>
               ) : activityFeed.length === 0 ? (
                 <Typography sx={{ color: COLORS.textSecondary, fontSize: "0.82rem", textAlign: "center", py: 4 }}>No activity recorded yet.</Typography>
               ) : (
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1.2, maxHeight: 380, overflowY: "auto", pr: 0.5 }}>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1.2, maxHeight: 380, overflowY: "auto", minWidth: 0, pr: 0.5 }}>
                   {activityFeed.map((log) => {
                     const { icon: ActionIcon, color, soft } = getActionStyle(log.action_type);
                     return (

@@ -18,6 +18,9 @@ const mysql  = require("mysql2").createPool({
 
 const fs     = require("fs");
 const path   = require("path");
+const { exec } = require("child_process");
+const util   = require("util");
+const execAsync = util.promisify(exec);
 const bcrypt = require("bcrypt");
 const { masterDb } = require("../config/masterDb");
 const { getClientPool } = require("../config/clientDb");
@@ -46,287 +49,43 @@ function generateDbName(clientCode) {
 }
 
 // ============================================================
-// Create Client Database + Install Solar CRM Schema
+// Create Client Database + Install Solar CRM Schema (All 62 Tables)
 // ============================================================
 async function createClientDatabase(dbName) {
   // 1. DB create karo
   await mysql.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\`
     CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
 
-  // 2. Solar CRM schema install karo (same tables as existing solar_crm)
-  const clientPool = getClientPool(dbName);
-
-  // Roles table
-  await clientPool.query(`
-    CREATE TABLE IF NOT EXISTS \`roles\` (
-      \`id\`          INT(11) NOT NULL AUTO_INCREMENT,
-      \`role_name\`   VARCHAR(50) NOT NULL,
-      \`description\` VARCHAR(255) DEFAULT NULL,
-      \`permissions\` JSON DEFAULT NULL,
-      \`status\`      ENUM('Active','Inactive') DEFAULT 'Active',
-      \`is_system\`   TINYINT(1) NOT NULL DEFAULT 0,
-      \`created_at\`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      \`updated_at\`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (\`id\`),
-      UNIQUE KEY \`role_name\` (\`role_name\`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-
-  await clientPool.query(`
-    INSERT IGNORE INTO \`roles\` (\`id\`, \`role_name\`, \`description\`, \`is_system\`, \`permissions\`) VALUES
-    (1, 'Super Admin', 'Complete System Access', 1, JSON_ARRAY('dashboard:view','users:view','users:create','users:edit','users:delete','roles:view','roles:create','roles:edit','roles:delete','leads:view','leads:create','leads:edit','leads:delete','leads:export','customers:view','customers:create','customers:edit','quotations:view','quotations:create','quotations:edit','quotations:delete','calculator:view','calculator:use','invoices:view','invoices:create','invoices:edit','invoices:delete','subsidies:view','subsidies:edit','projects:view','projects:create','projects:edit','projects:delete','stock:view','stock:create','stock:edit','stock:delete','surveys:view','surveys:create','surveys:edit','reports:view','reports:export','settings:view','settings:edit','ai_copilot:use')),
-    (2, 'Manager', 'Manage Team & Leads', 1, JSON_ARRAY('dashboard:view','users:view','users:create','leads:view','leads:create','leads:edit','leads:export','customers:view','customers:create','customers:edit','quotations:view','quotations:create','quotations:edit','calculator:view','calculator:use','invoices:view','invoices:create','subsidies:view','projects:view','projects:edit','stock:view','surveys:view','surveys:create','surveys:edit','reports:view','ai_copilot:use')),
-    (3, 'Sales', 'Handle Assigned Leads', 1, JSON_ARRAY('dashboard:view','leads:view','leads:create','leads:edit','customers:view','customers:create','quotations:view','quotations:create','calculator:view','calculator:use','invoices:view','surveys:view','surveys:create','ai_copilot:use')),
-    (4, 'Site Engineer', 'Conduct site surveys, feasibility checks & technical visits', 1, JSON_ARRAY('dashboard:view','surveys:view','surveys:create','surveys:edit','projects:view','projects:edit'))
-  `);
-
-  // Users table
-  await clientPool.query(`
-    CREATE TABLE IF NOT EXISTS \`users\` (
-      \`id\`            INT(11) NOT NULL AUTO_INCREMENT,
-      \`role_id\`       INT(11) NOT NULL,
-      \`manager_id\`    INT(11) DEFAULT NULL,
-      \`full_name\`     VARCHAR(100) NOT NULL,
-      \`username\`      VARCHAR(50) NOT NULL,
-      \`email\`         VARCHAR(150) NOT NULL,
-      \`phone\`         VARCHAR(15) DEFAULT NULL,
-      \`password\`      VARCHAR(255) NOT NULL,
-      \`profile_image\` VARCHAR(255) DEFAULT NULL,
-      \`status\`        ENUM('Active','Inactive') DEFAULT 'Active',
-      \`is_password_changed\` TINYINT(1) NOT NULL DEFAULT 0,
-      \`is_deleted\`    TINYINT(1) DEFAULT 0,
-      \`last_login\`    DATETIME DEFAULT NULL,
-      \`created_by\`    INT(11) DEFAULT NULL,
-      \`created_at\`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      \`updated_at\`    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      \`fcm_token\`     TEXT DEFAULT NULL,
-      PRIMARY KEY (\`id\`),
-      UNIQUE KEY \`email\`    (\`email\`),
-      UNIQUE KEY \`username\` (\`username\`),
-      KEY \`fk_role\`    (\`role_id\`),
-      KEY \`fk_manager\` (\`manager_id\`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-
-  // Leads table
-  await clientPool.query(`
-    CREATE TABLE IF NOT EXISTS \`leads\` (
-      \`id\`                  INT(11) NOT NULL AUTO_INCREMENT,
-      \`lead_code\`           VARCHAR(20) NOT NULL,
-      \`customer_name\`       VARCHAR(150) NOT NULL,
-      \`mobile_number\`       VARCHAR(15) NOT NULL,
-      \`alternate_number\`    VARCHAR(15) DEFAULT NULL,
-      \`email\`               VARCHAR(150) DEFAULT NULL,
-      \`address\`             VARCHAR(255) DEFAULT NULL,
-      \`city\`                VARCHAR(100) DEFAULT NULL,
-      \`state\`               VARCHAR(100) DEFAULT NULL,
-      \`pincode\`             VARCHAR(10) DEFAULT NULL,
-      \`solar_requirement\`   ENUM('Residential','Commercial') NOT NULL DEFAULT 'Residential',
-      \`interest_status\`     ENUM('Pending','Interested','Not Interested') NOT NULL DEFAULT 'Pending',
-      \`required_kw\`         DECIMAL(6,2) DEFAULT NULL,
-      \`remark\`              VARCHAR(500) DEFAULT NULL,
-      \`lead_source\`         ENUM('Website','Call','Reference','Facebook','Google','Other') NOT NULL DEFAULT 'Other',
-      \`priority\`            ENUM('Low','Medium','High') NOT NULL DEFAULT 'Medium',
-      \`status\`              ENUM('New Lead','Contacted','Follow-up Pending','Site Visit Scheduled','Quotation Sent','Negotiation','Won','Lost','Not Interested') NOT NULL DEFAULT 'New Lead',
-      \`assigned_to\`         INT(11) DEFAULT NULL,
-      \`assigned_by\`         INT(11) DEFAULT NULL,
-      \`created_by\`          INT(11) DEFAULT NULL,
-      \`next_follow_up_date\` DATE DEFAULT NULL,
-      \`site_visit_date\`     DATE DEFAULT NULL,
-      \`quotation_amount\`    DECIMAL(12,2) DEFAULT NULL,
-      \`closed_at\`           DATETIME DEFAULT NULL,
-      \`is_deleted\`          TINYINT(1) NOT NULL DEFAULT 0,
-      \`created_at\`          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      \`updated_at\`          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (\`id\`),
-      UNIQUE KEY \`uq_leads_lead_code\` (\`lead_code\`),
-      KEY \`idx_leads_status\`      (\`status\`),
-      KEY \`idx_leads_assigned_to\` (\`assigned_to\`),
-      KEY \`idx_leads_created_at\`  (\`created_at\`),
-      KEY \`idx_leads_mobile\`      (\`mobile_number\`),
-      KEY \`idx_leads_is_deleted\`  (\`is_deleted\`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-
-  // Lead followups
-  await clientPool.query(`
-    CREATE TABLE IF NOT EXISTS \`lead_followups\` (
-      \`id\`                    INT(11) NOT NULL AUTO_INCREMENT,
-      \`lead_id\`               INT(11) NOT NULL,
-      \`note\`                  VARCHAR(500) NOT NULL,
-      \`followup_type\`         ENUM('Call','WhatsApp','SMS','Meeting','Site Visit','Other') NOT NULL DEFAULT 'Call',
-      \`status_after_followup\` ENUM('New Lead','Contacted','Follow-up Pending','Site Visit Scheduled','Quotation Sent','Negotiation','Won','Lost','Not Interested') DEFAULT NULL,
-      \`follow_up_date\`        DATE DEFAULT NULL,
-      \`created_by\`            INT(11) DEFAULT NULL,
-      \`created_at\`            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (\`id\`),
-      KEY \`idx_followups_lead\` (\`lead_id\`),
-      KEY \`idx_followups_date\` (\`follow_up_date\`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-
-  // Lead activity logs
-  await clientPool.query(`
-    CREATE TABLE IF NOT EXISTS \`lead_activity_logs\` (
-      \`id\`           INT(11) NOT NULL AUTO_INCREMENT,
-      \`lead_id\`      INT(11) NOT NULL,
-      \`action_type\`  ENUM('Lead Created','Lead Updated','Lead Assigned','Lead Reassigned','Status Changed','Follow-up Added','Quotation Sent','Site Visit Scheduled','Lead Closed') NOT NULL,
-      \`old_value\`    VARCHAR(255) DEFAULT NULL,
-      \`new_value\`    VARCHAR(255) DEFAULT NULL,
-      \`remark\`       VARCHAR(500) DEFAULT NULL,
-      \`performed_by\` INT(11) DEFAULT NULL,
-      \`ip_address\`   VARCHAR(45) DEFAULT NULL,
-      \`device\`       VARCHAR(255) DEFAULT NULL,
-      \`created_at\`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (\`id\`),
-      KEY \`idx_logs_lead\`       (\`lead_id\`),
-      KEY \`idx_logs_action\`     (\`action_type\`),
-      KEY \`idx_logs_created_at\` (\`created_at\`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-
-  // Lead assignments
-  await clientPool.query(`
-    CREATE TABLE IF NOT EXISTS \`lead_assignments\` (
-      \`id\`          INT(11) NOT NULL AUTO_INCREMENT,
-      \`lead_id\`     INT(11) NOT NULL,
-      \`assigned_to\` INT(11) NOT NULL,
-      \`assigned_by\` INT(11) DEFAULT NULL,
-      \`created_at\`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (\`id\`),
-      KEY \`idx_assignments_lead\`        (\`lead_id\`),
-      KEY \`idx_assignments_assigned_to\` (\`assigned_to\`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-
-  // Notifications
-  await clientPool.query(`
-    CREATE TABLE IF NOT EXISTS \`notifications\` (
-      \`id\`           INT(11) NOT NULL AUTO_INCREMENT,
-      \`user_id\`      INT(11) NOT NULL,
-      \`title\`        VARCHAR(255) NOT NULL,
-      \`body\`         TEXT NOT NULL,
-      \`type\`         VARCHAR(50) DEFAULT NULL,
-      \`reference_id\` INT(11) DEFAULT NULL,
-      \`is_read\`      TINYINT(4) DEFAULT 0,
-      \`created_at\`   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (\`id\`),
-      KEY \`user_id\` (\`user_id\`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-
-  // Password reset OTPs
-  await clientPool.query(`
-    CREATE TABLE IF NOT EXISTS \`password_reset_otps\` (
-      \`id\`          INT(11) NOT NULL AUTO_INCREMENT,
-      \`user_id\`     INT(11) NOT NULL,
-      \`otp\`         VARCHAR(255) NOT NULL,
-      \`expires_at\`  DATETIME NOT NULL,
-      \`is_verified\` TINYINT(1) DEFAULT 0,
-      \`created_at\`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (\`id\`),
-      KEY \`user_id\` (\`user_id\`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-
-  // Settings
-  await clientPool.query(`
-    CREATE TABLE IF NOT EXISTS \`settings\` (
-      \`id\`                   INT(11) NOT NULL AUTO_INCREMENT,
-      \`company_name\`         VARCHAR(255) NOT NULL,
-      \`company_logo\`         VARCHAR(255) DEFAULT NULL,
-      \`company_email\`        VARCHAR(255) DEFAULT NULL,
-      \`company_phone\`        VARCHAR(20) DEFAULT NULL,
-      \`website\`              VARCHAR(255) DEFAULT NULL,
-      \`gst_number\`           VARCHAR(50) DEFAULT NULL,
-      \`currency\`             VARCHAR(20) DEFAULT 'INR',
-      \`timezone\`             VARCHAR(100) DEFAULT 'Asia/Kolkata',
-      \`smtp_host\`            VARCHAR(255) DEFAULT NULL,
-      \`smtp_port\`            VARCHAR(10) DEFAULT NULL,
-      \`smtp_username\`        VARCHAR(255) DEFAULT NULL,
-      \`smtp_password\`        TEXT DEFAULT NULL,
-      \`email_notifications\`  TINYINT(1) DEFAULT 1,
-      \`lead_notifications\`   TINYINT(1) DEFAULT 1,
-      \`session_timeout\`      INT DEFAULT 30,
-      \`password_expiry_days\` INT DEFAULT 90,
-      \`otp_length\`           INT DEFAULT 4,
-      \`enable_2fa\`           TINYINT(1) DEFAULT 0,
-      \`strong_password\`      TINYINT(1) DEFAULT 0,
-      \`weekly_reports\`       TINYINT(1) DEFAULT 0,
-      \`system_notifications\` TINYINT(1) DEFAULT 0,
-      \`backup_frequency\`     VARCHAR(20) DEFAULT 'Daily',
-      \`backup_retention_days\` INT DEFAULT 30,
-      \`pan_number\`           VARCHAR(50) DEFAULT NULL,
-      \`street_address\`      VARCHAR(255) DEFAULT NULL,
-      \`city\`                VARCHAR(100) DEFAULT NULL,
-      \`state\`               VARCHAR(100) DEFAULT NULL,
-      \`country\`             VARCHAR(100) DEFAULT NULL,
-      \`pincode\`             VARCHAR(20) DEFAULT NULL,
-      \`address\`             VARCHAR(500) DEFAULT NULL,
-      \`date_format\`         VARCHAR(20) DEFAULT 'DD/MM/YYYY',
-      \`smtp_encryption\`     VARCHAR(20) DEFAULT 'TLS',
-      \`lead_notifications\`   TINYINT(1) DEFAULT 1,
-      \`created_at\`           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      \`updated_at\`           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (\`id\`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-
-  // Custom Fields table
-  await clientPool.query(`
-    CREATE TABLE IF NOT EXISTS \`custom_fields\` (
-      \`id\`          INT AUTO_INCREMENT PRIMARY KEY,
-      \`field_name\`  VARCHAR(100) NOT NULL,
-      \`field_type\`  ENUM("text","number","dropdown","date") DEFAULT "text",
-      \`is_required\` TINYINT(1) DEFAULT 0,
-      \`options\`     TEXT DEFAULT NULL,
-      \`is_active\`   TINYINT(1) DEFAULT 1,
-      \`sort_order\`  INT DEFAULT 0,
-      \`created_at\`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-
-  // Lead Custom Values table
-  await clientPool.query(`
-    CREATE TABLE IF NOT EXISTS \`lead_custom_values\` (
-      \`id\`         INT AUTO_INCREMENT PRIMARY KEY,
-      \`lead_id\`    INT NOT NULL,
-      \`field_id\`   INT NOT NULL,
-      \`value\`      TEXT DEFAULT NULL,
-      \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY \`unique_lead_field\` (\`lead_id\`, \`field_id\`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-
-  // 3. Install Full Solar ERP Modules & Seeds from complete_client_template.sql
-  try {
-    const templatePath = path.join(__dirname, "../Database/complete_client_template.sql");
-    if (fs.existsSync(templatePath)) {
+  // 2. Install Full 62 Solar CRM Tables & Configuration Seeds from solar_crm_master_template.sql
+  const templatePath = path.join(__dirname, "../Database/solar_crm_master_template.sql");
+  if (fs.existsSync(templatePath)) {
+    const host = process.env.DB_HOST || "localhost";
+    const user = process.env.DB_USER || "root";
+    const passArg = process.env.DB_PASSWORD ? `-p"${process.env.DB_PASSWORD}"` : "";
+    const importCmd = `mysql -h ${host} -u ${user} ${passArg} "${dbName}" < "${templatePath}"`;
+    try {
+      await execAsync(importCmd);
+      console.log(`✅ All 62 Solar CRM tables and seeds auto-migrated into ${dbName}`);
+    } catch (importErr) {
+      console.error(`CLI import fallback for ${dbName}:`, importErr.message);
       const sqlContent = fs.readFileSync(templatePath, "utf8");
-      // Split by semicolon ignoring semicolons inside strings or comments
+      const clientPool = getClientPool(dbName);
       const statements = sqlContent
         .replace(/\/\*[\s\S]*?\*\/|--[^\n]*\n/g, "")
         .split(";")
         .map((s) => s.trim())
         .filter((s) => s.length > 5);
-
-      for (const statement of statements) {
+      for (const stmt of statements) {
         try {
-          await clientPool.query(statement);
-        } catch (stmtErr) {
-          // Ignore duplicate table / column warnings
-          if (!stmtErr.message.includes("already exists") && !stmtErr.message.includes("Duplicate")) {
-            console.warn(`[Client Provisioning] Non-fatal migration note in ${dbName}:`, stmtErr.message);
-          }
+          await clientPool.query(stmt);
+        } catch (e) {
+          // ignore duplicate
         }
       }
-      console.log(`✅ All 24+ Solar CRM & ERP tables verified in ${dbName}`);
     }
-  } catch (templateErr) {
-    console.error(`[Client Provisioning] Template execution error for ${dbName}:`, templateErr.message);
   }
 
-  console.log(`✅ Schema installed in ${dbName}`);
+  const clientPool = getClientPool(dbName);
   return clientPool;
 }
 
@@ -388,6 +147,14 @@ async function provisionNewClient({
 
   // 2. Client DB + schema create karo
   const clientPool = await createClientDatabase(dbName);
+
+  // Auto-sync all migrations to new tenant DB
+  try {
+    const { autoMigrateAllTenants } = require("../Database/autoMigrate");
+    await autoMigrateAllTenants();
+  } catch (mErr) {
+    console.warn("Auto-migrate warning for new tenant:", mErr.message);
+  }
 
   // 3. Default admin user banao
   const tempPassword = `Solar@${Math.floor(1000 + Math.random() * 9000)}`;

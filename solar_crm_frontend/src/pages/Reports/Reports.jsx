@@ -1,10 +1,15 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { loadReportLeads } from "./reportData";
+import { useState, useEffect, useMemo, useRef } from "react";
 import api from "../../api/axios";
+import ReportsWorkspace from "./ReportsWorkspace";
+import EngineerReports from "./EngineerReports";
+import { downloadCsv } from "./reportExport";
 import { getUsers } from "../../services/userServices";
 import { getLeads } from "../../services/leadService";
 
 import {
   Box,
+  Alert,
   Typography,
   Paper,
   Table,
@@ -36,11 +41,9 @@ import {
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import DownloadIcon from "@mui/icons-material/Download";
 import SupervisorAccountOutlinedIcon from "@mui/icons-material/SupervisorAccountOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
-import SourceOutlinedIcon from "@mui/icons-material/SourceOutlined";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import EmojiEventsOutlinedIcon from "@mui/icons-material/EmojiEventsOutlined";
 import InboxOutlinedIcon from "@mui/icons-material/InboxOutlined";
@@ -55,7 +58,6 @@ import PendingOutlinedIcon from "@mui/icons-material/PendingOutlined";
 import PauseCircleFilledIcon from "@mui/icons-material/PauseCircleFilled";
 import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
 
-import logo from "../../assets/images/logo.png";
 
 // ═══════════════════════════════════════════════════════════
 // THEME & COLOR PALETTE
@@ -124,12 +126,6 @@ const formatDate = (dateVal) => {
   }
 };
 
-const hashHue = (s = "") => {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = s.charCodeAt(i) + ((h << 5) - h);
-  return Math.abs(h) % 360;
-};
-
 const getInitials = (name) => {
   if (!name || typeof name !== "string") return "?";
   const p = name.trim().split(" ");
@@ -167,7 +163,6 @@ const getProfileUrl = (user) => {
 // ═══════════════════════════════════════════════════════════
 const UserAvatar = ({ user, size = 36 }) => {
   const photoUrl = getProfileUrl(user);
-  const hue = hashHue(user?.full_name || "?");
   if (photoUrl) {
     return (
       <Avatar
@@ -184,8 +179,8 @@ const UserAvatar = ({ user, size = 36 }) => {
     <Avatar
       sx={{
         width: size, height: size, flexShrink: 0, fontSize: size * 0.38, fontWeight: 800,
-        background: `linear-gradient(135deg, hsl(${hue}, 55%, 52%), hsl(${hue + 35}, 58%, 40%))`,
-        border: `2px solid ${C.border}`, color: "#FFF",
+        backgroundColor: "#F1F5F9",
+        border: `2px solid ${C.border}`, color: C.primary,
       }}
     >
       {getInitials(user?.full_name)}
@@ -216,9 +211,6 @@ const StatCard = ({ label, value, caption, icon, color, softColor, loading }) =>
       <Typography sx={{ fontWeight: 900, color: C.textPrimary, fontSize: "1.45rem", lineHeight: 1, letterSpacing: "-0.02em" }}>
         {loading ? "—" : value}
       </Typography>
-      <Box sx={{ mt: 1, height: 4, borderRadius: 2, bgcolor: C.borderLight, overflow: "hidden" }}>
-        <Box sx={{ height: "100%", width: "65%", borderRadius: 2, bgcolor: color, opacity: 0.6 }} />
-      </Box>
       {caption && (
         <Typography sx={{ color: C.textMuted, mt: 0.8, display: "block", fontWeight: 600, fontSize: "0.7rem" }}>
           {caption}
@@ -257,7 +249,6 @@ const DonutChart = ({ segments, size = 160, strokeWidth = 22, centerLabel = "Lea
   const circ = 2 * Math.PI * radius;
   const total = segments.reduce((s, seg) => s + seg.value, 0);
   const cx = size / 2;
-  let acc = 0;
   return (
     <Box sx={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -267,8 +258,8 @@ const DonutChart = ({ segments, size = 160, strokeWidth = 22, centerLabel = "Lea
           const pct = total > 0 ? seg.value / total : 0;
           const dash = pct * circ;
           const gap = circ - dash;
-          const rot = -90 + acc * 360;
-          acc += pct;
+          const preceding = segments.slice(0, i).reduce((sum, item) => sum + item.value, 0);
+          const rot = -90 + (total > 0 ? preceding / total : 0) * 360;
           return (
             <circle
               key={i}
@@ -299,15 +290,27 @@ const TH = ({ children, align = "left" }) => (
   </TableCell>
 );
 
+const funnelStages = [
+    { label: "Pre-Install Inspection", stages: ["Pre-Install Inspection"] },
+    { label: "Installation in Progress", stages: ["Installation in Progress"] },
+    { label: "Testing & Commissioning", stages: ["Testing & Commissioning"] },
+    { label: "Final Inspection", stages: ["Final Inspection"] },
+    { label: "Customer Handover", stages: ["Customer Handover", "Handover Done", "Warranty Period"] },
+  ];
+
 const isManager = (u) => Number(u.role_id) === 2 || u.role_name === "Manager" || u.role === "Manager";
 const isSalesRep = (u) => Number(u.role_id) === 3 || u.role_name === "Sales" || u.role === "Sales";
 
 // ═══════════════════════════════════════════════════════════
 // MAIN REPORT COMPONENT
 // ═══════════════════════════════════════════════════════════
+
 const Reports = () => {
   // Main Tab (0: Sales & Leads, 1: Project Execution, 2: Financial, 3: Field Operations, 4: AMC & Warranty)
   const [mainTab, setMainTab] = useState(0);
+  const [reportErrors, setReportErrors] = useState({});
+  const [engineerRefresh, setEngineerRefresh] = useState(0);
+  const requestSequence = useRef(0);
 
   // Global Date Filter applied across all tabs
   const [period, setPeriod] = useState("all");
@@ -342,10 +345,12 @@ const Reports = () => {
 
   // Fetch All Modules Data
   const fetchAllData = async () => {
+    const request = ++requestSequence.current;
     setLoading(true);
+    setEngineerRefresh(value => value + 1);
     try {
       const [leadsRes, usersRes, projRes, finRes, opsRes, warRes] = await Promise.allSettled([
-        getLeads({ page: 1, limit: 5000 }),
+        loadReportLeads(),
         getUsers({ limit: 200 }),
         api.get("/reports/projects"),
         api.get("/reports/financials"),
@@ -353,6 +358,14 @@ const Reports = () => {
         api.get("/reports/warranty-amc"),
       ]);
 
+      if (request !== requestSequence.current) return;
+      setReportErrors({
+        0: leadsRes.status !== "fulfilled" || usersRes.status !== "fulfilled" ? "Sales data could not be loaded. Refresh to retry." : null,
+        1: projRes.status !== "fulfilled" || !projRes.value?.data?.success ? "Project data could not be loaded. Refresh to retry." : null,
+        2: finRes.status !== "fulfilled" || !finRes.value?.data?.success ? "Financial data could not be loaded. Refresh to retry." : null,
+        3: opsRes.status !== "fulfilled" || !opsRes.value?.data?.success ? "Field operations data could not be loaded. Refresh to retry." : null,
+        4: warRes.status !== "fulfilled" || !warRes.value?.data?.success ? "Warranty data could not be loaded. Refresh to retry." : null,
+      });
       if (leadsRes.status === "fulfilled") {
         const lRaw = leadsRes.value?.data;
         setLeads(Array.isArray(lRaw) ? lRaw : lRaw?.data || []);
@@ -381,12 +394,14 @@ const Reports = () => {
     } catch (err) {
       console.error("Error fetching report data:", err);
     } finally {
-      setLoading(false);
+      if (request === requestSequence.current) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAllData();
+    const requests = requestSequence;
+    const timer = setTimeout(fetchAllData, 0);
+    return () => { clearTimeout(timer); requests.current++; };
   }, []);
 
   // ─────────────────────────────────────────────────────────────
@@ -420,7 +435,7 @@ const Reports = () => {
     return managers.map((mgr) => {
       const teamRepIds = reps.filter((r) => Number(r.manager_id) === Number(mgr.id)).map((r) => r.id);
       const teamLeads = filteredLeads.filter(
-        (l) => teamRepIds.includes(l.assigned_to) || Number(l.assigned_to) === Number(mgr.id) || Number(l.created_by) === Number(mgr.id)
+        (l) => teamRepIds.some(id => Number(id) === Number(l.assigned_to)) || Number(l.assigned_to) === Number(mgr.id) || Number(l.created_by) === Number(mgr.id)
       );
       const total = teamLeads.length;
       const won = teamLeads.filter((l) => l.status === "Won").length;
@@ -500,13 +515,7 @@ const Reports = () => {
     return { total, completed, inProgress, stalled };
   }, [filteredProjects]);
 
-  const funnelStages = [
-    { label: "Pre-Install Inspection", stages: ["Pre-Install Inspection"] },
-    { label: "Installation in Progress", stages: ["Installation in Progress"] },
-    { label: "Testing & Commissioning", stages: ["Testing & Commissioning"] },
-    { label: "Final Inspection", stages: ["Final Inspection"] },
-    { label: "Customer Handover", stages: ["Customer Handover", "Handover Done", "Warranty Period"] },
-  ];
+
 
   const funnelCounts = useMemo(() => {
     const counts = {};
@@ -543,7 +552,7 @@ const Reports = () => {
     filteredInvoices.forEach((inv) => {
       const tot = Number(inv.total_amount) || 0;
       const pd = Number(inv.paid_amount) || 0;
-      const bal = Number(inv.balance_amount) || (tot - pd);
+      const bal = inv.balance_amount == null ? tot - pd : Number(inv.balance_amount);
 
       invoiced += tot;
       collected += pd;
@@ -665,14 +674,8 @@ const Reports = () => {
   // CSV EXPORT HANDLERS PER TAB
   // ─────────────────────────────────────────────────────────────
   const exportCsv = (headers, rows, filename) => {
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const a = document.createElement("a");
-    a.setAttribute("href", URL.createObjectURL(blob));
-    a.setAttribute("download", `${filename}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const clean = rows.map(row => row.map(value => typeof value === "string" && value.startsWith('"') && value.endsWith('"') ? value.slice(1,-1) : value));
+    downloadCsv(headers, clean, `${filename}_${new Date().toISOString().slice(0,10)}.csv`);
   };
 
   const handleExportCSV = () => {
@@ -754,35 +757,12 @@ const Reports = () => {
   const periodLabel = PERIOD_OPTIONS.find((p) => p.value === period)?.label || "All Time";
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, backgroundColor: C.bg, minHeight: "100vh", width: "100%", boxSizing: "border-box" }}>
+    <ReportsWorkspace><Box sx={{ pb: 4, minWidth: 0 }}>
       {/* ── HEADER BANNER ── */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: { xs: 2.5, md: 3 },
-          mb: 2.5,
-          borderRadius: "16px",
-          background: `linear-gradient(135deg, ${C.primaryDark} 0%, #1E293B 60%, ${C.primary} 100%)`,
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        <Box sx={{ position: "absolute", top: "-50px", right: "-30px", width: "180px", height: "180px", borderRadius: "50%", background: "rgba(245, 158, 11, 0.08)" }} />
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2, position: "relative", zIndex: 1 }}>
-          <Avatar sx={{ width: 48, height: 48, borderRadius: "12px", backgroundColor: "rgba(255,255,255,0.12)", color: C.accent }}>
-            <AssessmentIcon sx={{ fontSize: 28 }} />
-          </Avatar>
-          <Box>
-            <Typography sx={{ fontWeight: 900, color: "#FFFFFF", fontSize: { xs: "1.15rem", md: "1.35rem" }, lineHeight: 1.2 }}>
-              Solar Enterprise Reports & Analytics
-            </Typography>
-            <Typography sx={{ color: "rgba(255,255,255,0.68)", fontSize: "0.82rem", mt: 0.4 }}>
-              Multi-dimensional operational, financial, field execution, and warranty performance insights.
-            </Typography>
-          </Box>
-        </Box>
-      </Paper>
-
+      <Box sx={{ mb: 3, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, flexWrap: "wrap" }}>
+        <Box><Typography variant="overline" color="text.secondary">BUSINESS PERFORMANCE</Typography><Typography component="h1" variant="h4" sx={{fontWeight:700}}>Reports & analytics</Typography><Typography variant="body2" color="text.secondary" sx={{mt:1}}>Review sales, project delivery, engineer workload and recorded collections.</Typography></Box>
+        <Chip label="Operations workspace" variant="outlined" size="small" />
+      </Box>
       {/* ── TOOLBAR: PERIOD FILTER & EXPORT ACTIONS ── */}
       <Paper
         elevation={0}
@@ -804,6 +784,7 @@ const Reports = () => {
           <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: C.textSecondary }}>Filter Period:</Typography>
           <FormControl size="small" sx={{ minWidth: 140 }}>
             <Select
+              inputProps={{ "aria-label": "Report period" }}
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
               sx={{
@@ -834,6 +815,7 @@ const Reports = () => {
         <Tooltip title="Refresh All Reports">
           <span>
             <IconButton
+              aria-label="Refresh reports"
               onClick={fetchAllData}
               disabled={loading}
               sx={{
@@ -857,6 +839,8 @@ const Reports = () => {
           size="small"
           startIcon={<DownloadIcon sx={{ fontSize: 17 }} />}
           onClick={handleExportCSV}
+          disabled={loading || Boolean(reportErrors[mainTab])}
+          style={{ display: mainTab === 5 ? "none" : undefined }}
           sx={{
             textTransform: "none",
             fontWeight: 700,
@@ -905,22 +889,23 @@ const Reports = () => {
             "& .MuiTabs-indicator": { bgcolor: C.accent, height: 3, borderRadius: "3px 3px 0 0" },
           }}
         >
-          <Tab icon={<LeaderboardOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Sales & Lead Reports" />
-          <Tab icon={<EngineeringOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Project Execution Reports" />
-          <Tab icon={<AccountBalanceWalletOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Financial Reports" />
-          <Tab icon={<BuildCircleOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Field Operations Reports" />
-          <Tab icon={<VerifiedOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="AMC & Warranty Reports" />
+          <Tab icon={<LeaderboardOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Sales & leads" />
+          <Tab icon={<EngineeringOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Projects" />
+          <Tab icon={<AccountBalanceWalletOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Financials" />
+          <Tab icon={<BuildCircleOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Field operations" />
+          <Tab icon={<VerifiedOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Warranty & AMC" />
+          <Tab icon={<EngineeringOutlinedIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Engineers" />
         </Tabs>
       </Paper>
 
-      {loading ? (
+      {mainTab === 5 ? <EngineerReports period={period} refreshKey={engineerRefresh}/> : loading ? (
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", py: 10, gap: 2 }}>
           <CircularProgress sx={{ color: C.accent }} size={38} thickness={4} />
           <Typography sx={{ color: C.textMuted, fontWeight: 600, fontSize: "0.85rem" }}>
             Aggregating solar reports...
           </Typography>
         </Box>
-      ) : (
+      ) : reportErrors[mainTab] ? <Alert severity="error" action={<Button onClick={fetchAllData}>Retry</Button>}>{reportErrors[mainTab]}</Alert> : (
         <>
           {/* ═════════════════════════════════════════════════════ */}
           {/* TAB 1: SALES & LEAD REPORTS                          */}
@@ -1235,13 +1220,13 @@ const Reports = () => {
                   <Box sx={{ display: "flex", alignItems: "flex-end", height: 180, gap: 2, pt: 2, px: 2 }}>
                     {(financialsData.monthlyRevenue || []).map((m) => {
                       const maxMonth = Math.max(1, ...(financialsData.monthlyRevenue || []).map((x) => x.amount));
-                      const pct = Math.max(8, (m.amount / maxMonth) * 100);
+                      const pct = Math.max(0, (m.amount / maxMonth) * 100);
                       return (
                         <Box key={m.month} sx={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
                           <Typography sx={{ fontSize: "0.68rem", fontWeight: 800, color: C.textSecondary, mb: 0.5 }}>
                             {formatINR(m.amount)}
                           </Typography>
-                          <Box sx={{ width: "100%", maxWidth: 44, height: `${pct}%`, borderRadius: "6px 6px 0 0", bgcolor: C.accent, transition: "height 0.4s ease" }} />
+                          <Box sx={{ width: "100%", maxWidth: 44, height: `${pct}%`, borderRadius: "6px 6px 0 0", bgcolor: C.accent, transition: "none" }} />
                           <Typography sx={{ fontSize: "0.7rem", fontWeight: 600, color: C.textMuted, mt: 1, whiteSpace: "nowrap" }}>
                             {m.month}
                           </Typography>
@@ -1643,7 +1628,7 @@ const Reports = () => {
           )}
         </>
       )}
-    </Box>
+    </Box></ReportsWorkspace>
   );
 };
 

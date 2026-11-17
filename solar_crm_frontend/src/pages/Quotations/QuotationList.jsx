@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import QuotationHistoryDialog from "../../components/QuotationHistoryDialog";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -97,10 +98,10 @@ const COLORS = {
 };
 
 const cardSx = {
-  borderRadius: "12px",
+  borderRadius: "16px",
   border: `1px solid ${COLORS.border}`,
   backgroundColor: COLORS.card,
-  boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+  boxShadow: "0 2px 10px rgba(15,23,42,0.035)",
 };
 
 const customScrollbarSx = {
@@ -122,12 +123,12 @@ const customScrollbarSx = {
 };
 
 const primaryButtonSx = {
-  height: 34,
-  borderRadius: "6px",
+  minHeight: 42,
+  borderRadius: "10px",
   textTransform: "none",
   fontWeight: 700,
-  fontSize: "0.76rem",
-  px: 1.8,
+  fontSize: "0.88rem",
+  px: 2,
   backgroundColor: COLORS.primary,
   color: "#FFFFFF",
   whiteSpace: "nowrap",
@@ -136,12 +137,12 @@ const primaryButtonSx = {
 };
 
 const outlinedButtonSx = {
-  height: 34,
-  borderRadius: "6px",
+  minHeight: 42,
+  borderRadius: "10px",
   textTransform: "none",
   fontWeight: 700,
-  fontSize: "0.76rem",
-  px: 1.6,
+  fontSize: "0.86rem",
+  px: 1.8,
   borderColor: COLORS.borderStrong,
   backgroundColor: COLORS.card,
   color: COLORS.textPrimary,
@@ -167,11 +168,11 @@ const iconActionBtnSx = {
 const controlSx = {
   fontFamily: "'Inter', sans-serif",
   "& .MuiOutlinedInput-root": {
-    borderRadius: "6px",
+    borderRadius: "10px",
     backgroundColor: "#FAFBFC",
-    fontSize: "0.78rem",
+    fontSize: "0.88rem",
     color: COLORS.textPrimary,
-    height: 36,
+    minHeight: 44,
     "& fieldset": { borderColor: COLORS.border },
     "&:hover fieldset": { borderColor: COLORS.borderStrong },
     "&.Mui-focused fieldset": { borderColor: COLORS.primary, borderWidth: "1.5px" },
@@ -195,7 +196,7 @@ const QuotationList = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const roleName = (user?.role_name || user?.role || "").toLowerCase();
-  const isSuperAdmin = user?.role_id === 1 || roleName.includes("super") || roleName === "admin";
+  const isSuperAdmin = [1,2].includes(Number(user?.role_id)) || roleName.includes("super") || roleName === "admin";
   const canDeleteQuotation = isSuperAdmin;
 
   const [loading, setLoading] = useState(true);
@@ -204,7 +205,7 @@ const QuotationList = () => {
   const [statusFilter, setStatusFilter] = useState("");
 
   // View Mode: "box" or "table"
-  const [viewMode, setViewMode] = useState("box");
+  const [viewMode, setViewMode] = useState("table");
 
   // Pagination
   const [page, setPage] = useState(0);
@@ -213,12 +214,16 @@ const QuotationList = () => {
   // Modals
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [openEditModal, setOpenEditModal] = useState(false);
+  const [historyQuotation, setHistoryQuotation] = useState(null);
   const [selectedQuotation, setSelectedQuotation] = useState(null);
   const [convertInvoiceQuotation, setConvertInvoiceQuotation] = useState(null);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [emailTargetQuotation, setEmailTargetQuotation] = useState(null);
+  const [emailRecipient, setEmailRecipient] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   // Bulk Selection State
   const [selectedIds, setSelectedIds] = useState([]);
@@ -286,6 +291,7 @@ const QuotationList = () => {
   }, [fetchQuotations]);
 
   const handleCopyPublicLink = (q) => {
+    if (["pending", "rejected"].includes(q.discount_approval)) { toast.error("Administrator discount approval is required before sharing."); return; }
     const tokenToUse = q.public_token || q.quotation_number || q.id;
     const fullUrl = `${window.location.origin}/quote/${tokenToUse}`;
     navigator.clipboard.writeText(fullUrl);
@@ -293,6 +299,7 @@ const QuotationList = () => {
   };
 
   const handleShareWhatsApp = (q) => {
+    if (["pending", "rejected"].includes(q.discount_approval)) { toast.error("Administrator discount approval is required before sharing."); return; }
     const phone = q.customer_phone ? q.customer_phone.replace(/[^0-9]/g, "") : "";
     const formattedPhone = phone.length === 10 ? `91${phone}` : phone;
     const publicUrl = `${window.location.origin}/quote/${q.public_token || q.quotation_number || q.id}`;
@@ -303,12 +310,43 @@ const QuotationList = () => {
     window.open(whatsappUrl, "_blank");
   };
 
-  const handleShareEmail = (q) => {
-    const publicUrl = `${window.location.origin}/quote/${q.public_token || q.quotation_number || q.id}`;
-    const subject = `Solar Energy System Proposal (${q.system_capacity_kw} kW) - ${q.quotation_number}`;
-    const body = `Dear ${q.customer_name},\n\nPlease find your solar energy system quotation below:\n\nSystem Capacity: ${q.system_capacity_kw} kW\nNet Investment: ${formatCurrency(q.net_payable_amount)}\n\nView Proposal & Download PDF:\n${publicUrl}\n\nBest Regards,\nSolar Power Solutions`;
+  const directEmailBusy = useRef(false);
+  const handleShareEmail = async (q) => {
+    if (["pending", "rejected"].includes(q.discount_approval)) { toast.error("Administrator discount approval is required before sharing."); return; }
+    if (q.customer_email) {
+      if (directEmailBusy.current) return;
+      directEmailBusy.current = true;
+      toast.loading("Sending quotation?", { id: "quotation-email" });
+      try {
+        const response = await api.post(`/quotations/${q.id}/send-email`, { to: q.customer_email });
+        toast.success(response.data.message, { id: "quotation-email" });
+      } catch (error) { toast.error(error.response?.data?.message || "Could not send quotation email.", { id: "quotation-email" }); }
+      finally { directEmailBusy.current = false; }
+      return;
+    }
+    setEmailTargetQuotation(q);
+    setEmailRecipient(q.customer_email || "");
+  };
 
-    window.location.href = `mailto:${q.customer_email || ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const handleSendQuotationEmail = async () => {
+    if (!emailTargetQuotation || !emailRecipient.trim()) {
+      toast.error("Enter the customer's email address first.");
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      const response = await api.post(`/quotations/${emailTargetQuotation.id}/send-email`, {
+        to: emailRecipient.trim(),
+      });
+      toast.success(response.data?.message || "Quotation email sent successfully.");
+      setEmailTargetQuotation(null);
+      setEmailRecipient("");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not send the quotation email. Please try again.");
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   const handleOpenEdit = (q) => {
@@ -453,11 +491,11 @@ const QuotationList = () => {
   }, [quotations, page, rowsPerPage]);
 
   return (
-    <Box sx={{ backgroundColor: COLORS.bg, minHeight: "100vh", p: 2, boxSizing: "border-box", width: "100%" }}>
-      <Box sx={{ width: "100%", maxWidth: "100%", mx: "auto" }}>
+    <Box className="quotation-page" sx={{ backgroundColor: COLORS.bg, minHeight: "100vh", px: { xs: 1.25, sm: 2.5, lg: 3.5 }, py: { xs: 1.5, sm: 2.5 }, boxSizing: "border-box", width: "100%" }}>
+      <Box sx={{ width: "100%", maxWidth: 1680, mx: "auto", "& .MuiPaper-root": { boxSizing: "border-box", borderRadius: "16px" }, "& .MuiButton-root": { minHeight: 40, borderRadius: "9px", textTransform: "none", fontWeight: 700 }, "& .MuiButton-sizeSmall": { fontSize: "0.82rem" }, "& .MuiOutlinedInput-root:not(.MuiInputBase-multiline)": { minHeight: 42, borderRadius: "10px" }, "& .MuiTableCell-root": { py: 1.15 } }}>
 
         {/* BREADCRUMBS */}
-        <Breadcrumbs separator={<NavigateNextRoundedIcon sx={{ fontSize: "0.8rem", color: COLORS.textMuted }} />} sx={{ mb: 1.5 }}>
+        <Breadcrumbs separator={<NavigateNextRoundedIcon sx={{ fontSize: "0.9rem", color: COLORS.textMuted }} />} sx={{ mb: 2 }}>
           <Stack direction="row" alignItems="center" gap={0.5}>
             <HomeOutlinedIcon sx={{ fontSize: "0.8rem", color: COLORS.textMuted }} />
             <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: COLORS.textMuted }}>
@@ -473,11 +511,12 @@ const QuotationList = () => {
         <Paper
           elevation={0}
           sx={{
-            p: 2,
-            mb: 2,
-            borderRadius: "12px",
+            p: { xs: 2, md: 2.75 },
+            mb: 2.5,
+            borderRadius: "16px",
             border: `1px solid ${COLORS.border}`,
-            backgroundColor: COLORS.card,
+            borderLeft: `4px solid ${COLORS.secondary}`,
+            background: "linear-gradient(110deg, #FFFFFF 0%, #FFFFFF 76%, #FFFBEB 100%)",
             display: "flex",
             flexDirection: { xs: "column", sm: "row" },
             justifyContent: "space-between",
@@ -488,30 +527,30 @@ const QuotationList = () => {
           }}
         >
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.textPrimary, fontSize: "1.05rem" }}>
-              Solar Quotations &amp; Web Proposals
+            <Typography variant="h5" sx={{ fontWeight: 800, color: COLORS.textPrimary, fontSize: { xs: "1.2rem", sm: "1.45rem" }, letterSpacing: "-0.025em" }}>
+              Quotations &amp; Proposals
             </Typography>
-            <Typography variant="body2" sx={{ color: COLORS.textSecondary, fontSize: "0.75rem", mt: 0.2 }}>
-              Generate, manage, and track commercial proposals, 1-page executive PDFs, and digital acceptances.
+            <Typography variant="body2" sx={{ color: COLORS.textSecondary, fontSize: "0.9rem", mt: 0.5, maxWidth: 680, lineHeight: 1.55 }}>
+              Prepare itemized solar quotations, review customer approvals, and download shareable PDFs.
             </Typography>
           </Box>
 
-          <Stack direction="row" alignItems="center" gap={1} sx={{ flexShrink: 0, flexWrap: "wrap" }}>
+            <Stack direction={{ xs: "column", sm: "row" }} alignItems={{ xs: "stretch", sm: "center" }} gap={1.25} sx={{ flexShrink: 0, flexWrap: "wrap", width: { xs: "100%", sm: "auto" }, "& .MuiToggleButtonGroup-root": { height: 42, borderRadius: "10px" } }}>
             <ToggleButtonGroup
               value={viewMode}
               exclusive
               onChange={(e, newView) => newView && setViewMode(newView)}
               size="small"
               sx={{
-                height: 34,
+                height: 42,
                 backgroundColor: "#F1F5F9",
-                borderRadius: "6px",
+                borderRadius: "10px",
                 p: 0.25,
                 "& .MuiToggleButton-root": {
                   border: 0,
-                  borderRadius: "4px",
-                  px: 1.2,
-                  py: 0.3,
+                  borderRadius: "8px",
+                  px: 1.5,
+                  py: 0.5,
                   color: COLORS.textSecondary,
                   "&.Mui-selected": {
                     backgroundColor: COLORS.card,
@@ -541,7 +580,7 @@ const QuotationList = () => {
             </ToggleButtonGroup>
 
             <Tooltip title="Refresh Quotations">
-              <IconButton onClick={fetchQuotations} disabled={loading} size="small" sx={iconActionBtnSx}>
+              <IconButton onClick={fetchQuotations} disabled={loading} size="small" sx={{ ...iconActionBtnSx, width: 42, height: 42, borderRadius: "10px" }}>
                 <RefreshIcon
                   sx={{
                     fontSize: 16,
@@ -554,7 +593,7 @@ const QuotationList = () => {
 
             <Button
               variant="contained"
-              size="small"
+              size="medium"
               startIcon={<AddIcon sx={{ fontSize: 16 }} />}
               onClick={() => setOpenCreateModal(true)}
               sx={primaryButtonSx}
@@ -572,8 +611,8 @@ const QuotationList = () => {
               elevation={0}
               onClick={() => setStatusFilter("")}
               sx={{
-                p: 2,
-                borderRadius: "12px",
+                p: { xs: 2, sm: 2.4 },
+                borderRadius: "16px",
                 backgroundColor: COLORS.card,
                 border: `1.5px solid ${statusFilter === "" ? COLORS.primary : COLORS.border}`,
                 cursor: "pointer",
@@ -607,8 +646,8 @@ const QuotationList = () => {
               elevation={0}
               onClick={() => setStatusFilter("Accepted")}
               sx={{
-                p: 2,
-                borderRadius: "12px",
+                p: { xs: 2, sm: 2.4 },
+                borderRadius: "16px",
                 backgroundColor: COLORS.card,
                 border: `1.5px solid ${statusFilter === "Accepted" ? COLORS.success : COLORS.border}`,
                 cursor: "pointer",
@@ -642,8 +681,8 @@ const QuotationList = () => {
               elevation={0}
               onClick={() => setStatusFilter("Sent")}
               sx={{
-                p: 2,
-                borderRadius: "12px",
+                p: { xs: 2, sm: 2.4 },
+                borderRadius: "16px",
                 backgroundColor: COLORS.card,
                 border: `1.5px solid ${statusFilter === "Sent" ? "#0369A1" : COLORS.border}`,
                 cursor: "pointer",
@@ -677,8 +716,8 @@ const QuotationList = () => {
               elevation={0}
               onClick={() => setStatusFilter("Draft")}
               sx={{
-                p: 2,
-                borderRadius: "12px",
+                p: { xs: 2, sm: 2.4 },
+                borderRadius: "16px",
                 backgroundColor: COLORS.card,
                 border: `1.5px solid ${statusFilter === "Draft" ? COLORS.textSecondary : COLORS.border}`,
                 cursor: "pointer",
@@ -856,8 +895,8 @@ const QuotationList = () => {
                   elevation={0}
                   sx={{
                     ...cardSx,
-                    p: 2.2,
-                    borderRadius: "14px",
+                    p: { xs: 1.5, sm: 2.5 },
+                    borderRadius: "16px",
                     border: `1px solid ${selectedIds.includes(q.id) ? COLORS.primary : COLORS.border}`,
                     bgcolor: selectedIds.includes(q.id) ? "#F8FAFC" : COLORS.card,
                     transition: "all 0.15s ease",
@@ -873,7 +912,7 @@ const QuotationList = () => {
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
-                      mb: 2.2,
+                      mb: 2.5,
                       flexWrap: "wrap",
                       gap: 2,
                     }}
@@ -955,7 +994,7 @@ const QuotationList = () => {
                     </Box>
 
                     {/* Action Buttons Toolbar - Clean, Spaced & Distinct */}
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, flexShrink: 0, flexWrap: "wrap" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0, flexWrap: "wrap", justifyContent: { xs: "flex-start", lg: "flex-end" }, width: { xs: "100%", lg: "auto" } }}>
                       <Button
                         size="small"
                         variant="outlined"
@@ -995,7 +1034,7 @@ const QuotationList = () => {
                           "&:hover": { bgcolor: COLORS.primaryDark, boxShadow: "none" },
                         }}
                       >
-                        PDF
+                        Quotation PDF
                       </Button>
 
                       {!roleName.includes("sales") && (
@@ -1069,7 +1108,7 @@ const QuotationList = () => {
                   <Divider sx={{ mb: 2, borderColor: COLORS.border }} />
 
                   {/* 3 Structured Columns with Proper Spacing */}
-                  <Grid container spacing={2.2}>
+                    <Grid container spacing={2.5}>
                     {/* Column 1: System Specifications */}
                     <Grid item xs={12} sm={4}>
                       <Box
@@ -1304,7 +1343,7 @@ const QuotationList = () => {
                               </IconButton>
                             </Tooltip>
 
-                            <Tooltip title="Download 1-Page PDF">
+                            <Tooltip title="Download quotation PDF">
                               <IconButton size="small" onClick={() => window.open(`/quote/${publicToken}?download=true`, "_blank")} sx={iconActionBtnSx}>
                                 <PictureAsPdfIcon sx={{ fontSize: 16, color: COLORS.primary }} />
                               </IconButton>
@@ -1349,6 +1388,7 @@ const QuotationList = () => {
                               </IconButton>
                             </Tooltip>
 
+                            <Button size="small" onClick={() => setHistoryQuotation(q)}>History R{q.revision_number || 1}{q.discount_approval === "pending" ? " (approval pending)" : ""}</Button>
                             <Tooltip title="Edit Details">
                               <IconButton size="small" onClick={() => handleOpenEdit(q)} sx={iconActionBtnSx}>
                                 <EditIcon sx={{ fontSize: 16 }} />
@@ -1457,6 +1497,7 @@ const QuotationList = () => {
             <FileCopyIcon sx={{ fontSize: 16, color: COLORS.textSecondary }} /> Duplicate Proposal
           </MenuItem>
 
+          <MenuItem onClick={() => { setHistoryQuotation(cardTargetQuotation); setCardMenuAnchor(null); }}>Revision history</MenuItem>
           <MenuItem
             onClick={() => {
               if (cardTargetQuotation) handleOpenEdit(cardTargetQuotation);
@@ -1537,8 +1578,46 @@ const QuotationList = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        <Dialog open={Boolean(emailTargetQuotation)} onClose={() => !sendingEmail && setEmailTargetQuotation(null)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: "16px" } }}>
+          <DialogTitle sx={{ fontWeight: 800, color: COLORS.textPrimary, pb: 0.75 }}>
+            Send quotation by email
+          </DialogTitle>
+          <DialogContent sx={{ pt: "12px !important" }}>
+            <DialogContentText sx={{ mb: 2, color: COLORS.textSecondary, fontSize: "0.9rem", lineHeight: 1.6 }}>
+              {emailTargetQuotation && <>Send <strong>{emailTargetQuotation.quotation_number || `QUO-${emailTargetQuotation.id}`}</strong> to the customer. The email includes the proposal link and PDF download option.</>}
+            </DialogContentText>
+            <TextField
+              autoFocus
+              required
+              fullWidth
+              type="email"
+              label="Recipient email"
+              placeholder="customer@example.com"
+              value={emailRecipient}
+              onChange={(event) => setEmailRecipient(event.target.value)}
+              disabled={sendingEmail}
+              inputProps={{ maxLength: 254 }}
+              helperText="The message will be sent from your configured Solar CRM email account."
+              sx={{ ...controlSx, "& .MuiOutlinedInput-root": { ...controlSx["& .MuiOutlinedInput-root"], minHeight: 48, height: 48 } }}
+            />
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+            <Button onClick={() => setEmailTargetQuotation(null)} disabled={sendingEmail} sx={outlinedButtonSx}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={handleSendQuotationEmail}
+              disabled={sendingEmail || !emailRecipient.trim()}
+              startIcon={<SendIcon />}
+              sx={primaryButtonSx}
+            >
+              {sendingEmail ? "Sending…" : "Send email"}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
-    </Box>
+    <QuotationHistoryDialog quotation={historyQuotation} onClose={() => setHistoryQuotation(null)} />
+</Box>
   );
 };
 

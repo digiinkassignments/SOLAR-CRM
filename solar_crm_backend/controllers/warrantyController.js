@@ -1,3 +1,4 @@
+const { warrantySelection } = require('../services/amcPlans');
 const {
   ensureWarrantyTable,
   getWarrantyAndVisits,
@@ -39,10 +40,11 @@ exports.createOrUpdate = async (req, res) => {
     await ensureWarrantyTable(req.db);
     const pid = await resolveNumericProjectId(req.db, req.params.id);
     const existing = await getWarrantyAndVisits(req.db, pid);
+    const payload = await warrantySelection(req.db, req.body, existing.warranty);
     if (existing.warranty) {
-      await updateWarranty(req.db, pid, req.body);
+      await updateWarranty(req.db, pid, payload);
     } else {
-      await createWarranty(req.db, pid, req.body, req.user?.id || req.user?.userId);
+      await createWarranty(req.db, pid, payload, req.user?.id || req.user?.userId);
     }
     const data = await getWarrantyAndVisits(req.db, pid);
     res.status(200).json({
@@ -51,8 +53,8 @@ exports.createOrUpdate = async (req, res) => {
       visits: data.visits
     });
   } catch (err) {
-    console.error('Warranty save error:', err);
-    res.status(500).json({ message: 'Server error' });
+    if (!err.status) console.error('Warranty save error:', err);
+    res.status(err.status || 500).json({ message: err.status ? err.message : 'Server error' });
   }
 };
 

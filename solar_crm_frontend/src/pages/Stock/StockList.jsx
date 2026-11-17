@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useCallback } from "react";
+import useWorkspaceNavigate from "../../hooks/useWorkspaceNavigate";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box, Typography, Button, Card, CardContent, Grid, TextField,
   MenuItem, InputAdornment, Chip, Avatar, IconButton, Table,
   TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  Tooltip, Badge, ToggleButtonGroup, ToggleButton, CircularProgress,
+  Tooltip, ToggleButtonGroup, ToggleButton, CircularProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, LinearProgress,
-  Skeleton, Stack, Grow, Checkbox
+  Stack, Grow, Checkbox
 } from "@mui/material";
 
 // Icons
@@ -91,7 +92,7 @@ const controlSx = {
     backgroundColor: "#FAFBFC",
     fontSize: "0.8125rem",
     color: COLORS.textPrimary,
-    minHeight: 38,
+    minHeight: 42,
     "& fieldset": { borderColor: COLORS.border, borderWidth: "1px" },
     "&:hover fieldset": { borderColor: COLORS.borderStrong },
     "&.Mui-focused fieldset": { borderColor: COLORS.primary, borderWidth: "1.5px" },
@@ -195,7 +196,7 @@ const KpiCard = ({ icon, label, value, subtext, accent, onClick, index = 0 }) =>
 );
 
 const StockList = () => {
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
 
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
@@ -279,7 +280,7 @@ const StockList = () => {
       }
       if (itemsRes.status === "fulfilled") {
         setItems(itemsRes.value?.data || []);
-      }
+      } else { toast.error("Could not load stock items. Please try again."); }
       if (reportRes.status === "fulfilled") {
         setReportData(reportRes.value?.data || null);
       }
@@ -359,14 +360,14 @@ const StockList = () => {
 
   // Metrics summary
   const summary = reportData?.summary || {};
-  const totalValuation = summary.total_valuation || items.reduce((acc, i) => acc + (i.current_stock * i.unit_price), 0);
-  const lowStockCount = summary.low_stock_count || items.filter(i => i.current_stock > 0 && i.current_stock <= i.min_stock_level).length;
-  const outOfStockCount = summary.out_of_stock_count || items.filter(i => i.current_stock <= 0).length;
+  const totalValuation = summary.total_valuation ?? items.reduce((acc, i) => acc + (i.current_stock * i.unit_price), 0);
+  const lowStockCount = summary.low_stock_count ?? items.filter(i => i.current_stock > 0 && i.current_stock <= i.min_stock_level).length;
+  const outOfStockCount = summary.out_of_stock_count ?? items.filter(i => i.current_stock <= 0).length;
 
   return (
-    <Box sx={{ pb: 6, px: { xs: 2, sm: 3 }, backgroundColor: COLORS.bg, minHeight: "100vh" }}>
+    <Box sx={{ pb: 4, px: { xs: 1.5, sm: 3 }, minWidth: 0, "& .MuiGrid-root": { minWidth: 0 }, "& .MuiButton-root": { whiteSpace: "nowrap" }, backgroundColor: COLORS.bg, minHeight: "100vh" }}>
       {/* ── Page Header ────────────────────────────────────────── */}
-      <Box sx={{ mb: 3, pt: 3 }}>
+      <Box sx={{ mb: 3, mt: 2, p: { xs: 2, sm: 2.5 }, bgcolor: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: "14px" }}>
         {/* Title Row */}
         <Box sx={{ mb: 2 }}>
           <Typography variant="h5" sx={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, color: COLORS.primary, fontSize: { xs: "1.25rem", sm: "1.4rem" } }}>
@@ -378,12 +379,16 @@ const StockList = () => {
         </Box>
 
         {/* Action Buttons Row */}
-        <Stack
-          direction="row"
-          spacing={1}
-          flexWrap="wrap"
-          useFlexGap
-          sx={{ alignItems: "center" }}
+        <Box
+          sx={{
+            display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1,
+            width: "100%", minWidth: 0,
+            "& .MuiButton-root": {
+              minHeight: 40, px: 1.75, maxWidth: "100%",
+              flex: { xs: "1 1 180px", sm: "0 1 auto" },
+              height: "auto", py: 1, whiteSpace: "normal", overflowWrap: "anywhere",
+            },
+          }}
         >
           <Button
             size="small"
@@ -535,12 +540,12 @@ const StockList = () => {
           >
             Add New Item
           </Button>
-        </Stack>
+        </Box>
       </Box>
 
       {/* ── KPI Summary Cards Bar ──────────────────────────────── */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} sm={6} md={3} sx={{ display: "flex" }}>
+        <Grid size={{ xs: 6, sm: 6, md: 3 }} sx={{ display: "flex" }}>
           <KpiCard
             index={0}
             icon={<Inventory2Icon fontSize="small" />}
@@ -551,7 +556,7 @@ const StockList = () => {
           />
         </Grid>
 
-        <Grid item xs={6} sm={6} md={3} sx={{ display: "flex" }}>
+        <Grid size={{ xs: 6, sm: 6, md: 3 }} sx={{ display: "flex" }}>
           <KpiCard
             index={1}
             icon={<Typography sx={{ fontWeight: 800, fontSize: "1.1rem" }}>₹</Typography>}
@@ -562,7 +567,7 @@ const StockList = () => {
           />
         </Grid>
 
-        <Grid item xs={6} sm={6} md={3} sx={{ display: "flex" }}>
+        <Grid size={{ xs: 6, sm: 6, md: 3 }} sx={{ display: "flex" }}>
           <KpiCard
             index={2}
             icon={<WarningAmberIcon fontSize="small" />}
@@ -574,7 +579,7 @@ const StockList = () => {
           />
         </Grid>
 
-        <Grid item xs={6} sm={6} md={3} sx={{ display: "flex" }}>
+        <Grid size={{ xs: 6, sm: 6, md: 3 }} sx={{ display: "flex" }}>
           <KpiCard
             index={3}
             icon={<WarningAmberIcon fontSize="small" />}
@@ -588,18 +593,19 @@ const StockList = () => {
       </Grid>
 
       {/* ── Filter Toolbar ────────────────────────────────────── */}
-      <Paper elevation={0} sx={{ p: 1.5, mb: 3, borderRadius: "12px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.card, width: "100%" }}>
+      <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: "12px", border: `1px solid ${COLORS.border}`, backgroundColor: COLORS.card, width: "100%" }}>
         <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1.5, width: "100%" }}>
           {/* Auto-expanding Search input */}
-          <Box sx={{ flex: { xs: "1 1 100%", md: "1 1 280px" }, minWidth: 220 }}>
+          <Box sx={{ flex: { xs: "1 1 100%", md: "1 1 280px" }, minWidth: 0 }}>
             <TextField
-              placeholder="Search by item name, brand, model, SKU..."
+              label="Search inventory"
+              placeholder="Name, brand, model or SKU"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               fullWidth
               size="small"
               sx={controlSx}
-              InputProps={{
+              slotProps={{ input: {
                 startAdornment: (
                   <InputAdornment position="start">
                     <SearchIcon sx={{ color: COLORS.textMuted, fontSize: 18 }} />
@@ -607,12 +613,12 @@ const StockList = () => {
                 ),
                 endAdornment: search ? (
                   <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setSearch("")} sx={{ p: 0.5 }}>
+                    <IconButton aria-label="Clear search" size="small" onClick={() => setSearch("")} sx={{ p: 0.5 }}>
                       <CloseIcon sx={{ fontSize: 14 }} />
                     </IconButton>
                   </InputAdornment>
                 ) : null
-              }}
+              } }}
             />
           </Box>
 
@@ -671,19 +677,20 @@ const StockList = () => {
             </TextField>
           </Box>
 
+          {(search || selectedCategory || selectedStatus !== "all") && <Button size="small" onClick={() => { setSearch(""); setSelectedCategory(""); setSelectedStatus("all"); }} sx={{ color: COLORS.textSecondary, textTransform: "none" }}>Clear filters</Button>}
           {/* View Toggle Buttons */}
-          <Box sx={{ ml: { sm: "auto" } }}>
+          <Box sx={{ ml: { sm: "auto" }, display: "flex", alignItems: "center", gap: 1 }}>
             <ToggleButtonGroup
               value={viewMode}
               exclusive
               onChange={(e, next) => next && setViewMode(next)}
               size="small"
-              sx={{ height: 38 }}
+              sx={{ height: 42 }}
             >
-              <ToggleButton value="grid" sx={{ px: 1.2 }}>
+              <ToggleButton aria-label="Card view" value="grid" sx={{ px: 1.2 }}>
                 <ViewModuleIcon fontSize="small" />
               </ToggleButton>
-              <ToggleButton value="table" sx={{ px: 1.2 }}>
+              <ToggleButton aria-label="Table view" value="table" sx={{ px: 1.2 }}>
                 <ViewListIcon fontSize="small" />
               </ToggleButton>
             </ToggleButtonGroup>
@@ -691,6 +698,7 @@ const StockList = () => {
         </Box>
       </Paper>
 
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, mb: 2 }}><Typography sx={{ color: COLORS.textPrimary, fontWeight: 700, fontSize: "0.9rem" }}>Inventory items <Box component="span" sx={{ ml: 0.75, color: COLORS.textSecondary, fontWeight: 500 }}>({items.length})</Box></Typography><Typography sx={{ fontSize: "0.75rem", color: COLORS.textSecondary }}>Prices in INR</Typography></Box>
       {/* Loading Progress */}
       {loading && <LinearProgress color="warning" sx={{ mb: 2, borderRadius: "4px" }} />}
 
@@ -790,7 +798,7 @@ const StockList = () => {
             const isSelected = selectedIds.includes(item.id);
 
             return (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={item.id}>
+              <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 3 }} key={item.id}>
                 <Card
                   elevation={0}
                   sx={{
@@ -863,14 +871,15 @@ const StockList = () => {
                     </Box>
                   </Box>
 
-                  <CardContent sx={{ flex: 1, py: 1.5, px: 1.8 }}>
-                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+                  <CardContent sx={{ flex: 1, py: 2, px: 2 }}>
+                    <Box sx={{ display: "flex", alignItems: "baseline", gap: 0.75, mb: 1.5 }}><Typography sx={{ fontSize: "1.65rem", fontWeight: 800, lineHeight: 1.2 }}>{Number(item.current_stock || 0).toLocaleString("en-IN")}</Typography><Typography sx={{ color: COLORS.textSecondary, fontSize: "0.75rem" }}>{item.unit} available</Typography></Box>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1, mb: 1.5 }}>
                       <Chip label={item.item_code} size="small" variant="outlined" sx={{ fontWeight: 600, fontSize: "0.7rem", height: 20 }} />
                       {getStockStatusChip(item)}
                     </Box>
 
                     <Grid container spacing={1} sx={{ bgcolor: COLORS.bg, p: 1.2, borderRadius: "8px", border: `1px solid ${COLORS.border}` }}>
-                      <Grid item xs={6}>
+                      <Grid size={{ xs: 6 }}>
                         <Typography variant="caption" display="block" sx={{ color: COLORS.textSecondary, fontSize: "0.68rem" }}>
                           Unit Price
                         </Typography>
@@ -878,7 +887,7 @@ const StockList = () => {
                           ₹{Number(item.unit_price).toLocaleString("en-IN")} / {item.unit}
                         </Typography>
                       </Grid>
-                      <Grid item xs={6}>
+                      <Grid size={{ xs: 6 }}>
                         <Typography variant="caption" display="block" sx={{ color: COLORS.textSecondary, fontSize: "0.68rem" }}>
                           Valuation
                         </Typography>
@@ -890,14 +899,14 @@ const StockList = () => {
                   </CardContent>
 
                   {/* Grid Card Footer Actions */}
-                  <Box sx={{ p: 1.2, px: 1.8, borderTop: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", bgcolor: "#FAFBFC", borderBottomLeftRadius: "12px", borderBottomRightRadius: "12px" }}>
+                  <Box sx={{ p: 1.2, px: 1.8, borderTop: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1, bgcolor: "#FAFBFC", borderBottomLeftRadius: "12px", borderBottomRightRadius: "12px" }}>
                     <Stack direction="row" spacing={0.8}>
                       <Button
                         size="small"
                         variant="outlined"
                         onClick={() => { setActiveItem(item); setStockInModalOpen(true); }}
                         sx={{
-                          height: 26,
+                          height: 32,
                           px: 1,
                           fontSize: "0.7rem",
                           fontWeight: 700,
@@ -909,14 +918,14 @@ const StockList = () => {
                           "&:hover": { backgroundColor: "#C6F6D5" }
                         }}
                       >
-                        + IN
+                        Stock in
                       </Button>
                       <Button
                         size="small"
                         variant="outlined"
                         onClick={() => { setActiveItem(item); setStockOutModalOpen(true); }}
                         sx={{
-                          height: 26,
+                          height: 32,
                           px: 1,
                           fontSize: "0.7rem",
                           fontWeight: 700,
@@ -928,7 +937,7 @@ const StockList = () => {
                           "&:hover": { backgroundColor: "#FCD3D3" }
                         }}
                       >
-                        - OUT
+                        Stock out
                       </Button>
                     </Stack>
 
@@ -938,7 +947,7 @@ const StockList = () => {
                           size="small"
                           onClick={() => navigate(`/stock/${item.id}`)}
                           sx={{
-                            width: 26, height: 26, borderRadius: "6px",
+                            width: 32, height: 32, borderRadius: "6px",
                             color: COLORS.info, backgroundColor: COLORS.infoSoft,
                             "&:hover": { backgroundColor: "#BAE6FD" }
                           }}
@@ -951,7 +960,7 @@ const StockList = () => {
                           size="small"
                           onClick={() => { setActiveItem(item); setItemModalOpen(true); }}
                           sx={{
-                            width: 26, height: 26, borderRadius: "6px",
+                            width: 32, height: 32, borderRadius: "6px",
                             color: COLORS.textPrimary, backgroundColor: "#F1F5F9",
                             "&:hover": { backgroundColor: "#E2E8F0" }
                           }}
@@ -964,7 +973,7 @@ const StockList = () => {
                           size="small"
                           onClick={() => promptDelete(item)}
                           sx={{
-                            width: 26, height: 26, borderRadius: "6px",
+                            width: 32, height: 32, borderRadius: "6px",
                             color: COLORS.danger, backgroundColor: COLORS.dangerSoft,
                             "&:hover": { backgroundColor: "#FCD3D3" }
                           }}
@@ -1216,25 +1225,25 @@ const StockList = () => {
         </DialogTitle>
         <DialogContent dividers sx={{ p: 3 }}>
           <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={6} md={3}>
+            <Grid size={{ xs: 6, md: 3 }}>
               <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Total Valuation (Excl GST)</Typography>
               <Typography variant="h5" sx={{ fontWeight: 700, color: COLORS.success, fontFamily: "'Inter', sans-serif" }}>
                 ₹{Number(totalValuation).toLocaleString("en-IN")}
               </Typography>
             </Grid>
-            <Grid item xs={6} md={3}>
+            <Grid size={{ xs: 6, md: 3 }}>
               <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Total Valuation (Incl GST)</Typography>
               <Typography variant="h5" sx={{ fontWeight: 700, color: COLORS.info, fontFamily: "'Inter', sans-serif" }}>
                 ₹{Number(summary.total_valuation_with_gst || totalValuation * 1.18).toLocaleString("en-IN")}
               </Typography>
             </Grid>
-            <Grid item xs={6} md={3}>
+            <Grid size={{ xs: 6, md: 3 }}>
               <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Total Stock Quantity</Typography>
               <Typography variant="h5" sx={{ fontWeight: 700, fontFamily: "'Inter', sans-serif" }}>
                 {summary.total_quantity || 0} Units
               </Typography>
             </Grid>
-            <Grid item xs={6} md={3}>
+            <Grid size={{ xs: 6, md: 3 }}>
               <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Catalog SKUs</Typography>
               <Typography variant="h5" sx={{ fontWeight: 700, fontFamily: "'Inter', sans-serif" }}>
                 {summary.total_items || items.length} SKUs

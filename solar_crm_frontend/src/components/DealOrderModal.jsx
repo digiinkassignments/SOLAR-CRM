@@ -82,9 +82,9 @@ export default function DealOrderModal({ open, onClose, lead, quotation, onOrder
         quotation?.net_payable_amount ||
         quotation?.total_amount ||
         lead.quotation_amount ||
-        (lead.required_kw ? Number(lead.required_kw) * 50000 : 150000);
+        "";
 
-      const defaultAdvance = Math.round(Number(estimatedCost) * 0.2); // 20% advance
+      const defaultAdvance = estimatedCost ? Math.round(Number(estimatedCost) * 0.2) : "";
 
       setFormData((p) => ({
         ...p,

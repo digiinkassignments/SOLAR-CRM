@@ -14,6 +14,11 @@ const {
 // ==============================
 
 // Login
+// Tenant Info
+router.get("/tenant-info", (req, res) => {
+  if (!req.clientInfo) return res.status(404).json({ success: false, message: "Workspace not found." });
+  return res.json({ success: true, data: { business_name: req.clientInfo.business_name, subdomain: req.clientInfo.subdomain, status: req.clientInfo.status } });
+});
 router.post("/login", login);
 
 // Forgot Password (Send OTP)

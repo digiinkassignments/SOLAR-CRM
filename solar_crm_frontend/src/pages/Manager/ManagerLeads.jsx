@@ -125,8 +125,8 @@ const INITIAL_FORM_STATE = {
   alternate_number: "",
   email: "",
   address: "",
-  city: "Jaipur",
-  state: "Rajasthan",
+  city: "",
+  state: "",
   pincode: "",
   solar_requirement: "Residential",
   interest_status: "Pending",
@@ -136,7 +136,7 @@ const INITIAL_FORM_STATE = {
   priority: "Medium",
   status: "New Lead",
   assigned_to: "",
-  next_follow_up_date: "",
+  next_follow_up_date: "", next_action: "", next_follow_up_time: "",
   site_visit_date: "",
   quotation_amount: "",
 };
@@ -563,6 +563,7 @@ export default function ManagerLeads() {
         next_follow_up_date: lead.next_follow_up_date
           ? lead.next_follow_up_date.slice(0, 10)
           : "",
+        next_action: lead.next_action || "", next_follow_up_time: String(lead.next_follow_up_time || "").slice(0,5),
         site_visit_date: lead.site_visit_date
           ? lead.site_visit_date.slice(0, 10)
           : "",
@@ -1766,7 +1767,7 @@ export default function ManagerLeads() {
                   <TextField
                     fullWidth
                     size="small"
-                    placeholder="Full name"
+                    placeholder="e.g. Ramesh Kumar"
                     value={formData.customer_name}
                     onChange={(e) =>
                       handleFieldChange("customer_name", e.target.value)
@@ -1783,7 +1784,7 @@ export default function ManagerLeads() {
                   <TextField
                     fullWidth
                     size="small"
-                    placeholder="10-digit number"
+                    placeholder="e.g. 9876543210"
                     value={formData.mobile_number}
                     onChange={(e) =>
                       handleFieldChange("mobile_number", e.target.value.replace(/\D/g, "").slice(0, 10))
@@ -1907,7 +1908,7 @@ export default function ManagerLeads() {
                   <TextField
                     fullWidth
                     size="small"
-                    placeholder="Optional"
+                    placeholder="e.g. 9876543211"
                     value={formData.alternate_number}
                     onChange={(e) =>
                       handleFieldChange(
@@ -1925,7 +1926,7 @@ export default function ManagerLeads() {
                   <TextField
                     fullWidth
                     size="small"
-                    placeholder="Optional"
+                    placeholder="e.g. ramesh@example.com"
                     value={formData.email}
                     onChange={(e) =>
                       handleFieldChange("email", e.target.value)
@@ -1942,7 +1943,7 @@ export default function ManagerLeads() {
                   <TextField
                     fullWidth
                     size="small"
-                    placeholder="Full address"
+                    placeholder="e.g. 124, Sunrise Enclave, Sector 5"
                     value={formData.address}
                     onChange={(e) =>
                       handleFieldChange("address", e.target.value)
@@ -1956,7 +1957,7 @@ export default function ManagerLeads() {
                   <TextField
                     fullWidth
                     size="small"
-                    placeholder="Pincode"
+                    placeholder="e.g. 302021"
                     value={formData.pincode}
                     onChange={(e) =>
                       handleFieldChange(
@@ -2145,7 +2146,7 @@ export default function ManagerLeads() {
                   <TextField
                     fullWidth
                     size="small"
-                    placeholder="Any notes..."
+                    placeholder="e.g. Customer interested in 5kW residential rooftop solar"
                     multiline
                     minRows={2}
                     maxRows={4}
@@ -2173,7 +2174,7 @@ export default function ManagerLeads() {
                 ))}
               </Grid>
             </Box>
-          </DialogContent>
+          <Box sx={{display:"grid",gridTemplateColumns:{xs:"1fr",sm:"repeat(3,1fr)"},gap:2,mt:2}}><TextField required label="Next action" value={formData.next_action || ""} onChange={e=>handleFieldChange("next_action",e.target.value)} /><TextField required type="date" label="Next follow-up date" value={formData.next_follow_up_date || ""} onChange={e=>handleFieldChange("next_follow_up_date",e.target.value)} slotProps={{inputLabel:{shrink:true}}} /><TextField required type="time" label="Exact follow-up time" value={formData.next_follow_up_time || ""} onChange={e=>handleFieldChange("next_follow_up_time",e.target.value)} slotProps={{inputLabel:{shrink:true}}} helperText="Company scheduling timezone" /></Box></DialogContent>
 
           <DialogActions
             sx={{
@@ -2279,7 +2280,7 @@ export default function ManagerLeads() {
           onClose={() => setScheduleSurveyOpen(false)}
           lead={surveyLead}
           onScheduled={() => {
-            fetchLeadsList();
+            fetchData();
           }}
           showSnackbar={showSnackbar}
         />
@@ -2289,7 +2290,7 @@ export default function ManagerLeads() {
           survey={activeSurvey}
           lead={surveyLead}
           onCompleted={() => {
-            fetchLeadsList();
+            fetchData();
           }}
           showSnackbar={showSnackbar}
         />
@@ -2298,7 +2299,7 @@ export default function ManagerLeads() {
           onClose={() => setDealModalOpen(false)}
           lead={dealLead}
           onOrderBooked={() => {
-            fetchLeadsList();
+            fetchData();
           }}
           showSnackbar={showSnackbar}
         />

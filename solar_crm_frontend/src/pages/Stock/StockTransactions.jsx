@@ -1,3 +1,4 @@
+import useWorkspaceNavigate from "../../hooks/useWorkspaceNavigate";
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -21,7 +22,7 @@ const API_BASE_URL =
   "http://localhost:5000";
 
 const StockTransactions = () => {
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
   const [searchParams] = useSearchParams();
 
   const itemIdParam = searchParams.get("item_id") || "";

@@ -1,3 +1,4 @@
+import useWorkspaceNavigate from "../../hooks/useWorkspaceNavigate";
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -56,7 +57,7 @@ const COLORS = {
 
 const StockDetail = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
+  const navigate = useWorkspaceNavigate();
 
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);

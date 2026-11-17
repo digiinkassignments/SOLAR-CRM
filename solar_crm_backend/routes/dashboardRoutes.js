@@ -23,6 +23,8 @@ router.get(
   getManagerDashboardStats
 );
 
+router.get("/manager/overview", verifyToken, authorizeRoles(2), getAdminDashboardStats);
+
 // Sales Rep Dashboard Endpoint (ROLE_SALES = 3)
 router.get(
   "/sales",

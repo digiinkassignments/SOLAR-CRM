@@ -1,4 +1,9 @@
-import React, { useState } from "react";
+import EventNoteOutlinedIcon from "@mui/icons-material/EventNoteOutlined";
+import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
+import PersonAddAltOutlinedIcon from "@mui/icons-material/PersonAddAltOutlined";
+import CakeOutlinedIcon from "@mui/icons-material/CakeOutlined";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import usePlanFeatures from "../hooks/usePlanFeatures";
@@ -24,6 +29,7 @@ import {
   ListSubheader,
   Chip,
   Tooltip,
+  Collapse,
 } from "@mui/material";
 
 // Material UI Icons
@@ -50,9 +56,17 @@ const navigationSections = [
     ],
   },
   {
+    subheader: "SALES & LEADS",
+    items: [{ title: "Lead Management", icon: <PhoneInTalkOutlinedIcon />, path: "/sales/leads", children: [
+      { title: "Today's Follow-up", icon: <EventNoteOutlinedIcon />, path: "/sales/leads/today-followups", badge: "Daily" },
+      { title: "My Leads", icon: <FormatListBulletedIcon />, path: "/sales/leads" },
+      { title: "Add Lead", icon: <PersonAddAltOutlinedIcon />, path: "/sales/leads?create=true" },
+      { title: "Birthdays / Events", icon: <CakeOutlinedIcon />, path: "/sales/leads/birthdays", badge: "Wishes" },
+    ] }],
+  },
+  {
     subheader: "WORKSPACE",
     items: [
-      { title: "My Leads", icon: <PhoneInTalkOutlinedIcon />, path: "/sales/leads" },
       { title: "Solar Calculator", icon: <CalculateOutlinedIcon />, path: "/sales/calculator" },
       { title: "Quotations", icon: <DescriptionOutlinedIcon />, path: "/sales/quotations" },
       { title: "Invoices & Billing", icon: <ReceiptLongOutlinedIcon />, path: "/sales/invoices" },
@@ -78,6 +92,7 @@ const SalesSidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sideb
   const navigate = useNavigate();
   const { user, logout: authLogout } = useAuth();
   const { features } = usePlanFeatures();
+  const [leadsOpen, setLeadsOpen] = useState(true);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   const fullName       = user?.full_name || user?.name || "Sales Executive";
@@ -229,6 +244,16 @@ const SalesSidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sideb
             }
           >
             {section.items.map((item) => {
+              if (item.children) {
+                const activeGroup = location.pathname.startsWith("/sales/leads");
+                return <Box key={item.title} sx={{ mb: 1 }}>
+                  <Tooltip title={collapsed ? item.title : ""} placement="right"><ListItemButton onClick={() => { if (collapsed) { navigate(item.path); if (mobileOpen && handleDrawerToggle) handleDrawerToggle(); } else setLeadsOpen(value => !value); }} aria-expanded={collapsed ? undefined : leadsOpen} sx={{ borderRadius: "8px", minHeight: 42, color: activeGroup ? "#F59E0B" : "#94A3B8", bgcolor: activeGroup ? "rgba(245,158,11,0.1)" : "transparent", px: 1.2, justifyContent: collapsed ? "center" : "flex-start" }}><ListItemIcon sx={{ minWidth: collapsed ? 0 : 30, color: "inherit" }}>{item.icon}</ListItemIcon>{!collapsed && <><ListItemText primary={item.title} slotProps={{ primary: { fontSize: "0.82rem", fontWeight: 700 } }} /><ExpandMoreIcon sx={{ transform: leadsOpen ? "rotate(180deg)" : "none", fontSize: 18 }} /></>}</ListItemButton></Tooltip>
+                  <Collapse in={!collapsed && leadsOpen}><List disablePadding sx={{ mt: 0.75, ml: 1, borderLeft: "2px solid rgba(148,163,184,0.15)", pl: 0.75 }}>{item.children.map(child => {
+                    const active = child.path.includes("?") ? `${location.pathname}${location.search}` === child.path : location.pathname === child.path && !location.search;
+                    return <ListItemButton key={child.path} onClick={() => { navigate(child.path); if (mobileOpen && handleDrawerToggle) handleDrawerToggle(); }} selected={active} sx={{ borderRadius: "8px", minHeight: 42, px: 1, mb: 0.5, color: active ? "#F59E0B" : "#94A3B8", "&.Mui-selected": { bgcolor: "rgba(148,163,184,0.12)" }, "&:hover": { bgcolor: "rgba(148,163,184,0.08)" } }}><ListItemIcon sx={{ minWidth: 27, color: "inherit", "& .MuiSvgIcon-root": { fontSize: 19 } }}>{child.icon}</ListItemIcon><ListItemText primary={child.title} slotProps={{ primary: { fontSize: "0.78rem", fontWeight: active ? 700 : 500 } }} />{child.badge && <Chip size="small" label={child.badge} sx={{ height: 20, ml: 0.5, borderRadius: "6px", bgcolor: "rgba(148,163,184,0.12)", color: "#94A3B8", fontSize: "0.62rem", fontWeight: 700, "& .MuiChip-label": { px: 0.75 } }} />}</ListItemButton>;
+                  })}</List></Collapse>
+                </Box>;
+              }
               const isActive = location.pathname === item.path;
 
               return (

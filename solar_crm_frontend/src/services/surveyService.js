@@ -33,3 +33,14 @@ export const uploadSurveyPhotos = async (formData) => {
   });
   return response.data;
 };
+
+// Approve survey and convert / create project
+export const approveSurveyToProject = async (surveyId, payload = {}) => {
+  const response = await api.post(`/surveys/${surveyId}/approve-to-project`, payload);
+  return response.data;
+};
+
+export const approveSurveyByLead = async (leadId, payload = {}) => {
+  const response = await api.post(`/surveys/lead/${leadId}/approve-to-project`, payload);
+  return response.data;
+};

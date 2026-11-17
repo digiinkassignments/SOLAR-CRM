@@ -1,3 +1,4 @@
+const managerScope=require("../utils/managerScope");
 const dbConfig = require("../config/db");
 const defaultDb = dbConfig.db || dbConfig.defaultDb;
 
@@ -81,7 +82,7 @@ const getAllPurchaseOrders = async (
   const limitNum = Math.max(1, parseInt(limit, 10) || 15);
   const offset = (pageNum - 1) * limitNum;
 
-  const whereConditions = ["po.is_deleted = 0"];
+  const whereConditions = ["po.is_deleted = 0" + managerScope.linked(db,"p.lead_id")];
   const params = [];
 
   if (project_id && project_id !== "All") {
@@ -353,7 +354,7 @@ const getProcurementStats = async (db = defaultDb) => {
   const [rows] = await db.query(
     `SELECT status, COUNT(*) AS count 
      FROM purchase_orders 
-     WHERE is_deleted = 0 
+     WHERE is_deleted = 0${managerScope.managerId(db) ? ` AND project_id IN (SELECT mp.id FROM projects mp WHERE mp.is_deleted=0${managerScope.linked(db,"mp.lead_id")})` : ""} 
      GROUP BY status`
   );
   return rows;

@@ -4,6 +4,7 @@ const router = express.Router();
 const { verifyToken } = require("../middleware/authMiddleware");
 const { authorizeRoles } = require("../middleware/roleMiddleware");
 const {
+  sendInvoiceEmail,
   createInvoice,
   getInvoices,
   getInvoiceById,
@@ -27,10 +28,11 @@ router.get("/:id", verifyToken, getInvoiceById);
 
 // Only Super Admin & Manager can create invoices and record payments (Sales is Read-Only)
 router.post("/", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), createInvoice);
+router.post("/:id/send-email", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER, ROLE_SALES), sendInvoiceEmail);
 router.post("/:id/payments", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), recordPayment);
 
 // Only Super Admin can delete invoices
-router.post("/bulk-delete", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN), bulkDeleteInvoices);
-router.delete("/:id", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN), deleteInvoice);
+router.post("/bulk-delete", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), bulkDeleteInvoices);
+router.delete("/:id", verifyToken, authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), deleteInvoice);
 
 module.exports = router;

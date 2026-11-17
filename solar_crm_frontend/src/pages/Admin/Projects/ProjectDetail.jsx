@@ -33,16 +33,13 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 import NavigateNextRoundedIcon from "@mui/icons-material/NavigateNextRounded";
 import SolarPowerIcon from "@mui/icons-material/SolarPower";
-import PersonIcon from "@mui/icons-material/Person";
 import PhoneIcon from "@mui/icons-material/Phone";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
-import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RadioButtonCheckedIcon from "@mui/icons-material/RadioButtonChecked";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import EditIcon from "@mui/icons-material/Edit";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
-import HistoryIcon from "@mui/icons-material/History";
 import CloseIcon from "@mui/icons-material/Close";
 import ErrorOutlineOutlinedIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
@@ -53,8 +50,8 @@ import FactCheckIcon from "@mui/icons-material/FactCheck";
 import HandshakeIcon from "@mui/icons-material/Handshake";
 import VerifiedIcon from "@mui/icons-material/Verified";
 import DeleteIcon from "@mui/icons-material/Delete";
-import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
 
+import ProjectWorkspace from "./ProjectWorkspace";
 import toast from "react-hot-toast";
 import api from "../../../utils/api";
 import PreInstallInspection from "./tabs/PreInstallInspection";
@@ -63,7 +60,6 @@ import Commissioning from "./tabs/Commissioning";
 import FinalInspection from "./tabs/FinalInspection";
 import CustomerHandover from "./tabs/CustomerHandover";
 import WarrantyAMC from "./tabs/WarrantyAMC";
-import ProjectLoanTab from "./tabs/ProjectLoanTab";
 import {
   STAGES,
   STAGE_CONFIG,
@@ -90,8 +86,12 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const roleName = (user?.role_name || user?.role || "").toLowerCase();
-  const isManager = user?.role_id === 2 || roleName.includes("manager");
-  const projectBasePath = isManager ? "/manager/projects" : "/projects";
+  const isManager = Number(user?.role_id) === 2 || roleName.includes("manager");
+  const isEngineer = Number(user?.role_id) === 4 || roleName.includes("engineer");
+  const canEdit = [1, 2, 4].includes(Number(user?.role_id));
+  const canDelete = [1,2].includes(Number(user?.role_id));
+  const projectBasePath = isEngineer ? "/engineer/projects" : isManager ? "/manager/projects" : "/projects";
+  const dashboardPath = isEngineer ? "/engineer/dashboard" : isManager ? "/manager/dashboard" : "/dashboard";
 
   // Project Data State
   const [project, setProject] = useState(null);
@@ -142,7 +142,7 @@ export default function ProjectDetail() {
       if (res.data?.success && res.data.data) {
         const pData = res.data.data;
         setProject(pData);
-        // Secure URL mask: Automatically replace sequential numeric ID with unguessable project_uuid
+        // Use the canonical project URL; access control remains the API responsibility.
         if (pData.project_uuid && id !== pData.project_uuid) {
           navigate(`${projectBasePath}/${pData.project_uuid}`, { replace: true });
         }
@@ -155,7 +155,7 @@ export default function ProjectDetail() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, navigate, projectBasePath]);
 
   useEffect(() => {
     fetchProjectDetails();
@@ -169,7 +169,7 @@ export default function ProjectDetail() {
   // Open Stage Change Dialog
   const handleOpenStageDialog = () => {
     const nextIdx = currentStageIndex + 1;
-    const defaultNext = nextIdx < STAGES.length ? STAGES[nextIdx] : STAGES[0];
+    const defaultNext = nextIdx < STAGES.length ? STAGES[nextIdx] : project.stage;
     setNextStage(defaultNext);
     setStageNotes("");
     setStageDialogOpen(true);
@@ -177,7 +177,7 @@ export default function ProjectDetail() {
 
   // Quick 1-Click Advance to Next Stage
   const handleQuickAdvance = async (targetStage) => {
-    if (!targetStage) return;
+    if (!targetStage || updatingStage || !canEdit) return;
     setUpdatingStage(true);
     try {
       const res = await api.put(`/projects/${project?.id || id}/stage`, {
@@ -199,6 +199,7 @@ export default function ProjectDetail() {
   // Submit Stage Change
   const handleSubmitStageChange = async (e) => {
     e.preventDefault();
+    if (updatingStage || !canEdit) return;
     if (!nextStage) {
       toast.error("Please select a stage.");
       return;
@@ -255,9 +256,21 @@ export default function ProjectDetail() {
   // Submit Edit Project
   const handleSubmitEdit = async (e) => {
     e.preventDefault();
+    if (updatingProject || !canEdit) return;
+    if (!editFormData.customer_name.trim() || !editFormData.customer_phone.trim() || !Number.isFinite(Number(editFormData.system_capacity_kw)) || Number(editFormData.system_capacity_kw) <= 0) {
+      toast.error("Enter a customer name, phone and a system capacity greater than zero."); return;
+    }
+    if (Number(editFormData.total_cost) < 0 || Number(editFormData.amount_received) < 0) {
+      toast.error("Payment amounts cannot be negative."); return;
+    }
     setUpdatingProject(true);
     try {
-      const res = await api.put(`/projects/${project?.id || id}`, editFormData);
+      const res = await api.put(`/projects/${project?.id || id}`, {
+        ...editFormData,
+        installation_start_date: editFormData.installation_start_date || null,
+        installation_end_date: editFormData.installation_end_date || null,
+        completion_date: editFormData.completion_date || null,
+      });
       if (res.data?.success) {
         toast.success("Project information updated successfully!");
         setEditDialogOpen(false);
@@ -273,7 +286,7 @@ export default function ProjectDetail() {
 
   // Confirm Delete Handler
   const handleConfirmDelete = async () => {
-    if (!project) return;
+    if (!project || deleting || !canDelete) return;
     setDeleting(true);
     try {
       const res = await api.delete(`/projects/${project.id}`);
@@ -292,43 +305,7 @@ export default function ProjectDetail() {
     }
   };
 
-  // Modern Stage Badge
-  const renderStageBadge = (stageName) => {
-    const config = getStageConfig(stageName);
-    return (
-      <Box
-        sx={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 0.8,
-          px: 1.4,
-          py: 0.5,
-          borderRadius: "8px",
-          backgroundColor: config.bg,
-          border: `1px solid ${config.border}`,
-          color: config.color,
-          fontWeight: 700,
-          fontSize: "0.78rem",
-          letterSpacing: "-0.01em",
-          whiteSpace: "nowrap",
-        }}
-      >
-        <Box
-          sx={{
-            width: 7,
-            height: 7,
-            borderRadius: "50%",
-            backgroundColor: config.dot,
-            flexShrink: 0,
-            boxShadow: `0 0 0 2px ${config.bg}`,
-          }}
-        />
-        <span>
-          Step {config.step}/10 • {config.label}
-        </span>
-      </Box>
-    );
-  };
+  const renderStageBadge = (stageName) => <Chip size="small" label={stageName} />;
 
   const formatDate = (dateVal) => {
     if (!dateVal) return "—";
@@ -409,7 +386,7 @@ export default function ProjectDetail() {
             Project Not Found
           </Typography>
           <Typography variant="body2" sx={{ color: COLORS.textSecondary, mb: 3 }}>
-            The project you are looking for does not exist or may have been removed.
+            {error || "The project you are looking for does not exist or may have been removed."}
           </Typography>
           <Button
             variant="contained"
@@ -431,21 +408,14 @@ export default function ProjectDetail() {
   }
 
   return (
-    <Box
-      sx={{
-        backgroundColor: COLORS.background,
-        minHeight: "100vh",
-        p: { xs: 1.5, sm: 2.5, md: 3 },
-        boxSizing: "border-box",
-        width: "100%",
-      }}
-    >
+    <ProjectWorkspace>
       <Box sx={{ width: "100%", maxWidth: "100%", mx: "auto" }}>
         {/* SECTION 1 — HEADER & BREADCRUMBS */}
-        <Stack direction="row" alignItems="center" gap={1.5} sx={{ mb: 1.5 }}>
+        <Stack direction="row"   sx={{alignItems: "center", gap: 1.5,  mb: 1.5 }}>
           <IconButton
             size="small"
-            onClick={() => navigate(-1)}
+            aria-label="Back to projects"
+            onClick={() => navigate(projectBasePath)}
             sx={{
               width: 34,
               height: 34,
@@ -468,10 +438,10 @@ export default function ProjectDetail() {
           >
             <Stack
               direction="row"
-              alignItems="center"
-              gap={0.5}
-              sx={{ cursor: "pointer" }}
-              onClick={() => navigate("/dashboard")}
+
+
+              sx={{alignItems: "center", gap: 0.5,  cursor: "pointer" }}
+              onClick={() => navigate(dashboardPath)}
             >
               <HomeOutlinedIcon
                 sx={{ fontSize: "0.85rem", color: COLORS.textMuted }}
@@ -513,182 +483,28 @@ export default function ProjectDetail() {
           </Breadcrumbs>
         </Stack>
 
-        {/* SECTION 2 — PROJECT HERO CARD (NO-COLLISION HEADER) */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 2, sm: 2.5 },
-            mb: 2.5,
-            borderRadius: "14px",
-            border: `1px solid ${COLORS.border}`,
-            backgroundColor: COLORS.card,
-            display: "flex",
-            flexDirection: { xs: "column", md: "row" },
-            justifyContent: "space-between",
-            alignItems: { xs: "flex-start", md: "center" },
-            gap: 2,
-            boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
-          }}
-        >
-          {/* Customer & Project Title */}
-          <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 1.5,
-                mb: 0.8,
-              }}
-            >
-              <Chip
-                label={project.project_number}
-                size="small"
-                sx={{
-                  px: 0.5,
-                  height: 28,
-                  borderRadius: "6px",
-                  backgroundColor: "#EFF6FF",
-                  border: "1px solid #BFDBFE",
-                  color: "#1D4ED8",
-                  fontWeight: 800,
-                  fontSize: "0.82rem",
-                  fontFamily: "monospace",
-                  letterSpacing: "0.02em",
-                }}
-              />
-
-              <Typography
-                variant="h5"
-                sx={{
-                  fontWeight: 900,
-                  fontSize: { xs: "1.2rem", sm: "1.35rem" },
-                  color: COLORS.textPrimary,
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                {project.customer_name}
-              </Typography>
-
-              {renderStageBadge(project.stage)}
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3, boxShadow: "none" }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, flexWrap: "wrap" }}>
+            <Box sx={{ flex: "1 1 240px", minWidth: 0 }}>
+              <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>{project.project_number}</Typography>
+              <Typography component="h1" variant="h4" sx={{ fontSize: { xs: 24, sm: 30 }, fontWeight: 700, mt: 0.5 }}>{project.customer_name}</Typography>
+              <Typography color="text.secondary" sx={{ mt: 0.75 }}>{[project.customer_address, project.city, project.state].filter(Boolean).join(", ") || "Site address not added"}</Typography>
             </Box>
-
-            <Typography
-              variant="body2"
-              sx={{
-                color: COLORS.textSecondary,
-                fontSize: "0.8rem",
-                mb: 1.2,
-                mt: 0.5,
-              }}
-            >
-              Created on {formatDate(project.created_at)} • Last stage update:{" "}
-              {formatDateTime(project.stage_updated_at || project.updated_at)}
-            </Typography>
-
-            {/* Commercial Contract & Payment Sync Overview */}
-            {project.total_cost != null && Number(project.total_cost) > 0 && (
-              <Stack direction="row" alignItems="center" spacing={1.2} sx={{ mt: 1.2, flexWrap: "wrap", gap: 1 }}>
-                <Chip
-                  size="small"
-                  label={`Contract: ₹${Number(project.total_cost).toLocaleString("en-IN")}`}
-                  sx={{ height: 22, fontSize: "0.72rem", fontWeight: 700, bgcolor: "#F1F5F9", color: COLORS.textPrimary }}
-                />
-                <Chip
-                  size="small"
-                  label={`Received: ₹${Number(project.amount_received || 0).toLocaleString("en-IN")}`}
-                  sx={{ height: 22, fontSize: "0.72rem", fontWeight: 700, bgcolor: "#DCFCE7", color: "#166534" }}
-                />
-                {Math.max(0, (Number(project.total_cost) || 0) - (Number(project.amount_received) || 0)) > 0 ? (
-                  <Chip
-                    size="small"
-                    label={`Balance Due: ₹${Math.max(0, (Number(project.total_cost) || 0) - (Number(project.amount_received) || 0)).toLocaleString("en-IN")} (Handover On Hold)`}
-                    sx={{ height: 22, fontSize: "0.72rem", fontWeight: 800, bgcolor: "#FEE2E2", color: "#991B1B" }}
-                  />
-                ) : (
-                  <Chip
-                    size="small"
-                    label="✓ 100% Paid (Handover Cleared)"
-                    sx={{ height: 22, fontSize: "0.72rem", fontWeight: 800, bgcolor: "#DCFCE7", color: "#166534" }}
-                  />
-                )}
-              </Stack>
-            )}
+            <Stack direction="row"  sx={{gap: 1,  flexWrap: "wrap" }}>
+              {canEdit && <Button variant="outlined" startIcon={<EditIcon />} onClick={handleOpenEditDialog}>Edit details</Button>}
+              {canEdit && <Button variant="contained" startIcon={<SwapHorizIcon />} onClick={handleOpenStageDialog}>Change stage</Button>}
+              {canDelete && <Tooltip title="Delete project"><IconButton aria-label="Delete project" color="error" onClick={() => setDeleteConfirmOpen(true)}><DeleteIcon /></IconButton></Tooltip>}
+            </Stack>
           </Box>
-
-          {/* Action Buttons (Spaced & Aligned Cleanly) */}
-          <Stack
-            direction="row"
-            alignItems="center"
-            gap={1}
-            sx={{ flexShrink: 0, flexWrap: "nowrap" }}
-          >
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<EditIcon sx={{ fontSize: 16 }} />}
-              onClick={handleOpenEditDialog}
-              sx={{
-                height: 36,
-                borderRadius: "6px",
-                textTransform: "none",
-                fontWeight: 700,
-                fontSize: "0.78rem",
-                px: 1.8,
-                borderColor: COLORS.border,
-                color: COLORS.textPrimary,
-                backgroundColor: "#FFFFFF",
-                whiteSpace: "nowrap",
-                "&:hover": {
-                  borderColor: COLORS.primary,
-                  backgroundColor: "#F8FAFC",
-                },
-              }}
-            >
-              Edit Details
-            </Button>
-
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<SwapHorizIcon sx={{ fontSize: 17 }} />}
-              onClick={handleOpenStageDialog}
-              sx={{
-                height: 36,
-                borderRadius: "6px",
-                textTransform: "none",
-                fontWeight: 700,
-                fontSize: "0.78rem",
-                px: 2,
-                backgroundColor: COLORS.secondary,
-                color: "#FFFFFF",
-                whiteSpace: "nowrap",
-                "&:hover": { backgroundColor: "#D97706" },
-              }}
-            >
-              Change Stage
-            </Button>
-
-            <IconButton
-              size="small"
-              onClick={() => setDeleteConfirmOpen(true)}
-              sx={{
-                height: 36,
-                width: 36,
-                borderRadius: "6px",
-                border: `1px solid ${COLORS.border}`,
-                color: "#EF4444",
-                "&:hover": {
-                  borderColor: "#FCA5A5",
-                  backgroundColor: "#FEF2F2",
-                },
-              }}
-            >
-              <Tooltip title="Delete Project">
-                <DeleteIcon sx={{ fontSize: 18 }} />
-              </Tooltip>
-            </IconButton>
-          </Stack>
+          <Box sx={{ mt: 3, pt: 2, borderTop: "1px solid", borderColor: "divider", display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", xl: "2fr 1fr 1fr 1fr" }, gap: 2 }}>
+            <Box><Typography variant="caption">Current milestone</Typography><Typography  sx={{fontWeight: 700,  mt: 0.5 }}>{project.stage}</Typography><LinearProgress variant="determinate" value={progressPct} aria-label="Project workflow progress" sx={{ mt: 1, maxWidth: 260, bgcolor: "#F1F5F9", "& .MuiLinearProgress-bar": { bgcolor: "#F59E0B" } }} /></Box>
+            <Box><Typography variant="caption">System size</Typography><Typography  sx={{fontWeight: 700,  mt: 0.5 }}>{Number(project.system_capacity_kw || 0).toFixed(2)} kW</Typography></Box>
+            <Box><Typography variant="caption">Project owner</Typography><Typography  sx={{fontWeight: 600,  mt: 0.5 }}>{project.assigned_to_name || "Unassigned"}</Typography></Box>
+            <Box><Typography variant="caption">Last stage update</Typography><Typography variant="body2" sx={{ mt: 0.5 }}>{formatDate(project.stage_updated_at || project.updated_at)}</Typography></Box>
+          </Box>
+          {Number(project.total_cost) > 0 && <Box sx={{ mt: 2.5, p: 2, bgcolor: "#F8FAFC", borderRadius: 2, display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" }, gap: 2 }}>
+            {[["Contract value", Number(project.total_cost)], ["Amount received", Number(project.amount_received || 0)], ["Balance due", Math.max(0, Number(project.total_cost) - Number(project.amount_received || 0))]].map(([label, amount]) => <Box key={label}><Typography variant="caption">{label}</Typography><Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", mt: 0.25 }}>{"\u20B9"}{amount.toLocaleString("en-IN")}</Typography></Box>)}
+          </Box>}
         </Paper>
 
         {/* SECTION 3 — EXECUTION TABS BAR */}
@@ -709,6 +525,8 @@ export default function ProjectDetail() {
               onChange={(e, val) => setActiveTab(val)}
               variant="scrollable"
               scrollButtons="auto"
+              allowScrollButtonsMobile
+              aria-label="Project sections"
               sx={{
                 "& .MuiTab-root": {
                   textTransform: "none",
@@ -737,7 +555,6 @@ export default function ProjectDetail() {
               <Tab icon={<FactCheckIcon />} label="Final Inspection" iconPosition="start" />
               <Tab icon={<HandshakeIcon />} label="Customer Handover" iconPosition="start" />
               <Tab icon={<VerifiedIcon />} label="Warranty & AMC" iconPosition="start" />
-              <Tab icon={<AccountBalanceOutlinedIcon sx={{ fontSize: "1.1rem" }} />} label="Solar Loan" iconPosition="start" />
             </Tabs>
           </Box>
         </Paper>
@@ -790,7 +607,7 @@ export default function ProjectDetail() {
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         Mobile Phone
                       </Typography>
-                      <Stack direction="row" alignItems="center" gap={0.5}>
+                      <Stack sx={{ alignItems: "center", gap: 0.5 }} direction="row"  >
                         <PhoneIcon sx={{ fontSize: 15, color: "#2563EB" }} />
                         <Typography
                           component="a"
@@ -812,7 +629,7 @@ export default function ProjectDetail() {
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         Installation Site Location
                       </Typography>
-                      <Stack direction="row" alignItems="flex-start" gap={0.6} sx={{ mt: 0.2 }}>
+                      <Stack direction="row"   sx={{alignItems: "flex-start", gap: 0.6,  mt: 0.2 }}>
                         <LocationOnIcon sx={{ fontSize: 17, color: COLORS.textMuted, mt: 0.2 }} />
                         <Typography sx={{ fontSize: "0.85rem", color: COLORS.textPrimary }}>
                           {[project.customer_address, project.city, project.state, project.pincode]
@@ -846,7 +663,7 @@ export default function ProjectDetail() {
                       <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
                         System Capacity
                       </Typography>
-                      <Stack direction="row" alignItems="center" gap={0.6} sx={{ mt: 0.2 }}>
+                      <Stack direction="row"   sx={{alignItems: "center", gap: 0.6,  mt: 0.2 }}>
                         <SolarPowerIcon sx={{ fontSize: 20, color: "#D97706" }} />
                         <Typography sx={{ fontSize: "0.95rem", fontWeight: 800, color: COLORS.textPrimary }}>
                           {parseFloat(project.system_capacity_kw || 1).toFixed(2)} kW
@@ -969,7 +786,7 @@ export default function ProjectDetail() {
                 }}
               >
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2, flexWrap: "wrap", gap: 1.5 }}>
-                  <Box sx={{ flex: 1, minWidth: 220 }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography
                       sx={{
                         fontSize: "0.9rem",
@@ -978,15 +795,15 @@ export default function ProjectDetail() {
                         letterSpacing: "-0.01em",
                       }}
                     >
-                      Solar Project Execution Stepper
+                      Delivery milestones
                     </Typography>
                     <Typography sx={{ fontSize: "0.74rem", color: COLORS.textSecondary, mt: 0.3 }}>
-                      10 sequential phases under PM Surya Ghar & DISCOM net-metering
+                      Track your delivery milestones, approvals and customer handover
                     </Typography>
                   </Box>
                   <Chip
                     size="small"
-                    label={`${progressPct}% Done`}
+                    label={`${progressPct}% of workflow`}
                     sx={{
                       height: 24,
                       fontSize: "0.74rem",
@@ -1005,7 +822,7 @@ export default function ProjectDetail() {
                       Stage {currentStageIndex + 1} of 10: {stageConfig.label}
                     </Typography>
                     <Typography sx={{ fontSize: "0.72rem", fontWeight: 800, color: stageConfig.color }}>
-                      {progressPct}% Done
+                      {progressPct}% of workflow
                     </Typography>
                   </Box>
                   <LinearProgress
@@ -1125,7 +942,7 @@ export default function ProjectDetail() {
                               </Typography>
                             )}
 
-                            {isCurrent && nextStageCandidate && (
+                            {isCurrent && nextStageCandidate && canEdit && (
                               <Box sx={{ mt: 1.2 }}>
                                 <Button
                                   size="small"
@@ -1175,7 +992,7 @@ export default function ProjectDetail() {
             <Typography variant="h6" sx={{ fontWeight: 800, fontSize: "1.05rem", mb: 2 }}>
               Stage Transition Audit Trail
             </Typography>
-            {project.stage_logs?.length === 0 ? (
+            {!project.stage_logs?.length ? (
               <Typography sx={{ fontSize: "0.82rem", color: COLORS.textMuted }}>
                 No stage changes logged yet.
               </Typography>
@@ -1191,8 +1008,8 @@ export default function ProjectDetail() {
                       border: `1px solid ${COLORS.border}`,
                     }}
                   >
-                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
-                      <Stack direction="row" alignItems="center" gap={1}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5, flexWrap: "wrap", gap: 1 }}>
+                      <Stack sx={{ alignItems: "center", gap: 1 }} direction="row"  >
                         <Typography sx={{ fontSize: "0.82rem", fontWeight: 700 }}>
                           {log.from_stage ? `${log.from_stage} → ` : ""}
                           <Box component="span" sx={{ color: "#2563EB" }}>
@@ -1261,12 +1078,7 @@ export default function ProjectDetail() {
           </Box>
         )}
 
-        {/* TAB 8: SOLAR LOAN & FINANCING */}
-        {activeTab === 8 && (
-          <Box sx={{ mt: 1 }}>
-            <ProjectLoanTab project={project} projectId={project?.id || id} />
-          </Box>
-        )}
+
       </Box>
 
       {/* ============================================================== */}
@@ -1849,6 +1661,7 @@ export default function ProjectDetail() {
       {/* DELETE PROJECT CONFIRMATION DIALOG */}
       <Dialog
         open={deleteConfirmOpen}
+        role="alertdialog"
         onClose={() => !deleting && setDeleteConfirmOpen(false)}
         maxWidth="xs"
         fullWidth
@@ -1888,6 +1701,6 @@ export default function ProjectDetail() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </ProjectWorkspace>
   );
 }

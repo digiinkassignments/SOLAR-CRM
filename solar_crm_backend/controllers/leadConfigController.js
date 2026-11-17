@@ -62,6 +62,7 @@ const ensureConfigTables = async (db) => {
         ('Not Interested', '#64748B', 9, 0, 1, 1, 1)
       `);
     }
+    await require('../services/leadStages').ensure(db);
   } catch (err) {
     console.error("ensureConfigTables error:", err.message);
   }

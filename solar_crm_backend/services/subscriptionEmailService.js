@@ -99,38 +99,59 @@ function supportBlock(settings) {
 // ============================================================
 
 function welcomeEmailTemplate(client, tempPassword, settings) {
-  const loginUrl = `https://${client.subdomain}.digiinksolutions.com`;
+  const loginUrl = `https://${client.subdomain}.solops.cloud`;
   const bodyContent = `
     <p style="color:#475569; font-size:14px; line-height:1.6; margin:0 0 16px;">
-      Welcome to your <strong>${client.plan_name}</strong> plan! Your <strong>7-day free trial</strong> has been activated.<br>Trial Start: <strong>${new Date().toLocaleDateString("en-IN")}</strong> | Trial End: <strong>${new Date(client.subscription_end).toLocaleDateString("en-IN")}</strong><br>Below are your login credentials:
+      Hello <strong>${client.owner_name}</strong>,<br><br>
+      Your dedicated Solar EPC CRM workspace for <strong>${client.business_name || client.subdomain}</strong> has been provisioned and is ready for use on Solops.
     </p>
 
-    <div style="background:#F1F5F9; border-radius:6px; padding:16px; margin:20px 0;">
-      <p style="margin:0 0 8px; color:#1E293B; font-size:13px;">
-        <strong>Login URL:</strong> <a href="${loginUrl}" style="color:#0B3A63; text-decoration:underline;">${loginUrl}</a>
+    <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:18px; margin:20px 0;">
+      <p style="margin:0 0 10px; color:#1E293B; font-size:13.5px;">
+        <strong>Workspace URL:</strong> <a href="${loginUrl}" style="color:#F36B16; font-weight:600; text-decoration:none;">${loginUrl}</a>
       </p>
-      <p style="margin:0 0 8px; color:#1E293B; font-size:13px;">
-        <strong>Username:</strong> ${client.email}
+      <p style="margin:0 0 10px; color:#1E293B; font-size:13.5px;">
+        <strong>Admin Username:</strong> <span style="font-family:monospace; background:#EDF2F7; padding:2px 6px; border-radius:4px;">${client.email}</span>
       </p>
-      <p style="margin:0; color:#1E293B; font-size:13px;">
-        <strong>Temporary Password:</strong> <code style="background:#E2E8F0; padding:2px 6px; border-radius:4px; font-family:monospace;">${tempPassword}</code>
+      <p style="margin:0; color:#1E293B; font-size:13.5px;">
+        <strong>Initial Password:</strong> <span style="font-family:monospace; background:#EDF2F7; padding:2px 6px; border-radius:4px;">${tempPassword}</span>
       </p>
     </div>
 
     <p style="color:#64748B; font-size:13px; line-height:1.5; margin:0 0 20px;">
-      Please change your password immediately after logging in for the first time.
+      For security reasons, we recommend updating your password from your account profile settings upon your first login.
     </p>
 
-    <a href="${loginUrl}" style="display:inline-block; background:#0B3A63; color:#ffffff; padding:12px 24px; border-radius:6px; text-decoration:none; font-size:14px; font-weight:600;">
-      Login to Dashboard
-    </a>
+    <div style="margin: 24px 0;">
+      <a href="${loginUrl}" style="display:inline-block; background:#F36B16; color:#ffffff; padding:12px 26px; border-radius:6px; text-decoration:none; font-size:14px; font-weight:700;">
+        Access Your Workspace &rarr;
+      </a>
+    </div>
 
     ${supportBlock(settings)}
   `;
 
+  const textContent = `Hello ${client.owner_name},
+
+Your dedicated Solar EPC CRM workspace for ${client.business_name || client.subdomain} is ready on Solops.
+
+Workspace URL: ${loginUrl}
+Admin Username: ${client.email}
+Initial Password: ${tempPassword}
+
+Please log in and update your password under profile settings.
+
+Support Contact:
+Email: ${settings.support_email || "support@digiinksolutions.com"}
+Phone: ${settings.support_phone || "+91 99554 41122 / +91 91191 14455"}
+
+Digiink Solutions LLP, Jaipur, Rajasthan, India
+`;
+
   return {
-    subject: `Welcome to ${settings.company_name || "Solar CRM"} — Your Account is Ready`,
-    html: emailLayout(`Welcome, ${client.owner_name}!`, bodyContent, settings),
+    subject: `Your Solops Solar CRM Workspace Access Details`,
+    html: emailLayout(`Welcome to Solops, ${client.owner_name}!`, bodyContent, settings),
+    text: textContent,
   };
 }
 
@@ -155,7 +176,7 @@ function expiringSoonTemplate(client, settings) {
       After completing the transfer, click "I have made the payment" in your portal or contact support.
     </p>
 
-    <a href="https://${client.subdomain}.digiinksolutions.com" style="display:inline-block; background:#0B3A63; color:#ffffff; padding:12px 24px; border-radius:6px; text-decoration:none; font-size:14px; font-weight:600;">
+    <a href="https://${client.subdomain}.solops.cloud" style="display:inline-block; background:#0B3A63; color:#ffffff; padding:12px 24px; border-radius:6px; text-decoration:none; font-size:14px; font-weight:600;">
       Renew Subscription
     </a>
 
@@ -185,7 +206,7 @@ function gracePeriodTemplate(client, settings) {
 
     ${paymentDetailsBlock(settings)}
 
-    <a href="https://${client.subdomain}.digiinksolutions.com" style="display:inline-block; background:#0B3A63; color:#ffffff; padding:12px 24px; border-radius:6px; text-decoration:none; font-size:14px; font-weight:600;">
+    <a href="https://${client.subdomain}.solops.cloud" style="display:inline-block; background:#0B3A63; color:#ffffff; padding:12px 24px; border-radius:6px; text-decoration:none; font-size:14px; font-weight:600;">
       Renew Subscription
     </a>
 
@@ -270,7 +291,7 @@ function accountDeletedTemplate(client, settings) {
 }
 
 function paymentConfirmedTemplate(client, settings) {
-  const loginUrl = `https://${client.subdomain}.digiinksolutions.com`;
+  const loginUrl = `https://${client.subdomain}.solops.cloud`;
   const bodyContent = `
     <p style="color:#475569; font-size:14px; line-height:1.6; margin:0 0 16px;">
       Dear <strong>${client.owner_name}</strong>,
@@ -337,7 +358,7 @@ function paymentRejectedTemplate(client, rejectionNote, settings) {
 // MAIN SEND FUNCTION
 // ============================================================
 function passwordResetTemplate(client, tempPassword, settings) {
-  const loginUrl = `https://${client.subdomain}.digiinksolutions.com`;
+  const loginUrl = `https://${client.subdomain}.solops.cloud`;
   const bodyContent = `
     <p style="color:#475569; font-size:14px; line-height:1.6; margin:0 0 16px;">
       Hello <strong>${client.owner_name}</strong>,
@@ -412,12 +433,20 @@ async function sendSubscriptionEmail(emailType, client, extras = {}) {
       throw new Error(`Unknown email type: ${emailType}`);
   }
 
-  await transporter.sendMail({
-    from: process.env.MAIL_FROM,
-    to:   client.email,
+  const mailOptions = {
+    from: `"Solops Platform" <${process.env.MAIL_USER}>`,
+    replyTo: "support@digiinksolutions.com",
+    to: client.email,
     subject: template.subject,
+    text: template.text || template.subject,
     html: template.html,
-  });
+    headers: {
+      "X-Entity-Ref-ID": `${Date.now()}-${client.subdomain || "crm"}`,
+      "X-Mailer": "Solops SaaS Platform Mailer",
+    },
+  };
+
+  await transporter.sendMail(mailOptions);
 }
 
 module.exports = { sendSubscriptionEmail };

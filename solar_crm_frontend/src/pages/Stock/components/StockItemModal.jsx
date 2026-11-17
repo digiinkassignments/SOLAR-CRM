@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, MenuItem, Grid, Box, Typography,
@@ -99,18 +99,18 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
     description: "",
     unit: "Piece",
     unit_price: "",
-    gst_rate: "18.00",
+    gst_rate: "",
     hsn_code: "",
-    min_stock_level: "5",
-    reorder_level: "10",
-    current_stock: "0",
+    min_stock_level: "",
+    reorder_level: "",
+    current_stock: "",
   });
 
   const [specs, setSpecs] = useState({
     wattage: "",
     panel_type: "Mono PERC",
     efficiency: "",
-    warranty_years: "25",
+    warranty_years: "",
     capacity_kw: "",
     inverter_type: "On-Grid",
     phase: "3 Phase",
@@ -134,11 +134,11 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
         description: editItem.description || "",
         unit: editItem.unit || "Piece",
         unit_price: editItem.unit_price || "",
-        gst_rate: editItem.gst_rate || "18.00",
+        gst_rate: editItem.gst_rate || "",
         hsn_code: editItem.hsn_code || "",
-        min_stock_level: editItem.min_stock_level || "5",
-        reorder_level: editItem.reorder_level || "10",
-        current_stock: editItem.current_stock || "0",
+        min_stock_level: editItem.min_stock_level || "",
+        reorder_level: editItem.reorder_level || "",
+        current_stock: editItem.current_stock || "",
       });
 
       const existingSpecs = editItem.specifications || {};
@@ -146,7 +146,7 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
         wattage: existingSpecs.wattage || "",
         panel_type: existingSpecs.panel_type || "Mono PERC",
         efficiency: existingSpecs.efficiency || "",
-        warranty_years: existingSpecs.warranty_years || "25",
+        warranty_years: existingSpecs.warranty_years || "",
         capacity_kw: existingSpecs.capacity_kw || "",
         inverter_type: existingSpecs.inverter_type || "On-Grid",
         phase: existingSpecs.phase || "3 Phase",
@@ -420,7 +420,7 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
 
               {/* Product General Fields Grid */}
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FieldLabel>Category *</FieldLabel>
                   <TextField
                     select
@@ -440,7 +440,7 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
                   </TextField>
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FieldLabel>Item Code / SKU</FieldLabel>
                   <TextField
                     name="item_code"
@@ -453,7 +453,7 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FieldLabel>Barcode / EAN / QR Code (Optional)</FieldLabel>
                   <TextField
                     name="barcode"
@@ -473,7 +473,7 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
                   />
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <FieldLabel>Product / Item Name *</FieldLabel>
                   <TextField
                     name="name"
@@ -487,7 +487,7 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FieldLabel>Brand</FieldLabel>
                   <TextField
                     name="brand"
@@ -500,7 +500,7 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FieldLabel>Model Number</FieldLabel>
                   <TextField
                     name="model"
@@ -522,7 +522,7 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
               </Typography>
 
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={3}>
+                <Grid size={{ xs: 12, sm: 3 }}>
                   <FieldLabel>Unit *</FieldLabel>
                   <TextField
                     select
@@ -539,14 +539,14 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
                   </TextField>
                 </Grid>
 
-                <Grid item xs={12} sm={3}>
+                <Grid size={{ xs: 12, sm: 3 }}>
                   <FieldLabel>Unit Price (₹) *</FieldLabel>
                   <TextField
                     name="unit_price"
                     type="number"
                     value={formData.unit_price}
                     onChange={handleChange}
-                    placeholder="0.00"
+                    placeholder="e.g. 12500"
                     fullWidth
                     size="small"
                     sx={controlSx}
@@ -555,11 +555,12 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={3}>
+                <Grid size={{ xs: 12, sm: 3 }}>
                   <FieldLabel>GST Rate (%)</FieldLabel>
                   <TextField
                     name="gst_rate"
                     type="number"
+                    placeholder="e.g. 18.00"
                     value={formData.gst_rate}
                     onChange={handleChange}
                     fullWidth
@@ -568,7 +569,7 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={3}>
+                <Grid size={{ xs: 12, sm: 3 }}>
                   <FieldLabel>HSN Code</FieldLabel>
                   <TextField
                     name="hsn_code"
@@ -581,11 +582,12 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <FieldLabel>Min Stock Level</FieldLabel>
                   <TextField
                     name="min_stock_level"
                     type="number"
+                    placeholder="e.g. 5"
                     value={formData.min_stock_level}
                     onChange={handleChange}
                     fullWidth
@@ -594,11 +596,12 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <FieldLabel>Reorder Level</FieldLabel>
                   <TextField
                     name="reorder_level"
                     type="number"
+                    placeholder="e.g. 10"
                     value={formData.reorder_level}
                     onChange={handleChange}
                     fullWidth
@@ -608,11 +611,12 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
                 </Grid>
 
                 {!editItem && (
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <FieldLabel>Initial Stock Quantity</FieldLabel>
                     <TextField
                       name="current_stock"
                       type="number"
+                      placeholder="e.g. 0"
                       value={formData.current_stock}
                       onChange={handleChange}
                       fullWidth
@@ -636,11 +640,11 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
               <Grid container spacing={2}>
                 {catSlug === "solar-panels" && (
                   <>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <FieldLabel>Wattage (Wp)</FieldLabel>
                       <TextField name="wattage" type="number" placeholder="e.g. 540" value={specs.wattage} onChange={handleSpecChange} fullWidth size="small" sx={controlSx} />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <FieldLabel>Technology / Cell Type</FieldLabel>
                       <TextField select name="panel_type" value={specs.panel_type} onChange={handleSpecChange} fullWidth size="small" sx={controlSx}>
                         <MenuItem value="Mono PERC">Mono PERC</MenuItem>
@@ -649,24 +653,24 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
                         <MenuItem value="TopCon">TopCon N-Type</MenuItem>
                       </TextField>
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <FieldLabel>Module Efficiency (%)</FieldLabel>
                       <TextField name="efficiency" placeholder="e.g. 21.3%" value={specs.efficiency} onChange={handleSpecChange} fullWidth size="small" sx={controlSx} />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <FieldLabel>Warranty (Years)</FieldLabel>
-                      <TextField name="warranty_years" value={specs.warranty_years} onChange={handleSpecChange} fullWidth size="small" sx={controlSx} />
+                      <TextField name="warranty_years" placeholder="e.g. 25" value={specs.warranty_years} onChange={handleSpecChange} fullWidth size="small" sx={controlSx} />
                     </Grid>
                   </>
                 )}
 
                 {catSlug === "inverters" && (
                   <>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <FieldLabel>Capacity (kW)</FieldLabel>
                       <TextField name="capacity_kw" type="number" placeholder="e.g. 10" value={specs.capacity_kw} onChange={handleSpecChange} fullWidth size="small" sx={controlSx} />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <FieldLabel>Inverter Type</FieldLabel>
                       <TextField select name="inverter_type" value={specs.inverter_type} onChange={handleSpecChange} fullWidth size="small" sx={controlSx}>
                         <MenuItem value="On-Grid">On-Grid / String</MenuItem>
@@ -674,30 +678,30 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
                         <MenuItem value="Hybrid">Hybrid</MenuItem>
                       </TextField>
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <FieldLabel>Phase</FieldLabel>
                       <TextField select name="phase" value={specs.phase} onChange={handleSpecChange} fullWidth size="small" sx={controlSx}>
                         <MenuItem value="Single Phase">Single Phase (1Ф)</MenuItem>
                         <MenuItem value="3 Phase">Three Phase (3Ф)</MenuItem>
                       </TextField>
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <FieldLabel>Warranty (Years)</FieldLabel>
-                      <TextField name="warranty_years" value={specs.warranty_years} onChange={handleSpecChange} fullWidth size="small" sx={controlSx} />
+                      <TextField name="warranty_years" placeholder="e.g. 25" value={specs.warranty_years} onChange={handleSpecChange} fullWidth size="small" sx={controlSx} />
                     </Grid>
                   </>
                 )}
 
                 {catSlug === "mounting-structure" && (
                   <>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <FieldLabel>Material Type</FieldLabel>
                       <TextField select name="structure_type" value={specs.structure_type} onChange={handleSpecChange} fullWidth size="small" sx={controlSx}>
                         <MenuItem value="GI (Galvanized Iron)">GI (Galvanized Iron)</MenuItem>
                         <MenuItem value="Aluminium">Aluminium</MenuItem>
                       </TextField>
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <FieldLabel>Weight (kg / kW set)</FieldLabel>
                       <TextField name="weight_kg" placeholder="e.g. 45" value={specs.weight_kg} onChange={handleSpecChange} fullWidth size="small" sx={controlSx} />
                     </Grid>
@@ -705,14 +709,14 @@ const StockItemModal = ({ open, onClose, onSuccess, categories = [], editItem = 
                 )}
 
                 {(catSlug === "dc-cables" || catSlug === "ac-cables") && (
-                  <Grid item xs={12}>
+                  <Grid size={{ xs: 12 }}>
                     <FieldLabel>Cable / Wire Specification</FieldLabel>
                     <TextField name="cable_type" value={specs.cable_type} onChange={handleSpecChange} placeholder="e.g. DC 4mm² Solar Cable / AC 3.5 Core 25mm² Aluminium Armoured" fullWidth size="small" sx={controlSx} />
                   </Grid>
                 )}
 
                 {/* FULL-WIDTH DEDICATED DESCRIPTION / REMARKS FIELD */}
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <FieldLabel>Description / Remarks</FieldLabel>
                   <TextField
                     name="description"

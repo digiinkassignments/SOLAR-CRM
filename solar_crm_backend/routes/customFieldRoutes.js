@@ -10,8 +10,8 @@ const {
 } = require("../controllers/customFieldController");
 
 router.get("/",        verifyToken, getCustomFields);
-router.post("/",       verifyToken, authorizeRoles(1), createCustomField);
-router.put("/:id",     verifyToken, authorizeRoles(1), updateCustomField);
-router.delete("/:id",  verifyToken, authorizeRoles(1), deleteCustomField);
+router.post("/",       verifyToken, authorizeRoles(1,2), createCustomField);
+router.put("/:id",     verifyToken, authorizeRoles(1,2), updateCustomField);
+router.delete("/:id",  verifyToken, authorizeRoles(1,2), deleteCustomField);
 
 module.exports = router;

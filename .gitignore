@@ -3,5 +3,15 @@ dist/
 .env
 *.zip
 *.log
+.tmp/project-ui/
 uploads/profiles/
 uploads/company/
+
+solar_crm_backend/private/
+solar_crm_app/.dart_tool/
+solar_crm_app/build/
+solar_crm_app/.flutter-plugins
+solar_crm_app/.flutter-plugins-dependencies
+solar_crm_app/.pub-cache/
+solar_crm_app/.pub/
+.tmp/

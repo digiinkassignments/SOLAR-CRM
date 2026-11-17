@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginUser } from "../../services/authService";
+import { loginUser, getTenantInfo } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
 
 import {
@@ -50,6 +50,31 @@ const Login = () => {
       }
     }
   }, [token, user, navigate]);
+
+  const [tenantStatus, setTenantStatus] = useState({ checking: true, exists: true, data: null });
+
+  useEffect(() => {
+    const host = window.location.hostname;
+    const parts = host.split(".");
+    const subdomain = parts[0];
+    const isSubdomain = parts.length > 2 && !["www", "admin", "localhost"].includes(subdomain);
+
+    if (isSubdomain) {
+      getTenantInfo()
+        .then((res) => {
+          setTenantStatus({ checking: false, exists: true, data: res.data?.data });
+        })
+        .catch((err) => {
+          if (err.response?.status === 404 || err.response?.data?.message?.includes("not found")) {
+            setTenantStatus({ checking: false, exists: false, data: null });
+          } else {
+            setTenantStatus({ checking: false, exists: true, data: null });
+          }
+        });
+    } else {
+      setTenantStatus({ checking: false, exists: true, data: null });
+    }
+  }, []);
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -104,6 +129,85 @@ login(userData, authToken, subscription);
       setLoading(false);
     }
   };
+
+  if (!tenantStatus.checking && !tenantStatus.exists) {
+    const host = window.location.hostname;
+    return (
+      <Box
+        sx={{
+          height: "100vh",
+          width: "100vw",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundImage: `linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%), url(${loginBanner})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          p: 2,
+        }}
+      >
+        <Paper
+          elevation={12}
+          sx={{
+            maxWidth: 480,
+            width: "100%",
+            p: { xs: 3, sm: 4.5 },
+            borderRadius: "20px",
+            textAlign: "center",
+            boxShadow: "0 24px 48px -12px rgba(0,0,0,0.5)",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            background: "#FFFFFF",
+          }}
+        >
+          <Box sx={{ mb: 2, display: "flex", justifyContent: "center" }}>
+            <img src={logo} alt="Solops" style={{ height: 48, objectFit: "contain" }} />
+          </Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: "#101828", mb: 1, fontFamily: "'Manrope', sans-serif" }}>
+            Workspace Not Found
+          </Typography>
+          <Typography variant="body2" sx={{ color: "#667085", mb: 3.5, lineHeight: 1.6 }}>
+            No active solar company workspace was found at <strong>{host}</strong>.<br />
+            This workspace does not exist or may have been removed.
+          </Typography>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+            <Button
+              variant="contained"
+              fullWidth
+              href="https://solops.cloud/"
+              sx={{
+                background: "#F36B16",
+                "&:hover": { background: "#D95609" },
+                py: 1.3,
+                fontWeight: 700,
+                borderRadius: "10px",
+                textTransform: "none",
+                fontSize: "15px",
+              }}
+            >
+              Return to Solops.cloud
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              href="https://admin.solops.cloud/"
+              sx={{
+                borderColor: "#D0D5DD",
+                color: "#344054",
+                "&:hover": { borderColor: "#98A2B3", background: "#F9FAFB" },
+                py: 1.2,
+                fontWeight: 600,
+                borderRadius: "10px",
+                textTransform: "none",
+                fontSize: "14px",
+              }}
+            >
+              Super Admin Console
+            </Button>
+          </Box>
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -160,10 +264,10 @@ login(userData, authToken, subscription);
               lineHeight: 1.2,
             }}
           >
-            Sign in to platform
+            {tenantStatus.data?.business_name ? tenantStatus.data.business_name : "Sign in to platform"}
           </Typography>
           <Typography variant="body2" sx={{ color: "#64748B", fontSize: "0.82rem", mt: 0.4 }}>
-            Enter your credentials to access workspace.
+            {tenantStatus.data?.business_name ? "Enter credentials to access company workspace" : "Enter your credentials to access workspace."}
           </Typography>
         </Box>
 

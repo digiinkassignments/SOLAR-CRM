@@ -1,3 +1,4 @@
+const managerScope=require("../utils/managerScope");
 const { db: defaultDb } = require("../config/db");
 
 // 1. Status-wise breakdown (team-wide + manager leads)
@@ -6,11 +7,11 @@ const getStatusBreakdown = async (managerId, db = defaultDb) => {
     SELECT l.status, COUNT(*) AS count
     FROM leads l
     LEFT JOIN users u ON l.assigned_to = u.id
-    WHERE (u.manager_id = ? OR l.assigned_to = ? OR l.created_by = ?)
+    WHERE (u.manager_id = ? AND u.role_id=3 AND u.is_deleted=0)
       AND l.is_deleted = 0
     GROUP BY l.status
   `;
-  const [rows] = await db.query(query, [managerId, managerId, managerId]);
+  const [rows] = await db.query(query, [managerId]);
   return rows;
 };
 
@@ -22,14 +23,14 @@ const getTeamPerformance = async (managerId, db = defaultDb) => {
       COUNT(l.id) AS total_assigned,
       SUM(CASE WHEN l.status = 'Won' THEN 1 ELSE 0 END) AS converted,
       SUM(CASE WHEN l.status = 'Lost' THEN 1 ELSE 0 END) AS lost,
-      SUM(CASE WHEN l.status NOT IN ('Won','Lost','Not Interested') THEN 1 ELSE 0 END) AS in_progress,
-      COALESCE(SUM(CASE WHEN l.status = 'Won' THEN (COALESCE(l.required_kw, 0) * 50000) ELSE 0 END), 0) AS revenue
+      SUM(CASE WHEN l.status NOT IN ('Won','Lost','Invalid','Not Interested') THEN 1 ELSE 0 END) AS in_progress,
+      COALESCE(SUM(CASE WHEN l.status = 'Won' THEN COALESCE(l.quotation_amount, 0) ELSE 0 END), 0) AS revenue
     FROM users u
     LEFT JOIN leads l ON l.assigned_to = u.id AND l.is_deleted = 0
-    WHERE (u.manager_id = ? OR u.id = ?) AND u.is_deleted = 0
+    WHERE (u.manager_id = ? AND u.role_id=3) AND u.is_deleted = 0
     GROUP BY u.id
   `;
-  const [rows] = await db.query(query, [managerId, managerId]);
+  const [rows] = await db.query(query, [managerId]);
   return rows;
 };
 
@@ -39,11 +40,11 @@ const getPendingToday = async (managerId, db = defaultDb) => {
     SELECT COUNT(*) AS pending_today
     FROM leads l
     LEFT JOIN users u ON l.assigned_to = u.id
-    WHERE (u.manager_id = ? OR l.assigned_to = ? OR l.created_by = ?)
+    WHERE (u.manager_id = ? AND u.role_id=3 AND u.is_deleted=0)
       AND l.next_follow_up_date = CURDATE() 
       AND l.is_deleted = 0
   `;
-  const [rows] = await db.query(query, [managerId, managerId, managerId]);
+  const [rows] = await db.query(query, [managerId]);
   return rows[0]?.pending_today || 0;
 };
 
@@ -53,12 +54,12 @@ const getConvertedToday = async (managerId, db = defaultDb) => {
     SELECT COUNT(*) AS converted_today
     FROM leads l
     LEFT JOIN users u ON l.assigned_to = u.id
-    WHERE (u.manager_id = ? OR l.assigned_to = ? OR l.created_by = ?)
+    WHERE (u.manager_id = ? AND u.role_id=3 AND u.is_deleted=0)
       AND l.status = 'Won' 
       AND DATE(l.updated_at) = CURDATE() 
       AND l.is_deleted = 0
   `;
-  const [rows] = await db.query(query, [managerId, managerId, managerId]);
+  const [rows] = await db.query(query, [managerId]);
   return rows[0]?.converted_today || 0;
 };
 
@@ -70,11 +71,11 @@ const getRecentActivity = async (managerId, db = defaultDb) => {
     JOIN leads l ON al.lead_id = l.id
     LEFT JOIN users u ON l.assigned_to = u.id
     LEFT JOIN users per ON al.performed_by = per.id
-    WHERE (u.manager_id = ? OR l.assigned_to = ? OR l.created_by = ?)
+    WHERE (u.manager_id = ? AND u.role_id=3 AND u.is_deleted=0)
     ORDER BY al.created_at DESC
     LIMIT 20
   `;
-  const [rows] = await db.query(query, [managerId, managerId, managerId]);
+  const [rows] = await db.query(query, [managerId]);
   return rows;
 };
 
@@ -92,12 +93,12 @@ const getTodaysFollowupsList = async (managerId, db = defaultDb) => {
     FROM leads l
     LEFT JOIN users u ON l.assigned_to = u.id
     WHERE l.next_follow_up_date <= CURDATE()
-      AND l.status NOT IN ('Won','Lost','Not Interested')
+      AND l.status NOT IN ('Won','Lost','Invalid','Not Interested')
       AND l.is_deleted = 0
-      AND (u.manager_id = ? OR l.assigned_to = ? OR l.created_by = ?)
+      AND (u.manager_id = ? AND u.role_id=3 AND u.is_deleted=0)
     ORDER BY l.next_follow_up_date ASC
   `;
-  const [rows] = await db.query(query, [managerId, managerId, managerId]);
+  const [rows] = await db.query(query, [managerId]);
   return rows.map((r) => ({ ...r, is_overdue: Boolean(r.is_overdue) }));
 };
 
@@ -108,11 +109,11 @@ const getOverdueFollowupsCount = async (managerId, db = defaultDb) => {
     FROM leads l
     LEFT JOIN users u ON l.assigned_to = u.id
     WHERE l.next_follow_up_date < CURDATE()
-      AND l.status NOT IN ('Won','Lost','Not Interested')
+      AND l.status NOT IN ('Won','Lost','Invalid','Not Interested')
       AND l.is_deleted = 0
-      AND (u.manager_id = ? OR l.assigned_to = ? OR l.created_by = ?)
+      AND (u.manager_id = ? AND u.role_id=3 AND u.is_deleted=0)
   `;
-  const [rows] = await db.query(query, [managerId, managerId, managerId]);
+  const [rows] = await db.query(query, [managerId]);
   return Number(rows[0]?.overdue || 0);
 };
 
@@ -123,17 +124,17 @@ const getSalesSummary = async (userId, db = defaultDb) => {
       COUNT(*) AS total_assigned,
       SUM(CASE WHEN status = 'New Lead' THEN 1 ELSE 0 END) AS new_leads,
       SUM(CASE WHEN next_follow_up_date = CURDATE()
-            AND status NOT IN ('Won','Lost','Not Interested') THEN 1 ELSE 0 END) AS today_followups,
+            AND status NOT IN ('Won','Lost','Invalid','Not Interested') THEN 1 ELSE 0 END) AS today_followups,
       SUM(CASE WHEN next_follow_up_date < CURDATE()
-            AND status NOT IN ('Won','Lost','Not Interested') THEN 1 ELSE 0 END) AS pending_followups,
+            AND status NOT IN ('Won','Lost','Invalid','Not Interested') THEN 1 ELSE 0 END) AS pending_followups,
       SUM(CASE WHEN status = 'Won' THEN 1 ELSE 0 END) AS converted,
       SUM(CASE WHEN status = 'Lost' THEN 1 ELSE 0 END) AS lost,
-      SUM(CASE WHEN site_visit_date >= CURDATE()
-            AND status NOT IN ('Won','Lost','Not Interested') THEN 1 ELSE 0 END) AS upcoming_site_visits
+      SUM(CASE WHEN (site_visit_date >= CURDATE() OR status = 'Site Survey Scheduled')
+            AND status NOT IN ('Won','Lost','Invalid','Not Interested') THEN 1 ELSE 0 END) AS upcoming_site_visits
     FROM leads
-    WHERE assigned_to = ? AND is_deleted = 0
+    WHERE (assigned_to = ? OR created_by = ?) AND is_deleted = 0
   `;
-  const [rows] = await db.query(query, [userId]);
+  const [rows] = await db.query(query, [userId, userId]);
   const r = rows[0] || {};
   return {
     total_assigned: Number(r.total_assigned) || 0,
@@ -181,7 +182,7 @@ const getSalesFollowupsList = async (userId, db = defaultDb) => {
     FROM leads
     WHERE assigned_to = ?
       AND next_follow_up_date <= CURDATE()
-      AND status NOT IN ('Won','Lost','Not Interested')
+      AND status NOT IN ('Won','Lost','Invalid','Not Interested')
       AND is_deleted = 0
     ORDER BY next_follow_up_date ASC
     LIMIT 10
@@ -196,15 +197,16 @@ const getSalesFollowupsList = async (userId, db = defaultDb) => {
 const getAdminOverview = async (db = defaultDb) => {
   const query = `
     SELECT
-      (SELECT COUNT(*) FROM leads WHERE is_deleted = 0) AS total_leads,
-      (SELECT COUNT(*) FROM leads WHERE is_deleted = 0 AND status = 'Won') AS won_leads,
-      (SELECT COUNT(*) FROM leads WHERE is_deleted = 0 AND status = 'Lost') AS lost_leads,
-      (SELECT COUNT(*) FROM leads WHERE is_deleted = 0 AND status NOT IN ('Won','Lost','Not Interested')) AS active_leads,
-      (SELECT COUNT(*) FROM users WHERE role_id = 2 AND is_deleted = 0) AS total_managers,
-      (SELECT COUNT(*) FROM users WHERE role_id = 3 AND is_deleted = 0) AS total_sales,
-      (SELECT COALESCE(SUM(quotation_amount), 0) FROM leads WHERE is_deleted = 0 AND status = 'Won') AS total_revenue,
-      (SELECT COALESCE(SUM(required_kw), 0) FROM leads WHERE is_deleted = 0 AND status = 'Won') AS total_installed_kw,
-      (SELECT COUNT(*) FROM leads WHERE next_follow_up_date = CURDATE() AND status NOT IN ('Won','Lost','Not Interested') AND is_deleted = 0) AS todays_followups
+      (SELECT COUNT(*) FROM leads WHERE is_deleted = 0${managerScope.lead(db,"leads")}) AS total_leads,
+      (SELECT COUNT(*) FROM leads WHERE is_deleted = 0${managerScope.lead(db,"leads")} AND status = 'Won') AS won_leads,
+      (SELECT COUNT(*) FROM leads WHERE is_deleted = 0${managerScope.lead(db,"leads")} AND status = 'Lost') AS lost_leads,
+      (SELECT COUNT(*) FROM leads WHERE is_deleted = 0${managerScope.lead(db,"leads")} AND status NOT IN ('Won','Lost','Invalid','Not Interested')) AS active_leads,
+      (SELECT COUNT(*) FROM users WHERE role_id = 2 AND is_deleted = 0${managerScope.managerId(db) ? ` AND id=${managerScope.managerId(db)}` : ""}) AS total_managers,
+      (SELECT COUNT(*) FROM users WHERE role_id = 3 AND is_deleted = 0${managerScope.managerId(db) ? ` AND manager_id=${managerScope.managerId(db)}` : ""}) AS total_sales,
+      (SELECT COALESCE(SUM(quotation_amount), 0) FROM leads WHERE is_deleted = 0${managerScope.lead(db,"leads")} AND status = 'Won') AS total_revenue,
+      (SELECT COALESCE(SUM(required_kw), 0) FROM leads WHERE is_deleted = 0${managerScope.lead(db,"leads")} AND status = 'Won') AS total_installed_kw,
+      (SELECT COUNT(*) FROM leads WHERE is_deleted = 0${managerScope.lead(db,"leads")} AND status = 'Won' AND (required_kw IS NULL OR required_kw <= 0)) AS won_capacity_missing_count,
+      (SELECT COUNT(*) FROM leads WHERE 1=1${managerScope.lead(db,"leads")} AND next_follow_up_date = CURDATE() AND status NOT IN ('Won','Lost','Invalid','Not Interested') AND is_deleted = 0) AS todays_followups
   `;
   const [rows] = await db.query(query);
   const r = rows[0] || {};
@@ -217,7 +219,7 @@ const getAdminOverview = async (db = defaultDb) => {
       SELECT u.full_name, COUNT(l.id) AS won_count
       FROM users u
       JOIN leads l ON l.assigned_to = u.id AND l.status = 'Won' AND l.is_deleted = 0
-      WHERE u.is_deleted = 0
+      WHERE u.is_deleted = 0 AND u.role_id = 3${managerScope.managerId(db) ? ` AND u.manager_id=${managerScope.managerId(db)}` : ""}
       GROUP BY u.id
       ORDER BY won_count DESC
       LIMIT 1
@@ -239,6 +241,7 @@ const getAdminOverview = async (db = defaultDb) => {
     total_sales: Number(r.total_sales) || 0,
     total_revenue: Number(r.total_revenue) || 0,
     total_installed_kw: Number(r.total_installed_kw) || 0,
+    won_capacity_missing_count: Number(r.won_capacity_missing_count) || 0,
     todays_followups: Number(r.todays_followups) || 0,
     top_performer,
     top_performer_count,
@@ -254,7 +257,7 @@ const getAdminTeamLeaderboard = async (db = defaultDb) => {
       COALESCE(SUM(CASE WHEN l.status = 'Won' THEN l.quotation_amount ELSE 0 END), 0) AS revenue
     FROM users u
     LEFT JOIN leads l ON l.assigned_to = u.id AND l.is_deleted = 0
-    WHERE u.role_id IN (2, 3) AND u.is_deleted = 0
+    WHERE u.role_id = 3 AND u.is_deleted = 0${managerScope.managerId(db) ? ` AND u.manager_id=${managerScope.managerId(db)}` : ""}
     GROUP BY u.id
     ORDER BY won_leads DESC, revenue DESC
     LIMIT 6
@@ -270,7 +273,7 @@ const getAdminTeamLeaderboard = async (db = defaultDb) => {
 // 🟣 13. Admin — Org-wide Status Breakdown
 const getAdminStatusBreakdown = async (db = defaultDb) => {
   const [rows] = await db.query(
-    `SELECT status, COUNT(*) AS count FROM leads WHERE is_deleted = 0 GROUP BY status`
+    `SELECT status, COUNT(*) AS count FROM leads WHERE is_deleted = 0${managerScope.lead(db,"leads")} GROUP BY status`
   );
   return rows.map((r) => ({ status: r.status, count: Number(r.count) }));
 };
@@ -282,7 +285,7 @@ const getAdminSourcePerformance = async (db = defaultDb) => {
       COUNT(*) AS total,
       SUM(CASE WHEN status = 'Won' THEN 1 ELSE 0 END) AS won
     FROM leads
-    WHERE is_deleted = 0
+    WHERE is_deleted = 0${managerScope.lead(db,"leads")}
     GROUP BY lead_source
     ORDER BY total DESC
   `);
@@ -295,13 +298,13 @@ const getAdminMonthlyTrend = async (db = defaultDb) => {
     db.query(`
       SELECT DATE_FORMAT(created_at, '%Y-%m') AS month, COUNT(*) AS count
       FROM leads
-      WHERE is_deleted = 0 AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+      WHERE is_deleted = 0${managerScope.lead(db,"leads")} AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
       GROUP BY month
     `),
     db.query(`
       SELECT DATE_FORMAT(closed_at, '%Y-%m') AS month, COUNT(*) AS count
       FROM leads
-      WHERE is_deleted = 0 AND status = 'Won' AND closed_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+      WHERE is_deleted = 0${managerScope.lead(db,"leads")} AND status = 'Won' AND closed_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
       GROUP BY month
     `),
   ]);
@@ -309,8 +312,8 @@ const getAdminMonthlyTrend = async (db = defaultDb) => {
   const months = [];
   const now = new Date();
   for (let i = 5; i >= 0; i--) {
-    const key = `${now.getFullYear()}-${String(now.getMonth() + 1 - i).padStart(2, "0")}`;
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     months.push({ key, label: d.toLocaleDateString("en-US", { month: "short" }) });
   }
 
@@ -333,7 +336,7 @@ const getAdminRecentLeads = async (limit = 6, db = defaultDb) => {
       u.full_name AS assigned_to_name
     FROM leads l
     LEFT JOIN users u ON l.assigned_to = u.id
-    WHERE l.is_deleted = 0
+    WHERE l.is_deleted = 0${managerScope.lead(db,"l")}
     ORDER BY l.created_at DESC
     LIMIT ?
     `,
@@ -348,7 +351,7 @@ const getAdminActivityFeed = async (limit = 15, db = defaultDb) => {
     `
     SELECT al.*, l.lead_code, l.customer_name, u.full_name AS performed_by_name
     FROM lead_activity_logs al
-    JOIN leads l ON al.lead_id = l.id
+    JOIN leads l ON al.lead_id = l.id AND l.is_deleted = 0${managerScope.lead(db,"l")}
     LEFT JOIN users u ON al.performed_by = u.id
     ORDER BY al.created_at DESC
     LIMIT ?

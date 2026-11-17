@@ -532,6 +532,7 @@ CREATE TABLE IF NOT EXISTS `quotations` (
   `valid_until` DATE DEFAULT NULL,
   `terms_and_conditions` TEXT DEFAULT NULL,
   `notes` TEXT DEFAULT NULL,
+  `line_items_json` LONGTEXT DEFAULT NULL,
   `viewed_at` DATETIME DEFAULT NULL,
   `accepted_at` DATETIME DEFAULT NULL,
   `customer_signature_name` VARCHAR(150) DEFAULT NULL,

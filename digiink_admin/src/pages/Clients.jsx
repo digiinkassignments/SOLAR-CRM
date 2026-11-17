@@ -449,7 +449,7 @@ const Clients = () => {
                             {c.subdomain}
                           </Typography>
                           <Typography variant="caption" sx={{ color: GOOGLE_COLORS.textMuted, fontSize: "0.72rem" }}>
-                            .digiinksolutions.com
+                            .solops.cloud
                           </Typography>
                         </Stack>
                       </TableCell>

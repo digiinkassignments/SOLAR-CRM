@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import {
   Box,
@@ -23,19 +23,16 @@ import {
   Chip,
   CircularProgress,
   IconButton,
-  Tooltip,
   Alert,
   Stack,
   Checkbox,
   FormHelperText,
-  Paper,
 } from "@mui/material";
 
 // Icons from @mui/icons-material
 import FactCheckIcon from "@mui/icons-material/FactCheck";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
-import CancelIcon from "@mui/icons-material/Cancel";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import PersonSearchIcon from "@mui/icons-material/PersonSearch";
 import VerifiedIcon from "@mui/icons-material/Verified";
@@ -43,8 +40,6 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CloseIcon from "@mui/icons-material/Close";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import BuildCircleOutlinedIcon from "@mui/icons-material/BuildCircleOutlined";
-import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
-import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import SpeedIcon from "@mui/icons-material/Speed";
 import SignatureCapture from "../../../../components/SignatureCapture";
 
@@ -99,13 +94,8 @@ const useSnackbar = () => {
 export default function FinalInspection({ project, projectId }) {
   const targetProjectId = project?.id || projectId;
 
-  // Compute sensible default inspection date (one day after commissioning date, e.g., 10 Nov)
-  const defaultInspectionDate = useMemo(() => {
-    const today = new Date();
-    // Default to 10 Nov 2026 if in Nov 2026, or today + 1
-    const d = new Date("2026-11-10T10:00:00");
-    return !isNaN(d.getTime()) ? "2026-11-10" : today.toISOString().split("T")[0];
-  }, []);
+  // A new inspection defaults to today, never a fixed sample date.
+  const defaultInspectionDate = useMemo(() => new Date().toLocaleDateString("en-CA"), []);
 
   // Auto-generate Approval Certificate Number
   const autoCertificateNumber = useMemo(() => {
@@ -773,7 +763,7 @@ export default function FinalInspection({ project, projectId }) {
                     </Grid>
                     <Grid size={{ xs: 12 }}>
                       <Box sx={{ p: 1.2, borderRadius: "8px", backgroundColor: "#ECFDF5", border: "1px solid #A7F3D0" }}>
-                        <Stack direction="row" alignItems="center" gap={1}>
+                        <Stack sx={{ alignItems: "center", gap: 1 }} direction="row"  >
                           <CheckCircleIcon sx={{ color: "#059669", fontSize: 16 }} />
                           <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "#065F46" }}>
                             Synchronized with Commissioning Certificate #{commissioningData?.certificate_number || "COMM-VERIFIED"}
@@ -851,7 +841,7 @@ export default function FinalInspection({ project, projectId }) {
                     {inspection.signature_data && (
                       <Grid size={12}>
                         <Box sx={{ p: 1.5, borderRadius: "8px", border: "1px solid #10B981", backgroundColor: "#F0FDF4", mt: 1 }}>
-                          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                          <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mb: 1 }}>
                             <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: "#166534" }}>
                               Final QA Customer & Inspector Digital Signature
                             </Typography>

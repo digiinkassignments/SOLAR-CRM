@@ -2,7 +2,7 @@ const https = require("https");
 
 /**
  * Gemini AI Service for Solar CRM SaaS
- * Uses models/gemini-3.5-flash-lite via direct HTTPS REST endpoint
+ * Uses models/gemini-3.8-flash, gemini-flash-latest with automatic failover
  */
 
 function cleanJsonText(rawText) {
@@ -64,9 +64,80 @@ function generateFallbackInsights(lead, followups = []) {
   };
 }
 
+/**
+ * Robust caller with automatic model fallback
+ */
+async function callGeminiApi(postData, apiKey) {
+  const configuredModel = process.env.GEMINI_MODEL;
+  const modelsToTry = [
+    ...(configuredModel ? [configuredModel] : []),
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+  ];
+  // Deduplicate
+  const uniqueModels = Array.from(new Set(modelsToTry));
+
+  for (const model of uniqueModels) {
+    try {
+      const result = await new Promise((resolve, reject) => {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+        const req = https.request(
+          url,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Content-Length": Buffer.byteLength(postData),
+            },
+            timeout: 6000,
+          },
+          (res) => {
+            let data = "";
+            res.on("data", (chunk) => (data += chunk));
+            res.on("end", () => {
+              if (res.statusCode >= 400) {
+                return reject(new Error(`API ${res.statusCode}: ${data.substring(0, 150)}`));
+              }
+              try {
+                const parsed = JSON.parse(data);
+                const textResponse = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!textResponse) {
+                  return reject(new Error("No candidate in response"));
+                }
+                const cleaned = cleanJsonText(textResponse);
+                const jsonResult = JSON.parse(cleaned);
+                resolve(jsonResult);
+              } catch (parseErr) {
+                reject(parseErr);
+              }
+            });
+          }
+        );
+
+        req.on("error", (err) => reject(err));
+        req.on("timeout", () => {
+          req.destroy();
+          reject(new Error("Request timed out"));
+        });
+
+        req.write(postData);
+        req.end();
+      });
+
+      if (result) {
+        return result;
+      }
+    } catch (err) {
+      console.warn(`[GeminiService] Model ${model} failed: ${err.message}. Trying next candidate model...`);
+    }
+  }
+
+  return null;
+}
+
 async function analyzeLeadWithGemini(leadData, followups = []) {
   const apiKey = process.env.GEMINI_API_KEY || "";
-  const model = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
   if (!apiKey) {
     return generateFallbackInsights(leadData, followups);
@@ -136,55 +207,13 @@ You MUST return ONLY a valid JSON object without any additional preamble or mark
     }
   });
 
-  return new Promise((resolve) => {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const aiResult = await callGeminiApi(postData, apiKey);
+  if (aiResult) {
+    return aiResult;
+  }
 
-    const req = https.request(
-      url,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(postData)
-        },
-        timeout: 25000
-      },
-      (res) => {
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => {
-          try {
-            const parsed = JSON.parse(data);
-            const textResponse = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (textResponse) {
-              const cleaned = cleanJsonText(textResponse);
-              const jsonResult = JSON.parse(cleaned);
-              return resolve(jsonResult);
-            }
-            console.warn("[GeminiService] API returned non-candidate response, using fallback:", data.substring(0, 200));
-            return resolve(generateFallbackInsights(leadData, followups));
-          } catch (err) {
-            console.warn("[GeminiService] JSON parse error from Gemini output, using fallback:", err.message);
-            return resolve(generateFallbackInsights(leadData, followups));
-          }
-        });
-      }
-    );
-
-    req.on("error", (err) => {
-      console.warn("[GeminiService] HTTPS request error, using fallback:", err.message);
-      resolve(generateFallbackInsights(leadData, followups));
-    });
-
-    req.on("timeout", () => {
-      req.destroy();
-      console.warn("[GeminiService] Request timed out, using fallback");
-      resolve(generateFallbackInsights(leadData, followups));
-    });
-
-    req.write(postData);
-    req.end();
-  });
+  console.warn("[GeminiService] AI generation failed across all candidate models, using rule-based fallback.");
+  return generateFallbackInsights(leadData, followups);
 }
 
 function generateFallbackProposalSavings(specs = {}) {
@@ -223,7 +252,6 @@ function generateFallbackProposalSavings(specs = {}) {
 
 async function generateProposalSavingsWithGemini(specs = {}) {
   const apiKey = process.env.GEMINI_API_KEY || "";
-  const model = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
   if (!apiKey) {
     return generateFallbackProposalSavings(specs);
@@ -288,48 +316,13 @@ Generate an executive proposal summary, 25-year return on investment (ROI) proje
     }
   });
 
-  return new Promise((resolve) => {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const aiResult = await callGeminiApi(postData, apiKey);
+  if (aiResult) {
+    return aiResult;
+  }
 
-    const req = https.request(
-      url,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(postData)
-        },
-        timeout: 25000
-      },
-      (res) => {
-        let data = "";
-        res.on("data", (chunk) => (data += chunk));
-        res.on("end", () => {
-          try {
-            const parsed = JSON.parse(data);
-            const textResponse = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (textResponse) {
-              const cleaned = cleanJsonText(textResponse);
-              const jsonResult = JSON.parse(cleaned);
-              return resolve(jsonResult);
-            }
-            return resolve(generateFallbackProposalSavings(specs));
-          } catch (err) {
-            return resolve(generateFallbackProposalSavings(specs));
-          }
-        });
-      }
-    );
-
-    req.on("error", () => resolve(generateFallbackProposalSavings(specs)));
-    req.on("timeout", () => {
-      req.destroy();
-      resolve(generateFallbackProposalSavings(specs));
-    });
-
-    req.write(postData);
-    req.end();
-  });
+  console.warn("[GeminiService] AI proposal generation failed across candidate models, using rule-based fallback.");
+  return generateFallbackProposalSavings(specs);
 }
 
 module.exports = {

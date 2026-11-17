@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Box,
   Paper,
@@ -15,12 +15,9 @@ import {
   TablePagination,
   TableRow,
   IconButton,
-  Tooltip,
   Stack,
-  InputAdornment,
   MenuItem,
   Select,
-  Breadcrumbs,
   ToggleButton,
   ToggleButtonGroup,
   Skeleton,
@@ -30,11 +27,7 @@ import {
   DialogActions,
   Autocomplete,
   LinearProgress,
-  Divider,
   Alert,
-  Card,
-  CardContent,
-  Slider,
   Checkbox,
   FormControlLabel,
   Radio,
@@ -44,40 +37,23 @@ import {
 } from "@mui/material";
 
 // Icons
-import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
-import NavigateNextRoundedIcon from "@mui/icons-material/NavigateNextRounded";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AddIcon from "@mui/icons-material/Add";
-import SearchIcon from "@mui/icons-material/Search";
 import ViewListOutlinedIcon from "@mui/icons-material/ViewListOutlined";
 import TableChartOutlinedIcon from "@mui/icons-material/TableChartOutlined";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
-import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlined";
-import CheckCircleOutlinedIcon from "@mui/icons-material/CheckCircleOutlined";
-import PendingActionsOutlinedIcon from "@mui/icons-material/PendingActionsOutlined";
-import VerifiedOutlinedIcon from "@mui/icons-material/VerifiedOutlined";
-import PhoneIcon from "@mui/icons-material/Phone";
-import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CloseIcon from "@mui/icons-material/Close";
-import EditIcon from "@mui/icons-material/Edit";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import CalculateOutlinedIcon from "@mui/icons-material/CalculateOutlined";
-import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
-import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
-import ElectricBoltOutlinedIcon from "@mui/icons-material/ElectricBoltOutlined";
 import BlockOutlinedIcon from "@mui/icons-material/BlockOutlined";
 import ReplayIcon from "@mui/icons-material/Replay";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 import toast from "react-hot-toast";
 import api from "../../api/axios";
 import {
   LOAN_STAGES,
   LOAN_STAGE_CONFIG,
-  SIDE_STATUSES,
   SIDE_STATUS_CONFIG,
   POPULAR_BANKS,
   calculateEMI,
@@ -106,7 +82,12 @@ const COLORS = {
 export default function LoansList() {
   const [loans, setLoans] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const sequenceRef = useRef(0);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [stats, setStats] = useState({
     total_loans: 0,
     in_process_loans: 0,
@@ -141,7 +122,7 @@ export default function LoansList() {
   // Try Another Lender Dialog
   const [tryAnotherLenderDialogOpen, setTryAnotherLenderDialogOpen] = useState(false);
   const [targetLoanForNewLender, setTargetLoanForNewLender] = useState(null);
-  const [newLenderName, setNewLenderName] = useState("State Bank of India (SBI)");
+  const [newLenderName, setNewLenderName] = useState("");
   const [newLenderAmount, setNewLenderAmount] = useState("");
   const [savingNewLender, setSavingNewLender] = useState(false);
 
@@ -179,22 +160,22 @@ export default function LoansList() {
     customer_email: "",
     city: "",
     state: "",
-    bank_name: "State Bank of India (SBI)",
+    bank_name: "",
     bank_branch: "",
     bank_ifsc: "",
     bank_dsa_name: "",
     bank_dsa_phone: "",
     portal_application_no: "",
     loan_stage: "Eligibility & Docs",
-    system_capacity_kw: 3.0,
-    total_project_cost: 180000,
-    subsidy_expected: 78000,
-    down_payment_amount: 20000,
-    loan_amount_applied: 160000,
-    interest_rate: 7.0,
+    system_capacity_kw: "",
+    total_project_cost: "",
+    subsidy_expected: "",
+    down_payment_amount: "",
+    loan_amount_applied: "",
+    interest_rate: "",
     tenure_months: 60,
-    monthly_emi: 0,
-    cibil_score: 750,
+    monthly_emi: "",
+    cibil_score: "",
     electricity_consumer_no: "",
     applied_date: new Date().toISOString().slice(0, 10),
     internal_notes: "",
@@ -217,7 +198,9 @@ export default function LoansList() {
 
   // Fetch Loans List
   const fetchLoans = useCallback(async () => {
+    const sequence = ++sequenceRef.current;
     setLoading(true);
+    setLoadError("");
     try {
       const res = await getAllLoans({
         search,
@@ -226,15 +209,18 @@ export default function LoansList() {
         page: page + 1,
         limit: rowsPerPage,
       });
+      if (sequence !== sequenceRef.current) return;
+      if (!res?.success || !res.data) throw new Error(res?.message || "Unable to load loan records");
       if (res?.success && res?.data) {
         setLoans(res.data.loans || []);
         setTotalCount(res.data.total || 0);
       }
     } catch (err) {
+      if (sequence !== sequenceRef.current) return;
       console.error("Fetch loans error:", err);
-      toast.error("Failed to load loan applications");
+      setLoadError(err.response?.data?.message || "Unable to load loan records. Please retry.");
     } finally {
-      setLoading(false);
+      if (sequence === sequenceRef.current) setLoading(false);
     }
   }, [search, selectedStage, selectedBank, page, rowsPerPage]);
 
@@ -261,20 +247,19 @@ export default function LoansList() {
   // Live EMI calculation in Create Dialog
   useEffect(() => {
     const principal = parseFloat(formData.loan_amount_applied) || 0;
-    const rate = parseFloat(formData.interest_rate) || 7.0;
+    const rate = formData.interest_rate === "" ? 7 : Number(formData.interest_rate);
     const tenure = parseInt(formData.tenure_months) || 60;
     const emi = calculateEMI(principal, rate, tenure);
     setFormData((prev) => ({ ...prev, monthly_emi: emi }));
   }, [formData.loan_amount_applied, formData.interest_rate, formData.tenure_months]);
 
-  // Auto calculate loan applied = total project cost - expected subsidy - down payment
+  // Indicative initial funding need: expected subsidy is not an upfront receipt.
   const handleCostOrSubsidyChange = (field, val) => {
     const updated = { ...formData, [field]: val };
     const cost = parseFloat(field === "total_project_cost" ? val : updated.total_project_cost) || 0;
-    const subsidy = parseFloat(field === "subsidy_expected" ? val : updated.subsidy_expected) || 0;
     const downPay = parseFloat(field === "down_payment_amount" ? val : updated.down_payment_amount) || 0;
-    const autoLoan = Math.max(0, cost - subsidy - downPay);
-    updated.loan_amount_applied = autoLoan;
+    const autoLoan = Math.max(0, cost - downPay);
+    if (field !== "subsidy_expected") updated.loan_amount_applied = autoLoan;
     setFormData(updated);
   };
 
@@ -314,18 +299,18 @@ export default function LoansList() {
 
     // If moving forward: check validation
     const validation = validateStageTransition(currentStage, targetStage, loan);
-    if (!validation.ok) {
+    if (!validation.ok || ["Applied", "Sanctioned", "Disbursed"].includes(targetStage)) {
       // Open Stage Advance Requirements modal
       setAdvanceTargetLoan(loan);
       setAdvanceTargetStage(targetStage);
       setAdvanceFormData({
         applied_date: loan.applied_date ? loan.applied_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
         portal_application_no: loan.portal_application_no || "",
-        sanctioned_amount: loan.sanctioned_amount > 0 ? loan.sanctioned_amount : loan.loan_amount_applied || "",
-        sanction_date: loan.sanction_date ? loan.sanction_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        sanctioned_amount: loan.sanctioned_amount > 0 ? loan.sanctioned_amount : "",
+        sanction_date: loan.sanction_date ? loan.sanction_date.slice(0, 10) : "",
         sanction_letter_url: loan.sanction_letter_url || "",
-        disbursed_amount: loan.disbursed_amount > 0 ? loan.disbursed_amount : loan.sanctioned_amount || loan.loan_amount_applied || "",
-        disbursal_date: loan.disbursal_date ? loan.disbursal_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        disbursed_amount: loan.disbursed_amount > 0 ? loan.disbursed_amount : "",
+        disbursal_date: loan.disbursal_date ? loan.disbursal_date.slice(0, 10) : "",
         subsidy_credited_to_loan: Boolean(loan.subsidy_credited_to_loan),
       });
       setAdvanceReqDialogOpen(true);
@@ -356,7 +341,16 @@ export default function LoansList() {
 
   // Submit Stage Advance with completed requirements
   const handleSaveAdvanceRequirements = async () => {
-    if (!advanceTargetLoan || !advanceTargetStage) return;
+    if (!advanceTargetLoan || !advanceTargetStage || savingAdvance) return;
+    if (["Applied", "Under Review"].includes(advanceTargetStage) && (!advanceFormData.applied_date || !advanceFormData.portal_application_no.trim())) {
+      toast.error("Record the application date and lender / portal reference."); return;
+    }
+    if (advanceTargetStage === "Sanctioned" && (!(Number(advanceFormData.sanctioned_amount) > 0) || !advanceFormData.sanction_date || !advanceFormData.sanction_letter_url.trim())) {
+      toast.error("Record the sanctioned amount, date and sanction document."); return;
+    }
+    if (advanceTargetStage === "Disbursed" && (!(Number(advanceFormData.disbursed_amount) > 0) || !advanceFormData.disbursal_date)) {
+      toast.error("Record the actual disbursed amount and date."); return;
+    }
 
     // Rule: Disbursed amount cannot exceed sanctioned amount
     if (advanceTargetStage === "Disbursed" || advanceFormData.disbursed_amount) {
@@ -370,10 +364,18 @@ export default function LoansList() {
 
     setSavingAdvance(true);
     try {
-      const payload = {
-        loan_stage: advanceTargetStage,
-        ...advanceFormData,
-      };
+      const fields = advanceTargetStage === "Sanctioned" ? ["sanctioned_amount", "sanction_date", "sanction_letter_url"]
+        : advanceTargetStage === "Disbursed" ? ["disbursed_amount", "disbursal_date", "subsidy_credited_to_loan"]
+        : ["applied_date", "portal_application_no"];
+      const payload = { loan_stage: advanceTargetStage };
+      for (const field of fields) payload[field] = advanceFormData[field];
+      if (advanceTargetStage === "Sanctioned") {
+        payload.interest_rate = advanceTargetLoan.interest_rate ?? 7;
+        payload.tenure_months = advanceTargetLoan.tenure_months ?? 60;
+        payload.monthly_emi = calculateEMI(payload.sanctioned_amount, payload.interest_rate, payload.tenure_months);
+      }
+      const validation = validateStageTransition(advanceTargetLoan.loan_stage, advanceTargetStage, { ...advanceTargetLoan, ...payload });
+      if (!validation.ok) { toast.error(validation.error); setSavingAdvance(false); return; }
 
       const res = await updateLoan(advanceTargetLoan.id, payload);
       if (res?.success) {
@@ -545,22 +547,19 @@ export default function LoansList() {
   };
 
   // Delete Loan
-  const handleDeleteLoan = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete the loan application for ${name || "this customer"}?`)) {
-      return;
-    }
+  const handleDeleteLoan = (id, name) => setDeleteTarget({ id, name });
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
     try {
-      await deleteLoan(id);
-      toast.success("Loan application deleted");
-      if (detailModalOpen && activeLoan?.id === id) {
-        setDetailModalOpen(false);
-      }
-      fetchLoans();
+      await deleteLoan(deleteTarget.id);
+      if (activeLoan?.id === deleteTarget.id) setDetailModalOpen(false);
+      setDeleteTarget(null);
+      toast.success("Loan record deleted");
+      if (loans.length === 1 && page > 0) setPage(page - 1); else fetchLoans();
       fetchStats();
-    } catch (err) {
-      console.error("Delete loan error:", err);
-      toast.error("Failed to delete loan");
-    }
+    } catch (error) { toast.error(error.response?.data?.message || "Failed to delete loan record"); }
+    finally { setDeleting(false); }
   };
 
   // Submit Create Loan
@@ -571,11 +570,21 @@ export default function LoansList() {
       return;
     }
 
+    if (submitting) return;
+    if (!formData.bank_name || !Number.isFinite(Number(formData.loan_amount_applied)) || Number(formData.loan_amount_applied) <= 0) {
+      toast.error("Choose a lender and enter a requested amount greater than zero."); return;
+    }
+    if (formData.interest_rate === "" || !Number.isFinite(Number(formData.interest_rate)) || Number(formData.interest_rate) < 0) {
+      toast.error("Enter a valid annual interest rate, including zero if applicable."); return;
+    }
+    if ([formData.total_project_cost, formData.subsidy_expected, formData.down_payment_amount].some(value => Number(value) < 0)) {
+      toast.error("Project cost, subsidy and customer contribution cannot be negative."); return;
+    }
     setSubmitting(true);
     try {
       const res = await createLoan(formData);
       if (res?.success) {
-        toast.success("Solar loan application logged successfully!");
+        toast.success("Solar loan request recorded successfully!");
         setCreateModalOpen(false);
         setFormData({
           lead_id: "",
@@ -592,15 +601,15 @@ export default function LoansList() {
           bank_dsa_phone: "",
           portal_application_no: "",
           loan_stage: "Eligibility & Docs",
-          system_capacity_kw: 3.0,
-          total_project_cost: 180000,
-          subsidy_expected: 78000,
-          down_payment_amount: 20000,
-          loan_amount_applied: 160000,
+          system_capacity_kw: "",
+          total_project_cost: "",
+          subsidy_expected: "",
+          down_payment_amount: "",
+          loan_amount_applied: "",
           interest_rate: 7.0,
           tenure_months: 60,
           monthly_emi: 0,
-          cibil_score: 750,
+          cibil_score: "",
           electricity_consumer_no: "",
           applied_date: new Date().toISOString().slice(0, 10),
           internal_notes: "",
@@ -617,866 +626,50 @@ export default function LoansList() {
     }
   };
 
+  const money = value => value == null ? "Not recorded" : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(value) || 0);
   return (
-    <Box sx={{ p: { xs: 1.5, sm: 2.5, md: 3 }, backgroundColor: COLORS.background, minHeight: "100vh" }}>
-      {/* ── BREADCRUMBS & TOP BAR ── */}
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        justifyContent="space-between"
-        alignItems={{ xs: "flex-start", sm: "center" }}
-        gap={1.5}
-        sx={{ mb: 2.5 }}
-      >
-        <Box>
-          <Breadcrumbs
-            separator={<NavigateNextRoundedIcon sx={{ fontSize: 16, color: COLORS.textMuted }} />}
-            sx={{ mb: 0.5 }}
-          >
-            <Stack direction="row" alignItems="center" gap={0.5} sx={{ color: COLORS.textMuted, fontSize: "0.75rem" }}>
-              <HomeOutlinedIcon sx={{ fontSize: 15 }} /> Dashboard
-            </Stack>
-            <Typography sx={{ fontSize: "0.75rem", color: COLORS.textMuted }}>Finance</Typography>
-            <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary }}>
-              Solar Loans
-            </Typography>
-          </Breadcrumbs>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: COLORS.textPrimary, letterSpacing: "-0.02em" }}>
-            Solar Loan &amp; Financing Hub
-          </Typography>
-          <Typography variant="body2" sx={{ color: COLORS.textSecondary, fontSize: "0.8rem", mt: 0.2 }}>
-            5-Stage Rooftop Solar Banking Pipeline &amp; Disbursement Management
-          </Typography>
+    <Box>
+      <Alert severity="info" sx={{mb:2}}>
+        <Typography variant="body2" sx={{fontWeight:700}}>Application ? lender review ? sanction ? actual disbursement</Typography>
+        <Typography variant="body2">Confirm KYC, electricity bill, quotation, feasibility and income evidence with the selected lender. Jan Samarth is an application channel. Sanction is approval, not a receipt. Record bank queries during review.</Typography>
+        <Typography variant="body2" sx={{mt:0.5}}>Some lenders pay in tranches. This tracker records one cumulative disbursement amount; it does not reconcile individual tranches. Subsidy credit to the borrower's loan account is separate from EPC collections. Confirm moratorium, first EMI and revised repayment terms with the bank.</Typography>
+      </Alert>
+      <Box sx={{ display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between",gap:2,mb:2.5 }}>
+        <Box sx={{ flex:"1 1 280px",minWidth:0 }}><Typography component="h2" variant="h5" sx={{fontWeight:700}}>Solar loan applications</Typography><Typography variant="body2" color="text.secondary" sx={{mt:0.5}}>Manage lender follow-ups, sanctions, disbursements and documents.</Typography></Box>
+        <Stack direction="row" sx={{gap:1,flexWrap:"wrap"}}><Button variant="outlined" startIcon={<RefreshIcon />} disabled={loading} onClick={()=>{fetchLoans();fetchStats();}}>Refresh</Button><Button variant="contained" startIcon={<AddIcon />} onClick={()=>setCreateModalOpen(true)} sx={{ bgcolor:"#005BAC", "&:hover":{bgcolor:"#004785"} }}>New loan record</Button></Stack>
+      </Box>
+      <Box sx={{display:"grid",gridTemplateColumns:{xs:"repeat(2,minmax(0,1fr))",lg:"repeat(4,minmax(0,1fr))"},gap:2,mb:2.5}}>
+        {[["Total requests",stats.total_loans,"#0F172A","#FFFFFF"],["In process",stats.in_process_loans,"#D97706","#FFFBEB"],["Sanctioned",stats.sanctioned_loans,"#16A34A","#F0FDF4"],["Disbursed",stats.disbursed_loans,"#059669","#ECFDF5"]].map(([label,value,color,bg])=><Paper variant="outlined" key={label} sx={{p:2.5,bgcolor:bg,boxShadow:"none"}}><Typography variant="body2" sx={{color,fontWeight:600}}>{label}</Typography><Typography sx={{fontSize:30,fontWeight:700,color,mt:0.5,fontVariantNumeric:"tabular-nums"}}>{value || 0}</Typography></Paper>)}
+      </Box>
+      <Paper variant="outlined" sx={{p:2,mb:2.5,boxShadow:"none"}}>
+        <Box component="form" onSubmit={e=>{e.preventDefault();setSearch(searchInput);setPage(0);}} sx={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:1.5}}>
+          <TextField label="Search loans" placeholder="Customer, lender or reference" size="small" value={searchInput} onChange={e=>setSearchInput(e.target.value)} sx={{flex:"2 1 220px",minWidth:0}} />
+          <TextField select label="Loan stage" size="small" value={selectedStage} onChange={e=>{setSelectedStage(e.target.value);setPage(0);}} sx={{flex:"1 1 180px",minWidth:0}}><MenuItem value="All">All stages</MenuItem>{LOAN_STAGES.map(stage=><MenuItem key={stage} value={stage}>{stage}</MenuItem>)}</TextField>
+          <TextField select label="Lender" size="small" value={selectedBank} onChange={e=>{setSelectedBank(e.target.value);setPage(0);}} sx={{flex:"1 1 210px",minWidth:0}}><MenuItem value="All">All lenders</MenuItem>{POPULAR_BANKS.map(bank=><MenuItem key={bank} value={bank}>{bank}</MenuItem>)}</TextField>
+          <Button type="submit" variant="outlined">Search</Button>
+          {(search||selectedStage!=="All"||selectedBank!=="All")&&<Button onClick={()=>{setSearch("");setSearchInput("");setSelectedStage("All");setSelectedBank("All");setPage(0);}}>Clear filters</Button>}
+          <ToggleButtonGroup value={viewMode} exclusive size="small" onChange={(_,value)=>value&&setViewMode(value)} aria-label="Loan view"><ToggleButton value="cards" aria-label="Loan card view"><ViewListOutlinedIcon fontSize="small" /></ToggleButton><ToggleButton value="table" aria-label="Loan table view"><TableChartOutlinedIcon fontSize="small" /></ToggleButton></ToggleButtonGroup>
         </Box>
-
-        <Stack direction="row" spacing={1.2} alignItems="center">
-          <Tooltip title="Refresh Loans">
-            <span>
-              <IconButton
-                onClick={() => {
-                  fetchLoans();
-                  fetchStats();
-                }}
-                disabled={loading}
-                sx={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: "8px",
-                  border: `1px solid ${COLORS.border}`,
-                  backgroundColor: COLORS.card,
-                  color: COLORS.textPrimary,
-                  "&:hover": { backgroundColor: "#F8FAFC" },
-                }}
-              >
-                <RefreshIcon sx={{ fontSize: 18, animation: loading ? "spin 0.8s linear infinite" : "none" }} />
-              </IconButton>
-            </span>
-          </Tooltip>
-
-          <Button
-            variant="contained"
-            startIcon={<AddIcon sx={{ fontSize: 18 }} />}
-            onClick={() => setCreateModalOpen(true)}
-            sx={{
-              height: 36,
-              borderRadius: "8px",
-              textTransform: "none",
-              fontWeight: 700,
-              fontSize: "0.82rem",
-              px: 2.2,
-              backgroundColor: "#005BAC",
-              color: "#FFFFFF",
-              boxShadow: "0 2px 6px rgba(0, 91, 172, 0.25)",
-              whiteSpace: "nowrap",
-              "&:hover": { backgroundColor: "#004785" },
-            }}
-          >
-            Apply for Loan
-          </Button>
-        </Stack>
-      </Stack>
-
-      {/* ── 4 KPI STATS SUMMARY CARDS ── */}
-      <Grid container spacing={2} sx={{ mb: 2.5 }}>
-        {/* Total Loans */}
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Paper
-            elevation={0}
-            onClick={() => {
-              setSelectedStage("All");
-              setPage(0);
-            }}
-            sx={{
-              p: 2,
-              borderRadius: "12px",
-              border: `1px solid ${selectedStage === "All" ? "#93C5FD" : COLORS.border}`,
-              backgroundColor: COLORS.card,
-              cursor: "pointer",
-              transition: "all 0.18s ease-in-out",
-              "&:hover": { borderColor: "#93C5FD", boxShadow: "0 4px 12px rgba(15, 23, 42, 0.05)" },
-            }}
-          >
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-              <Box>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
-                  TOTAL LOAN APPLICATIONS
-                </Typography>
-                <Typography sx={{ fontSize: "1.6rem", fontWeight: 800, color: COLORS.textPrimary, mt: 0.5, lineHeight: 1 }}>
-                  {stats.total_loans || 0}
-                </Typography>
-                <Typography sx={{ fontSize: "0.74rem", color: COLORS.textSecondary, mt: 0.8 }}>
-                  Pipeline: ₹{Number(stats.total_applied_amount || 0).toLocaleString("en-IN")}
-                </Typography>
-              </Box>
-              <Box sx={{ width: 40, height: 40, borderRadius: "10px", bgcolor: "#EFF6FF", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <AccountBalanceIcon sx={{ fontSize: 22, color: "#1D4ED8" }} />
-              </Box>
-            </Stack>
-          </Paper>
-        </Grid>
-
-        {/* In Process / Under Review */}
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Paper
-            elevation={0}
-            onClick={() => {
-              setSelectedStage("Under Review");
-              setPage(0);
-            }}
-            sx={{
-              p: 2,
-              borderRadius: "12px",
-              border: `1px solid ${selectedStage === "Under Review" ? "#FED7AA" : COLORS.border}`,
-              backgroundColor: COLORS.card,
-              cursor: "pointer",
-              transition: "all 0.18s ease-in-out",
-              "&:hover": { borderColor: "#FED7AA", boxShadow: "0 4px 12px rgba(15, 23, 42, 0.05)" },
-            }}
-          >
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-              <Box>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
-                  IN PROCESS / REVIEW
-                </Typography>
-                <Typography sx={{ fontSize: "1.6rem", fontWeight: 800, color: "#D97706", mt: 0.5, lineHeight: 1 }}>
-                  {stats.in_process_loans || 0}
-                </Typography>
-                <Typography sx={{ fontSize: "0.74rem", color: COLORS.textSecondary, mt: 0.8 }}>
-                  Stages 1 to 3 Active
-                </Typography>
-              </Box>
-              <Box sx={{ width: 40, height: 40, borderRadius: "10px", bgcolor: "#FFFBEB", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <PendingActionsOutlinedIcon sx={{ fontSize: 22, color: "#D97706" }} />
-              </Box>
-            </Stack>
-          </Paper>
-        </Grid>
-
-        {/* Sanctioned */}
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Paper
-            elevation={0}
-            onClick={() => {
-              setSelectedStage("Sanctioned");
-              setPage(0);
-            }}
-            sx={{
-              p: 2,
-              borderRadius: "12px",
-              border: `1px solid ${selectedStage === "Sanctioned" ? "#86EFAC" : COLORS.border}`,
-              backgroundColor: COLORS.card,
-              cursor: "pointer",
-              transition: "all 0.18s ease-in-out",
-              "&:hover": { borderColor: "#86EFAC", boxShadow: "0 4px 12px rgba(15, 23, 42, 0.05)" },
-            }}
-          >
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-              <Box>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
-                  SANCTIONED / APPROVED
-                </Typography>
-                <Typography sx={{ fontSize: "1.6rem", fontWeight: 800, color: "#16A34A", mt: 0.5, lineHeight: 1 }}>
-                  {stats.sanctioned_loans || 0}
-                </Typography>
-                <Typography sx={{ fontSize: "0.74rem", color: COLORS.textSecondary, mt: 0.8 }}>
-                  Awaiting Disbursal
-                </Typography>
-              </Box>
-              <Box sx={{ width: 40, height: 40, borderRadius: "10px", bgcolor: "#DCFCE7", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <VerifiedOutlinedIcon sx={{ fontSize: 22, color: "#16A34A" }} />
-              </Box>
-            </Stack>
-          </Paper>
-        </Grid>
-
-        {/* Disbursed Amount */}
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Paper
-            elevation={0}
-            onClick={() => {
-              setSelectedStage("Disbursed");
-              setPage(0);
-            }}
-            sx={{
-              p: 2,
-              borderRadius: "12px",
-              border: `1px solid ${selectedStage === "Disbursed" ? "#6EE7B7" : COLORS.border}`,
-              backgroundColor: COLORS.card,
-              cursor: "pointer",
-              transition: "all 0.18s ease-in-out",
-              "&:hover": { borderColor: "#6EE7B7", boxShadow: "0 4px 12px rgba(15, 23, 42, 0.05)" },
-            }}
-          >
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-              <Box>
-                <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
-                  DISBURSED AMOUNT
-                </Typography>
-                <Typography sx={{ fontSize: "1.6rem", fontWeight: 800, color: "#059669", mt: 0.5, lineHeight: 1 }}>
-                  ₹{Number(stats.total_disbursed_amount || 0).toLocaleString("en-IN")}
-                </Typography>
-                <Typography sx={{ fontSize: "0.74rem", color: COLORS.textSecondary, mt: 0.8 }}>
-                  {stats.disbursed_loans || 0} Loans Credited to Projects
-                </Typography>
-              </Box>
-              <Box sx={{ width: 40, height: 40, borderRadius: "10px", bgcolor: "#D1FAE5", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <MonetizationOnOutlinedIcon sx={{ fontSize: 22, color: "#059669" }} />
-              </Box>
-            </Stack>
-          </Paper>
-        </Grid>
-      </Grid>
-
-      {/* ── SEARCH & FILTER TOOLBAR ── */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 1.5,
-          borderRadius: "12px",
-          border: `1px solid ${COLORS.border}`,
-          backgroundColor: COLORS.card,
-          mb: 2.5,
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 1.5,
-        }}
-      >
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems="center" sx={{ flexGrow: 1 }}>
-          {/* Search Box */}
-          <TextField
-            size="small"
-            placeholder="Search customer, phone, ARN no, bank, project #..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(0);
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ fontSize: 18, color: COLORS.textMuted }} />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              minWidth: { xs: "100%", sm: 260 },
-              "& .MuiOutlinedInput-root": {
-                borderRadius: "8px",
-                fontSize: "0.82rem",
-                backgroundColor: "#F8FAFC",
-              },
-            }}
-          />
-
-          {/* Stage Dropdown */}
-          <Select
-            size="small"
-            value={selectedStage}
-            onChange={(e) => {
-              setSelectedStage(e.target.value);
-              setPage(0);
-            }}
-            sx={{
-              minWidth: 170,
-              borderRadius: "8px",
-              fontSize: "0.82rem",
-              backgroundColor: "#F8FAFC",
-            }}
-          >
-            <MenuItem value="All">All Loan Stages</MenuItem>
-            {LOAN_STAGES.map((stg) => (
-              <MenuItem key={stg} value={stg} sx={{ fontSize: "0.82rem" }}>
-                {stg}
-              </MenuItem>
-            ))}
-            <Divider sx={{ my: 0.5 }} />
-            <MenuItem value="Rejected / Withdrawn" sx={{ fontSize: "0.82rem", color: "#DC2626", fontWeight: 700 }}>
-              Rejected / Withdrawn
-            </MenuItem>
-          </Select>
-
-          {/* Bank Dropdown */}
-          <Select
-            size="small"
-            value={selectedBank}
-            onChange={(e) => {
-              setSelectedBank(e.target.value);
-              setPage(0);
-            }}
-            sx={{
-              minWidth: 180,
-              borderRadius: "8px",
-              fontSize: "0.82rem",
-              backgroundColor: "#F8FAFC",
-            }}
-          >
-            <MenuItem value="All">All Banks &amp; Lenders</MenuItem>
-            {POPULAR_BANKS.map((b) => (
-              <MenuItem key={b} value={b} sx={{ fontSize: "0.82rem" }}>
-                {b}
-              </MenuItem>
-            ))}
-          </Select>
-        </Stack>
-
-        {/* View Mode Toggle */}
-        <ToggleButtonGroup
-          value={viewMode}
-          exclusive
-          onChange={(e, val) => val && setViewMode(val)}
-          size="small"
-          sx={{
-            height: 36,
-            backgroundColor: "#F1F5F9",
-            borderRadius: "8px",
-            p: 0.3,
-            "& .MuiToggleButton-root": {
-              border: 0,
-              borderRadius: "6px",
-              px: 1.4,
-              py: 0.4,
-              color: COLORS.textSecondary,
-              "&.Mui-selected": {
-                backgroundColor: COLORS.card,
-                color: COLORS.primary,
-                fontWeight: 700,
-                boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-              },
-            },
-          }}
-        >
-          <ToggleButton value="cards">
-            <Stack direction="row" alignItems="center" gap={0.5}>
-              <ViewListOutlinedIcon sx={{ fontSize: 16 }} />
-              <Typography sx={{ fontSize: "0.75rem", fontWeight: 700 }}>Cards</Typography>
-            </Stack>
-          </ToggleButton>
-          <ToggleButton value="table">
-            <Stack direction="row" alignItems="center" gap={0.5}>
-              <TableChartOutlinedIcon sx={{ fontSize: 16 }} />
-              <Typography sx={{ fontSize: "0.75rem", fontWeight: 700 }}>Table</Typography>
-            </Stack>
-          </ToggleButton>
-        </ToggleButtonGroup>
       </Paper>
-
-      {/* ── MAIN CONTENT (CARDS VS TABLE) ── */}
-      {viewMode === "cards" ? (
-        <Box>
-          {loading ? (
-            <Grid container spacing={2}>
-              {[1, 2, 3, 4, 5, 6].map((k) => (
-                <Grid size={{ xs: 12, md: 6, lg: 4 }} key={k}>
-                  <Skeleton variant="rectangular" height={320} sx={{ borderRadius: "14px" }} />
-                </Grid>
-              ))}
-            </Grid>
-          ) : loans.length === 0 ? (
-            <Paper
-              elevation={0}
-              sx={{
-                p: 6,
-                textAlign: "center",
-                borderRadius: "14px",
-                border: `1px solid ${COLORS.border}`,
-                backgroundColor: COLORS.card,
-              }}
-            >
-              <AccountBalanceIcon sx={{ fontSize: 48, color: COLORS.textMuted, mb: 1.5 }} />
-              <Typography sx={{ fontWeight: 800, fontSize: "1.1rem", color: COLORS.textPrimary }}>
-                No solar loan applications found
-              </Typography>
-              <Typography sx={{ fontSize: "0.82rem", color: COLORS.textSecondary, mt: 0.5, mb: 2.5 }}>
-                Get started by clicking &quot;Apply for Loan&quot; to log a Jan Samarth or bank loan application.
-              </Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setCreateModalOpen(true)}
-                sx={{ bgcolor: "#005BAC", borderRadius: "8px", textTransform: "none", fontWeight: 700 }}
-              >
-                Apply for Loan
-              </Button>
-            </Paper>
-          ) : (
-            <Grid container spacing={2}>
-              {loans.map((loan) => {
-                const stageCfg = LOAN_STAGE_CONFIG[loan.loan_stage] || LOAN_STAGE_CONFIG["Eligibility & Docs"];
-                const isRejectedOrWithdrawn = loan.side_status === "Rejected" || loan.side_status === "Withdrawn";
-                const sideCfg = SIDE_STATUS_CONFIG[loan.side_status] || SIDE_STATUS_CONFIG.Active;
-
-                return (
-                  <Grid size={{ xs: 12, md: 6, lg: 4 }} key={loan.id}>
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        p: 2.5,
-                        borderRadius: "14px",
-                        border: `1.5px solid ${isRejectedOrWithdrawn ? sideCfg.border : COLORS.border}`,
-                        backgroundColor: COLORS.card,
-                        transition: "all 0.18s ease-in-out",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "space-between",
-                        height: "100%",
-                        boxSizing: "border-box",
-                        position: "relative",
-                        overflow: "hidden",
-                        "&:hover": {
-                          borderColor: isRejectedOrWithdrawn ? sideCfg.border : "#BFDBFE",
-                          boxShadow: "0 4px 16px rgba(15, 23, 42, 0.08)",
-                          transform: "translateY(-1px)",
-                        },
-                      }}
-                    >
-                      <Box>
-                        {/* Top: Customer & Status Badges */}
-                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
-                          <Box sx={{ minWidth: 0, pr: 1 }}>
-                            <Typography
-                              sx={{
-                                fontWeight: 800,
-                                fontSize: "1.05rem",
-                                color: COLORS.textPrimary,
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {loan.customer_name || loan.lead_name || "Customer"}
-                            </Typography>
-                            <Stack direction="row" alignItems="center" spacing={0.6} sx={{ mt: 0.3 }}>
-                              <PhoneIcon sx={{ fontSize: 13, color: COLORS.textMuted }} />
-                              <Typography sx={{ fontSize: "0.78rem", color: COLORS.textSecondary }}>
-                                {loan.customer_phone || loan.lead_phone || "N/A"}
-                              </Typography>
-                            </Stack>
-                          </Box>
-
-                          {/* Stage or Side Status Chip */}
-                          <Stack direction="column" alignItems="flex-end" spacing={0.5}>
-                            {isRejectedOrWithdrawn ? (
-                              <Chip
-                                size="small"
-                                icon={<BlockOutlinedIcon sx={{ fontSize: 13, color: "inherit !important" }} />}
-                                label={sideCfg.label}
-                                sx={{
-                                  height: 24,
-                                  fontSize: "0.72rem",
-                                  fontWeight: 800,
-                                  color: sideCfg.color,
-                                  backgroundColor: sideCfg.bg,
-                                  border: `1px solid ${sideCfg.border}`,
-                                  "& .MuiChip-label": { px: 0.8 },
-                                }}
-                              />
-                            ) : (
-                              <Chip
-                                size="small"
-                                label={`Step ${stageCfg.step}/5 • ${stageCfg.label}`}
-                                sx={{
-                                  height: 24,
-                                  fontSize: "0.72rem",
-                                  fontWeight: 800,
-                                  color: stageCfg.color,
-                                  backgroundColor: stageCfg.bg,
-                                  border: `1px solid ${stageCfg.border}`,
-                                  "& .MuiChip-label": { px: 0.8 },
-                                }}
-                              />
-                            )}
-
-                            {isRejectedOrWithdrawn && (
-                              <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: COLORS.textMuted }}>
-                                Stopped at: {loan.stopped_at_stage || loan.loan_stage}
-                              </Typography>
-                            )}
-                          </Stack>
-                        </Box>
-
-                        {/* Lender & ARN No */}
-                        <Box sx={{ p: 1.2, mb: 1.8, borderRadius: "8px", backgroundColor: "#F8FAFC", border: `1px solid ${COLORS.border}` }}>
-                          <Stack direction="row" justifyContent="space-between" alignItems="center">
-                            <Stack direction="row" alignItems="center" spacing={0.6}>
-                              <AccountBalanceIcon sx={{ fontSize: 15, color: "#1D4ED8" }} />
-                              <Typography sx={{ fontSize: "0.8rem", fontWeight: 700, color: COLORS.textPrimary }}>
-                                {loan.bank_name}
-                              </Typography>
-                            </Stack>
-                            <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, fontFamily: "monospace" }}>
-                              {loan.portal_application_no ? `ARN: ${loan.portal_application_no}` : "Eligibility & Docs"}
-                            </Typography>
-                          </Stack>
-                        </Box>
-
-                        {/* Rejection / Stopped Callout Banner */}
-                        {isRejectedOrWithdrawn && (
-                          <Alert
-                            severity="error"
-                            icon={false}
-                            sx={{
-                              mb: 1.8,
-                              py: 0.6,
-                              px: 1.2,
-                              borderRadius: "8px",
-                              bgcolor: sideCfg.bg,
-                              border: `1px solid ${sideCfg.border}`,
-                              color: sideCfg.color,
-                              fontSize: "0.75rem",
-                              fontWeight: 600,
-                            }}
-                          >
-                            <strong>Reason:</strong> {loan.rejection_reason || "Not specified by lender"}
-                          </Alert>
-                        )}
-
-                        {/* 4 Key Financial Figures */}
-                        <Grid container spacing={1.2} sx={{ mb: 2 }}>
-                          <Grid size={{ xs: 6 }}>
-                            <Box sx={{ p: 1, borderRadius: "6px", bgcolor: "#F8FAFC" }}>
-                              <Typography sx={{ fontSize: "0.68rem", color: COLORS.textMuted, fontWeight: 700 }}>
-                                LOAN REQUESTED
-                              </Typography>
-                              <Typography sx={{ fontSize: "0.9rem", fontWeight: 800, color: COLORS.textPrimary }}>
-                                ₹{Number(loan.loan_amount_applied || 0).toLocaleString("en-IN")}
-                              </Typography>
-                            </Box>
-                          </Grid>
-                          <Grid size={{ xs: 6 }}>
-                            <Box sx={{ p: 1, borderRadius: "6px", bgcolor: "#F8FAFC" }}>
-                              <Typography sx={{ fontSize: "0.68rem", color: COLORS.textMuted, fontWeight: 700 }}>
-                                SANCTIONED
-                              </Typography>
-                              <Typography sx={{ fontSize: "0.9rem", fontWeight: 800, color: loan.sanctioned_amount > 0 ? "#16A34A" : COLORS.textPrimary }}>
-                                {loan.sanctioned_amount > 0 ? `₹${Number(loan.sanctioned_amount).toLocaleString("en-IN")}` : "Pending"}
-                              </Typography>
-                            </Box>
-                          </Grid>
-                          <Grid size={{ xs: 6 }}>
-                            <Box sx={{ p: 1, borderRadius: "6px", bgcolor: "#F8FAFC" }}>
-                              <Typography sx={{ fontSize: "0.68rem", color: COLORS.textMuted, fontWeight: 700 }}>
-                                MONTHLY EMI
-                              </Typography>
-                              <Typography sx={{ fontSize: "0.9rem", fontWeight: 800, color: "#2563EB" }}>
-                                ₹{Number(loan.monthly_emi || 0).toLocaleString("en-IN")}/mo
-                              </Typography>
-                            </Box>
-                          </Grid>
-                          <Grid size={{ xs: 6 }}>
-                            <Box sx={{ p: 1, borderRadius: "6px", bgcolor: "#F8FAFC" }}>
-                              <Typography sx={{ fontSize: "0.68rem", color: COLORS.textMuted, fontWeight: 700 }}>
-                                DISBURSED
-                              </Typography>
-                              <Typography sx={{ fontSize: "0.9rem", fontWeight: 800, color: loan.disbursed_amount > 0 ? "#059669" : COLORS.textMuted }}>
-                                {loan.disbursed_amount > 0 ? `₹${Number(loan.disbursed_amount).toLocaleString("en-IN")}` : "₹0"}
-                              </Typography>
-                            </Box>
-                          </Grid>
-                        </Grid>
-
-                        {/* Optional Disbursed Indicators */}
-                        {loan.loan_stage === "Disbursed" && (
-                          <Stack direction="row" spacing={0.8} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
-                            {loan.subsidy_credited_to_loan ? (
-                              <Chip
-                                size="small"
-                                label="Subsidy Credited to Loan"
-                                sx={{ height: 22, fontSize: "0.68rem", fontWeight: 700, bgcolor: "#CCFBF1", color: "#0D9488" }}
-                              />
-                            ) : null}
-                            {loan.project_number ? (
-                              <Chip
-                                size="small"
-                                label={`✓ Recorded on Project #${loan.project_number}`}
-                                sx={{ height: 22, fontSize: "0.68rem", fontWeight: 700, bgcolor: "#D1FAE5", color: "#065F46" }}
-                              />
-                            ) : null}
-                          </Stack>
-                        )}
-
-                        {/* 5-Stage Stepper Progress Bar */}
-                        <Box sx={{ mb: 2 }}>
-                          <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                            <Typography sx={{ fontSize: "0.7rem", color: COLORS.textMuted, fontWeight: 600 }}>
-                              5-Stage Pipeline Progress
-                            </Typography>
-                            <Typography sx={{ fontSize: "0.7rem", fontWeight: 700, color: isRejectedOrWithdrawn ? sideCfg.color : stageCfg.color }}>
-                              {isRejectedOrWithdrawn ? sideCfg.label : `${stageCfg.percent}%`}
-                            </Typography>
-                          </Box>
-                          <LinearProgress
-                            variant="determinate"
-                            value={isRejectedOrWithdrawn ? 100 : stageCfg.percent}
-                            sx={{
-                              height: 6,
-                              borderRadius: "3px",
-                              backgroundColor: "#F1F5F9",
-                              "& .MuiLinearProgress-bar": {
-                                backgroundColor: isRejectedOrWithdrawn ? sideCfg.color : stageCfg.color,
-                                borderRadius: "3px",
-                              },
-                            }}
-                          />
-                        </Box>
-                      </Box>
-
-                      {/* Card Footer: Action Buttons */}
-                      <Box sx={{ pt: 1.5, borderTop: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        {isRejectedOrWithdrawn ? (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            startIcon={<ReplayIcon sx={{ fontSize: 15 }} />}
-                            onClick={() => handleOpenTryAnotherLender(loan)}
-                            sx={{
-                              height: 30,
-                              borderRadius: "6px",
-                              fontSize: "0.72rem",
-                              fontWeight: 700,
-                              textTransform: "none",
-                              bgcolor: "#1E293B",
-                              color: "#FFFFFF",
-                              "&:hover": { bgcolor: "#0F172A" },
-                            }}
-                          >
-                            Try Another Lender
-                          </Button>
-                        ) : (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => handleOpenDetail(loan)}
-                            sx={{
-                              height: 30,
-                              borderRadius: "6px",
-                              fontSize: "0.72rem",
-                              fontWeight: 700,
-                              textTransform: "none",
-                              borderColor: COLORS.border,
-                              color: COLORS.textPrimary,
-                              "&:hover": { borderColor: COLORS.primary, bgcolor: "#F8FAFC" },
-                            }}
-                          >
-                            Manage Pipeline
-                          </Button>
-                        )}
-
-                        <Stack direction="row" spacing={0.8} alignItems="center">
-                          {!isRejectedOrWithdrawn && (
-                            <Tooltip title="Mark as Rejected / Withdrawn">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleOpenSideStatusModal(loan)}
-                                sx={{ color: "#EF4444", p: 0.5, "&:hover": { bgcolor: "#FEE2E2" } }}
-                              >
-                                <BlockOutlinedIcon sx={{ fontSize: 17 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeleteLoan(loan.id, loan.customer_name)}
-                            sx={{ color: COLORS.textMuted, p: 0.5, "&:hover": { color: "#EF4444", bgcolor: "#FEE2E2" } }}
-                          >
-                            <DeleteIcon sx={{ fontSize: 17 }} />
-                          </IconButton>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            endIcon={<ArrowForwardIcon sx={{ fontSize: 14 }} />}
-                            onClick={() => handleOpenDetail(loan)}
-                            sx={{
-                              height: 30,
-                              borderRadius: "6px",
-                              fontSize: "0.72rem",
-                              fontWeight: 700,
-                              textTransform: "none",
-                              bgcolor: "#005BAC",
-                              "&:hover": { bgcolor: "#004785" },
-                            }}
-                          >
-                            Details
-                          </Button>
-                        </Stack>
-                      </Box>
-                    </Paper>
-                  </Grid>
-                );
-              })}
-            </Grid>
-          )}
-        </Box>
-      ) : (
-        /* ── TABLE VIEW ── */
-        <TableContainer component={Paper} elevation={0} sx={{ borderRadius: "14px", border: `1px solid ${COLORS.border}` }}>
-          <Table size="small">
-            <TableHead sx={{ bgcolor: "#F8FAFC" }}>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", color: COLORS.textMuted }}>CUSTOMER</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", color: COLORS.textMuted }}>BANK / LENDER</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", color: COLORS.textMuted }}>ARN / REF NO</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", color: COLORS.textMuted }}>STAGE (5-STEP)</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", color: COLORS.textMuted }}>LOAN REQUESTED</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", color: COLORS.textMuted }}>SANCTIONED</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", color: COLORS.textMuted }}>DISBURSED</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", color: COLORS.textMuted }}>MONTHLY EMI</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 800, fontSize: "0.75rem", color: COLORS.textMuted }}>ACTIONS</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
-                    Loading loan applications...
-                  </TableCell>
-                </TableRow>
-              ) : loans.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
-                    No loan applications found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                loans.map((loan) => {
-                  const stageCfg = LOAN_STAGE_CONFIG[loan.loan_stage] || LOAN_STAGE_CONFIG["Eligibility & Docs"];
-                  const isRejectedOrWithdrawn = loan.side_status === "Rejected" || loan.side_status === "Withdrawn";
-                  const sideCfg = SIDE_STATUS_CONFIG[loan.side_status] || SIDE_STATUS_CONFIG.Active;
-
-                  return (
-                    <TableRow key={loan.id} hover sx={{ "&:last-child td, &:last-child th": { border: 0 } }}>
-                      <TableCell>
-                        <Typography sx={{ fontWeight: 700, fontSize: "0.82rem", color: COLORS.textPrimary }}>
-                          {loan.customer_name || loan.lead_name}
-                        </Typography>
-                        <Typography sx={{ fontSize: "0.72rem", color: COLORS.textMuted }}>
-                          {loan.customer_phone || loan.lead_phone}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ fontSize: "0.8rem", fontWeight: 600 }}>{loan.bank_name}</TableCell>
-                      <TableCell sx={{ fontSize: "0.75rem", fontFamily: "monospace" }}>
-                        {loan.portal_application_no || "—"}
-                      </TableCell>
-                      <TableCell>
-                        {isRejectedOrWithdrawn ? (
-                          <Chip
-                            size="small"
-                            label={`${sideCfg.label} (${loan.stopped_at_stage || loan.loan_stage})`}
-                            sx={{
-                              height: 22,
-                              fontSize: "0.7rem",
-                              fontWeight: 800,
-                              color: sideCfg.color,
-                              bgcolor: sideCfg.bg,
-                              border: `1px solid ${sideCfg.border}`,
-                            }}
-                          />
-                        ) : (
-                          <Chip
-                            size="small"
-                            label={`Step ${stageCfg.step}/5 • ${stageCfg.label}`}
-                            sx={{
-                              height: 22,
-                              fontSize: "0.7rem",
-                              fontWeight: 800,
-                              color: stageCfg.color,
-                              bgcolor: stageCfg.bg,
-                              border: `1px solid ${stageCfg.border}`,
-                            }}
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell sx={{ fontSize: "0.8rem", fontWeight: 700 }}>
-                        ₹{Number(loan.loan_amount_applied || 0).toLocaleString("en-IN")}
-                      </TableCell>
-                      <TableCell sx={{ fontSize: "0.8rem", fontWeight: 700, color: loan.sanctioned_amount > 0 ? "#16A34A" : COLORS.textMuted }}>
-                        {loan.sanctioned_amount > 0 ? `₹${Number(loan.sanctioned_amount).toLocaleString("en-IN")}` : "—"}
-                      </TableCell>
-                      <TableCell sx={{ fontSize: "0.8rem", fontWeight: 700, color: loan.disbursed_amount > 0 ? "#059669" : COLORS.textMuted }}>
-                        {loan.disbursed_amount > 0 ? `₹${Number(loan.disbursed_amount).toLocaleString("en-IN")}` : "—"}
-                      </TableCell>
-                      <TableCell sx={{ fontSize: "0.8rem", fontWeight: 700, color: "#2563EB" }}>
-                        ₹{Number(loan.monthly_emi || 0).toLocaleString("en-IN")}
-                      </TableCell>
-                      <TableCell align="right">
-                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                          {isRejectedOrWithdrawn ? (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => handleOpenTryAnotherLender(loan)}
-                              sx={{ height: 26, fontSize: "0.72rem", borderRadius: "5px", textTransform: "none", px: 1 }}
-                            >
-                              New Lender
-                            </Button>
-                          ) : (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => handleOpenSideStatusModal(loan)}
-                              sx={{ height: 26, fontSize: "0.72rem", borderRadius: "5px", textTransform: "none", px: 0.8, color: "#EF4444" }}
-                            >
-                              Reject
-                            </Button>
-                          )}
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => handleOpenDetail(loan)}
-                            sx={{ height: 26, fontSize: "0.72rem", borderRadius: "5px", textTransform: "none", px: 1, bgcolor: "#005BAC" }}
-                          >
-                            Details
-                          </Button>
-                          <IconButton size="small" onClick={() => handleDeleteLoan(loan.id, loan.customer_name)} sx={{ color: "#EF4444" }}>
-                            <DeleteIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-
-      {/* Pagination */}
-      <TablePagination
-        component="div"
-        count={totalCount}
-        page={page}
-        onPageChange={(e, newPage) => setPage(newPage)}
-        rowsPerPage={rowsPerPage}
-        onRowsPerPageChange={(e) => {
-          setRowsPerPage(parseInt(e.target.value, 10));
-          setPage(0);
-        }}
-        rowsPerPageOptions={[6, 12, 24, 48]}
-        sx={{ mt: 2 }}
-      />
-
-      {/* ── CREATE NEW LOAN APPLICATION MODAL ── */}
+      <Alert severity="info" sx={{mb:2.5}}>A sanction is an approval, not a payment. Record the actual disbursed amount and date; record subsidy adjustment only after lender confirmation. Creating a CRM record does not submit a bank application.</Alert>
+      <Typography variant="body2" color="text.secondary" role="status" sx={{mb:2}}>{loading ? "Loading loan records..." : `${totalCount} loan records`}</Typography>
+      {loadError ? <Alert severity="error" action={<Button color="inherit" onClick={fetchLoans}>Retry</Button>}>{loadError}</Alert>
+       : loading ? <Box sx={{display:"grid",gap:2}}>{[1,2,3].map(i=><Skeleton key={i} variant="rounded" height={120} />)}</Box>
+       : loans.length===0 ? <Paper variant="outlined" sx={{p:5,textAlign:"center",boxShadow:"none"}}><AccountBalanceIcon sx={{fontSize:36,color:"text.secondary",mb:1}}/><Typography variant="h6">No loan records found</Typography><Typography color="text.secondary" sx={{my:1}}>Record a financing request or adjust your filters.</Typography><Button variant="contained" onClick={()=>setCreateModalOpen(true)}>New loan record</Button></Paper>
+       : viewMode==="table" ? <Paper variant="outlined" sx={{overflow:"hidden",boxShadow:"none"}}><TableContainer><Table size="small" sx={{minWidth:1000}} aria-label="Solar loan applications"><TableHead><TableRow>{["Customer / lender","Stage","Requested","Sanctioned","Disbursed","Actions"].map(label=><TableCell key={label}>{label}</TableCell>)}</TableRow></TableHead><TableBody>{loans.map(loan=>{const cfg=LOAN_STAGE_CONFIG[loan.loan_stage];const stopped=["Rejected","Withdrawn"].includes(loan.side_status);return <TableRow key={loan.id} hover><TableCell><Typography sx={{fontWeight:600}}>{loan.customer_name||loan.lead_name||"Customer"}</Typography><Typography variant="caption">{loan.bank_name}</Typography></TableCell><TableCell><Chip size="small" label={stopped?loan.side_status:loan.loan_stage} sx={{bgcolor:stopped?"#FEE2E2":cfg?.bg,color:stopped?"#DC2626":cfg?.color}}/></TableCell><TableCell>{money(loan.loan_amount_applied)}</TableCell><TableCell>{money(loan.sanctioned_amount)}</TableCell><TableCell>{money(loan.disbursed_amount)}</TableCell><TableCell><Button size="small" variant="outlined" onClick={()=>handleOpenDetail(loan)}>Open loan</Button></TableCell></TableRow>;})}</TableBody></Table></TableContainer></Paper>
+       : <Box sx={{display:"grid",gridTemplateColumns:{xs:"1fr",lg:"repeat(2,minmax(0,1fr))",xl:"repeat(3,minmax(0,1fr))"},gap:2}}>{loans.map(loan=>{
+         const cfg=LOAN_STAGE_CONFIG[loan.loan_stage]||LOAN_STAGE_CONFIG["Eligibility & Docs"];const stopped=["Rejected","Withdrawn"].includes(loan.side_status);const next=LOAN_STAGES[cfg.step];
+         return <Paper key={loan.id} variant="outlined" sx={{p:2.5,boxShadow:"none",display:"flex",flexDirection:"column",gap:2,borderColor:stopped?"#FCA5A5":COLORS.border}}>
+           <Box sx={{display:"flex",flexWrap:"wrap",justifyContent:"space-between",gap:1}}><Typography variant="h6" component="h3">{loan.customer_name||loan.lead_name||"Customer"}</Typography><Chip size="small" label={stopped?loan.side_status:cfg.label} sx={{bgcolor:stopped?"#FEE2E2":cfg.bg,color:stopped?"#DC2626":cfg.color}}/></Box>
+           <Box><Typography sx={{fontWeight:600}}>{loan.bank_name||"Lender not recorded"}</Typography><Typography variant="caption">{loan.portal_application_no||"Application reference not recorded"}</Typography></Box>
+           <Box sx={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:2}}>{[["Requested",loan.loan_amount_applied],["Sanctioned",loan.sanctioned_amount],["Disbursed",loan.disbursed_amount],["Expected subsidy",loan.subsidy_expected]].map(([label,value])=><Box key={label}><Typography variant="caption">{label}</Typography><Typography sx={{fontWeight:700,fontVariantNumeric:"tabular-nums",color:label==="Disbursed"?"#059669":"inherit"}}>{money(value)}</Typography></Box>)}</Box>
+           {loan.subsidy_credited_to_loan ? <Chip size="small" label="Subsidy adjustment recorded" sx={{alignSelf:"flex-start",bgcolor:"#CCFBF1",color:"#0D9488"}}/> : null}
+           <Box sx={{mt:"auto"}}><Typography variant="caption">Stage {cfg.step} of {LOAN_STAGES.length}</Typography><LinearProgress variant="determinate" value={cfg.percent} aria-label="Loan workflow stage" sx={{height:6,borderRadius:3,mt:0.75,bgcolor:cfg.bg,"& .MuiLinearProgress-bar":{bgcolor:cfg.color}}}/></Box>
+           <Stack direction="row" sx={{flexWrap:"wrap",gap:1,pt:1.5,borderTop:"1px solid",borderColor:"divider"}}><Button variant="outlined" size="small" onClick={()=>handleOpenDetail(loan)}>Open loan</Button>{stopped?<Button size="small" startIcon={<ReplayIcon/>} onClick={()=>handleOpenTryAnotherLender(loan)}>Change lender</Button>:next&&<Button variant="contained" size="small" onClick={()=>handleStepClick(loan,next)} sx={{bgcolor:cfg.color}}>Next: {next}</Button>}<IconButton aria-label={`Delete loan for ${loan.customer_name||"customer"}`} color="error" onClick={()=>handleDeleteLoan(loan.id,loan.customer_name)}><DeleteIcon fontSize="small"/></IconButton></Stack>
+         </Paper>;
+       })}</Box>}
+      {!loadError&&totalCount>0&&<TablePagination component="div" count={totalCount} page={page} rowsPerPage={rowsPerPage} rowsPerPageOptions={[12,24,48]} onPageChange={(_,value)=>setPage(value)} onRowsPerPageChange={e=>{setRowsPerPage(Number(e.target.value));setPage(0);}}/>}
+      <Dialog open={Boolean(deleteTarget)} onClose={()=>!deleting&&setDeleteTarget(null)} role="alertdialog" aria-labelledby="delete-loan-title" maxWidth="xs" fullWidth><DialogTitle id="delete-loan-title">Delete loan record?</DialogTitle><DialogContent><Typography>Delete the CRM loan record for {deleteTarget?.name||"this customer"}? This does not cancel a lender application.</Typography></DialogContent><DialogActions><Button disabled={deleting} onClick={()=>setDeleteTarget(null)}>Cancel</Button><Button color="error" variant="contained" disabled={deleting} onClick={confirmDelete}>{deleting?"Deleting...":"Delete record"}</Button></DialogActions></Dialog>
       <Dialog
         open={createModalOpen}
         onClose={() => !submitting && setCreateModalOpen(false)}
@@ -1487,13 +680,13 @@ export default function LoansList() {
         <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Box>
             <Typography sx={{ fontWeight: 800, fontSize: "1.2rem", color: COLORS.textPrimary }}>
-              Apply for Solar Loan / Jan Samarth
+              Record solar loan request
             </Typography>
             <Typography sx={{ fontSize: "0.8rem", color: COLORS.textSecondary, mt: 0.3 }}>
-              Step 1 of 5: Eligibility &amp; Document Collection for rooftop solar rooftop financing
+              Collect customer details and record the lender request. Submit separately through the lender / Jan Samarth.
             </Typography>
           </Box>
-          <IconButton onClick={() => setCreateModalOpen(false)} disabled={submitting}>
+          <IconButton aria-label="Close" onClick={() => setCreateModalOpen(false)} disabled={submitting}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
@@ -1520,8 +713,8 @@ export default function LoansList() {
                         customer_phone: val.mobile_number || "",
                         customer_email: val.email || "",
                         city: val.city || "",
-                        state: val.state || "Rajasthan",
-                        system_capacity_kw: val.required_kw || 3.0,
+                        state: val.state || "",
+                        system_capacity_kw: val.required_kw || "",
                         electricity_consumer_no: val.electricity_consumer_no || "",
                       }));
                     }
@@ -1583,6 +776,7 @@ export default function LoansList() {
                 </Grid>
               </Box>
 
+              <Alert severity="info">Expected subsidy is tracked separately and is not deducted as an upfront receipt. The starting funding estimate is project cost minus customer contribution; edit the requested amount to match the lender application. EMI is indicative and excludes lender fees / moratorium effects.</Alert>
               {/* Loan Financial Structure & Live EMI */}
               <Box sx={{ p: 2, borderRadius: "10px", bgcolor: "#F8FAFC", border: `1px solid ${COLORS.border}` }}>
                 <Typography sx={{ fontSize: "0.75rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase", mb: 1.5 }}>
@@ -1594,6 +788,7 @@ export default function LoansList() {
                       fullWidth
                       size="small"
                       label="Total Project Cost (₹)"
+                      placeholder="e.g. 250000"
                       type="number"
                       value={formData.total_project_cost}
                       onChange={(e) => handleCostOrSubsidyChange("total_project_cost", e.target.value)}
@@ -1604,6 +799,7 @@ export default function LoansList() {
                       fullWidth
                       size="small"
                       label="Expected Subsidy (₹)"
+                      placeholder="e.g. 78000"
                       type="number"
                       value={formData.subsidy_expected}
                       onChange={(e) => handleCostOrSubsidyChange("subsidy_expected", e.target.value)}
@@ -1614,6 +810,7 @@ export default function LoansList() {
                       fullWidth
                       size="small"
                       label="Down Payment (₹)"
+                      placeholder="e.g. 25000"
                       type="number"
                       value={formData.down_payment_amount}
                       onChange={(e) => handleCostOrSubsidyChange("down_payment_amount", e.target.value)}
@@ -1625,6 +822,7 @@ export default function LoansList() {
                       fullWidth
                       size="small"
                       label="Loan Requested Amount (₹) *"
+                      placeholder="e.g. 150000"
                       type="number"
                       required
                       value={formData.loan_amount_applied}
@@ -1636,6 +834,7 @@ export default function LoansList() {
                       fullWidth
                       size="small"
                       label="Interest Rate (% p.a.)"
+                      placeholder="e.g. 7.0"
                       type="number"
                       value={formData.interest_rate}
                       onChange={(e) => setFormData({ ...formData, interest_rate: e.target.value })}
@@ -1658,7 +857,7 @@ export default function LoansList() {
 
                 {/* Monthly EMI Output Box */}
                 <Box sx={{ mt: 2, p: 1.5, borderRadius: "8px", bgcolor: "#EFF6FF", border: "1px solid #BFDBFE", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <Stack direction="row" alignItems="center" spacing={1}>
+                  <Stack sx={{alignItems: "center"}} direction="row"  spacing={1}>
                     <CalculateOutlinedIcon sx={{ color: "#1D4ED8" }} />
                     <Typography sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#1E40AF" }}>
                       Estimated Monthly EMI ({formData.tenure_months} Months @ {formData.interest_rate}%):
@@ -1682,7 +881,7 @@ export default function LoansList() {
               disabled={submitting}
               sx={{ bgcolor: "#005BAC", borderRadius: "8px", fontWeight: 700, px: 3 }}
             >
-              {submitting ? "Logging Loan..." : "Log Loan Application"}
+              {submitting ? "Logging Loan..." : "Save loan record"}
             </Button>
           </DialogActions>
         </form>
@@ -1705,7 +904,7 @@ export default function LoansList() {
               Lender: <strong>{activeLoan?.bank_name}</strong> • Phone: {activeLoan?.customer_phone || activeLoan?.lead_phone}
             </Typography>
           </Box>
-          <IconButton onClick={() => setDetailModalOpen(false)}>
+          <IconButton aria-label="Close" onClick={() => setDetailModalOpen(false)}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </DialogTitle>
@@ -1740,7 +939,7 @@ export default function LoansList() {
 
               {/* 5-Stage Stepper Header */}
               <Box>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.2 }}>
+                <Stack direction="row"   sx={{justifyContent: "space-between", alignItems: "center",  mb: 1.2 }}>
                   <Typography sx={{ fontSize: "0.78rem", fontWeight: 800, color: COLORS.primary, textTransform: "uppercase" }}>
                     5-Stage Sequential Pipeline (Click any step to advance or adjust)
                   </Typography>
@@ -1834,7 +1033,7 @@ export default function LoansList() {
               {/* Disbursed Highlights: Subsidy Checkbox & Project Payment */}
               {activeLoan.loan_stage === "Disbursed" && (
                 <Box sx={{ p: 2, borderRadius: "10px", bgcolor: "#F0FDF4", border: "1px solid #86EFAC" }}>
-                  <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={1}>
+                  <Stack sx={{justifyContent: "space-between", alignItems: "center"}} direction={{ xs: "column", sm: "row" }}   spacing={1}>
                     <Box>
                       <Typography sx={{ fontWeight: 800, fontSize: "0.88rem", color: "#065F46" }}>
                         ✓ Loan Disbursed to Installer / Credited
@@ -1956,7 +1155,7 @@ export default function LoansList() {
 
           <Stack spacing={2}>
             {/* If moving to Applied */}
-            {advanceTargetStage === "Applied" && (
+            {["Applied", "Under Review"].includes(advanceTargetStage) && (
               <>
                 <TextField
                   fullWidth

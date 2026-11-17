@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Drawer,
   Box,
@@ -13,14 +13,9 @@ import {
   CircularProgress,
   Paper,
   Chip,
-  Divider,
   Stepper,
   Step,
   StepLabel,
-  Card,
-  CardMedia,
-  CardContent,
-  Tooltip,
 } from "@mui/material";
 
 import {
@@ -126,11 +121,11 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
   const [formData, setFormData] = useState({
     consumer_number: "",
     application_number: "",
-    scheme_name: "PM Surya Ghar Muft Bijli Yojana",
+    scheme_name: "",
     portal_status: "docs_pending",
     submission_date: "",
     approval_date: "",
-    subsidy_amount: "78000",
+    subsidy_amount: "",
     portal_notes: "",
   });
 
@@ -153,11 +148,11 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
           setFormData({
             consumer_number: app.consumer_number || "",
             application_number: app.application_number || "",
-            scheme_name: app.scheme_name || "PM Surya Ghar Muft Bijli Yojana",
+            scheme_name: app.scheme_name || "",
             portal_status: app.portal_status || "docs_pending",
             submission_date: app.submission_date ? String(app.submission_date).slice(0, 10) : "",
             approval_date: app.approval_date ? String(app.approval_date).slice(0, 10) : "",
-            subsidy_amount: app.subsidy_amount || "78000",
+            subsidy_amount: app.subsidy_amount ? String(app.subsidy_amount) : "",
             portal_notes: app.portal_notes || "",
           });
         }
@@ -308,7 +303,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
           justifyContent: "space-between",
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={1.5}>
+        <Stack sx={{alignItems: "center"}} direction="row"  spacing={1.5}>
           <Box
             sx={{
               width: 42,
@@ -331,7 +326,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
             </Typography>
           </Box>
         </Stack>
-        <IconButton onClick={onClose} size="small" sx={{ color: "#FFFFFF" }}>
+        <IconButton aria-label="Close" onClick={onClose} size="small" sx={{ color: "#FFFFFF" }}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </Box>
@@ -347,7 +342,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
             {/* LEAD & CONSUMER HEADER */}
             <Paper elevation={0} sx={{ p: 2, borderRadius: "12px", border: `1px solid ${COLORS.border}`, bgcolor: "#FFFFFF" }}>
               <Grid container spacing={1} alignItems="center">
-                <Grid item xs={12} sm={7}>
+                <Grid size={{xs: 12, sm: 7}}   >
                   <Typography sx={{ fontWeight: 800, fontSize: "0.95rem", color: COLORS.textPrimary }}>
                     👤 {lead?.customer_name} ({lead?.lead_code})
                   </Typography>
@@ -355,7 +350,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                     📞 {lead?.mobile_number} | 📍 {lead?.city || lead?.state || "India"}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={5} sx={{ textAlign: { xs: "left", sm: "right" } }}>
+                <Grid size={{xs: 12, sm: 5}}    sx={{ textAlign: { xs: "left", sm: "right" } }}>
                   <Chip
                     label={`Subsidy: ₹${Number(formData.subsidy_amount || 78000).toLocaleString("en-IN")}`}
                     color="success"
@@ -396,7 +391,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
 
             {/* FORM: CONSUMER & APPLICATION NUMBER DETAILS */}
             <Paper elevation={0} sx={{ p: 2.5, borderRadius: "12px", border: `1px solid ${COLORS.border}`, bgcolor: "#FFFFFF" }}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+              <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mb: 2 }}>
                 <Typography sx={{ fontWeight: 800, fontSize: "0.88rem", color: COLORS.primaryDark, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                   2. DISCOM Consumer & Portal Application Specs
                 </Typography>
@@ -419,7 +414,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
               </Stack>
 
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                <Grid size={{xs: 12, sm: 6}}   >
                   <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.8 }}>
                     Electricity Bill Consumer No. *
                   </Typography>
@@ -433,7 +428,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{xs: 12, sm: 6}}   >
                   <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.8 }}>
                     PM Surya Ghar Application No.
                   </Typography>
@@ -447,7 +442,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{xs: 12, sm: 6}}   >
                   <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.8 }}>
                     Portal Status *
                   </Typography>
@@ -466,7 +461,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                   </Select>
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{xs: 12, sm: 6}}   >
                   <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.8 }}>
                     Eligible Subsidy Amount (₹)
                   </Typography>
@@ -474,14 +469,14 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                     type="number"
                     fullWidth
                     size="small"
-                    placeholder="78000"
+                    placeholder="e.g. 78000"
                     value={formData.subsidy_amount}
                     onChange={(e) => setFormData((p) => ({ ...p, subsidy_amount: e.target.value }))}
                     sx={{ "& input": { fontSize: "0.82rem", fontWeight: 700, color: COLORS.success } }}
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{xs: 12, sm: 6}}   >
                   <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.8 }}>
                     Portal Submission Date
                   </Typography>
@@ -497,7 +492,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                   />
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
+                <Grid size={{xs: 12, sm: 6}}   >
                   <Typography sx={{ fontSize: "0.78rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.8 }}>
                     Subsidy Approval Date
                   </Typography>
@@ -530,7 +525,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                   const isUploading = uploadingType === docDef.type;
 
                   return (
-                    <Grid item xs={12} key={docDef.type}>
+                    <Grid size={{xs: 12}}   key={docDef.type}>
                       <Paper
                         elevation={0}
                         sx={{
@@ -540,8 +535,8 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                           bgcolor: uploaded.length > 0 ? "#FAFAFA" : "#FFFBEB",
                         }}
                       >
-                        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={1.5}>
-                          <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <Stack sx={{justifyContent: "space-between", alignItems: { xs: "flex-start", sm: "center" }}} direction={{ xs: "column", sm: "row" }}   spacing={1.5}>
+                          <Stack sx={{alignItems: "center"}} direction="row"  spacing={1.5}>
                             <Box
                               sx={{
                                 width: 38,
@@ -618,8 +613,8 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                           <Box sx={{ mt: 1.5, pt: 1.5, borderTop: `1px dashed ${COLORS.border}` }}>
                             <Stack spacing={1}>
                               {uploaded.map((doc) => (
-                                <Stack key={doc.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ bgcolor: "#FFFFFF", p: 1, px: 1.5, borderRadius: "6px", border: `1px solid ${COLORS.border}` }}>
-                                  <Stack direction="row" alignItems="center" spacing={1} sx={{ overflow: "hidden" }}>
+                                <Stack key={doc.id} direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  bgcolor: "#FFFFFF", p: 1, px: 1.5, borderRadius: "6px", border: `1px solid ${COLORS.border}` }}>
+                                  <Stack direction="row"  spacing={1} sx={{alignItems: "center",  overflow: "hidden" }}>
                                     <FileIcon sx={{ fontSize: 18, color: COLORS.primary }} />
                                     <Typography sx={{ fontSize: "0.78rem", fontWeight: 600, color: COLORS.textPrimary, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", maxWidth: 200 }}>
                                       {doc.file_name || "Document File"}
@@ -632,8 +627,8 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
                                     />
                                   </Stack>
 
-                                  <Stack direction="row" alignItems="center" spacing={1}>
-                                    <IconButton
+                                  <Stack sx={{alignItems: "center"}} direction="row"  spacing={1}>
+                                    <IconButton aria-label="Open Link"
                                       component="a"
                                       href={getFileFullUrl(doc.file_url)}
                                       target="_blank"

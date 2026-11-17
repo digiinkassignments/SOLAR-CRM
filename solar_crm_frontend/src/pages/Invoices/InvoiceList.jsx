@@ -1,43 +1,20 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Box,
-  Typography,
-  Button,
-  Grid,
-  TextField,
-  MenuItem,
-  InputAdornment,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
-  IconButton,
-  Tooltip,
-  CircularProgress,
-  Stack,
-  Card,
-  Divider,
-  Checkbox,
+  Box, Typography, Button, TextField, InputAdornment, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow, TablePagination, Paper,
+  Chip, IconButton, Tooltip, Stack, Divider, Checkbox, Menu, MenuItem,
+  ListItemIcon, ListItemText, Skeleton, Alert,
 } from "@mui/material";
-
-// Icons
-import SearchIcon from "@mui/icons-material/Search";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-import WhatsAppIcon from "@mui/icons-material/WhatsApp";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import PaymentIcon from "@mui/icons-material/Payment";
-import DeleteOutlineIcon from "@mui/icons-material/Delete";
-import AddIcon from "@mui/icons-material/Add";
-import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircle";
-import PendingActionsIcon from "@mui/icons-material/HourglassEmpty";
-
+import {
+  Search as SearchIcon, ReceiptLong as ReceiptLongIcon,
+  PictureAsPdf as PictureAsPdfIcon, OpenInNew as OpenInNewIcon,
+  WhatsApp as WhatsAppIcon, ContentCopy as ContentCopyIcon,
+  Payment as PaymentIcon, DeleteOutlined as DeleteOutlineIcon,
+  Add as AddIcon, AccountBalanceWallet as WalletIcon,
+  CheckCircleOutlined as CheckCircleIcon, PendingActions as PendingIcon,
+  MoreHoriz as MoreIcon, Refresh as RefreshIcon,
+  FilterAltOffOutlined as ClearFiltersIcon, SolarPowerOutlined as SolarIcon,
+} from "@mui/icons-material";
 import api from "../../api/axios";
 import toast from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
@@ -46,59 +23,95 @@ import RecordPaymentModal from "./RecordPaymentModal";
 import BulkDeleteBar from "../../components/BulkDeleteBar";
 import { bulkDeleteInvoices } from "../../services/invoiceService";
 
-const COLORS = {
-  primary: "#0F172A",
-  primaryDark: "#020617",
-  border: "#E2E8F0",
-  textPrimary: "#1E293B",
-  textSecondary: "#64748B",
-  bgSubtle: "#F8FAFC",
-  success: "#16A34A",
-  successSoft: "#DCFCE7",
-  warning: "#D97706",
-  warningSoft: "#FEF3C7",
-  danger: "#DC2626",
-  dangerSoft: "#FEE2E2",
-  info: "#0284C7",
-  infoSoft: "#E0F2FE",
+const C = {
+  primary: "#0F172A", border: "#E2E8F0", text: "#1E293B", muted: "#64748B",
+  bg: "#F8FAFC", green: "#16A34A", greenSoft: "#DCFCE7",
+  amber: "#D97706", amberSoft: "#FEF3C7", red: "#DC2626", redSoft: "#FEE2E2",
+  blue: "#0284C7", blueSoft: "#E0F2FE",
+};
+const money = (value) => `₹${(Number(value) || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+const dateLabel = (value) => {
+  if (!value) return "Date not recorded";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Date not recorded" : date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+};
+const primaryButton = {
+  bgcolor: C.primary, color: "#FFFFFF", textTransform: "none", fontWeight: 700,
+  borderRadius: "9px", boxShadow: "none", minHeight: 42, px: 2.25,
+  "&:hover": { bgcolor: "#020617", boxShadow: "none" },
 };
 
-const InvoiceList = () => {
+export default function InvoiceList() {
   const { user } = useAuth();
   const roleName = (user?.role_name || user?.role || "").toLowerCase();
-  const isSuperAdmin = user?.role_id === 1 || roleName.includes("super") || roleName === "admin";
-  const isManager = user?.role_id === 2 || roleName.includes("manager");
-  const canCreateOrPay = isSuperAdmin || isManager;
+  const isSuperAdmin = [1,2].includes(Number(user?.role_id)) || roleName.includes("super") || roleName === "admin";
+  const canCreateOrPay = isSuperAdmin || user?.role_id === 2 || roleName.includes("manager");
   const canDeleteInvoice = isSuperAdmin;
-
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState(null);
-
-  // Bulk Delete State
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [actionMenu, setActionMenu] = useState(null);
+  const emailBusy = useRef(false);
+  const latestRequest = useRef(0);
 
-  const handleToggleSelect = (id) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
+  const fetchInvoices = useCallback((signal) => {
+    const requestId = ++latestRequest.current;
+    const params = {};
+    if (statusFilter !== "All") params.payment_status = statusFilter;
+    if (appliedSearch) params.search = appliedSearch;
+    return api.get("/invoices", { params, signal }).then((res) => {
+      if (signal?.aborted || requestId !== latestRequest.current) return;
+      if (!res.data?.success) throw new Error("Invoice request failed");
+      setInvoices(res.data.data || []);
+      setPage(0);
+    }).catch((err) => {
+      if (signal?.aborted || requestId !== latestRequest.current) return;
+      console.error("Fetch invoices error:", err);
+      setInvoices([]);
+      setLoadError("Invoices could not be loaded. Please try again.");
+    }).finally(() => {
+      if (!signal?.aborted && requestId === latestRequest.current) setLoading(false);
+    });
+  }, [statusFilter, appliedSearch]);
 
-  const handleSelectAll = () => {
-    setSelectedIds(invoices.map((inv) => inv.id));
-  };
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchInvoices(controller.signal);
+    return () => controller.abort();
+  }, [fetchInvoices]);
 
-  const handleDeselectAll = () => {
+  const beginLoading = () => {
+    setLoading(true);
+    setLoadError("");
     setSelectedIds([]);
   };
-
+  const refreshInvoices = () => { beginLoading(); fetchInvoices(); };
+  const changeStatus = (status) => {
+    if (status === statusFilter) return;
+    beginLoading();
+    setStatusFilter(status);
+  };
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+    const query = search.trim();
+    if (query === appliedSearch) refreshInvoices();
+    else { beginLoading(); setAppliedSearch(query); }
+  };
+  const clearFilters = () => { beginLoading(); setSearch(""); setAppliedSearch(""); setStatusFilter("All"); };
+  const handleToggleSelect = (id) => setSelectedIds((prev) => prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]);
+  const handleSelectAll = () => setSelectedIds(invoices.map((inv) => inv.id));
+  const handleDeselectAll = () => setSelectedIds([]);
   const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return;
+    if (!selectedIds.length) return;
     setBulkDeleting(true);
     try {
       const res = await bulkDeleteInvoices(selectedIds);
@@ -106,45 +119,11 @@ const InvoiceList = () => {
         toast.success(res.message || `${selectedIds.length} invoices deleted successfully`);
         setInvoices((prev) => prev.filter((inv) => !selectedIds.includes(inv.id)));
         setSelectedIds([]);
-      } else {
-        toast.error(res?.message || "Failed to delete invoices");
-      }
+      } else toast.error(res?.message || "Failed to delete invoices");
     } catch (err) {
-      console.error("Bulk delete invoices error:", err);
       toast.error(err.response?.data?.message || "Failed to delete invoices");
-    } finally {
-      setBulkDeleting(false);
-    }
+    } finally { setBulkDeleting(false); }
   };
-
-  useEffect(() => {
-    fetchInvoices();
-  }, [statusFilter]);
-
-  const fetchInvoices = async () => {
-    setLoading(true);
-    try {
-      let url = "/invoices?";
-      if (statusFilter !== "All") url += `payment_status=${statusFilter}&`;
-      if (search) url += `search=${encodeURIComponent(search)}&`;
-
-      const res = await api.get(url);
-      if (res.data?.success) {
-        setInvoices(res.data.data || []);
-      }
-    } catch (err) {
-      console.error("Fetch invoices error:", err);
-      toast.error("Failed to load invoices");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    fetchInvoices();
-  };
-
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this invoice?")) return;
     try {
@@ -154,477 +133,156 @@ const InvoiceList = () => {
         setInvoices((prev) => prev.filter((inv) => inv.id !== id));
         setSelectedIds((prev) => prev.filter((item) => item !== id));
       }
-    } catch (err) {
-      toast.error("Failed to delete invoice");
-    }
+    } catch { toast.error("Failed to delete invoice"); }
   };
-
-  const handleCopyLink = (token) => {
-    const url = `${window.location.origin}/invoice/${token}`;
-    navigator.clipboard.writeText(url);
-    toast.success("Invoice public link copied!");
+  const handleCopyLink = async (token) => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/invoice/${token}`);
+      toast.success("Invoice public link copied!");
+    } catch { toast.error("Could not copy the invoice link. Please try again."); }
   };
-
+  const handleSendEmail = async (invoice) => {
+    if (emailBusy.current) return;
+    if (!invoice.customer_email) { toast.error("Save the customer's email address before sending."); return; }
+    emailBusy.current = true;
+    toast.loading("Sending invoice?", { id: "invoice-email" });
+    try {
+      const response = await api.post(`/invoices/${invoice.id}/send-email`);
+      toast.success(response.data.message, { id: "invoice-email" });
+    } catch (error) { toast.error(error.response?.data?.message || "Could not send invoice email.", { id: "invoice-email" }); }
+    finally { emailBusy.current = false; }
+  };
   const handleShareWhatsApp = (inv) => {
     const url = `${window.location.origin}/invoice/${inv.public_token}`;
-    const text =
-      `*TAX INVOICE: ${inv.invoice_number}*\n` +
-      `Customer: ${inv.customer_name}\n` +
-      `System: ${inv.system_capacity_kw} kW (${inv.system_type})\n` +
-      `Net Invoice Amount: Rs. ${parseFloat(inv.net_payable_amount).toLocaleString("en-IN")}\n` +
-      `Amount Paid: Rs. ${parseFloat(inv.amount_paid).toLocaleString("en-IN")}\n` +
-      `Balance Due: Rs. ${parseFloat(inv.balance_due).toLocaleString("en-IN")}\n` +
-      `Status: ${(inv.payment_status || "Unpaid").toUpperCase()}\n\n` +
-      `View & Download Official Invoice PDF:\n${url}`;
-
-    window.open(`https://api.whatsapp.com/send?phone=91${inv.customer_phone}&text=${encodeURIComponent(text)}`, "_blank");
+    const text = `*TAX INVOICE: ${inv.invoice_number}*\nCustomer: ${inv.customer_name}\nSystem: ${inv.system_capacity_kw} kW (${inv.system_type})\nNet Invoice Amount: ${money(inv.net_payable_amount)}\nAmount Paid: ${money(inv.amount_paid)}\nBalance Due: ${money(inv.balance_due)}\nStatus: ${(inv.payment_status || "Unpaid").toUpperCase()}\n\nView & Download Official Invoice PDF:\n${url}`;
+    window.open(`https://api.whatsapp.com/send?phone=91${inv.customer_phone}&text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+  };
+  const openInvoice = (inv, download = false) => window.open(`/invoice/${inv.public_token}${download ? "?download=true" : ""}`, "_blank", "noopener,noreferrer");
+  const runMenuAction = (action) => {
+    const invoice = actionMenu?.invoice;
+    setActionMenu(null);
+    if (invoice) action(invoice);
   };
 
-  // KPIs
-  const totalInvoiced = invoices.reduce((acc, i) => acc + (parseFloat(i.net_payable_amount) || 0), 0);
-  const totalPaid = invoices.reduce((acc, i) => acc + (parseFloat(i.amount_paid) || 0), 0);
-  const totalBalance = invoices.reduce((acc, i) => acc + (parseFloat(i.balance_due) || 0), 0);
+  const totalInvoiced = invoices.reduce((sum, inv) => sum + (Number(inv.net_payable_amount) || 0), 0);
+  const totalPaid = invoices.reduce((sum, inv) => sum + (Number(inv.amount_paid) || 0), 0);
+  const totalBalance = invoices.reduce((sum, inv) => sum + (Number(inv.balance_due) || 0), 0);
+  const isFiltered = Boolean(appliedSearch || statusFilter !== "All");
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(invoices.length / rowsPerPage) - 1));
+  const visibleInvoices = invoices.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
+  const metrics = [
+    { label: "Total invoiced", value: money(totalInvoiced), detail: `${invoices.length} invoices in current results`, Icon: ReceiptLongIcon, color: C.blue, bg: C.blueSoft },
+    { label: "Payments received", value: money(totalPaid), detail: "Recorded invoice payments", Icon: CheckCircleIcon, color: C.green, bg: C.greenSoft },
+    { label: "Outstanding balance", value: money(totalBalance), detail: "Balance remaining to collect", Icon: PendingIcon, color: C.red, bg: C.redSoft },
+    { label: "Collection rate", value: `${totalInvoiced > 0 ? Math.round(totalPaid / totalInvoiced * 100) : 0}%`, detail: "Payments received / invoiced value", Icon: WalletIcon, color: C.amber, bg: C.amberSoft },
+  ];
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#F8FAFC", minHeight: "100vh" }}>
-      {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: COLORS.primary, letterSpacing: -0.5 }}>
-            Tax Invoices & Billing
-          </Typography>
-          <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
-            Manage commercial client invoices, advance receipts, balance settlements, and executive A4 PDFs
-          </Typography>
-        </Box>
-
-        {canCreateOrPay && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setOpenCreateModal(true)}
-            sx={{
-              bgcolor: COLORS.primary,
-              color: "#FFFFFF",
-              fontWeight: 700,
-              textTransform: "none",
-              borderRadius: "8px",
-              px: 2.5,
-              py: 1,
-              "&:hover": { bgcolor: COLORS.primaryDark },
-            }}
-          >
-            Create Tax Invoice
-          </Button>
-        )}
+    <Box sx={{ width: "100%", minWidth: 0, boxSizing: "border-box", p: { xs: 1.5, sm: 2.5, lg: 3 }, bgcolor: C.bg, "& .MuiButton-root": { textTransform: "none" } }}>
+      <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, gap: 2, mb: 3 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box sx={{ width: 48, height: 48, flexShrink: 0, borderRadius: "12px", display: "grid", placeItems: "center", bgcolor: "#FFFFFF", border: `1px solid ${C.border}`, color: C.blue }}><ReceiptLongIcon /></Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography component="h1" sx={{ fontWeight: 800, color: C.primary, fontSize: { xs: "1.3rem", md: "1.55rem" }, letterSpacing: "-0.035em", lineHeight: 1.3 }}>Invoices & billing</Typography>
+            <Typography sx={{ color: C.muted, fontSize: "0.84rem", mt: 0.4 }}>Track invoices, record payments and manage outstanding balances.</Typography>
+          </Box>
+        </Stack>
+        {canCreateOrPay && <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpenCreateModal(true)} sx={{ ...primaryButton, flexShrink: 0 }}>Create tax invoice</Button>}
       </Box>
 
-      {/* KPI Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={0} sx={{ p: 2, bgcolor: "#FFFFFF", borderRadius: "12px", border: `1px solid ${COLORS.border}` }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Box>
-                <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Total Invoiced</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.primary, mt: 0.5 }}>
-                  ₹{totalInvoiced.toLocaleString("en-IN")}
-                </Typography>
-                <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>{invoices.length} Invoices Generated</Typography>
-              </Box>
-              <Box sx={{ p: 1.2, bgcolor: COLORS.infoSoft, borderRadius: "10px", color: COLORS.info }}>
-                <ReceiptLongIcon />
-              </Box>
-            </Box>
-          </Card>
-        </Grid>
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))", xl: "repeat(4, minmax(0, 1fr))" }, gap: 2, mb: 2.5 }}>
+        {metrics.map(({ label, value, detail, Icon, color, bg }) => (
+          <Paper key={label} elevation={0} sx={{ border: `1px solid ${C.border}`, borderRadius: "13px", p: { xs: 2, md: 2.25 }, minWidth: 0 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ mb: 1.75 }}>
+              <Typography sx={{ fontSize: "0.79rem", fontWeight: 600, color: C.muted }}>{label}</Typography>
+              <Box sx={{ display: "grid", placeItems: "center", width: 36, height: 36, flexShrink: 0, bgcolor: bg, color, borderRadius: "10px" }}><Icon sx={{ fontSize: 20 }} /></Box>
+            </Stack>
+            {loading ? <Skeleton width="75%" height={37} /> : <Typography sx={{ fontSize: { xs: "1.6rem", md: "1.75rem" }, fontWeight: 800, color: label === "Outstanding balance" ? C.red : label === "Payments received" ? C.green : C.primary, letterSpacing: "-0.035em", lineHeight: 1.25, overflowWrap: "anywhere", fontVariantNumeric: "tabular-nums" }}>{loadError ? "—" : value}</Typography>}
+            <Typography sx={{ color: C.muted, fontSize: "0.72rem", mt: 0.9 }}>{loading ? "Loading invoice summary…" : loadError ? "Summary unavailable" : detail}</Typography>
+          </Paper>
+        ))}
+      </Box>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={0} sx={{ p: 2, bgcolor: "#FFFFFF", borderRadius: "12px", border: `1px solid ${COLORS.border}` }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Box>
-                <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Total Collections Paid</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.success, mt: 0.5 }}>
-                  ₹{totalPaid.toLocaleString("en-IN")}
-                </Typography>
-                <Typography variant="caption" sx={{ color: COLORS.success, fontWeight: 600 }}>Received in Bank / UPI</Typography>
-              </Box>
-              <Box sx={{ p: 1.2, bgcolor: COLORS.successSoft, borderRadius: "10px", color: COLORS.success }}>
-                <CheckCircleOutlineIcon />
-              </Box>
-            </Box>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={0} sx={{ p: 2, bgcolor: "#FFFFFF", borderRadius: "12px", border: `1px solid ${COLORS.border}` }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Box>
-                <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Outstanding Balance Due</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.danger, mt: 0.5 }}>
-                  ₹{totalBalance.toLocaleString("en-IN")}
-                </Typography>
-                <Typography variant="caption" sx={{ color: COLORS.danger, fontWeight: 600 }}>Pending Collections</Typography>
-              </Box>
-              <Box sx={{ p: 1.2, bgcolor: COLORS.dangerSoft, borderRadius: "10px", color: COLORS.danger }}>
-                <PendingActionsIcon />
-              </Box>
-            </Box>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={0} sx={{ p: 2, bgcolor: "#FFFFFF", borderRadius: "12px", border: `1px solid ${COLORS.border}` }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Box>
-                <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontWeight: 600 }}>Settlement Ratio</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.primary, mt: 0.5 }}>
-                  {totalInvoiced > 0 ? `${Math.round((totalPaid / totalInvoiced) * 100)}%` : "0%"}
-                </Typography>
-                <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Recovery Rate</Typography>
-              </Box>
-              <Box sx={{ p: 1.2, bgcolor: COLORS.warningSoft, borderRadius: "10px", color: COLORS.warning }}>
-                <AccountBalanceWalletIcon />
-              </Box>
-            </Box>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Filter and Search Bar */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          mb: 3,
-          bgcolor: "#FFFFFF",
-          borderRadius: "12px",
-          border: `1px solid ${COLORS.border}`,
-          display: "flex",
-          gap: 2,
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <Box component="form" onSubmit={handleSearchSubmit} sx={{ display: "flex", gap: 1.5, flex: 1, minWidth: 260 }}>
-          <TextField
-            size="small"
-            fullWidth
-            placeholder="Search by Invoice #, Customer Name, Phone..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: COLORS.textSecondary, fontSize: 20 }} />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              "& .MuiOutlinedInput-root": {
-                borderRadius: "8px",
-                backgroundColor: "#FAFBFC",
-              },
-            }}
-          />
-          <Button
-            type="submit"
-            variant="contained"
-            sx={{
-              bgcolor: COLORS.primary,
-              textTransform: "none",
-              borderRadius: "8px",
-              fontWeight: 600,
-            }}
-          >
-            Search
-          </Button>
+      <Paper elevation={0} sx={{ border: `1px solid ${C.border}`, borderRadius: "13px", mb: 2.5, overflow: "hidden" }}>
+        <Box component="form" onSubmit={handleSearchSubmit} sx={{ p: { xs: 1.75, md: 2 }, display: "flex", flexWrap: "wrap", gap: 1.25, alignItems: "center" }}>
+          <TextField size="small" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Invoice number, customer or phone" slotProps={{ htmlInput: { "aria-label": "Search invoices" }, input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 20, color: C.muted }} /></InputAdornment> } }} sx={{ flex: "1 1 280px", minWidth: 0, "& .MuiOutlinedInput-root": { height: 42, borderRadius: "8px", bgcolor: C.bg } }} />
+          <Button type="submit" variant="contained" sx={primaryButton}>Search</Button>
+          <Tooltip title="Refresh invoices"><IconButton aria-label="Refresh invoices" disabled={loading} onClick={refreshInvoices} sx={{ border: `1px solid ${C.border}`, borderRadius: "9px", width: 42, height: 42, color: C.muted }}><RefreshIcon fontSize="small" /></IconButton></Tooltip>
         </Box>
-
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.textSecondary }}>Status:</Typography>
-          {["All", "Paid", "Partially Paid", "Unpaid"].map((st) => (
-            <Chip
-              key={st}
-              label={st}
-              clickable
-              onClick={() => setStatusFilter(st)}
-              sx={{
-                fontWeight: 600,
-                fontSize: "0.8rem",
-                bgcolor: statusFilter === st ? COLORS.primary : "#F1F5F9",
-                color: statusFilter === st ? "#FFFFFF" : COLORS.textSecondary,
-                "&:hover": {
-                  bgcolor: statusFilter === st ? COLORS.primaryDark : "#E2E8F0",
-                },
-              }}
-            />
-          ))}
-        </Stack>
+        <Divider />
+        <Box sx={{ px: { xs: 1.75, md: 2 }, py: 1.5, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 1.5 }}>
+          <Box role="group" aria-label="Filter invoices by payment status" sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0.75 }}>
+            <Typography sx={{ fontSize: "0.75rem", color: C.muted, fontWeight: 700, mr: 0.75 }}>Payment status</Typography>
+            {["All", "Unpaid", "Partially Paid", "Paid"].map((status) => <Button key={status} size="small" aria-pressed={statusFilter === status} onClick={() => changeStatus(status)} sx={{ borderRadius: "7px", fontSize: "0.75rem", fontWeight: 700, px: 1.5, minHeight: 32, bgcolor: statusFilter === status ? C.primary : C.bg, color: statusFilter === status ? "#FFFFFF" : C.muted, "&:hover": { bgcolor: statusFilter === status ? "#020617" : C.border } }}>{status === "All" ? "All invoices" : status}</Button>)}
+          </Box>
+          {isFiltered && <Button size="small" startIcon={<ClearFiltersIcon />} onClick={clearFilters} sx={{ color: C.muted, fontSize: "0.75rem", fontWeight: 600 }}>Clear filters</Button>}
+        </Box>
       </Paper>
 
-      {/* Bulk Delete Bar */}
-      {canDeleteInvoice && (
-        <BulkDeleteBar
-          selectedCount={selectedIds.length}
-          totalCount={invoices.length}
-          itemLabel="Invoices"
-          onSelectAll={handleSelectAll}
-          onDeselectAll={handleDeselectAll}
-          isAllSelected={selectedIds.length === invoices.length && invoices.length > 0}
-          onConfirmDelete={handleBulkDelete}
-          loading={bulkDeleting}
-        />
-      )}
+      {canDeleteInvoice && <BulkDeleteBar selectedCount={selectedIds.length} totalCount={invoices.length} itemLabel="Invoices" onSelectAll={handleSelectAll} onDeselectAll={handleDeselectAll} isAllSelected={Boolean(invoices.length && selectedIds.length === invoices.length)} onConfirmDelete={handleBulkDelete} loading={bulkDeleting} />}
 
-      {/* Invoices Table */}
-      <Paper elevation={0} sx={{ borderRadius: "12px", border: `1px solid ${COLORS.border}`, overflow: "hidden" }}>
-        {loading ? (
-          <Box sx={{ p: 6, textAlign: "center" }}>
-            <CircularProgress size={36} sx={{ color: COLORS.primary }} />
-            <Typography variant="body2" sx={{ mt: 1.5, color: COLORS.textSecondary }}>
-              Loading tax invoices...
-            </Typography>
-          </Box>
-        ) : invoices.length === 0 ? (
-          <Box sx={{ p: 6, textAlign: "center" }}>
-            <ReceiptLongIcon sx={{ fontSize: 48, color: "#CBD5E1", mb: 1 }} />
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.primary }}>
-              No Invoices Found
-            </Typography>
-            <Typography variant="body2" sx={{ color: COLORS.textSecondary, mb: 2 }}>
-              Generate invoices from Quotations or click Create Tax Invoice above.
-            </Typography>
-            {canCreateOrPay && (
-              <Button
-                variant="outlined"
-                onClick={() => setOpenCreateModal(true)}
-                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600 }}
-              >
-                + Create Invoice Now
-              </Button>
-            )}
-          </Box>
+      <Paper elevation={0} sx={{ borderRadius: "13px", border: `1px solid ${C.border}`, overflow: "hidden", minWidth: 0 }}>
+        <Box sx={{ px: 2.25, py: 2, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1.25 }}>
+          <Stack direction="row" spacing={1} alignItems="center"><Typography component="h2" sx={{ fontWeight: 800, fontSize: "0.98rem", color: C.primary }}>Invoice register</Typography><Chip size="small" label={loading ? "Loading" : `${invoices.length} invoices`} sx={{ height: 23, fontSize: "0.68rem", fontWeight: 700, bgcolor: "#F1F5F9", color: C.muted }} /></Stack>
+          <Typography sx={{ fontSize: "0.73rem", color: C.muted }}>{invoices.length >= 150 ? "Latest 150 results · Use search to find older invoices" : isFiltered ? "Showing filtered results" : "Recorded invoices"} · Amounts in INR</Typography>
+        </Box>
+        <Divider />
+        {loadError ? <Box sx={{ p: 3 }}><Alert severity="error" action={<Button color="inherit" size="small" onClick={refreshInvoices}>Retry</Button>}>{loadError}</Alert></Box> : loading ? (
+          <Box aria-busy="true" aria-label="Loading invoices" sx={{ p: 2.25 }}>{Array.from({ length: 5 }, (_, index) => <Stack key={index} direction="row" spacing={2} sx={{ py: 1.5 }}><Skeleton width="25%" height={38} /><Skeleton width="30%" height={38} /><Skeleton width="20%" height={38} /><Skeleton width="25%" height={38} /></Stack>)}</Box>
+        ) : !invoices.length ? (
+          <Stack alignItems="center" sx={{ px: 2, py: 7, textAlign: "center" }}>
+            <Box sx={{ display: "grid", placeItems: "center", width: 62, height: 62, bgcolor: C.bg, borderRadius: "16px", color: "#94A3B8", mb: 2 }}><ReceiptLongIcon sx={{ fontSize: 30 }} /></Box>
+            <Typography sx={{ fontSize: "1rem", fontWeight: 800, color: C.primary }}>{isFiltered ? "No matching invoices" : "Your invoice register is ready"}</Typography>
+            <Typography sx={{ color: C.muted, fontSize: "0.83rem", maxWidth: 390, mt: 0.75, mb: 2.5 }}>{isFiltered ? "Try a different customer, invoice number or payment status." : "Create your first tax invoice or convert an existing quotation to start tracking payments."}</Typography>
+            {isFiltered ? <Button variant="outlined" onClick={clearFilters} sx={{ borderRadius: "8px" }}>Clear filters</Button> : canCreateOrPay && <Button variant="contained" startIcon={<AddIcon />} sx={primaryButton} onClick={() => setOpenCreateModal(true)}>Create tax invoice</Button>}
+          </Stack>
         ) : (
-          <TableContainer>
-            <Table sx={{ minWidth: 850 }}>
-              <TableHead sx={{ bgcolor: COLORS.primary }}>
-                <TableRow>
-                  {canDeleteInvoice && (
-                    <TableCell sx={{ color: "#FFFFFF", width: 44, p: 0.5, pl: 1.5 }}>
-                      <Checkbox
-                        size="small"
-                        indeterminate={selectedIds.length > 0 && selectedIds.length < invoices.length}
-                        checked={invoices.length > 0 && selectedIds.length === invoices.length}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedIds(invoices.map((inv) => inv.id));
-                          else setSelectedIds([]);
-                        }}
-                        sx={{
-                          color: "rgba(255,255,255,0.7)",
-                          "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#FFFFFF" },
-                        }}
-                      />
-                    </TableCell>
-                  )}
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem" }}>INVOICE #</TableCell>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem" }}>CUSTOMER / CONTACT</TableCell>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem" }}>SYSTEM SPEC</TableCell>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem", textAlign: "right" }}>NET PAYABLE</TableCell>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem", textAlign: "right" }}>PAID AMOUNT</TableCell>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem", textAlign: "right" }}>BALANCE DUE</TableCell>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem", textAlign: "center" }}>PAYMENT STATUS</TableCell>
-                  <TableCell sx={{ color: "#FFFFFF", fontWeight: 700, fontSize: "0.82rem", textAlign: "center" }}>ACTIONS</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {invoices.map((inv) => {
-                  const isPaid = inv.payment_status === "Paid";
-                  const isPartially = inv.payment_status === "Partially Paid";
-                  const bal = parseFloat(inv.balance_due) || 0;
-                  const isSelected = selectedIds.includes(inv.id);
-
-                  return (
-                    <TableRow
-                      key={inv.id}
-                      hover
-                      selected={isSelected}
-                      sx={{
-                        "&:last-child td, &:last-child th": { border: 0 },
-                        bgcolor: isSelected ? "rgba(15, 23, 42, 0.04)" : "inherit",
-                      }}
-                    >
-                      {canDeleteInvoice && (
-                        <TableCell sx={{ width: 44, p: 0.5, pl: 1.5 }}>
-                          <Checkbox
-                            size="small"
-                            checked={isSelected}
-                            onChange={() => handleToggleSelect(inv.id)}
-                            sx={{
-                              color: COLORS.border,
-                              "&.Mui-checked": { color: COLORS.primary },
-                            }}
-                          />
-                        </TableCell>
-                      )}
-                      <TableCell sx={{ fontWeight: 700, color: COLORS.primary, fontSize: "0.86rem" }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <ReceiptLongIcon sx={{ color: COLORS.info, fontSize: 18 }} />
-                          <Box>
-                            <div>{inv.invoice_number}</div>
-                            <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontSize: "0.72rem" }}>
-                              {new Date(inv.invoice_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.textPrimary }}>
-                          {inv.customer_name}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: COLORS.textSecondary, display: "block" }}>
-                          {inv.customer_phone} {inv.city ? `• ${inv.city}` : ""}
-                        </Typography>
-                      </TableCell>
-
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.textPrimary }}>
-                          {inv.system_capacity_kw} kW {inv.system_type}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: COLORS.textSecondary, display: "block", fontSize: "0.72rem" }}>
-                          {inv.panel_specs?.substring(0, 24)}...
-                        </Typography>
-                      </TableCell>
-
-                      <TableCell sx={{ textAlign: "right", fontWeight: 700, color: COLORS.primary }}>
-                        ₹{parseFloat(inv.net_payable_amount || 0).toLocaleString("en-IN")}
-                      </TableCell>
-
-                      <TableCell sx={{ textAlign: "right", fontWeight: 700, color: COLORS.success }}>
-                        ₹{parseFloat(inv.amount_paid || 0).toLocaleString("en-IN")}
-                      </TableCell>
-
-                      <TableCell sx={{ textAlign: "right", fontWeight: 700, color: bal > 0 ? COLORS.danger : COLORS.success }}>
-                        ₹{bal.toLocaleString("en-IN")}
-                      </TableCell>
-
-                      <TableCell sx={{ textAlign: "center" }}>
-                        <Chip
-                          size="small"
-                          label={inv.payment_status || "Unpaid"}
-                          sx={{
-                            fontWeight: 700,
-                            fontSize: "0.75rem",
-                            bgcolor: isPaid ? COLORS.successSoft : isPartially ? COLORS.warningSoft : COLORS.dangerSoft,
-                            color: isPaid ? COLORS.success : isPartially ? COLORS.warning : COLORS.danger,
-                          }}
-                        />
-                      </TableCell>
-
-                      <TableCell sx={{ textAlign: "center" }}>
-                        <Stack direction="row" spacing={0.5} justifyContent="center">
-                          {/* Record Payment (if balance remains & authorized) */}
-                          {bal > 0 && canCreateOrPay && (
-                            <Tooltip title="Record Payment Installment">
-                              <IconButton
-                                size="small"
-                                onClick={() => setSelectedInvoiceForPayment(inv)}
-                                sx={{ color: COLORS.success, bgcolor: COLORS.successSoft, "&:hover": { bgcolor: "#BBF7D0" } }}
-                              >
-                                <PaymentIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-
-                          {/* Browser View */}
-                          <Tooltip title="Browser View ↗">
-                            <IconButton
-                              size="small"
-                              onClick={() => window.open(`/invoice/${inv.public_token}`, "_blank")}
-                              sx={{ color: COLORS.primary, bgcolor: "#F1F5F9", "&:hover": { bgcolor: "#E2E8F0" } }}
-                            >
-                              <OpenInNewIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-
-                          {/* Download 1-Page PDF */}
-                          <Tooltip title="Download 1-Page PDF">
-                            <IconButton
-                              size="small"
-                              onClick={() => window.open(`/invoice/${inv.public_token}?download=true`, "_blank")}
-                              sx={{ color: COLORS.info, bgcolor: COLORS.infoSoft, "&:hover": { bgcolor: "#BAE6FD" } }}
-                            >
-                              <PictureAsPdfIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-
-                          {/* WhatsApp Share */}
-                          <Tooltip title="Share via WhatsApp">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleShareWhatsApp(inv)}
-                              sx={{ color: "#25D366", bgcolor: "#DCFCE7", "&:hover": { bgcolor: "#BBF7D0" } }}
-                            >
-                              <WhatsAppIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-
-                          {/* Copy Link */}
-                          <Tooltip title="Copy Link">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleCopyLink(inv.public_token)}
-                              sx={{ color: COLORS.textSecondary }}
-                            >
-                              <ContentCopyIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-
-                          {/* Delete (Super Admin only) */}
-                          {canDeleteInvoice && (
-                            <Tooltip title="Delete Invoice">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleDelete(inv.id)}
-                                sx={{ color: COLORS.danger }}
-                              >
-                                <DeleteOutlineIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <>
+            <TableContainer sx={{ width: "100%", overflowX: "auto" }}>
+              <Table aria-label="Invoice register" sx={{ minWidth: 1210, "& th": { bgcolor: C.bg, color: C.muted, fontSize: "0.68rem", fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", whiteSpace: "nowrap", borderBottom: `1px solid ${C.border}`, py: 1.5 }, "& td": { py: 2, fontSize: "0.81rem", borderColor: "#EEF2F6" }, "& td, & th": { px: 2 }, "& .money-cell": { fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontWeight: 700 } }}>
+                <TableHead><TableRow>
+                  {canDeleteInvoice && <TableCell padding="checkbox" sx={{ width: 44 }}><Checkbox size="small" slotProps={{ input: { "aria-label": "Select all invoices in current results" } }} indeterminate={selectedIds.length > 0 && selectedIds.length < invoices.length} checked={Boolean(invoices.length && selectedIds.length === invoices.length)} onChange={(event) => event.target.checked ? handleSelectAll() : handleDeselectAll()} /></TableCell>}
+                  <TableCell>Invoice / date</TableCell><TableCell>Customer</TableCell><TableCell>Solar system</TableCell><TableCell align="right">Invoice value</TableCell><TableCell align="right">Received</TableCell><TableCell align="right">Balance due</TableCell><TableCell>Payment status</TableCell><TableCell align="right">Actions</TableCell>
+                </TableRow></TableHead>
+                <TableBody>{visibleInvoices.map((invoice) => {
+                  const paid = invoice.payment_status === "Paid";
+                  const partial = invoice.payment_status === "Partially Paid";
+                  const balance = Number(invoice.balance_due) || 0;
+                  const selected = selectedIds.includes(invoice.id);
+                  return <TableRow key={invoice.id} hover selected={selected} sx={{ verticalAlign: "middle", "&:last-child td": { borderBottom: 0 }, "&:hover": { bgcolor: C.bg } }}>
+                    {canDeleteInvoice && <TableCell padding="checkbox"><Checkbox size="small" checked={selected} onChange={() => handleToggleSelect(invoice.id)} slotProps={{ input: { "aria-label": `Select invoice ${invoice.invoice_number}` } }} /></TableCell>}
+                    <TableCell><Button disabled={!invoice.public_token} onClick={() => openInvoice(invoice)} sx={{ p: 0, minWidth: 0, justifyContent: "flex-start", fontWeight: 800, fontSize: "0.81rem", color: C.primary, whiteSpace: "nowrap", "&:hover": { bgcolor: "transparent", color: C.blue } }}>{invoice.invoice_number || "Invoice"}</Button><Typography sx={{ fontSize: "0.71rem", color: C.muted, mt: 0.4, whiteSpace: "nowrap" }}>{dateLabel(invoice.invoice_date)}</Typography></TableCell>
+                    <TableCell sx={{ maxWidth: 245 }}><Typography sx={{ color: C.text, fontWeight: 700, fontSize: "0.83rem", overflowWrap: "anywhere" }}>{invoice.customer_name || "Customer not recorded"}</Typography><Typography sx={{ color: C.muted, fontSize: "0.72rem", mt: 0.4 }}>{invoice.customer_phone || "No phone"}{invoice.city ? ` · ${invoice.city}` : ""}</Typography></TableCell>
+                    <TableCell sx={{ maxWidth: 210 }}><Stack direction="row" spacing={0.6} alignItems="center"><SolarIcon sx={{ fontSize: 16, color: C.muted }} /><Typography sx={{ fontSize: "0.8rem", fontWeight: 700, color: C.text, whiteSpace: "nowrap" }}>{invoice.system_capacity_kw ? `${invoice.system_capacity_kw} kW` : "Capacity not set"}</Typography></Stack><Typography sx={{ color: C.muted, fontSize: "0.71rem", mt: 0.4 }}>{invoice.system_type || "Type not set"}</Typography>{invoice.panel_specs && <Typography title={invoice.panel_specs} noWrap sx={{ maxWidth: 175, fontSize: "0.68rem", color: C.muted, mt: 0.25 }}>{invoice.panel_specs}</Typography>}</TableCell>
+                    <TableCell align="right" className="money-cell" sx={{ color: C.primary }}>{money(invoice.net_payable_amount)}</TableCell>
+                    <TableCell align="right" className="money-cell" sx={{ color: C.green }}>{money(invoice.amount_paid)}</TableCell>
+                    <TableCell align="right" className="money-cell" sx={{ color: balance > 0 ? C.red : C.muted }}>{money(balance)}</TableCell>
+                    <TableCell><Chip size="small" label={invoice.payment_status || "Unpaid"} sx={{ height: 26, borderRadius: "6px", fontWeight: 700, fontSize: "0.69rem", bgcolor: paid ? C.greenSoft : partial ? C.amberSoft : C.redSoft, color: paid ? C.green : partial ? C.amber : C.red }} /></TableCell>
+                    <TableCell align="right"><Stack direction="row" spacing={0.75} alignItems="center" justifyContent="flex-end">
+                      {balance > 0 && canCreateOrPay && <Button size="small" startIcon={<PaymentIcon sx={{ fontSize: "16px !important" }} />} onClick={() => setSelectedInvoiceForPayment(invoice)} sx={{ whiteSpace: "nowrap", borderRadius: "7px", minHeight: 33, px: 1, fontSize: "0.71rem", fontWeight: 700, bgcolor: C.greenSoft, color: "#15803D", "&:hover": { bgcolor: "#BBF7D0" } }}>Record payment</Button>}
+                      <Tooltip title="Invoice actions"><IconButton aria-label={`Actions for invoice ${invoice.invoice_number}`} aria-haspopup="menu" aria-expanded={actionMenu?.invoice.id === invoice.id ? true : undefined} onClick={(event) => setActionMenu({ anchorEl: event.currentTarget, invoice })} sx={{ width: 33, height: 33, borderRadius: "7px", border: `1px solid ${C.border}`, color: C.muted }}><MoreIcon fontSize="small" /></IconButton></Tooltip>
+                    </Stack></TableCell>
+                  </TableRow>;
+                })}</TableBody>
+              </Table>
+            </TableContainer>
+            <Divider />
+            <TablePagination component="div" count={invoices.length} page={currentPage} rowsPerPage={rowsPerPage} rowsPerPageOptions={[10, 25, 50, 100]} onPageChange={(_, nextPage) => setPage(nextPage)} onRowsPerPageChange={(event) => { setRowsPerPage(Number(event.target.value)); setPage(0); }} sx={{ "& .MuiTablePagination-toolbar": { flexWrap: "wrap", justifyContent: "flex-end", px: { xs: 1, sm: 2 } }, "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows": { fontSize: "0.73rem", color: C.muted } }} />
+          </>
         )}
       </Paper>
 
-      {/* Convert / Create Invoice Modal */}
-      <ConvertInvoiceModal
-        open={openCreateModal}
-        onClose={() => setOpenCreateModal(false)}
-        onInvoiceCreated={() => fetchInvoices()}
-      />
-
-      {/* Record Payment Installment Modal */}
-      {selectedInvoiceForPayment && (
-        <RecordPaymentModal
-          open={Boolean(selectedInvoiceForPayment)}
-          invoice={selectedInvoiceForPayment}
-          onClose={() => setSelectedInvoiceForPayment(null)}
-          onPaymentRecorded={() => {
-            fetchInvoices();
-            setSelectedInvoiceForPayment(null);
-          }}
-        />
-      )}
+      <Menu anchorEl={actionMenu?.anchorEl || null} open={Boolean(actionMenu)} onClose={() => setActionMenu(null)} anchorOrigin={{ vertical: "bottom", horizontal: "right" }} transformOrigin={{ vertical: "top", horizontal: "right" }} slotProps={{ paper: { sx: { minWidth: 210, mt: 0.75, p: 0.5, border: `1px solid ${C.border}`, borderRadius: "10px", boxShadow: "0 12px 32px rgba(15,23,42,0.12)", "& .MuiMenuItem-root": { borderRadius: "6px", minHeight: 40 }, "& .MuiListItemText-primary": { fontSize: "0.8rem" } } } }}>
+        <MenuItem disabled={!actionMenu?.invoice.public_token} onClick={() => runMenuAction((invoice) => openInvoice(invoice))}><ListItemIcon><OpenInNewIcon fontSize="small" sx={{ color: C.blue }} /></ListItemIcon><ListItemText>View invoice</ListItemText></MenuItem>
+        <MenuItem disabled={!actionMenu?.invoice.public_token} onClick={() => runMenuAction((invoice) => openInvoice(invoice, true))}><ListItemIcon><PictureAsPdfIcon fontSize="small" sx={{ color: C.red }} /></ListItemIcon><ListItemText>Download PDF</ListItemText></MenuItem>
+        <MenuItem disabled={!actionMenu?.invoice.public_token || !actionMenu?.invoice.customer_phone} onClick={() => runMenuAction(handleShareWhatsApp)}><ListItemIcon><WhatsAppIcon fontSize="small" sx={{ color: C.green }} /></ListItemIcon><ListItemText>Share via WhatsApp</ListItemText></MenuItem>
+        <MenuItem onClick={() => runMenuAction(handleSendEmail)}><ListItemText>Send invoice by email</ListItemText></MenuItem>
+        <MenuItem disabled={!actionMenu?.invoice.public_token} onClick={() => runMenuAction((invoice) => handleCopyLink(invoice.public_token))}><ListItemIcon><ContentCopyIcon fontSize="small" /></ListItemIcon><ListItemText>Copy invoice link</ListItemText></MenuItem>
+        {canDeleteInvoice && <Divider />}
+        {canDeleteInvoice && <MenuItem onClick={() => runMenuAction((invoice) => handleDelete(invoice.id))} sx={{ color: C.red }}><ListItemIcon><DeleteOutlineIcon fontSize="small" sx={{ color: C.red }} /></ListItemIcon><ListItemText>Delete invoice</ListItemText></MenuItem>}
+      </Menu>
+      <ConvertInvoiceModal open={openCreateModal} onClose={() => setOpenCreateModal(false)} onInvoiceCreated={refreshInvoices} />
+      {selectedInvoiceForPayment && <RecordPaymentModal open invoice={selectedInvoiceForPayment} onClose={() => setSelectedInvoiceForPayment(null)} onPaymentRecorded={() => { refreshInvoices(); setSelectedInvoiceForPayment(null); }} />}
     </Box>
   );
-};
-
-export default InvoiceList;
+}

@@ -1,3 +1,4 @@
+const managerScope=require("../utils/managerScope");
 const { db: defaultDb } = require("../config/db");
 
 // Auto-ensure subsidy_applications, customer_documents, and subsidy_rejection_logs tables
@@ -80,6 +81,7 @@ const ensureSubsidyTables = async (db = defaultDb) => {
 
     // Ensure columns exist if table was created previously without them
     const cols = [
+      { name: "sanctioned_capacity_kw", type: "DECIMAL(10,3) DEFAULT NULL" },
       { name: "discom_name", type: "VARCHAR(100) DEFAULT 'JVVNL'" },
       { name: "discom_division", type: "VARCHAR(100) DEFAULT NULL" },
       { name: "bank_name", type: "VARCHAR(100) DEFAULT NULL" },
@@ -185,9 +187,12 @@ const applySubsidy = async (data, db = defaultDb) => {
   const dcrFlag = is_dcr_compliant === false || is_dcr_compliant === 0 || is_dcr_compliant === "0" ? 0 : 1;
 
   const [existing] = await db.query(
-    `SELECT id, portal_status FROM subsidy_applications WHERE lead_id = ? LIMIT 1`,
+    `SELECT id, portal_status, sanctioned_capacity_kw FROM subsidy_applications WHERE lead_id = ? LIMIT 1`,
     [lead_id]
   );
+
+  const sanctionedCapacity = data.sanctioned_capacity_kw === undefined ? (existing[0]?.sanctioned_capacity_kw ?? null) : (data.sanctioned_capacity_kw === "" || data.sanctioned_capacity_kw === null ? null : Number(data.sanctioned_capacity_kw));
+  if (sanctionedCapacity !== null && (!Number.isFinite(Number(sanctionedCapacity)) || Number(sanctionedCapacity) <= 0 || Number(sanctionedCapacity) > 9999999.999)) throw new Error("Invalid sanctioned capacity.");
 
   let appId;
   if (existing.length > 0) {
@@ -200,6 +205,7 @@ const applySubsidy = async (data, db = defaultDb) => {
         project_order_id = ?,
         consumer_number = ?,
         application_number = ?,
+        sanctioned_capacity_kw = ?,
         scheme_name = ?,
         portal_status = ?,
         submission_date = ?,
@@ -233,6 +239,7 @@ const applySubsidy = async (data, db = defaultDb) => {
         orderId,
         consumer_number,
         application_number || null,
+        sanctionedCapacity,
         scheme_name || "PM Surya Ghar Muft Bijli Yojana",
         status,
         submission_date || null,
@@ -266,7 +273,7 @@ const applySubsidy = async (data, db = defaultDb) => {
     const [res] = await db.query(
       `
       INSERT INTO subsidy_applications (
-        lead_id, project_order_id, consumer_number, application_number,
+        lead_id, project_order_id, consumer_number, application_number, sanctioned_capacity_kw,
         scheme_name, portal_status, submission_date, approval_date,
         subsidy_amount, portal_notes, discom_name, discom_division,
         bank_name, bank_account_no, bank_ifsc, bank_account_holder,
@@ -274,13 +281,14 @@ const applySubsidy = async (data, db = defaultDb) => {
         inverter_make_model, inverter_serial_number, expected_subsidy,
         amount_received, credit_date, utr_number, customer_total_cost,
         customer_amount_paid, customer_balance, sla_expected_days, stage_started_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       `,
       [
         lead_id,
         orderId,
         consumer_number,
         application_number || null,
+        sanctionedCapacity,
         scheme_name || "PM Surya Ghar Muft Bijli Yojana",
         status,
         submission_date || null,
@@ -570,7 +578,7 @@ const getAllSubsidies = async (params = {}, db = defaultDb) => {
   const { page = 1, limit = 20, search = "", status = "All" } = params;
   const offset = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
 
-  let whereClauses = ["1=1"];
+  let whereClauses = ["1=1"+managerScope.lead(db,"l")];
   let queryParams = [];
 
   if (search && search.trim() !== "") {
@@ -666,6 +674,7 @@ const getAllSubsidies = async (params = {}, db = defaultDb) => {
       SUM(COALESCE(s.amount_received, 0)) AS total_disbursed_subsidy
     FROM leads l
     LEFT JOIN subsidy_applications s ON s.lead_id = l.id
+    WHERE l.is_deleted=0${managerScope.lead(db,"l")}
   `);
 
   return {

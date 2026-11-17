@@ -1,3 +1,5 @@
+const { solarTax } = require("../utils/solarTax");
+const ensureTaxColumns = require("../utils/ensureTaxColumns");
 const { db: defaultDb } = require("../config/db");
 const crypto = require("crypto");
 
@@ -104,19 +106,23 @@ const generateInvoiceNumber = async (db = defaultDb) => {
 // Create Invoice
 const createInvoice = async (data, createdBy = null, db = defaultDb) => {
   await ensureInvoiceTables(db);
+  await ensureTaxColumns(db, "invoices");
   const invoiceNumber = data.invoice_number || (await generateInvoiceNumber(db));
   const publicToken = crypto.randomBytes(24).toString("hex");
 
   const numBase = parseFloat(data.base_amount) || 0;
   const numInstall = parseFloat(data.installation_amount) || 0;
   const numDiscount = parseFloat(data.discount_amount) || 0;
-  const numGstRate = parseFloat(data.gst_rate) || 13.80;
+  const gstMode = data.gst_mode || "itemised";
+  if (Array.isArray(data.line_items) && data.line_items.some(item => !Number.isFinite(Number(item.quantity)) || Number(item.quantity) <= 0 || !Number.isFinite(Number(item.unit_price)) || Number(item.unit_price) < 0 || !Number.isFinite(Number(item.gst_rate)) || Number(item.gst_rate) < 0 || Number(item.gst_rate) > 100)) throw new Error("Invalid invoice line item pricing or GST rate.");
+  const numGstRate = gstMode === "solar_composite" ? 8.9 : Number(data.gst_rate ?? 13.80);
   const numSubsidy = parseFloat(data.subsidy_amount) || 0;
 
   const taxableAmount = Math.max(0, numBase + numInstall - numDiscount);
-  const gstAmount = Math.round((taxableAmount * numGstRate) / 100);
-  const halfGst = Math.round(gstAmount / 2);
-  const grossTotal = taxableAmount + gstAmount;
+  const tax = solarTax({ mode: gstMode, subtotal: numBase + numInstall, discount: numDiscount, rate: numGstRate, items: Array.isArray(data.line_items) ? data.line_items : [] });
+  const gstAmount = tax.gst;
+  const halfGst = Math.round(gstAmount * 50) / 100;
+  const grossTotal = tax.total;
   const netPayable = Math.max(0, grossTotal - numSubsidy);
 
   const amountPaid = parseFloat(data.amount_paid) || 0;
@@ -147,8 +153,8 @@ const createInvoice = async (data, createdBy = null, db = defaultDb) => {
       gst_rate, cgst_amount, sgst_amount, igst_amount, gst_amount,
       gross_total, subsidy_amount, net_payable_amount,
       amount_paid, balance_due, payment_status, payment_mode, payment_reference, payment_date,
-      invoice_date, due_date, line_items, terms_and_conditions, notes, created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      invoice_date, due_date, line_items, terms_and_conditions, notes, created_by, gst_mode, gst_summary_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
@@ -175,7 +181,7 @@ const createInvoice = async (data, createdBy = null, db = defaultDb) => {
     taxableAmount,
     numGstRate,
     halfGst,
-    halfGst,
+    Math.round((gstAmount - halfGst) * 100) / 100,
     0, // igst
     gstAmount,
     grossTotal,
@@ -193,6 +199,7 @@ const createInvoice = async (data, createdBy = null, db = defaultDb) => {
     data.terms_and_conditions || null,
     data.notes || null,
     createdBy,
+    gstMode, JSON.stringify(tax),
   ];
 
   const [result] = await db.query(sql, values);
@@ -260,13 +267,8 @@ const getInvoices = async (filters = {}, db = defaultDb) => {
     sql += ` AND (inv.created_by = ? OR l.assigned_to = ?)`;
     params.push(user_id, user_id);
   } else if (roleIdNum === 2) { // Manager: see invoices for team or created by self
-    sql += ` AND (
-      inv.created_by = ? 
-      OR inv.created_by IN (SELECT id FROM users WHERE manager_id = ?) 
-      OR l.assigned_to = ? 
-      OR l.assigned_to IN (SELECT id FROM users WHERE manager_id = ?)
-    )`;
-    params.push(user_id, user_id, user_id, user_id);
+    sql += ` AND l.is_deleted=0 AND l.assigned_to IN (SELECT id FROM users WHERE manager_id=? AND role_id=3 AND is_deleted=0)`;
+    params.push(user_id);
   }
 
   if (payment_status && payment_status !== "All") {

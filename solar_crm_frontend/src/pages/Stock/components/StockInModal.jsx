@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, MenuItem, Grid, Typography, IconButton,
@@ -7,7 +7,6 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import toast from "react-hot-toast";
 
 import { createStockTransaction, getStockItemByBarcode } from "../../../services/stockService";
@@ -269,7 +268,7 @@ const StockInModal = ({ open, onClose, onSuccess, items = [], preSelectedItem = 
             {!preSelectedItem && (
               <>
                 {/* Barcode Quick Scan / Key-in Picker */}
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Box sx={{ mb: 1, display: "flex", gap: 1 }}>
                     <TextField
                       placeholder="Scan QR or type barcode to auto-select item..."
@@ -313,7 +312,7 @@ const StockInModal = ({ open, onClose, onSuccess, items = [], preSelectedItem = 
                   </Box>
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <FieldLabel>Select Stock Item *</FieldLabel>
                   <TextField
                     select
@@ -335,7 +334,7 @@ const StockInModal = ({ open, onClose, onSuccess, items = [], preSelectedItem = 
             </>
           )}
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FieldLabel>Inward Quantity *</FieldLabel>
               <TextField
                 name="quantity"
@@ -350,7 +349,7 @@ const StockInModal = ({ open, onClose, onSuccess, items = [], preSelectedItem = 
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FieldLabel>Purchase Unit Price (₹)</FieldLabel>
               <TextField
                 name="unit_price"
@@ -364,7 +363,7 @@ const StockInModal = ({ open, onClose, onSuccess, items = [], preSelectedItem = 
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FieldLabel>Reference Type</FieldLabel>
               <TextField
                 select
@@ -381,7 +380,7 @@ const StockInModal = ({ open, onClose, onSuccess, items = [], preSelectedItem = 
               </TextField>
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FieldLabel>Vendor / Supplier Name</FieldLabel>
               <TextField
                 name="vendor_name"
@@ -394,7 +393,7 @@ const StockInModal = ({ open, onClose, onSuccess, items = [], preSelectedItem = 
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FieldLabel>Vendor Invoice / Bill No</FieldLabel>
               <TextField
                 name="vendor_invoice"
@@ -407,7 +406,7 @@ const StockInModal = ({ open, onClose, onSuccess, items = [], preSelectedItem = 
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <FieldLabel>Remarks / Notes</FieldLabel>
               <TextField
                 name="notes"

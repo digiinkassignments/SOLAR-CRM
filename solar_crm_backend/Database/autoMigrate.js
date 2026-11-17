@@ -38,11 +38,20 @@ async function autoMigrateAllTenants() {
       database: "db_digiink_master",
     });
 
-    // Fetch all active tenants
-    const [clients] = await masterConn.query(
-      "SELECT id, client_code, db_name FROM clients WHERE status != 'Deleted'"
-    );
-    const tenantList = clients.map((c) => c.db_name);
+    let tenantList = [];
+    try {
+      const [clients] = await masterConn.query(
+        "SELECT id, client_code, db_name FROM clients WHERE status != 'Deleted'"
+      );
+      tenantList = clients.map((c) => c.db_name).filter(Boolean);
+    } catch (_) {}
+
+    try {
+      const [dbs] = await masterConn.query("SHOW DATABASES LIKE 'db_client_%'");
+      const discoveredList = dbs.map((r) => Object.values(r)[0]);
+      tenantList = [...tenantList, ...discoveredList];
+    } catch (_) {}
+
     const defaultDb = process.env.DB_NAME || "solar_crm";
     targetDbs = Array.from(new Set([defaultDb, ...tenantList]));
   } catch (mErr) {

@@ -6,9 +6,11 @@ const defaultDb = dbConfig.db || dbConfig.defaultDb;
 const getAllProjects = async (req, res) => {
   try {
     const db = req.db || defaultDb;
+    const isEngineer = Number(req.user?.role_id) === 4;
     const filters = {
       stage: req.query.stage,
       assigned_to: req.query.assigned_to,
+      engineer_id: isEngineer && req.query.assigned_to !== 'All' ? req.user.id : null,
       search: req.query.search,
       page: parseInt(req.query.page, 10) || 1,
       limit: parseInt(req.query.limit, 10) || 15,
@@ -204,6 +206,37 @@ const getProjectStats = async (req, res) => {
   }
 };
 
+// 8. Get Completed Surveys ready for project creation
+const getCompletedSurveysHandler = async (req, res) => {
+  try {
+    const db = req.db || defaultDb;
+    const [rows] = await db.query(`
+      SELECT s.id AS survey_id, s.lead_id, s.scheduled_date, s.feasibility_verdict,
+             s.proposed_capacity_kw, s.roof_type, s.roof_area_sqft, s.electrical_phase,
+             s.assigned_engineer_id, u.full_name AS engineer_name,
+             l.lead_code, l.customer_name, l.mobile_number, l.address, l.city, l.state, l.pincode, l.required_kw,
+             p.id AS project_id, p.project_number
+      FROM site_surveys s
+      JOIN leads l ON s.lead_id = l.id
+      LEFT JOIN users u ON s.assigned_engineer_id = u.id
+      LEFT JOIN projects p ON (p.lead_id = s.lead_id AND p.is_deleted = 0)
+      WHERE s.status = 'completed' AND l.is_deleted = 0
+      ORDER BY s.id DESC
+      LIMIT 100
+    `);
+    return res.json({
+      success: true,
+      data: rows,
+    });
+  } catch (error) {
+    console.error("getCompletedSurveysHandler error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   getAllProjects,
   getProjectById,
@@ -212,4 +245,5 @@ module.exports = {
   updateProject,
   deleteProject,
   getProjectStats,
+  getCompletedSurveysHandler,
 };

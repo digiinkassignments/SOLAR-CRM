@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -13,19 +13,15 @@ import {
   Stack,
   MenuItem,
   Select,
-  FormControl,
   Breadcrumbs,
   Skeleton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Divider,
-  CircularProgress,
   Switch,
   FormControlLabel,
   Alert,
-  AlertTitle,
 } from "@mui/material";
 
 // Icons (100% Professional MUI Icons — Zero Emojis)
@@ -35,11 +31,8 @@ import NavigateNextRoundedIcon from "@mui/icons-material/NavigateNextRounded";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
 import CheckCircleOutlinedIcon from "@mui/icons-material/CheckCircleOutlined";
-import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
-import HourglassEmptyOutlinedIcon from "@mui/icons-material/HourglassEmptyOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
-import CreditCardOutlinedIcon from "@mui/icons-material/CreditCardOutlined";
 import ElectricBoltOutlinedIcon from "@mui/icons-material/ElectricBoltOutlined";
 import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
 import CameraAltOutlinedIcon from "@mui/icons-material/CameraAltOutlined";
@@ -55,13 +48,9 @@ import ErrorOutlineOutlinedIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import TimerOutlinedIcon from "@mui/icons-material/TimerOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import SolarPowerOutlinedIcon from "@mui/icons-material/SolarPowerOutlined";
-import AccountTreeOutlinedIcon from "@mui/icons-material/AccountTreeOutlined";
-import AttachMoneyOutlinedIcon from "@mui/icons-material/AttachMoneyOutlined";
-import HistoryIcon from "@mui/icons-material/History";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
-import DoneAllIcon from "@mui/icons-material/DoneAll";
 
+import FinanceWorkspace from "../../Finance/FinanceWorkspace";
 import DocumentCaptureModal from "../../../components/DocumentCaptureModal";
 import toast from "react-hot-toast";
 import api from "../../../utils/api";
@@ -123,7 +112,7 @@ const PORTAL_STAGES = [
     owner: "Customer",
     ownerType: "customer",
     expectedDays: 3,
-    chase: "Customer (Log in to solarrooftop.gov.in & select vendor)",
+    chase: "Customer (Log in to the PM Surya Ghar portal & select vendor)",
     requiredDocs: [],
   },
   {
@@ -282,6 +271,8 @@ const REQUIRED_DOC_TYPES = [
 export default function SubsidyDetail() {
   const { leadId } = useParams();
   const navigate = useNavigate();
+  const hubPath = window.location.pathname.startsWith("/manager/") ? "/manager/subsidies" : "/subsidies";
+  const dashboardPath = hubPath.startsWith("/manager/") ? "/manager/dashboard" : "/dashboard";
 
   // Data states
   const [lead, setLead] = useState(null);
@@ -289,7 +280,9 @@ export default function SubsidyDetail() {
   const [portalLogs, setPortalLogs] = useState([]);
   const [rejections, setRejections] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
+  const saveInFlight = useRef(false);
   const [uploadingType, setUploadingType] = useState(null);
   const [documents, setDocuments] = useState([]);
 
@@ -322,26 +315,27 @@ export default function SubsidyDetail() {
   const [formData, setFormData] = useState({
     consumer_number: "",
     application_number: "",
-    scheme_name: "PM Surya Ghar Muft Bijli Yojana",
+    sanctioned_capacity_kw: "",
+    scheme_name: "",
     portal_status: "registered",
-    discom_name: "JVVNL",
+    discom_name: "",
     discom_division: "",
     bank_name: "",
     bank_account_no: "",
     bank_ifsc: "",
     bank_account_holder: "",
-    panel_make_model: "Waaree 540W Mono PERC",
+    panel_make_model: "",
     panel_serial_numbers: "",
-    is_dcr_compliant: 1,
-    inverter_make_model: "Growatt 5kW On-Grid",
+    is_dcr_compliant: 0,
+    inverter_make_model: "",
     inverter_serial_number: "",
-    expected_subsidy: "78000",
-    amount_received: "0",
+    expected_subsidy: "",
+    amount_received: "",
     credit_date: "",
     utr_number: "",
-    customer_total_cost: "220000",
-    customer_amount_paid: "220000",
-    customer_balance: "0",
+    customer_total_cost: "",
+    customer_amount_paid: "",
+    customer_balance: "",
     sla_expected_days: 2,
     stage_started_at: null,
     submission_date: "",
@@ -353,6 +347,7 @@ export default function SubsidyDetail() {
   const fetchData = useCallback(async () => {
     if (!leadId) return;
     setLoading(true);
+    setLoadError("");
     try {
       // 1. Fetch Lead Details
       let leadObj = null;
@@ -361,12 +356,12 @@ export default function SubsidyDetail() {
         if (leadRes.data?.success) {
           leadObj = leadRes.data.data;
         }
-      } catch (e) {
+      } catch {
         try {
           const allRes = await api.get("/leads");
           const list = allRes.data?.data?.leads || allRes.data?.data || [];
           leadObj = list.find((l) => String(l.id) === String(leadId)) || null;
-        } catch (e2) {}
+        } catch { /* The customer-not-found state below handles both lookup failures. */ }
       }
 
       setLead(leadObj);
@@ -392,26 +387,27 @@ export default function SubsidyDetail() {
           setFormData({
             consumer_number: app.consumer_number || "",
             application_number: app.application_number || "",
-            scheme_name: app.scheme_name || "PM Surya Ghar Muft Bijli Yojana",
+            sanctioned_capacity_kw: app.sanctioned_capacity_kw ?? "",
+            scheme_name: app.scheme_name || "",
             portal_status: app.portal_status || "registered",
-            discom_name: app.discom_name || "JVVNL",
+            discom_name: app.discom_name || "",
             discom_division: app.discom_division || "",
             bank_name: app.bank_name || "",
             bank_account_no: app.bank_account_no || "",
             bank_ifsc: app.bank_ifsc || "",
             bank_account_holder: app.bank_account_holder || leadObj?.customer_name || leadObj?.name || "",
-            panel_make_model: app.panel_make_model || "Waaree 540W Mono PERC",
+            panel_make_model: app.panel_make_model || "",
             panel_serial_numbers: app.panel_serial_numbers || "",
-            is_dcr_compliant: app.is_dcr_compliant !== undefined ? Number(app.is_dcr_compliant) : 1,
-            inverter_make_model: app.inverter_make_model || "Growatt 5kW On-Grid",
+            is_dcr_compliant: app.is_dcr_compliant !== undefined ? Number(app.is_dcr_compliant) : 0,
+            inverter_make_model: app.inverter_make_model || "",
             inverter_serial_number: app.inverter_serial_number || "",
-            expected_subsidy: app.expected_subsidy !== undefined ? String(app.expected_subsidy) : "78000",
-            amount_received: app.amount_received !== undefined ? String(app.amount_received) : "0",
+            expected_subsidy: app.expected_subsidy !== undefined ? String(app.expected_subsidy) : "",
+            amount_received: app.amount_received !== undefined && app.amount_received !== null ? String(app.amount_received) : "",
             credit_date: app.credit_date ? String(app.credit_date).slice(0, 10) : "",
             utr_number: app.utr_number || "",
-            customer_total_cost: app.customer_total_cost !== undefined ? String(app.customer_total_cost) : (app.deal_amount ? String(app.deal_amount) : "220000"),
-            customer_amount_paid: app.customer_amount_paid !== undefined ? String(app.customer_amount_paid) : "0",
-            customer_balance: app.customer_balance !== undefined ? String(app.customer_balance) : "220000",
+            customer_total_cost: app.customer_total_cost !== undefined && app.customer_total_cost !== null ? String(app.customer_total_cost) : (app.deal_amount ? String(app.deal_amount) : ""),
+            customer_amount_paid: app.customer_amount_paid !== undefined && app.customer_amount_paid !== null ? String(app.customer_amount_paid) : "",
+            customer_balance: app.customer_balance !== undefined && app.customer_balance !== null ? String(app.customer_balance) : "",
             sla_expected_days: app.sla_expected_days || 2,
             stage_started_at: app.stage_started_at || null,
             submission_date: app.submission_date ? String(app.submission_date).slice(0, 10) : "",
@@ -422,7 +418,7 @@ export default function SubsidyDetail() {
       }
     } catch (err) {
       console.error("fetchData error:", err);
-      toast.error("Failed to load subsidy details");
+      setLoadError(err.response?.data?.message || "Unable to load the subsidy file. Please retry.");
     } finally {
       setLoading(false);
     }
@@ -433,12 +429,12 @@ export default function SubsidyDetail() {
   }, [fetchData]);
 
   // Copy helper with feedback
-  const handleCopyText = (key, text, label) => {
+  const handleCopyText = async (key, text, label) => {
     if (!text) {
       toast.error(`${label} is empty.`);
       return;
     }
-    navigator.clipboard.writeText(String(text));
+    try { await navigator.clipboard.writeText(String(text)); } catch { toast.error("Clipboard permission unavailable."); return; }
     setCopiedKey(key);
     toast.success(`Copied ${label} to clipboard!`);
     setTimeout(() => {
@@ -447,18 +443,19 @@ export default function SubsidyDetail() {
   };
 
   // Copy Full Portal Data Pack
-  const handleCopyAllPortalData = () => {
+  const handleCopyAllPortalData = async () => {
     const custName = formData.bank_account_holder || lead?.customer_name || lead?.name || "N/A";
     const fullAddr = [lead?.address, lead?.city, lead?.state, lead?.pincode].filter(Boolean).join(", ") || "N/A";
-    const cap = projectInfo?.capacity || lead?.system_capacity || "3.50 kW";
+    const cap = projectInfo?.capacity || lead?.system_capacity || "Not recorded";
 
     const text = `=== PM SURYA GHAR NATIONAL PORTAL DATA PACK ===
 Applicant Name: ${custName}
 Electricity Bill CA No.: ${formData.consumer_number || "N/A"}
 PM Surya Ghar App No.: ${formData.application_number || "Pending"}
+Sanctioned Capacity: ${formData.sanctioned_capacity_kw ? `${formData.sanctioned_capacity_kw} kW` : "Not recorded"}
 Installation Address: ${fullAddr}
 System Capacity: ${cap} kW
-DISCOM: ${formData.discom_name || "JVVNL"}
+DISCOM: ${formData.discom_name || "Not recorded"}
 Sub-Division / Circle: ${formData.discom_division || "N/A"}
 Bank Account Holder: ${formData.bank_account_holder || custName}
 Bank Name: ${formData.bank_name || "N/A"}
@@ -468,10 +465,10 @@ Solar Panels: ${formData.panel_make_model} (DCR Compliant: ${formData.is_dcr_com
 Panel Serials: ${formData.panel_serial_numbers || "N/A"}
 Inverter Make & Model: ${formData.inverter_make_model}
 Inverter Serial: ${formData.inverter_serial_number || "N/A"}
-Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
+Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "Not assessed"}
 ===============================================`;
 
-    navigator.clipboard.writeText(text);
+    try { await navigator.clipboard.writeText(text); } catch { toast.error("Clipboard permission unavailable."); return; }
     setCopiedKey("ALL_DATA_PACK");
     toast.success("Full Portal Data Pack copied! Paste directly into portal.");
     setTimeout(() => setCopiedKey(null), 2500);
@@ -525,7 +522,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
 
   // Step click handler with Document Checklist Rule
   const handleStageClick = (stage) => {
-    if (stage.id === formData.portal_status) return;
+    if (saveInFlight.current || stage.id === formData.portal_status) return;
 
     // Check mandatory documents rule
     const validation = validateStageDocuments(stage.id);
@@ -538,13 +535,12 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
       return;
     }
 
-    // Allowed: update portal status
-    setFormData((prev) => ({
-      ...prev,
+    // Persist before changing the displayed milestone; a refresh reads this same record.
+    return handleSaveApplication({
+      ...formData,
       portal_status: stage.id,
       sla_expected_days: stage.expectedDays,
-    }));
-    toast.success(`Stage set to: ${stage.label}`);
+    }, `Stage saved: ${stage.label}`);
   };
 
   // Open Document Camera Capture
@@ -608,23 +604,38 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
   };
 
   // Save Portal Application Details
-  const handleSaveApplication = async () => {
-    if (!formData.consumer_number.trim()) {
+  const handleSaveApplication = async (data = formData, successMessage = "PM Surya Ghar Portal details saved successfully!") => {
+    if (saveInFlight.current) return;
+    if (data.sanctioned_capacity_kw !== "" && (!/^\d+(\.\d{1,3})?$/.test(String(data.sanctioned_capacity_kw)) || Number(data.sanctioned_capacity_kw) <= 0 || Number(data.sanctioned_capacity_kw) > 9999999.999)) {
+      toast.error("Enter a positive sanctioned capacity in kW (up to 3 decimal places).");
+      return;
+    }
+
+    if (!data.consumer_number.trim()) {
       toast.error("Electricity Bill Consumer Number is required.");
       return;
     }
 
+    if (saveInFlight.current) return;
+    if (data.expected_subsidy === "" || !Number.isFinite(Number(data.expected_subsidy)) || Number(data.expected_subsidy) < 0 || Number(data.amount_received) < 0) {
+      toast.error("Enter the assessed subsidy amount (zero if not applicable) and a non-negative credit amount."); return;
+    }
+    if ((Number(data.amount_received) > 0 || ["subsidy_credited", "disbursed"].includes(data.portal_status)) && (!data.credit_date || !data.utr_number.trim() || Number(data.amount_received) <= 0)) {
+      toast.error("Record the actual credited amount, credit date and transaction reference before marking subsidy received."); return;
+    }
+    saveInFlight.current = true;
     setSaving(true);
     try {
       const payload = {
-        ...formData,
+        ...data,
         lead_id: leadId,
       };
 
       const res = await applySubsidy(payload);
       if (res.success) {
-        toast.success("PM Surya Ghar Portal details saved successfully!");
-        fetchData();
+        setFormData(data);
+        await fetchData();
+        toast.success(successMessage);
       } else {
         toast.error(res.message || "Failed to save subsidy details.");
       }
@@ -632,6 +643,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
       console.error("Save subsidy error:", err);
       toast.error(err.response?.data?.message || "Error saving subsidy application.");
     } finally {
+      saveInFlight.current = false;
       setSaving(false);
     }
   };
@@ -705,7 +717,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
         });
         fetchData();
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to log portal rejection.");
     }
   };
@@ -718,7 +730,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
         toast.success("Rejection fix task marked as resolved!");
         fetchData();
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to resolve task.");
     }
   };
@@ -735,7 +747,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
       try {
         const parsed = new URL(apiBase);
         return `${parsed.origin}${cleanPath}`;
-      } catch (e) {}
+      } catch { /* Fall back to the relative file path below. */ }
     }
     return cleanPath;
   };
@@ -743,25 +755,20 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
   const activeStageIdx = PORTAL_STAGES.findIndex((s) => s.id === formData.portal_status);
   const isRejectedState = formData.portal_status === "rejected";
 
+  if (loading) return <FinanceWorkspace><Stack spacing={2}><Skeleton height={100} variant="rounded" /><Skeleton height={320} variant="rounded" /><Skeleton height={250} variant="rounded" /></Stack></FinanceWorkspace>;
+  if (loadError || !lead) return <FinanceWorkspace><Alert severity="error" action={<Button color="inherit" onClick={fetchData}>Retry</Button>}>{loadError || "Customer record not found."}</Alert><Button sx={{ mt: 2 }} onClick={()=>navigate(hubPath)}>Back to Subsidy &amp; Finance</Button></FinanceWorkspace>;
+
   return (
-    <Box
-      sx={{
-        backgroundColor: COLORS.background,
-        minHeight: "100vh",
-        p: { xs: 2, sm: 3 },
-        boxSizing: "border-box",
-        width: "100%",
-      }}
-    >
+    <FinanceWorkspace>
       <Box sx={{ width: "100%", maxWidth: 1400, mx: "auto" }}>
         {/* HEADER & BREADCRUMBS */}
         <Stack
           direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          sx={{ mb: 2 }}
-          flexWrap="wrap"
-          gap={1.5}
+
+
+          sx={{alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1.5,  mb: 2 }}
+
+
         >
           <Breadcrumbs
             separator={
@@ -770,10 +777,10 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
           >
             <Stack
               direction="row"
-              alignItems="center"
-              gap={0.5}
-              sx={{ cursor: "pointer" }}
-              onClick={() => navigate("/dashboard")}
+
+
+              sx={{alignItems: "center", gap: 0.5,  cursor: "pointer" }}
+              onClick={() => navigate(dashboardPath)}
             >
               <HomeOutlinedIcon sx={{ fontSize: "0.9rem", color: COLORS.textMuted }} />
               <Typography
@@ -796,7 +803,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                 cursor: "pointer",
                 "&:hover": { color: COLORS.primary },
               }}
-              onClick={() => navigate("/subsidies")}
+              onClick={() => navigate(hubPath)}
             >
               Subsidy Tracking
             </Typography>
@@ -814,7 +821,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
 
           <Button
             startIcon={<ArrowBackIcon sx={{ fontSize: 16 }} />}
-            onClick={() => navigate("/subsidies")}
+            onClick={() => navigate(hubPath)}
             size="small"
             sx={{
               textTransform: "none",
@@ -827,6 +834,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
           </Button>
         </Stack>
 
+        <Alert severity="info" sx={{ mb: 2.5 }}>Keep these milestones aligned with the official portal and supporting documents. Internal follow-up targets are not guaranteed approval dates. A subsidy claim or loan sanction is not a receipt.</Alert>
         {/* HERO HEADER PAPER */}
         <Paper
           elevation={0}
@@ -840,11 +848,12 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             flexDirection: { xs: "column", md: "row" },
             justifyContent: "space-between",
             alignItems: { xs: "flex-start", md: "center" },
+            flexWrap: "wrap",
             gap: 2,
           }}
         >
           <Box>
-            <Stack direction="row" alignItems="center" gap={1.2} sx={{ mb: 0.5 }} flexWrap="wrap">
+            <Stack direction="row"   sx={{alignItems: "center", gap: 1.2, flexWrap: "wrap",  mb: 0.5 }} >
               <Typography
                 variant="h6"
                 sx={{
@@ -900,9 +909,9 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
               )}
             </Stack>
 
-            <Stack direction="row" alignItems="center" gap={2} flexWrap="wrap" sx={{ mt: 0.8 }}>
+            <Stack direction="row"    sx={{alignItems: "center", gap: 2, flexWrap: "wrap",  mt: 0.8 }}>
               {lead?.mobile_number && (
-                <Stack direction="row" alignItems="center" gap={0.6}>
+                <Stack sx={{alignItems: "center", gap: 0.6}} direction="row"  >
                   <PhoneIcon sx={{ fontSize: 14, color: COLORS.textMuted }} />
                   <Typography
                     component="a"
@@ -920,7 +929,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
               )}
 
               {(lead?.city || lead?.state) && (
-                <Stack direction="row" alignItems="center" gap={0.5}>
+                <Stack sx={{alignItems: "center", gap: 0.5}} direction="row"  >
                   <LocationOnOutlinedIcon sx={{ fontSize: 14, color: COLORS.textMuted }} />
                   <Typography sx={{ fontSize: "0.8rem", color: COLORS.textSecondary, fontWeight: 500 }}>
                     {[lead?.address, lead?.city, lead?.state].filter(Boolean).join(", ")}
@@ -930,7 +939,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
 
               <Chip
                 icon={<SolarPowerOutlinedIcon sx={{ fontSize: "14px !important", color: "#B45309 !important" }} />}
-                label={`${projectInfo?.capacity || lead?.system_capacity || "3.50"} kW Plant`}
+                label={`${projectInfo?.capacity || lead?.system_capacity || "Not recorded"} kW Plant`}
                 size="small"
                 sx={{
                   fontSize: "0.72rem",
@@ -944,7 +953,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
           </Box>
 
           {/* Quick Header Actions */}
-          <Stack direction="row" alignItems="center" gap={1.2} flexWrap="wrap">
+          <Stack sx={{alignItems: "center", gap: 1.2, flexWrap: "wrap"}} direction="row"   >
             <Button
               variant="outlined"
               startIcon={<ContentCopyIcon sx={{ fontSize: 16 }} />}
@@ -981,7 +990,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             </Button>
 
             <Tooltip title="Refresh Data">
-              <IconButton
+              <IconButton aria-label="Refresh"
                 onClick={fetchData}
                 disabled={loading}
                 size="small"
@@ -998,7 +1007,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             <Button
               variant="contained"
               startIcon={<SaveOutlinedIcon sx={{ fontSize: 17 }} />}
-              onClick={handleSaveApplication}
+              onClick={() => handleSaveApplication()}
               disabled={saving}
               sx={{
                 borderRadius: "8px",
@@ -1027,7 +1036,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             backgroundColor: COLORS.card,
           }}
         >
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }} flexWrap="wrap" gap={1}>
+          <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1,  mb: 2 }}  >
             <Box>
               <Typography
                 sx={{
@@ -1045,7 +1054,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
               </Typography>
             </Box>
 
-            <Stack direction="row" alignItems="center" gap={1}>
+            <Stack sx={{alignItems: "center", gap: 1}} direction="row"  >
               <Chip size="small" label="Your Team" sx={{ bgcolor: "#F1F5F9", color: "#0F172A", fontWeight: 700, fontSize: "0.68rem" }} />
               <Chip size="small" label="DISCOM" sx={{ bgcolor: "#EFF6FF", color: "#1D4ED8", fontWeight: 700, fontSize: "0.68rem" }} />
               <Chip size="small" label="Customer" sx={{ bgcolor: "#FEF3C7", color: "#B45309", fontWeight: 700, fontSize: "0.68rem" }} />
@@ -1059,13 +1068,19 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
               const isCurrent = idx === activeStageIdx && !isRejectedState;
 
               return (
-                <Grid item xs={12} sm={6} md={1.33} key={stage.id}>
+                <Grid size={{xs: 12, sm: 6, md: 4}}     key={stage.id}>
                   <Box
+                    role="button"
+                    tabIndex={saving ? -1 : 0}
+                    aria-disabled={saving}
+                    aria-pressed={isCurrent}
+                    onKeyDown={(event) => { if (!saving && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); handleStageClick(stage); } }}
                     onClick={() => handleStageClick(stage)}
                     sx={{
                       p: 1.2,
                       borderRadius: "10px",
-                      cursor: "pointer",
+                      cursor: saving ? "wait" : "pointer",
+                      opacity: saving ? 0.65 : 1,
                       border: `1.5px solid ${
                         isCurrent
                           ? COLORS.secondary
@@ -1089,7 +1104,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                       },
                     }}
                   >
-                    <Stack direction="row" alignItems="center" justifyContent="space-between">
+                    <Stack sx={{alignItems: "center", justifyContent: "space-between"}} direction="row"  >
                       <Box
                         sx={{
                           width: 22,
@@ -1162,7 +1177,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                           mt: 0.3,
                         }}
                       >
-                        SLA: {stage.expectedDays}d
+                        Internal target: {stage.expectedDays}d
                       </Typography>
                     </Box>
                   </Box>
@@ -1171,7 +1186,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             })}
           </Grid>
 
-          {/* ACTIVE STAGE SLA & CHASE BANNER */}
+          {/* INTERNAL FOLLOW-UP TARGET */}
           <Box
             sx={{
               mt: 2,
@@ -1192,8 +1207,8 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             }}
           >
             <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} md={7}>
-                <Stack direction="row" alignItems="center" gap={1.2}>
+              <Grid size={{xs: 12, md: 7}}   >
+                <Stack sx={{alignItems: "center", gap: 1.2}} direction="row"  >
                   <Box
                     sx={{
                       p: 1,
@@ -1221,15 +1236,16 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                         ? "Actionable Fix Task: Resolve rejection items & re-submit to portal"
                         : currentStageObj.chase}
                     </Typography>
+                    {!isRejectedState && currentStageObj.id === "vendor_selected" && <Button component="a" href="https://pmsuryaghar.gov.in/" target="_blank" rel="noopener noreferrer" size="small" sx={{ mt: 0.5, px: 0, textTransform: "none" }}>Open PM Surya Ghar portal</Button>}
                   </Box>
                 </Stack>
               </Grid>
 
-              <Grid item xs={12} md={5}>
-                <Stack direction="row" alignItems="center" justifyContent={{ xs: "flex-start", md: "flex-end" }} gap={2}>
+              <Grid size={{xs: 12, md: 5}}   >
+                <Stack sx={{alignItems: "center", justifyContent: { xs: "flex-start", md: "flex-end" }, gap: 2}} direction="row"   >
                   <Box sx={{ textAlign: { xs: "left", md: "right" } }}>
                     <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
-                      Time Elapsed vs SLA
+                      Stage age and follow-up target
                     </Typography>
                     <Typography
                       sx={{
@@ -1245,7 +1261,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                   {isCurrentStageDelayed && (
                     <Chip
                       icon={<WarningAmberIcon sx={{ fontSize: "14px !important", color: "#B45309 !important" }} />}
-                      label={`DELAYED (+${daysInCurrentStage - currentStageObj.expectedDays}d)`}
+                      label={`Follow-up due (+${daysInCurrentStage - currentStageObj.expectedDays}d)`}
                       size="small"
                       sx={{
                         bgcolor: "#FEF3C7",
@@ -1273,7 +1289,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             backgroundColor: COLORS.card,
           }}
         >
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }} flexWrap="wrap" gap={1}>
+          <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1,  mb: 2 }}  >
             <Box>
               <Typography sx={{ fontWeight: 800, fontSize: "1rem", color: COLORS.primaryDark }}>
                 National Solar Portal Data Pack
@@ -1303,17 +1319,17 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
 
           <Grid container spacing={2}>
             {/* Field 1: Applicant Name */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{xs: 12, sm: 6, md: 3}}    >
               <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, bgcolor: "#F8FAFC" }}>
                 <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Applicant Name
                 </Typography>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mt: 0.5 }}>
                   <Typography noWrap sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.primaryDark, maxWidth: "75%" }}>
                     {formData.bank_account_holder || lead?.customer_name || lead?.name || "N/A"}
                   </Typography>
                   <Tooltip title="Copy Applicant Name">
-                    <IconButton
+                    <IconButton aria-label="Check"
                       size="small"
                       onClick={() => handleCopyText("NAME", formData.bank_account_holder || lead?.customer_name || lead?.name, "Applicant Name")}
                       sx={{ p: 0.5, bgcolor: copiedKey === "NAME" ? "#DCFCE7" : "#FFFFFF", border: `1px solid ${COLORS.border}` }}
@@ -1326,17 +1342,17 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             </Grid>
 
             {/* Field 2: Consumer Number */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{xs: 12, sm: 6, md: 3}}    >
               <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, bgcolor: "#F8FAFC" }}>
                 <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Consumer No. (CA No.) *
                 </Typography>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mt: 0.5 }}>
                   <Typography noWrap sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.primaryDark, maxWidth: "75%", fontFamily: "monospace" }}>
                     {formData.consumer_number || "Required"}
                   </Typography>
                   <Tooltip title="Copy Consumer No.">
-                    <IconButton
+                    <IconButton aria-label="Check"
                       size="small"
                       onClick={() => handleCopyText("CONSUMER_NO", formData.consumer_number, "Consumer Number")}
                       sx={{ p: 0.5, bgcolor: copiedKey === "CONSUMER_NO" ? "#DCFCE7" : "#FFFFFF", border: `1px solid ${COLORS.border}` }}
@@ -1349,17 +1365,17 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             </Grid>
 
             {/* Field 3: PM Surya Ghar Application No */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{xs: 12, sm: 6, md: 3}}    >
               <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, bgcolor: "#F8FAFC" }}>
                 <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   PM Surya Ghar App No.
                 </Typography>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mt: 0.5 }}>
                   <Typography noWrap sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.primaryDark, maxWidth: "75%", fontFamily: "monospace" }}>
                     {formData.application_number || "Not Applied"}
                   </Typography>
                   <Tooltip title="Copy Application No.">
-                    <IconButton
+                    <IconButton aria-label="Check"
                       size="small"
                       onClick={() => handleCopyText("APP_NO", formData.application_number, "Application Number")}
                       sx={{ p: 0.5, bgcolor: copiedKey === "APP_NO" ? "#DCFCE7" : "#FFFFFF", border: `1px solid ${COLORS.border}` }}
@@ -1372,19 +1388,19 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             </Grid>
 
             {/* Field 4: Plant Capacity */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{xs: 12, sm: 6, md: 3}}    >
               <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, bgcolor: "#F8FAFC" }}>
                 <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Sanctioned Capacity (kW)
                 </Typography>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mt: 0.5 }}>
                   <Typography sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.primaryDark }}>
-                    {projectInfo?.capacity || lead?.system_capacity || "3.50"} kW
+                    {formData.sanctioned_capacity_kw ? `${formData.sanctioned_capacity_kw} kW` : "Not recorded"}
                   </Typography>
                   <Tooltip title="Copy Capacity">
-                    <IconButton
+                    <IconButton aria-label="Check"
                       size="small"
-                      onClick={() => handleCopyText("CAPACITY", `${projectInfo?.capacity || lead?.system_capacity || "3.50"}`, "Capacity")}
+                      onClick={() => handleCopyText("CAPACITY", `${formData.sanctioned_capacity_kw || "Not recorded"}`, "Capacity")}
                       sx={{ p: 0.5, bgcolor: copiedKey === "CAPACITY" ? "#DCFCE7" : "#FFFFFF", border: `1px solid ${COLORS.border}` }}
                     >
                       {copiedKey === "CAPACITY" ? <CheckIcon sx={{ fontSize: 14, color: "#16A34A" }} /> : <ContentCopyIcon sx={{ fontSize: 14 }} />}
@@ -1395,19 +1411,19 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             </Grid>
 
             {/* Field 5: DISCOM Name */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{xs: 12, sm: 6, md: 3}}    >
               <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, bgcolor: "#F8FAFC" }}>
                 <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   DISCOM Name
                 </Typography>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mt: 0.5 }}>
                   <Typography noWrap sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.primaryDark }}>
-                    {formData.discom_name || "JVVNL"}
+                    {formData.discom_name || "Not recorded"}
                   </Typography>
                   <Tooltip title="Copy DISCOM">
-                    <IconButton
+                    <IconButton aria-label="Check"
                       size="small"
-                      onClick={() => handleCopyText("DISCOM", formData.discom_name || "JVVNL", "DISCOM")}
+                      onClick={() => handleCopyText("DISCOM", formData.discom_name || "Not recorded", "DISCOM")}
                       sx={{ p: 0.5, bgcolor: copiedKey === "DISCOM" ? "#DCFCE7" : "#FFFFFF", border: `1px solid ${COLORS.border}` }}
                     >
                       {copiedKey === "DISCOM" ? <CheckIcon sx={{ fontSize: 14, color: "#16A34A" }} /> : <ContentCopyIcon sx={{ fontSize: 14 }} />}
@@ -1418,17 +1434,17 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             </Grid>
 
             {/* Field 6: DISCOM Circle / Division */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{xs: 12, sm: 6, md: 3}}    >
               <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, bgcolor: "#F8FAFC" }}>
                 <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Sub-Division / Circle
                 </Typography>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mt: 0.5 }}>
                   <Typography noWrap sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.primaryDark }}>
                     {formData.discom_division || lead?.city || "Jaipur Circle"}
                   </Typography>
                   <Tooltip title="Copy Division">
-                    <IconButton
+                    <IconButton aria-label="Check"
                       size="small"
                       onClick={() => handleCopyText("DIVISION", formData.discom_division || lead?.city, "Sub-Division")}
                       sx={{ p: 0.5, bgcolor: copiedKey === "DIVISION" ? "#DCFCE7" : "#FFFFFF", border: `1px solid ${COLORS.border}` }}
@@ -1441,17 +1457,17 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             </Grid>
 
             {/* Field 7: Installation Address */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{xs: 12, sm: 6, md: 3}}    >
               <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, bgcolor: "#F8FAFC" }}>
                 <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Installation Address
                 </Typography>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mt: 0.5 }}>
                   <Typography noWrap sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.primaryDark, maxWidth: "75%" }}>
                     {[lead?.address, lead?.city, lead?.state, lead?.pincode].filter(Boolean).join(", ") || "N/A"}
                   </Typography>
                   <Tooltip title="Copy Address">
-                    <IconButton
+                    <IconButton aria-label="Check"
                       size="small"
                       onClick={() => handleCopyText("ADDRESS", [lead?.address, lead?.city, lead?.state, lead?.pincode].filter(Boolean).join(", "), "Address")}
                       sx={{ p: 0.5, bgcolor: copiedKey === "ADDRESS" ? "#DCFCE7" : "#FFFFFF", border: `1px solid ${COLORS.border}` }}
@@ -1464,17 +1480,17 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             </Grid>
 
             {/* Field 8: Bank Name */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{xs: 12, sm: 6, md: 3}}    >
               <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, bgcolor: "#F8FAFC" }}>
                 <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Bank Name
                 </Typography>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mt: 0.5 }}>
                   <Typography noWrap sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.primaryDark }}>
                     {formData.bank_name || "State Bank of India"}
                   </Typography>
                   <Tooltip title="Copy Bank Name">
-                    <IconButton
+                    <IconButton aria-label="Check"
                       size="small"
                       onClick={() => handleCopyText("BANK_NAME", formData.bank_name || "State Bank of India", "Bank Name")}
                       sx={{ p: 0.5, bgcolor: copiedKey === "BANK_NAME" ? "#DCFCE7" : "#FFFFFF", border: `1px solid ${COLORS.border}` }}
@@ -1487,17 +1503,17 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             </Grid>
 
             {/* Field 9: Bank Account Number */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{xs: 12, sm: 6, md: 3}}    >
               <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, bgcolor: "#F8FAFC" }}>
                 <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
-                  Bank Account No. (DBT)
+                  Beneficiary / Loan Account No.
                 </Typography>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mt: 0.5 }}>
                   <Typography noWrap sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.primaryDark, fontFamily: "monospace" }}>
                     {formData.bank_account_no || "Pending verification"}
                   </Typography>
                   <Tooltip title="Copy Account No.">
-                    <IconButton
+                    <IconButton aria-label="Check"
                       size="small"
                       onClick={() => handleCopyText("BANK_ACC", formData.bank_account_no, "Account Number")}
                       sx={{ p: 0.5, bgcolor: copiedKey === "BANK_ACC" ? "#DCFCE7" : "#FFFFFF", border: `1px solid ${COLORS.border}` }}
@@ -1510,17 +1526,17 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             </Grid>
 
             {/* Field 10: Bank IFSC Code */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{xs: 12, sm: 6, md: 3}}    >
               <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, bgcolor: "#F8FAFC" }}>
                 <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Bank IFSC Code
                 </Typography>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mt: 0.5 }}>
                   <Typography noWrap sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.primaryDark, fontFamily: "monospace" }}>
                     {formData.bank_ifsc || "SBIN0001234"}
                   </Typography>
                   <Tooltip title="Copy IFSC">
-                    <IconButton
+                    <IconButton aria-label="Check"
                       size="small"
                       onClick={() => handleCopyText("BANK_IFSC", formData.bank_ifsc, "IFSC Code")}
                       sx={{ p: 0.5, bgcolor: copiedKey === "BANK_IFSC" ? "#DCFCE7" : "#FFFFFF", border: `1px solid ${COLORS.border}` }}
@@ -1533,17 +1549,17 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             </Grid>
 
             {/* Field 11: Module Make & DCR */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{xs: 12, sm: 6, md: 3}}    >
               <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, bgcolor: "#F8FAFC" }}>
                 <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Solar Panel Model (DCR)
                 </Typography>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mt: 0.5 }}>
                   <Typography noWrap sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.primaryDark }}>
                     {formData.panel_make_model || "Waaree 540W"}
                   </Typography>
                   <Tooltip title="Copy Panel Model">
-                    <IconButton
+                    <IconButton aria-label="Check"
                       size="small"
                       onClick={() => handleCopyText("PANEL_MODEL", formData.panel_make_model, "Panel Model")}
                       sx={{ p: 0.5, bgcolor: copiedKey === "PANEL_MODEL" ? "#DCFCE7" : "#FFFFFF", border: `1px solid ${COLORS.border}` }}
@@ -1556,17 +1572,17 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
             </Grid>
 
             {/* Field 12: Inverter Make & Model */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{xs: 12, sm: 6, md: 3}}    >
               <Box sx={{ p: 1.5, borderRadius: "8px", border: `1px solid ${COLORS.border}`, bgcolor: "#F8FAFC" }}>
                 <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase" }}>
                   Inverter Make & Model
                 </Typography>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mt: 0.5 }}>
                   <Typography noWrap sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.primaryDark }}>
                     {formData.inverter_make_model || "Growatt 5kW"}
                   </Typography>
                   <Tooltip title="Copy Inverter Model">
-                    <IconButton
+                    <IconButton aria-label="Check"
                       size="small"
                       onClick={() => handleCopyText("INVERTER_MODEL", formData.inverter_make_model, "Inverter Model")}
                       sx={{ p: 0.5, bgcolor: copiedKey === "INVERTER_MODEL" ? "#DCFCE7" : "#FFFFFF", border: `1px solid ${COLORS.border}` }}
@@ -1583,7 +1599,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
         {/* SECTION 3: TWO COLUMN MAIN INTERFACE */}
         <Grid container spacing={3}>
           {/* LEFT COLUMN: PORTAL SETTINGS, DCR MODULE DETAILS & SUBSIDY LEDGER */}
-          <Grid item xs={12} lg={6}>
+          <Grid size={{xs: 12, lg: 6}}   >
             <Stack spacing={3}>
               {/* CARD A: EDITABLE DISCOM & PORTAL SETTINGS */}
               <Paper
@@ -1603,7 +1619,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                 </Typography>
 
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Electricity Bill Consumer No. (CA No.) *
                     </Typography>
@@ -1617,7 +1633,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       PM Surya Ghar Application No.
                     </Typography>
@@ -1630,8 +1646,11 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                       sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: "0.85rem" } }}
                     />
                   </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField fullWidth label="Sanctioned Capacity (kW)" type="number" value={formData.sanctioned_capacity_kw} onChange={(event) => setFormData((previous) => ({ ...previous, sanctioned_capacity_kw: event.target.value }))} slotProps={{ htmlInput: { min: 0.001, max: 9999999.999, step: 0.001 } }} helperText="Capacity approved by DISCOM; leave blank until sanctioned." />
+                  </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       DISCOM Name
                     </Typography>
@@ -1645,7 +1664,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Sub-Division / Circle Office
                     </Typography>
@@ -1659,7 +1678,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Bank Name (DBT Beneficiary)
                     </Typography>
@@ -1673,9 +1692,9 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
-                      Bank Account Number
+                      Beneficiary / Loan Account Number
                     </Typography>
                     <TextField
                       fullWidth
@@ -1687,7 +1706,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Bank IFSC Code
                     </Typography>
@@ -1701,7 +1720,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Account Holder Name
                     </Typography>
@@ -1715,7 +1734,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                     />
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid size={{xs: 12}}  >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Portal Remarks & Inspection Officer Notes
                     </Typography>
@@ -1742,7 +1761,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                   backgroundColor: COLORS.card,
                 }}
               >
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mb: 1 }}>
                   <Box>
                     <Typography sx={{ fontWeight: 800, fontSize: "0.95rem", color: COLORS.primaryDark }}>
                       Module & Inverter Details (DCR Compliance)
@@ -1775,7 +1794,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                 )}
 
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Panel Make & Model *
                     </Typography>
@@ -1789,7 +1808,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Inverter Make & Model *
                     </Typography>
@@ -1803,7 +1822,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Inverter Serial Number
                     </Typography>
@@ -1817,7 +1836,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Panel Serial Numbers (Comma separated)
                     </Typography>
@@ -1851,7 +1870,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                 </Typography>
 
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Box sx={{ p: 1.5, borderRadius: "10px", bgcolor: "#EFF6FF", border: "1px solid #BFDBFE" }}>
                       <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: "#1E40AF", textTransform: "uppercase" }}>
                         Expected Central Govt DBT
@@ -1867,15 +1886,16 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                     </Box>
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Box sx={{ p: 1.5, borderRadius: "10px", bgcolor: "#ECFDF5", border: "1px solid #A7F3D0" }}>
                       <Typography sx={{ fontSize: "0.68rem", fontWeight: 700, color: "#065F46", textTransform: "uppercase" }}>
-                        Amount Received in Customer Bank (₹)
+                        Amount credited to beneficiary / loan account (₹)
                       </Typography>
                       <TextField
                         fullWidth
                         size="small"
                         type="number"
+                        placeholder="e.g. 78000"
                         value={formData.amount_received}
                         onChange={(e) => setFormData((p) => ({ ...p, amount_received: e.target.value }))}
                         sx={{ mt: 0.5, "& .MuiOutlinedInput-root": { bgcolor: "#FFFFFF", borderRadius: "8px", fontWeight: 800 } }}
@@ -1883,7 +1903,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                     </Box>
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Subsidy Credit Date
                     </Typography>
@@ -1897,7 +1917,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{xs: 12, sm: 6}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Bank UTR / Transaction Ref No.
                     </Typography>
@@ -1911,7 +1931,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{xs: 12, sm: 4}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Customer Quotation Total (₹)
                     </Typography>
@@ -1919,13 +1939,14 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                       fullWidth
                       size="small"
                       type="number"
+                      placeholder="e.g. 250000"
                       value={formData.customer_total_cost}
                       onChange={(e) => setFormData((p) => ({ ...p, customer_total_cost: e.target.value }))}
                       sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: "0.85rem", fontWeight: 700 } }}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{xs: 12, sm: 4}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Customer Paid (₹)
                     </Typography>
@@ -1933,13 +1954,14 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                       fullWidth
                       size="small"
                       type="number"
+                      placeholder="e.g. 172000"
                       value={formData.customer_amount_paid}
                       onChange={(e) => setFormData((p) => ({ ...p, customer_amount_paid: e.target.value }))}
                       sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: "0.85rem", fontWeight: 700 } }}
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{xs: 12, sm: 4}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
                       Customer Balance (₹)
                     </Typography>
@@ -1965,7 +1987,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
           </Grid>
 
           {/* RIGHT COLUMN: DOCUMENT CHECKLIST (WITH RULES & LIVE CAMERA SCAN) & REJECTION HISTORY */}
-          <Grid item xs={12} lg={6}>
+          <Grid size={{xs: 12, lg: 6}}   >
             <Stack spacing={3}>
               {/* CARD D: DOCUMENT VAULT & CHECKLIST */}
               <Paper
@@ -1977,7 +1999,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                   backgroundColor: COLORS.card,
                 }}
               >
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }} flexWrap="wrap" gap={1}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1,  mb: 2 }}  >
                   <Box>
                     <Typography sx={{ fontWeight: 800, fontSize: "0.95rem", color: COLORS.primaryDark }}>
                       Document Checklist & National Portal Vault
@@ -2032,8 +2054,8 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                         }}
                       >
                         <Grid container spacing={1.5} alignItems="center">
-                          <Grid item xs={12} sm={6.5}>
-                            <Stack direction="row" alignItems="center" gap={1.2}>
+                          <Grid size={{xs: 12, sm: 6.5}}   >
+                            <Stack sx={{alignItems: "center", gap: 1.2}} direction="row"  >
                               <Box
                                 sx={{
                                   p: 0.8,
@@ -2058,7 +2080,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                                 </Typography>
 
                                 {uploadedDoc && (
-                                  <Stack direction="row" alignItems="center" gap={1} sx={{ mt: 0.5 }}>
+                                  <Stack direction="row"   sx={{alignItems: "center", gap: 1,  mt: 0.5 }}>
                                     <Chip
                                       label={isVerified ? "Verified" : isRejected ? "Rejected" : "Pending Review"}
                                       size="small"
@@ -2079,8 +2101,8 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                             </Stack>
                           </Grid>
 
-                          <Grid item xs={12} sm={5.5}>
-                            <Stack direction="row" alignItems="center" justifyContent={{ xs: "flex-start", sm: "flex-end" }} gap={1} flexWrap="wrap">
+                          <Grid size={{xs: 12, sm: 5.5}}   >
+                            <Stack sx={{alignItems: "center", justifyContent: { xs: "flex-start", sm: "flex-end" }, gap: 1, flexWrap: "wrap"}} direction="row"    >
                               {uploadedDoc ? (
                                 <>
                                   <Button
@@ -2211,7 +2233,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                   backgroundColor: COLORS.card,
                 }}
               >
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+                <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mb: 1.5 }}>
                   <Box>
                     <Typography sx={{ fontWeight: 800, fontSize: "0.95rem", color: COLORS.primaryDark }}>
                       Rejection Log & Actionable Fix Tasks
@@ -2257,8 +2279,8 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                             bgcolor: isPending ? "#FEF2F2" : "#F0FDF4",
                           }}
                         >
-                          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5 }}>
-                            <Stack direction="row" alignItems="center" gap={1}>
+                          <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mb: 0.5 }}>
+                            <Stack sx={{alignItems: "center", gap: 1}} direction="row"  >
                               <Chip
                                 label={rej.rejection_category}
                                 size="small"
@@ -2297,7 +2319,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
                           </Box>
 
                           {isPending && (
-                            <Stack direction="row" justifyContent="flex-end" sx={{ mt: 1 }}>
+                            <Stack direction="row"  sx={{justifyContent: "flex-end",  mt: 1 }}>
                               <Button
                                 variant="contained"
                                 size="small"
@@ -2330,7 +2352,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
         PaperProps={{ sx: { borderRadius: "14px", p: 1 } }}
       >
         <DialogTitle sx={{ fontWeight: 800, fontSize: "1.05rem", color: COLORS.primaryDark, pb: 1 }}>
-          <Stack direction="row" alignItems="center" gap={1}>
+          <Stack sx={{alignItems: "center", gap: 1}} direction="row"  >
             <LockOutlinedIcon sx={{ color: COLORS.danger, fontSize: 24 }} />
             Mandatory Documents Required
           </Stack>
@@ -2405,7 +2427,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
         PaperProps={{ sx: { borderRadius: "14px", p: 1 } }}
       >
         <DialogTitle sx={{ fontWeight: 800, fontSize: "1.05rem", color: COLORS.primaryDark }}>
-          <Stack direction="row" alignItems="center" gap={1}>
+          <Stack sx={{alignItems: "center", gap: 1}} direction="row"  >
             <ErrorOutlineOutlinedIcon sx={{ color: COLORS.danger, fontSize: 24 }} />
             Log Portal Rejection & Assign Fix Task
           </Stack>
@@ -2521,6 +2543,10 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
         </DialogActions>
       </Dialog>
 
+      <Paper variant="outlined" sx={{ p: 2.5, mt: 3, mb: 3, boxShadow: "none" }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>Recent subsidy activity</Typography>
+        {portalLogs.length === 0 ? <Typography variant="body2" color="text.secondary">No saved subsidy activity yet.</Typography> : <Stack spacing={1.5} sx={{ maxHeight: 320, overflowY: "auto" }}>{portalLogs.map((log, index) => <Box key={log.id || index} sx={{ p: 1.5, bgcolor: "#F8FAFC", borderRadius: 2 }}><Typography variant="body2" sx={{ fontWeight: 600 }}>{log.action_type || "Subsidy update"}{log.new_value ? `: ${log.new_value}` : ""}</Typography><Typography variant="caption">{log.created_at ? new Date(log.created_at).toLocaleString("en-IN") : "Date not recorded"}</Typography>{log.remark && <Typography variant="body2" sx={{ mt: 0.5 }}>{log.remark}</Typography>}</Box>)}</Stack>}
+      </Paper>
       {/* LIVE CAMERA CAPTURE MODAL INTEGRATION */}
       <DocumentCaptureModal
         open={captureModalOpen}
@@ -2529,6 +2555,6 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "78,000"}
         documentLabel={captureDocLabel}
         onCaptureSuccess={handleCaptureSuccess}
       />
-    </Box>
+    </FinanceWorkspace>
   );
 }

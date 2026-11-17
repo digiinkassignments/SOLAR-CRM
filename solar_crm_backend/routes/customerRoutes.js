@@ -32,6 +32,6 @@ router.post("/", authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), createCustomer)
 router.put("/:id", authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), updateCustomer);
 
 // 3. Delete Customer (Super Admin only)
-router.delete("/:id", authorizeRoles(ROLE_SUPER_ADMIN), deleteCustomer);
+router.delete("/:id", authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER), deleteCustomer);
 
 module.exports = router;

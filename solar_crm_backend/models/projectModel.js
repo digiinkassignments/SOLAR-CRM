@@ -1,3 +1,4 @@
+const managerScope=require("../utils/managerScope");
 const crypto = require("crypto");
 const dbConfig = require("../config/db");
 const defaultDb = dbConfig.db || dbConfig.defaultDb;
@@ -91,14 +92,14 @@ const resolveNumericProjectId = async (db = defaultDb, idOrUuid) => {
 /**
  * 1. Get All Projects with dynamic filters, pagination & assigned user name
  */
-const getAllProjects = async (db = defaultDb, { stage, assigned_to, search, page = 1, limit = 15 } = {}) => {
+const getAllProjects = async (db = defaultDb, { stage, assigned_to, engineer_id, search, page = 1, limit = 15 } = {}) => {
   await ensureProjectTables(db);
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
   const limitNum = Math.max(1, parseInt(limit, 10) || 15);
   const offset = (pageNum - 1) * limitNum;
 
-  const whereConditions = ["p.is_deleted = 0"];
+  const whereConditions = ["p.is_deleted = 0" + managerScope.linked(db,"p.lead_id")];
   const params = [];
 
   if (stage && stage !== "All") {
@@ -106,7 +107,10 @@ const getAllProjects = async (db = defaultDb, { stage, assigned_to, search, page
     params.push(stage);
   }
 
-  if (assigned_to && assigned_to !== "All") {
+  if (engineer_id) {
+    whereConditions.push("(p.assigned_to = ? OR p.lead_id IN (SELECT s.lead_id FROM site_surveys s WHERE s.assigned_engineer_id = ?))");
+    params.push(Number(engineer_id), Number(engineer_id));
+  } else if (assigned_to && assigned_to !== "All") {
     whereConditions.push("p.assigned_to = ?");
     params.push(Number(assigned_to));
   }
@@ -431,7 +435,7 @@ const getProjectStats = async (db = defaultDb) => {
   const [rows] = await db.query(
     `SELECT stage, COUNT(*) AS count 
      FROM projects 
-     WHERE is_deleted = 0 
+     WHERE is_deleted = 0${managerScope.linked(db,"projects.lead_id")} 
      GROUP BY stage`
   );
   return rows;

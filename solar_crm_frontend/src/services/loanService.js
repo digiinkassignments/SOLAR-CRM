@@ -34,7 +34,7 @@ export const LOAN_STAGE_CONFIG = {
     step: 3,
     label: "Under Review",
     meaning: "Lender is verifying and may ask questions",
-    needed: "None (waiting stage)",
+    needed: "Track lender queries and requested evidence",
     color: "#D97706",
     bg: "#FFFBEB",
     border: "#FDE68A",
@@ -53,7 +53,7 @@ export const LOAN_STAGE_CONFIG = {
   "Disbursed": {
     step: 5,
     label: "Disbursed",
-    meaning: "Money has been paid to you",
+    meaning: "Actual lender payment has been recorded",
     needed: "Disbursed amount, date",
     color: "#059669",
     bg: "#D1FAE5",
@@ -92,66 +92,7 @@ export const SIDE_STATUS_CONFIG = {
   },
 };
 
-// Validation Helper for Stage Transitions
-export const validateStageTransition = (fromStage, toStage, loan = {}) => {
-  const fromIdx = LOAN_STAGES.indexOf(fromStage);
-  const toIdx = LOAN_STAGES.indexOf(toStage);
-
-  // If going backward
-  if (toIdx < fromIdx) {
-    return { ok: true, isBackward: true };
-  }
-
-  const missing = [];
-
-  // If advancing to "Applied"
-  if (toStage === "Applied") {
-    if (!loan.bank_name || !loan.bank_name.trim()) missing.push("Lender (Bank / NBFC)");
-    if (!loan.loan_amount_applied || parseFloat(loan.loan_amount_applied) <= 0) missing.push("Requested Loan Amount (₹)");
-  }
-
-  // If advancing to "Under Review"
-  if (toStage === "Under Review") {
-    if (!loan.applied_date) missing.push("Application Date");
-    if (!loan.portal_application_no || !loan.portal_application_no.trim()) missing.push("Application / Jan Samarth ARN Number");
-  }
-
-  // If advancing to "Sanctioned"
-  if (toStage === "Sanctioned") {
-    // Waiting stage, no strict blockers
-  }
-
-  // If advancing to "Disbursed"
-  if (toStage === "Disbursed") {
-    if (!loan.sanctioned_amount || parseFloat(loan.sanctioned_amount) <= 0) missing.push("Sanctioned Amount (₹)");
-    if (!loan.sanction_date) missing.push("Sanction Date");
-    const hasSanctionDoc = loan.sanction_letter_url || (loan.documents && loan.documents.some(d => d.doc_type && d.doc_type.toLowerCase().includes("sanction")));
-    if (!hasSanctionDoc) missing.push("Sanction Letter (Upload or URL)");
-  }
-
-  // Disbursed check (if completing Disbursed)
-  if (fromStage === "Disbursed" || toStage === "Disbursed") {
-    if (loan.disbursed_amount && loan.sanctioned_amount) {
-      if (parseFloat(loan.disbursed_amount) > parseFloat(loan.sanctioned_amount)) {
-        return {
-          ok: false,
-          error: `Disbursed amount (₹${parseFloat(loan.disbursed_amount).toLocaleString("en-IN")}) cannot exceed sanctioned amount (₹${parseFloat(loan.sanctioned_amount).toLocaleString("en-IN")}).`,
-          missing: [],
-        };
-      }
-    }
-  }
-
-  if (missing.length > 0) {
-    return {
-      ok: false,
-      missing,
-      error: `Please fill required items before moving to ${toStage}: ${missing.join(", ")}`,
-    };
-  }
-
-  return { ok: true, isBackward: false };
-};
+export { validateStageTransition } from "../utils/loanWorkflow";
 
 export const POPULAR_BANKS = [
   "State Bank of India (SBI)",
@@ -164,19 +105,10 @@ export const POPULAR_BANKS = [
   "Ecofy (Solar NBFC)",
   "Metafin (Green FinTech)",
   "Credit Fair",
-  "Jan Samarth Portal Direct",
   "Other Local Bank / NBFC",
 ];
 
-// Helper: Monthly EMI calculation
-export const calculateEMI = (principal, annualRate = 7.0, tenureMonths = 60) => {
-  const P = parseFloat(principal) || 0;
-  const r = (parseFloat(annualRate) || 7) / 12 / 100;
-  const n = parseInt(tenureMonths) || 60;
-  if (P <= 0 || r <= 0 || n <= 0) return 0;
-  const emi = (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-  return Math.round(emi);
-};
+export { calculateEMI } from "../utils/loanMath";
 
 // 1. Get All Loans
 export const getAllLoans = async (params = {}) => {

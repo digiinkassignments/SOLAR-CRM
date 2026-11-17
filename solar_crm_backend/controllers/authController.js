@@ -70,7 +70,12 @@ const login = async (req, res) => {
     user.permissions = userPermissions;
 
     const token = jwt.sign(
-      { id: user.id, role_id: user.role_id, permissions: userPermissions },
+      {
+        id: user.id,
+        role_id: user.role_id,
+        client_id: clientInfo?.id || user.client_id || null,
+        permissions: userPermissions,
+      },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );

@@ -1,3 +1,4 @@
+import useWorkspaceNavigate from "../../hooks/useWorkspaceNavigate";
 import React, { useState, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -30,13 +31,12 @@ import CakeOutlinedIcon from "@mui/icons-material/CakeOutlined";
 import EngineeringIcon from "@mui/icons-material/Engineering";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
-import MonetizationOnOutlinedIcon from "@mui/icons-material/MonetizationOnOutlined";
 
 import logo from "../../assets/images/logo.png";
 
 const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
-  "http://localhost:5000";
+  (typeof window !== "undefined" && window.location.hostname !== "localhost" ? "" : "http://localhost:5000");
 
 const getInitials = (name) => {
   if (!name || typeof name !== "string") return "U";
@@ -46,12 +46,14 @@ const getInitials = (name) => {
 };
 
 const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWidth = 260 }) => {
-  const location = useLocation();
-  const navigate  = useNavigate();
+  const routeLocation = useLocation();
+  const location = { ...routeLocation, pathname: routeLocation.pathname.replace(/^\/manager(?=\/)/, "") };
+  const navigate  = useWorkspaceNavigate();
   const { user, logout, hasPermission } = useAuth();
   const { can } = usePlanFeatures();
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
+  const isManager = Number(user?.role_id) === 2;
   const fullName       = user?.full_name || user?.name || "User";
   const roleName       = user?.role_name || user?.role || "Administrator";
   const avatarInitials = getInitials(fullName);
@@ -86,7 +88,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
     return `${API_BASE_URL}/${cleanPath}`;
   }, [user?.profile_image]);
 
-  const navigationMenuItems = [
+  const baseNavigationMenuItems = [
     { title: "Dashboard", icon: <DashboardOutlinedIcon />, path: "/dashboard", featureKey: null, requiredPermission: "dashboard:view" },
     { title: "User Management", icon: <GroupOutlinedIcon />, path: "/users", featureKey: null, requiredPermission: "users:view" },
 
@@ -99,17 +101,24 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
 
     { isSection: true, title: "FINANCE" },
     { title: "Invoices & Billing", icon: <ReceiptLongOutlinedIcon />, path: "/invoices", featureKey: null, requiredPermission: null },
-    { title: "Subsidy Tracking", icon: <AccountBalanceIcon />, path: "/subsidies", featureKey: null, requiredPermission: null },
-    { title: "Solar Loans", icon: <MonetizationOnOutlinedIcon />, path: "/loans", featureKey: null, requiredPermission: null },
+    { title: "Subsidy & Finance", icon: <AccountBalanceIcon />, path: "/subsidies", featureKey: null, requiredPermission: null },
 
     { isSection: true, title: "PROJECT EXECUTION" },
     { title: "Projects", icon: <EngineeringIcon />, path: "/projects", featureKey: null, requiredPermission: "projects:view" },
+    { title: "Field Operations", icon: <EngineeringIcon />, path: "/field-work", featureKey: null, requiredPermission: "projects:view" },
     { title: "Stock Management", icon: <Inventory2OutlinedIcon />, path: "/stock", featureKey: null, requiredPermission: "stock:view" },
 
     { isSection: true, title: "REPORTS & SETTINGS" },
     { title: "Reports", icon: <AssessmentOutlinedIcon />, path: "/reports", featureKey: "feature_reports", requiredPermission: "reports:view" },
     { title: "Settings", icon: <SettingsOutlinedIcon />, path: "/settings", featureKey: null, requiredPermission: "settings:view" },
   ];
+
+  const navigationMenuItems = isManager ? [...baseNavigationMenuItems.filter(item => item.path !== "/users"),
+    { isSection: true, title: "TEAM OPERATIONS" },
+    { title: "Sales Team", icon: <GroupOutlinedIcon />, path: "/team" },
+    { title: "Team Follow-ups", icon: <EventNoteOutlinedIcon />, path: "/followups" },
+    { title: "Team Performance", icon: <AssessmentOutlinedIcon />, path: "/reports/team", featureKey: "feature_reports" },
+  ] : baseNavigationMenuItems;
 
   const handleConfirmLogout = () => {
     setLogoutDialogOpen(false);
@@ -191,7 +200,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
               );
             }
 
-            if (item.requiredPermission && !hasPermission(item.requiredPermission)) {
+            if (!isManager && item.requiredPermission && !hasPermission(item.requiredPermission)) {
               return null;
             }
 

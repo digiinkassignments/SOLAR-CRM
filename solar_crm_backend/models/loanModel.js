@@ -1,4 +1,10 @@
+const managerScope=require("../utils/managerScope");
 const { db: defaultDb } = require("../config/db");
+
+const numberOr = (value, fallback) => {
+  const parsed = parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
 
 // Auto-ensure solar_loans and loan_documents tables
 const ensureLoanTables = async (db = defaultDb) => {
@@ -163,9 +169,10 @@ const syncLoanPaymentToProject = async (loanId, db = defaultDb) => {
 // Calculate PMT EMI helper: P * r * (1+r)^n / ((1+r)^n - 1)
 const calculateMonthlyEMI = (principal, annualRate, tenureMonths) => {
   const P = parseFloat(principal) || 0;
-  const r = (parseFloat(annualRate) || 7) / 12 / 100;
+  const r = numberOr(annualRate, 7) / 12 / 100;
   const n = parseInt(tenureMonths) || 60;
-  if (P <= 0 || r <= 0 || n <= 0) return 0;
+  if (P <= 0 || r < 0 || n <= 0) return 0;
+  if (r === 0) return Math.round(P / n);
   const emi = (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
   return Math.round(emi);
 };
@@ -177,7 +184,7 @@ const createLoan = async (data, db = defaultDb) => {
   let emi = parseFloat(data.monthly_emi) || 0;
   if (!emi && (data.loan_amount_applied || data.sanctioned_amount)) {
     const loanP = parseFloat(data.sanctioned_amount) || parseFloat(data.loan_amount_applied) || 0;
-    emi = calculateMonthlyEMI(loanP, data.interest_rate || 7.0, data.tenure_months || 60);
+    emi = calculateMonthlyEMI(loanP, numberOr(data.interest_rate, 7), data.tenure_months || 60);
   }
 
   const query = `
@@ -213,14 +220,14 @@ const createLoan = async (data, db = defaultDb) => {
     data.stopped_at_stage || null,
     data.subsidy_credited_to_loan ? 1 : 0,
     data.backward_reason || null,
-    parseFloat(data.system_capacity_kw) || 3.0,
+    numberOr(data.system_capacity_kw, 0),
     parseFloat(data.total_project_cost) || 0,
-    parseFloat(data.subsidy_expected) || 78000,
+    numberOr(data.subsidy_expected, 0),
     parseFloat(data.down_payment_amount) || 0,
     parseFloat(data.loan_amount_applied) || 0,
     parseFloat(data.sanctioned_amount) || 0,
     parseFloat(data.disbursed_amount) || 0,
-    parseFloat(data.interest_rate) || 7.0,
+    numberOr(data.interest_rate, 7),
     parseInt(data.tenure_months) || 60,
     emi,
     data.cibil_score ? parseInt(data.cibil_score) : null,
@@ -294,7 +301,7 @@ const getLoanByProjectId = async (projectId, db = defaultDb) => {
 const getAllLoans = async ({ search = "", stage = "", bank = "", side_status = "", page = 1, limit = 20 }, db = defaultDb) => {
   await ensureLoanTables(db);
 
-  let whereClauses = ["1=1"];
+  let whereClauses = ["1=1"+managerScope.linked(db,"l.lead_id")];
   let params = [];
 
   if (search && search.trim()) {
@@ -374,7 +381,7 @@ const getLoanStats = async (db = defaultDb) => {
       COALESCE(SUM(loan_amount_applied), 0) AS total_applied_amount,
       COALESCE(SUM(sanctioned_amount), 0) AS total_sanctioned_amount,
       COALESCE(SUM(disbursed_amount), 0) AS total_disbursed_amount
-    FROM solar_loans
+    FROM solar_loans WHERE 1=1${managerScope.linked(db,"solar_loans.lead_id")}
   `);
   return rows[0] || {};
 };
@@ -386,7 +393,7 @@ const updateLoan = async (id, data, db = defaultDb) => {
   let emi = parseFloat(data.monthly_emi);
   if (!emi && (data.sanctioned_amount || data.loan_amount_applied)) {
     const loanP = parseFloat(data.sanctioned_amount) || parseFloat(data.loan_amount_applied) || 0;
-    emi = calculateMonthlyEMI(loanP, data.interest_rate || 7.0, data.tenure_months || 60);
+    emi = calculateMonthlyEMI(loanP, numberOr(data.interest_rate, 7), data.tenure_months || 60);
   }
 
   // Handle clearing side status (e.g. Try Another Lender)

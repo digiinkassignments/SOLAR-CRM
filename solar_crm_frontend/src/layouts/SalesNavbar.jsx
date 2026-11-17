@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import ReminderInbox from "../components/ReminderInbox";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -34,6 +35,8 @@ const API_BASE_URL =
 
 // Sales Dynamic Breadcrumbs and Page Title Mapping
 const getSalesPageMetadata = (pathname) => {
+  if (pathname.includes("/sales/leads/today-followups")) return { title: "Today's Follow-up", breadcrumb: "Follow-ups" };
+  if (pathname.includes("/sales/leads/birthdays")) return { title: "Birthdays / Events", breadcrumb: "Birthdays / Events" };
   if (pathname.includes("/sales/leads"))
     return { title: "My Solar Leads", breadcrumb: "My Leads" };
   if (pathname.includes("/sales/followups"))
@@ -93,7 +96,7 @@ const SalesNavbar = ({ handleDrawerToggle, handleToggleCollapse, collapsed, side
         cleanPath = `uploads/profiles/${cleanPath}`;
       }
     }
-    return `${API_BASE_URL}/${cleanPath}?v=${Date.now()}`;
+    return `${API_BASE_URL}/${cleanPath}`;
   };
 
   const initials = fullName
@@ -262,6 +265,7 @@ const SalesNavbar = ({ handleDrawerToggle, handleToggleCollapse, collapsed, side
 
           {/* RIGHT SECTION: Profile Trigger + Fullscreen */}
           <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1.2, sm: 2 } }}>
+            <ReminderInbox />
             <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
               <IconButton
                 onClick={toggleFullscreen}

@@ -1,5 +1,10 @@
 import api from "../api/axios";
 
+// Tenant Status Check
+export const getTenantInfo = () => {
+    return api.get("/auth/tenant-info");
+};
+
 // Login
 export const loginUser = (data) => {
     return api.post("/auth/login", data);

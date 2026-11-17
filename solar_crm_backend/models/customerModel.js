@@ -1,3 +1,4 @@
+const managerScope=require("../utils/managerScope");
 const { db: defaultDb } = require("../config/db");
 
 // Auto-ensure customers table exists in any client database
@@ -359,12 +360,8 @@ const getCustomers = async (filters = {}, db = defaultDb) => {
     sql += ` AND (c.assigned_to = ? OR c.created_by = ?)`;
     params.push(user_id, user_id);
   } else if (roleIdNum === 2) { // Manager sees team
-    sql += ` AND (
-      c.assigned_to = ? 
-      OR c.assigned_to IN (SELECT id FROM users WHERE manager_id = ?) 
-      OR c.created_by = ?
-    )`;
-    params.push(user_id, user_id, user_id);
+    sql += ` AND ((l.is_deleted=0 AND l.assigned_to IN (SELECT id FROM users WHERE manager_id=? AND role_id=3 AND is_deleted=0)) OR (c.lead_id IS NULL AND c.assigned_to IN (SELECT id FROM users WHERE manager_id=? AND role_id=3 AND is_deleted=0)))`;
+    params.push(user_id,user_id);
   }
 
   if (city) {
@@ -412,7 +409,7 @@ const getCustomerById = async (id, db = defaultDb) => {
     `SELECT p.*, u.full_name AS assigned_to_name 
      FROM projects p 
      LEFT JOIN users u ON p.assigned_to = u.id 
-     WHERE (p.customer_id = ? OR (p.lead_id = ? AND ? IS NOT NULL)) AND p.is_deleted = 0
+     WHERE (p.customer_id = ? OR (p.lead_id = ? AND ? IS NOT NULL)) AND p.is_deleted = 0${managerScope.linked(db,"p.lead_id")}
      ORDER BY p.id DESC`,
     [id, leadId, leadId]
   );
@@ -422,7 +419,7 @@ const getCustomerById = async (id, db = defaultDb) => {
     `SELECT q.*, u.full_name AS created_by_name 
      FROM quotations q 
      LEFT JOIN users u ON q.created_by = u.id 
-     WHERE (q.customer_id = ? OR (q.lead_id = ? AND ? IS NOT NULL))
+     WHERE (q.customer_id = ? OR (q.lead_id = ? AND ? IS NOT NULL))${managerScope.linked(db,"q.lead_id")}
      ORDER BY q.id DESC`,
     [id, leadId, leadId]
   );
@@ -432,7 +429,7 @@ const getCustomerById = async (id, db = defaultDb) => {
     `SELECT inv.*, u.full_name AS created_by_name 
      FROM invoices inv 
      LEFT JOIN users u ON inv.created_by = u.id 
-     WHERE (inv.customer_id = ? OR (inv.lead_id = ? AND ? IS NOT NULL))
+     WHERE (inv.customer_id = ? OR (inv.lead_id = ? AND ? IS NOT NULL))${managerScope.linked(db,"inv.lead_id")}
      ORDER BY inv.id DESC`,
     [id, leadId, leadId]
   );
@@ -442,7 +439,7 @@ const getCustomerById = async (id, db = defaultDb) => {
     `SELECT l.*, u.full_name AS assigned_to_name 
      FROM leads l 
      LEFT JOIN users u ON l.assigned_to = u.id 
-     WHERE (l.customer_id = ? OR l.id = ?) AND l.is_deleted = 0
+     WHERE (l.customer_id = ? OR l.id = ?) AND l.is_deleted = 0${managerScope.lead(db,"l")}
      ORDER BY l.id DESC`,
     [id, leadId]
   );

@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy | Solops Solar EPC CRM</title>
+    
+    <!-- Technical & Primary SEO Meta Tags -->
+    <meta name="description" content="Solops Privacy Policy. Learn how Digiink Solutions LLP protects tenant data, ensures database isolation, and maintains compliance under India's DPDP Act 2023.">
+    <meta name="author" content="Digiink Solutions LLP">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://solops.cloud/privacy.html">
+    <link rel="icon" type="image/png" href="/assets/official-logo.png">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://solops.cloud/privacy.html">
+    <meta property="og:title" content="Privacy Policy | Solops Solar EPC CRM">
+    <meta property="og:description" content="Transparent, enterprise-grade data protection, tenant database isolation, and compliance for Indian solar installation businesses.">
+    <meta property="og:image" content="https://solops.cloud/assets/official-logo.png">
+
+    <!-- Google Fonts: Manrope & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        :root {
+            --primary-orange: #F36B16;
+            --primary-orange-hover: #D95609;
+            --deep-navy: #101828;
+            --secondary-navy: #1D2939;
+            --white: #FFFFFF;
+            --light-bg: #F3F6FA;
+            --muted-text: #667085;
+            --border-color: #E4E7EC;
+            --success-green: #16A078;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+            width: 100%;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--white);
+            color: var(--deep-navy);
+            line-height: 1.65;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Manrope', sans-serif;
+            color: var(--deep-navy);
+            letter-spacing: -0.02em;
+            line-height: 1.3;
+        }
+
+        .container {
+            max-width: 1220px;
+            margin: 0 auto;
+            padding: 0 16px;
+            position: relative;
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        /* ----------------------------------------------------
+           A. HEADER & NAVIGATION
+        ---------------------------------------------------- */
+        header.site-header {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 1000;
+        }
+
+        .nav-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+            width: 100%;
+        }
+
+        .brand-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            min-width: 0;
+        }
+
+        .official-logo-img {
+            height: 32px;
+            width: auto;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+
+        .brand-text-block {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.15;
+            min-width: 0;
+        }
+
+        .brand-main-title {
+            font-family: 'Manrope', sans-serif;
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--deep-navy);
+            letter-spacing: -0.03em;
+            white-space: nowrap;
+        }
+
+        .brand-subtitle-tag {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: var(--muted-text);
+            letter-spacing: -0.01em;
+            white-space: nowrap;
+        }
+
+        .nav-menu {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            list-style: none;
+        }
+
+        .nav-menu a {
+            text-decoration: none;
+            color: var(--muted-text);
+            font-size: 14.5px;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .nav-menu a:hover, .nav-menu a.active {
+            color: var(--primary-orange);
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-cta-primary {
+            text-decoration: none;
+            background: var(--primary-orange);
+            color: var(--white);
+            font-size: 14px;
+            font-weight: 600;
+            padding: 9px 18px;
+            border-radius: 7px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px -2px rgba(243, 107, 22, 0.35);
+            white-space: nowrap;
+        }
+
+        .btn-cta-primary:hover {
+            background: var(--primary-orange-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-hamburger {
+            display: none;
+            background: none;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 6px 9px;
+            color: var(--deep-navy);
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mobile-drawer-menu {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            width: 100%;
+            background: var(--white);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 20px 24px;
+            display: none;
+            flex-direction: column;
+            gap: 14px;
+            z-index: 999;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+        }
+
+        .mobile-drawer-menu.open {
+            display: flex;
+        }
+
+        .mobile-drawer-menu a {
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--deep-navy);
+            padding: 6px 0;
+            border-bottom: 1px solid #F2F4F7;
+        }
+
+        /* ----------------------------------------------------
+           B. HERO BANNER FOR LEGAL PAGES
+        ---------------------------------------------------- */
+        .legal-header-band {
+            background: linear-gradient(180deg, #F8FAFC 0%, #EDF2F7 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 56px 0 44px;
+        }
+
+        .breadcrumb-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--muted-text);
+            margin-bottom: 16px;
+        }
+
+        .breadcrumb-row a {
+            color: var(--muted-text);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .breadcrumb-row a:hover {
+            color: var(--primary-orange);
+        }
+
+        .legal-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(243, 107, 22, 0.1);
+            color: var(--primary-orange);
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            margin-bottom: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .legal-title {
+            font-size: 40px;
+            font-weight: 800;
+            color: var(--deep-navy);
+            margin-bottom: 12px;
+        }
+
+        .legal-meta-bar {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            font-size: 13.5px;
+            color: var(--muted-text);
+        }
+
+        .legal-meta-bar span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ----------------------------------------------------
+           C. LEGAL CONTENT GRID (SIDEBAR + MAIN TEXT)
+        ---------------------------------------------------- */
+        .legal-body-section {
+            padding: 56px 0 80px;
+            background: var(--white);
+        }
+
+        .legal-layout-grid {
+            display: grid;
+            grid-template-columns: 290px 1fr;
+            gap: 56px;
+            align-items: start;
+        }
+
+        /* Sticky Table of Contents */
+        .toc-wrapper {
+            position: sticky;
+            top: 84px;
+            background: #FAFAFC;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .toc-title {
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--deep-navy);
+            margin-bottom: 14px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .toc-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toc-list a {
+            text-decoration: none;
+            color: var(--muted-text);
+            font-size: 13.5px;
+            font-weight: 500;
+            line-height: 1.4;
+            display: block;
+            padding: 4px 6px;
+            border-radius: 6px;
+            transition: all 0.15s ease;
+        }
+
+        .toc-list a:hover {
+            color: var(--primary-orange);
+            background: rgba(243, 107, 22, 0.06);
+        }
+
+        /* Main Legal Content */
+        .legal-content-main {
+            min-width: 0;
+        }
+
+        .legal-block {
+            margin-bottom: 48px;
+            scroll-margin-top: 84px;
+        }
+
+        .legal-block h2 {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--deep-navy);
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #EAECF0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legal-block h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--secondary-navy);
+            margin: 20px 0 10px;
+        }
+
+        .legal-block p {
+            font-size: 15px;
+            color: #344054;
+            margin-bottom: 14px;
+            line-height: 1.7;
+        }
+
+        .legal-block ul, .legal-block ol {
+            margin: 12px 0 16px 20px;
+            color: #344054;
+            font-size: 14.5px;
+            line-height: 1.7;
+        }
+
+        .legal-block li {
+            margin-bottom: 8px;
+        }
+
+        /* Feature Highlight Box */
+        .highlight-card {
+            background: #F8FAFC;
+            border: 1px solid #D0D5DD;
+            border-left: 4px solid var(--primary-orange);
+            border-radius: 8px;
+            padding: 18px 20px;
+            margin: 20px 0;
+        }
+
+        .highlight-card h4 {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--deep-navy);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .highlight-card p {
+            margin-bottom: 0;
+            font-size: 13.5px;
+            color: #475467;
+        }
+
+        .security-badge-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .sec-badge-item {
+            display: flex;
+            gap: 12px;
+            padding: 16px;
+            border-radius: 8px;
+            background: #FAFAFC;
+            border: 1px solid var(--border-color);
+        }
+
+        .sec-badge-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: rgba(22, 160, 120, 0.12);
+            color: var(--success-green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        /* Contact Support Callout */
+        .grievance-box {
+            background: #101828;
+            color: #FFFFFF;
+            border-radius: 12px;
+            padding: 28px;
+            margin-top: 36px;
+        }
+
+        .grievance-box h3 {
+            color: #FFFFFF;
+            font-size: 19px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .grievance-box p {
+            color: #D0D5DD;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .grievance-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            background: rgba(255,255,255,0.06);
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .grievance-details a {
+            color: var(--primary-orange);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        /* ----------------------------------------------------
+           D. FOOTER
+        ---------------------------------------------------- */
+        footer.site-footer {
+            background: #FAFAFC;
+            border-top: 1px solid var(--border-color);
+            padding: 64px 0 32px;
+            font-size: 13.5px;
+            color: var(--muted-text);
+        }
+
+        .footer-cols-row {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 1fr 1fr 1.2fr;
+            gap: 36px;
+            margin-bottom: 48px;
+        }
+
+        .footer-col-unit h5 {
+            font-size: 13.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--deep-navy);
+            margin-bottom: 16px;
+        }
+
+        .footer-nav-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+
+        .footer-nav-list a {
+            text-decoration: none;
+            color: var(--muted-text);
+            transition: color 0.2s ease;
+        }
+
+        .footer-nav-list a:hover {
+            color: var(--primary-orange);
+        }
+
+        .footer-copyright-row {
+            border-top: 1px solid var(--border-color);
+            padding-top: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+
+        .footer-copyright-row a {
+            color: var(--deep-navy);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        @media (max-width: 1024px) {
+            .legal-layout-grid { grid-template-columns: 240px 1fr; gap: 36px; }
+            .footer-cols-row { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .nav-menu { display: none; }
+            .btn-hamburger { display: flex; }
+            .nav-actions .btn-cta-primary { display: none; }
+            .legal-layout-grid { grid-template-columns: 1fr; }
+            .toc-wrapper { display: none; }
+            .security-badge-grid { grid-template-columns: 1fr; }
+            .grievance-details { grid-template-columns: 1fr; }
+            .footer-cols-row { grid-template-columns: 1fr 1fr; }
+            .legal-title { font-size: 30px; }
+        }
+
+        @media (max-width: 480px) {
+            .footer-cols-row { grid-template-columns: 1fr; }
+            .legal-title { font-size: 26px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="site-header">
+        <div class="container nav-inner">
+            <a href="https://solops.cloud/" class="brand-link" aria-label="Solops Homepage">
+                <img src="/assets/official-logo.png" alt="Solops Logo" class="official-logo-img" width="130" height="34">
+                <div class="brand-text-block">
+                    <span class="brand-main-title">Solops</span>
+                    <span class="brand-subtitle-tag">(a product of Digiink Solutions)</span>
+                </div>
+            </a>
+
+            <!-- Desktop Menu -->
+            <nav aria-label="Main Navigation">
+                <ul class="nav-menu">
+                    <li><a href="https://solops.cloud/#platform">Platform</a></li>
+                    <li><a href="https://solops.cloud/#workspaces">Workspaces</a></li>
+                    <li><a href="https://solops.cloud/#capabilities">Capabilities</a></li>
+                    <li><a href="/how-it-works.html">How It Works</a></li>
+                    <li><a href="https://solops.cloud/#ecosystem">PM Surya Ghar</a></li>
+                    <li><a href="https://solops.cloud/#faq">FAQ</a></li>
+                    <li><a href="https://solops.cloud/#contact">Contact</a></li>
+                </ul>
+            </nav>
+
+            <!-- Actions -->
+            <div class="nav-actions">
+                <a href="https://solops.cloud/#contact" class="btn-cta-primary">
+                    <span>Start 7-Day Free Trial</span>
+                    <i data-lucide="arrow-right" style="width:15px; height:15px;"></i>
+                </a>
+                <button class="btn-hamburger" id="hamburgerBtn" aria-label="Toggle Navigation Menu" onclick="toggleMobileMenu()">
+                    <i data-lucide="menu" style="width:20px; height:20px;"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Drawer Menu -->
+        <div class="mobile-drawer-menu" id="mobileDrawer">
+            <a href="https://solops.cloud/#platform" onclick="closeMobileMenu()">Platform</a>
+            <a href="https://solops.cloud/#workspaces" onclick="closeMobileMenu()">Workspaces</a>
+            <a href="https://solops.cloud/#capabilities" onclick="closeMobileMenu()">Capabilities</a>
+            <a href="/how-it-works.html" onclick="closeMobileMenu()">How It Works</a>
+            <a href="https://solops.cloud/#ecosystem" onclick="closeMobileMenu()">PM Surya Ghar</a>
+            <a href="https://solops.cloud/#faq" onclick="closeMobileMenu()">FAQ</a>
+            <a href="https://solops.cloud/#contact" onclick="closeMobileMenu()">Contact & Support</a>
+            <a href="https://solops.cloud/#contact" onclick="closeMobileMenu()" class="btn-cta-primary" style="justify-content:center; margin-top:8px; width:100%;">
+                <span>Start 7-Day Free Trial</span>
+                <i data-lucide="arrow-right" style="width:15px; height:15px;"></i>
+            </a>
+        </div>
+    </header>
+
+    <!-- LEGAL HERO HEADER -->
+    <section class="legal-header-band">
+        <div class="container">
+            <div class="breadcrumb-row">
+                <a href="https://solops.cloud/">Home</a>
+                <i data-lucide="chevron-right" style="width:14px; height:14px;"></i>
+                <a href="/privacy.html">Legal & Compliance</a>
+                <i data-lucide="chevron-right" style="width:14px; height:14px;"></i>
+                <span>Privacy Policy</span>
+            </div>
+            <span class="legal-badge">
+                <i data-lucide="shield-check" style="width:14px; height:14px;"></i>
+                DPDP Act 2023 Compliant
+            </span>
+            <h1 class="legal-title">Privacy Policy</h1>
+            <div class="legal-meta-bar">
+                <span><i data-lucide="calendar" style="width:14px; height:14px;"></i> Effective Date: November 14, 2026</span>
+                <span><i data-lucide="map-pin" style="width:14px; height:14px;"></i> Governing Law: Republic of India</span>
+                <span><i data-lucide="building" style="width:14px; height:14px;"></i> Entity: Digiink Solutions LLP</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- LEGAL CONTENT SECTION -->
+    <section class="legal-body-section">
+        <div class="container">
+            <div class="legal-layout-grid">
+                
+                <!-- Table of Contents -->
+                <aside class="toc-wrapper">
+                    <h3 class="toc-title">Table of Contents</h3>
+                    <ul class="toc-list">
+                        <li><a href="#section-1">1. Introduction & Scope</a></li>
+                        <li><a href="#section-2">2. Information We Collect</a></li>
+                        <li><a href="#section-3">3. Database Isolation Architecture</a></li>
+                        <li><a href="#section-4">4. How We Use Tenant Data</a></li>
+                        <li><a href="#section-5">5. Data Retention & Ownership</a></li>
+                        <li><a href="#section-6">6. Information Security Standards</a></li>
+                        <li><a href="#section-7">7. Third-Party Integrations</a></li>
+                        <li><a href="#section-8">8. Tenant Rights & Export</a></li>
+                        <li><a href="#section-9">9. Cookies & Sessions</a></li>
+                        <li><a href="#section-10">10. Grievance Redressal</a></li>
+                    </ul>
+                </aside>
+
+                <!-- Main Content -->
+                <main class="legal-content-main">
+                    
+                    <div class="highlight-card">
+                        <h4>
+                            <i data-lucide="lock" style="width:18px; height:18px; color:var(--primary-orange);"></i>
+                            Zero-Data-Sharing Guarantee
+                        </h4>
+                        <p>
+                            Solops executes an isolated tenant architecture. Customer leads, site survey media, DISCOM feasibility applications, and 70:30 GST financial records stored in your company workspace (e.g. <code>yourcompany.solops.cloud</code>) are accessible exclusively to your authorized personnel. Digiink Solutions LLP never aggregates, monetizes, or sells tenant data to competitors or third parties.
+                        </p>
+                    </div>
+
+                    <!-- 1. Introduction -->
+                    <article class="legal-block" id="section-1">
+                        <h2>1. Introduction & Scope</h2>
+                        <p>
+                            This Privacy Policy outlines how <strong>Digiink Solutions LLP</strong> ("Digiink", "Company", "we", "our", or "us"), an Indian Limited Liability Partnership registered in Jaipur, Rajasthan, collects, processes, secures, and handles operational and personal data via our enterprise multi-tenant Software-as-a-Service (SaaS) application <strong>Solops</strong> accessible at <code>https://solops.cloud</code> and dedicated tenant subdomains <code>https://*.solops.cloud</code>.
+                        </p>
+                        <p>
+                            This policy applies to all registered solar installation businesses ("Tenants", "Clients"), their designated Super Administrators, Operations Managers, Sales Representatives, Site Survey Engineers, and any prospective customers who submit inquiries via our public website.
+                        </p>
+                        <p>
+                            Our data protection practices strictly adhere to the <strong>Digital Personal Data Protection Act, 2023 (DPDP Act)</strong>, the <strong>Information Technology Act, 2000</strong>, and the <strong>Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011</strong>.
+                        </p>
+                    </article>
+
+                    <!-- 2. Information Collected -->
+                    <article class="legal-block" id="section-2">
+                        <h2>2. Information We Collect</h2>
+                        <p>We process information categorized into Tenant Account Data, Solar Operations Data, and Platform Telemetry:</p>
+                        
+                        <h3>A. Tenant Business & Administrative Information</h3>
+                        <ul>
+                            <li><strong>Company Registration Details:</strong> Legal entity name, GSTIN, registered corporate address, official state of operations, and business contact numbers.</li>
+                            <li><strong>Authorized Personnel Profiles:</strong> Super Admin and employee full names, corporate email addresses, phone numbers, assigned roles, and login credentials (stored using salted cryptographic hashes).</li>
+                            <li><strong>Billing & Subscription Records:</strong> Plan tier, payment transaction identifiers, payment gateway invoice receipts, and GST billing dossiers.</li>
+                        </ul>
+
+                        <h3>B. Solar Operations & Customer Data (Entered by Tenants)</h3>
+                        <p>
+                            As a multi-tenant CRM, Solops enables tenants to store and manage residential, commercial, and industrial rooftop solar projects:
+                        </p>
+                        <ul>
+                            <li><strong>Solar Leads & Customers:</strong> Customer name, contact number, installation site address, pin code, state, city, and GPS coordinates.</li>
+                            <li><strong>Technical Specifications:</strong> Electricity DISCOM consumer connection number (CA Number), sanctioned sanction load, sanctioned kW capacity, proposed solar module models, and inverter serial numbers.</li>
+                            <li><strong>DISCOM & Subsidy Documentation:</strong> PM Surya Ghar registration IDs, feasibility approval letters, net-metering test reports, and inspection clearances.</li>
+                            <li><strong>Site Inspection Media:</strong> Rooftop photographs, shadow analysis snapshots, structural drawings, and installation completion handover dossiers.</li>
+                            <li><strong>Commercial Invoices:</strong> Quotations, 70:30 GST compliant invoices, milestone advance payments, and customer balance receipts.</li>
+                        </ul>
+
+                        <h3>C. Automatically Collected Technical Metadata</h3>
+                        <ul>
+                            <li>Access IP addresses, browser specifications, operating system versions, and time-stamped system activity audit logs to prevent unauthorized penetration or credential abuse.</li>
+                        </ul>
+                    </article>
+
+                    <!-- 3. Multi-Tenant Database Isolation -->
+                    <article class="legal-block" id="section-3">
+                        <h2>3. Multi-Tenant Database Isolation Architecture</h2>
+                        <p>
+                            Solops is engineered from the ground up for strict enterprise isolation. Unlike legacy single-database multi-tenant systems where multiple companies share the same table rows, Solops implements complete database-level separation:
+                        </p>
+
+                        <div class="security-badge-grid">
+                            <div class="sec-badge-item">
+                                <div class="sec-badge-icon"><i data-lucide="database"></i></div>
+                                <div>
+                                    <h4 style="font-size:14.5px; font-weight:700;">Isolated Database Schemas</h4>
+                                    <p style="font-size:12.5px; color:var(--muted-text);">Each tenant is provisioned an independent MySQL database (e.g. <code>db_client_001</code>). No joint table sharing exists.</p>
+                                </div>
+                            </div>
+                            <div class="sec-badge-item">
+                                <div class="sec-badge-icon"><i data-lucide="shield"></i></div>
+                                <div>
+                                    <h4 style="font-size:14.5px; font-weight:700;">Tenant Subdomain Guard</h4>
+                                    <p style="font-size:12.5px; color:var(--muted-text);">Requests to <code>yourcompany.solops.cloud</code> verify host headers dynamically. Cross-tenant data leakage is cryptographically and logically prohibited.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- 4. How We Use Tenant Data -->
+                    <article class="legal-block" id="section-4">
+                        <h2>4. How We Use Tenant Data</h2>
+                        <p>We process collected data exclusively for the following operational purposes:</p>
+                        <ol>
+                            <li><strong>Platform Operation:</strong> Provisioning tenant subdomains, running CRM modules, executing solar capacity calculations, generating system quotations, and tracking follow-ups.</li>
+                            <li><strong>Compliance & Invoicing:</strong> Generating accurate GST tax invoices under HSN/SAC codes for solar products and services.</li>
+                            <li><strong>System Notifications:</strong> Sending automated transactional email alerts (password reset links, subscription receipts, critical follow-up reminders).</li>
+                            <li><strong>Platform Reliability & Security:</strong> Detecting unauthorized intrusions, preventing brute-force login attempts, and maintaining 99.9% uptime.</li>
+                        </ol>
+                    </article>
+
+                    <!-- 5. Data Retention & Ownership -->
+                    <article class="legal-block" id="section-5">
+                        <h2>5. Data Retention & Tenant Ownership</h2>
+                        <p>
+                            <strong>You own 100% of your business data.</strong> Digiink Solutions LLP asserts no ownership rights over customer leads, survey media, or billing invoices entered into your workspace.
+                        </p>
+                        <ul>
+                            <li><strong>Active Subscriptions:</strong> Data remains stored securely in your dedicated database for the duration of your active subscription.</li>
+                            <li><strong>Account Deactivation / Cancellation:</strong> Upon subscription expiration or termination, your data is retained in a dormant, read-only state for thirty (30) calendar days to permit full data export. After 30 days, tenant databases and attached media are permanently and irreversibly purged from our production servers upon formal request.</li>
+                            <li><strong>Automated Backups:</strong> Encrypted backup snapshots are retained in secondary cold storage for ninety (90) days for disaster recovery purposes before rolling deletion.</li>
+                        </ul>
+                    </article>
+
+                    <!-- 6. Information Security Standards -->
+                    <article class="legal-block" id="section-6">
+                        <h2>6. Information Security Standards</h2>
+                        <p>We deploy rigorous technical and procedural security controls:</p>
+                        <ul>
+                            <li><strong>Encryption in Transit:</strong> All HTTP traffic across <code>solops.cloud</code> and tenant subdomains is strictly enforced over TLS 1.3/SSL with 256-bit encryption.</li>
+                            <li><strong>Password Security:</strong> Passwords are cryptographically hashed using industry-standard Blowfish algorithms (bcrypt) with random salting. Cleartext passwords are never stored or logged.</li>
+                            <li><strong>Role-Based Access Control (RBAC):</strong> Granular permissions restrict sensitive modules (financials, employee management, deletions) strictly to designated roles (Super Admin, Manager, Sales, Engineer).</li>
+                            <li><strong>Infrastructure Hardening:</strong> Production servers operate behind enterprise firewalls with automated rate limiting, intrusion detection, and strict privilege isolation.</li>
+                        </ul>
+                    </article>
+
+                    <!-- 7. Third-Party Integrations -->
+                    <article class="legal-block" id="section-7">
+                        <h2>7. Third-Party Integrations & Sub-processors</h2>
+                        <p>
+                            To deliver specific platform capabilities, Solops interfaces with select enterprise service providers bound by strict confidentiality and data protection agreements:
+                        </p>
+                        <ul>
+                            <li><strong>Cloud Infrastructure Providers:</strong> ISO/IEC 27001 certified data center facilities for secure hosting.</li>
+                            <li><strong>Transactional SMTP Providers:</strong> For delivering system activation, verification, and reset emails.</li>
+                            <li><strong>Payment Gateways (Razorpay / Cashfree):</strong> For processing subscription payments. Credit card and net-banking credentials are processed directly by RBI-authorized payment aggregators; Solops never stores card numbers.</li>
+                        </ul>
+                    </article>
+
+                    <!-- 8. Tenant Rights & Data Export -->
+                    <article class="legal-block" id="section-8">
+                        <h2>8. Tenant Rights & Data Portability</h2>
+                        <p>
+                            Under the DPDP Act 2023, administrators have comprehensive rights regarding their business data:
+                        </p>
+                        <ul>
+                            <li><strong>Right to Access:</strong> View all stored records directly via CRM workspace tables.</li>
+                            <li><strong>Right to Rectification:</strong> Update, edit, or correct any client, project, or employee record in real-time.</li>
+                            <li><strong>Right to Data Portability:</strong> Export lead databases, project timelines, and customer rosters into standard Microsoft Excel (.xlsx) or CSV formats at any time.</li>
+                            <li><strong>Right to Erasure:</strong> Request permanent destruction of tenant databases and associated media files upon contract completion.</li>
+                        </ul>
+                    </article>
+
+                    <!-- 9. Cookies & Sessions -->
+                    <article class="legal-block" id="section-9">
+                        <h2>9. Cookies & Session Management</h2>
+                        <p>
+                            Solops utilizes strictly functional HTTP cookies and Local Storage session tokens essential for maintaining authenticated user sessions across the web portal. We do not use third-party cross-site advertising or behavioural tracking cookies.
+                        </p>
+                    </article>
+
+                    <!-- 10. Grievance Redressal -->
+                    <article class="legal-block" id="section-10">
+                        <h2>10. Grievance Redressal & Contact Officer</h2>
+                        <p>
+                            In accordance with the Information Technology Act, 2000 and Rule 5(9) of the IT Rules, 2011, and the DPDP Act 2023, any privacy complaints, data deletion requests, or compliance inquiries may be submitted to our designated Grievance Officer:
+                        </p>
+
+                        <div class="grievance-box">
+                            <h3>Data Protection & Grievance Officer</h3>
+                            <p>Digiink Solutions LLP — Legal & Privacy Compliance Cell</p>
+                            
+                            <div class="grievance-details">
+                                <div>
+                                    <span style="color:#98A2B3; display:block; margin-bottom:4px;">Official Address:</span>
+                                    <strong>Digiink Solutions LLP</strong><br>
+                                    Jaipur, Rajasthan, 302020, India
+                                </div>
+                                <div>
+                                    <span style="color:#98A2B3; display:block; margin-bottom:4px;">Direct Communication:</span>
+                                    Email: <a href="mailto:support@digiinksolutions.com">support@digiinksolutions.com</a><br>
+                                    Phone: <a href="tel:+919955441122">+91 99554 41122</a> / <a href="tel:+919119114455">+91 91191 14455</a>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                </main>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-cols-row">
+                <div class="footer-col-unit">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                        <img src="/assets/official-logo.png" alt="Solops" width="30" height="30">
+                        <span style="font-family:'Manrope',sans-serif; font-size:19px; font-weight:800; color:var(--deep-navy);">Solops</span>
+                    </div>
+                    <p style="font-size:13.5px; line-height:1.6; margin-bottom:14px;">
+                        Enterprise Solar EPC CRM & Field Operations SaaS purpose-built for residential and commercial solar installers across India.
+                    </p>
+                    <p style="font-size:12.5px; color:#98A2B3;">Crafted with engineering excellence in Jaipur, Rajasthan, India.</p>
+                </div>
+
+                <div class="footer-col-unit">
+                    <h5>Platform</h5>
+                    <ul class="footer-nav-list">
+                        <li><a href="https://solops.cloud/#platform">Overview</a></li>
+                        <li><a href="https://solops.cloud/#workspaces">4 Workspaces</a></li>
+                        <li><a href="https://solops.cloud/#capabilities">Capabilities</a></li>
+                        <li><a href="/how-it-works.html">How It Works</a></li>
+                        <li><a href="https://solops.cloud/#ecosystem">PM Surya Ghar</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-col-unit">
+                    <h5>Capabilities</h5>
+                    <ul class="footer-nav-list">
+                        <li><a href="https://solops.cloud/#capabilities">Lead Management</a></li>
+                        <li><a href="https://solops.cloud/#capabilities">Site Surveys</a></li>
+                        <li><a href="https://solops.cloud/#capabilities">70:30 GST Billing</a></li>
+                        <li><a href="https://solops.cloud/#capabilities">Bank Loan Pipeline</a></li>
+                        <li><a href="https://solops.cloud/#capabilities">Inventory & AMC</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-col-unit">
+                    <h5>Resources & Legal</h5>
+                    <ul class="footer-nav-list">
+                        <li><a href="/privacy.html">Privacy Policy</a></li>
+                        <li><a href="/terms.html">Terms & Conditions</a></li>
+                        <li><a href="/how-it-works.html">Workflow Documentation</a></li>
+                        <li><a href="/sitemap.xml">XML Sitemap</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-col-unit">
+                    <h5>Contact & Support</h5>
+                    <ul class="footer-nav-list">
+                        <li><a href="tel:+919955441122">+91 99554 41122</a></li>
+                        <li><a href="tel:+919119114455">+91 91191 14455</a></li>
+                        <li><a href="mailto:support@digiinksolutions.com">support@digiinksolutions.com</a></li>
+                        <li><span>Jaipur, Rajasthan, India</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-copyright-row">
+                <div>
+                    © 2026 Solops. A product of <a href="https://digiinksolutions.com" target="_blank" rel="noopener">Digiink Solutions LLP</a>. All Rights Reserved.
+                </div>
+                <div style="display:flex; gap:18px;">
+                    <a href="/privacy.html">Privacy Policy</a>
+                    <a href="/terms.html">Terms & Conditions</a>
+                    <a href="/how-it-works.html">How It Works</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+
+        function toggleMobileMenu() {
+            const drawer = document.getElementById('mobileDrawer');
+            drawer.classList.toggle('open');
+        }
+
+        function closeMobileMenu() {
+            const drawer = document.getElementById('mobileDrawer');
+            drawer.classList.remove('open');
+        }
+    </script>
+</body>
+</html>

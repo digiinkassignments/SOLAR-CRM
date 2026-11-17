@@ -1,5 +1,6 @@
 // models/warrantyModel.js
 
+const readyColumns = new WeakSet();
 const ensureWarrantyTable = async (db) => {
   await db.query(`
     CREATE TABLE IF NOT EXISTS project_warranty_amc (
@@ -7,9 +8,9 @@ const ensureWarrantyTable = async (db) => {
       project_id INT NOT NULL,
       warranty_certificate_no VARCHAR(60) DEFAULT NULL,
       panel_warranty_years INT DEFAULT NULL,
-      panel_product_warranty_years INT DEFAULT 12,
+      panel_product_warranty_years INT DEFAULT NULL,
       panel_product_warranty_end DATE DEFAULT NULL,
-      panel_performance_warranty_years INT DEFAULT 25,
+      panel_performance_warranty_years INT DEFAULT NULL,
       panel_performance_warranty_end DATE DEFAULT NULL,
       inverter_warranty_years INT DEFAULT NULL,
       inverter_warranty_end DATE DEFAULT NULL,
@@ -20,16 +21,16 @@ const ensureWarrantyTable = async (db) => {
       free_service_end_date DATE DEFAULT NULL,
       amc_start_date DATE DEFAULT NULL,
       amc_end_date DATE DEFAULT NULL,
-      amc_plan VARCHAR(60) DEFAULT 'Standard',
-      amc_amount DECIMAL(10,2) DEFAULT 4500.00,
-      amc_payment_status VARCHAR(50) DEFAULT 'Paid',
+      amc_plan VARCHAR(60) DEFAULT NULL,
+      amc_amount DECIMAL(10,2) DEFAULT NULL,
+      amc_payment_status VARCHAR(50) DEFAULT NULL,
       amc_renewal_date DATE DEFAULT NULL,
-      visit_frequency VARCHAR(50) DEFAULT 'Quarterly',
+      visit_frequency VARCHAR(50) DEFAULT NULL,
       panel_serial_numbers TEXT DEFAULT NULL,
       inverter_serial_number VARCHAR(100) DEFAULT NULL,
-      monitoring_portal_url VARCHAR(255) DEFAULT 'https://monitoring.solaxcloud.com',
-      monitoring_plant_id VARCHAR(100) DEFAULT 'SOLAR-PLANT-004',
-      monitoring_username VARCHAR(100) DEFAULT 'rajesh.sharma@solax',
+      monitoring_portal_url VARCHAR(255) DEFAULT NULL,
+      monitoring_plant_id VARCHAR(100) DEFAULT NULL,
+      monitoring_username VARCHAR(100) DEFAULT NULL,
       warranty_docket_url TEXT DEFAULT NULL,
       scheduled_visits JSON DEFAULT NULL,
       created_by INT DEFAULT NULL,
@@ -56,6 +57,13 @@ const ensureWarrantyTable = async (db) => {
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  if (!readyColumns.has(db)) {
+    for (const definition of ['amc_plan_id INT DEFAULT NULL', 'amc_plan_snapshot JSON DEFAULT NULL']) {
+      try { await db.query(`ALTER TABLE project_warranty_amc ADD COLUMN ${definition}`); }
+      catch (error) { if (error.code !== 'ER_DUP_FIELDNAME') throw error; }
+    }
+    readyColumns.add(db);
+  }
 };
 
 const parseJsonField = (val) => {
@@ -84,7 +92,7 @@ const getWarrantyAndVisits = async (db, projectId) => {
 
   const w = warrantyRows[0] || null;
   return {
-    warranty: w ? { ...w, scheduled_visits: parseJsonField(w.scheduled_visits) } : null,
+    warranty: w ? { ...w, amc_plan_snapshot: parseJsonField(w.amc_plan_snapshot), scheduled_visits: parseJsonField(w.scheduled_visits) } : null,
     visits: visitsRows || []
   };
 };
@@ -103,37 +111,37 @@ const createWarranty = async (db, projectId, data, userId) => {
       amc_start_date, amc_end_date, amc_plan, amc_amount, amc_payment_status, amc_renewal_date,
       visit_frequency, panel_serial_numbers, inverter_serial_number,
       monitoring_portal_url, monitoring_plant_id, monitoring_username,
-      warranty_docket_url, scheduled_visits, created_by
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      warranty_docket_url, scheduled_visits, created_by, amc_plan_id, amc_plan_snapshot
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [
       projectId, certNo,
-      data.panel_warranty_years || 25,
-      data.panel_product_warranty_years || 12,
+      data.panel_warranty_years || null,
+      data.panel_product_warranty_years || null,
       data.panel_product_warranty_end || null,
-      data.panel_performance_warranty_years || 25,
+      data.panel_performance_warranty_years || null,
       data.panel_performance_warranty_end || null,
-      data.inverter_warranty_years || 5,
+      data.inverter_warranty_years || null,
       data.inverter_warranty_end || null,
-      data.installation_warranty_years || 5,
+      data.installation_warranty_years || null,
       data.installation_warranty_end || null,
       data.warranty_start_date || null,
       data.warranty_end_date || null,
       data.free_service_end_date || null,
       data.amc_start_date || null,
       data.amc_end_date || null,
-      data.amc_plan || 'Standard',
-      data.amc_amount || 4500.00,
-      data.amc_payment_status || 'Paid',
+      data.amc_plan || null,
+      data.amc_amount === '' || data.amc_amount == null ? null : data.amc_amount,
+      data.amc_payment_status || null,
       data.amc_renewal_date || null,
-      data.visit_frequency || 'Quarterly',
+      data.visit_frequency || null,
       data.panel_serial_numbers || null,
       data.inverter_serial_number || null,
-      data.monitoring_portal_url || 'https://monitoring.solaxcloud.com',
-      data.monitoring_plant_id || 'SOLAR-PLANT-004',
-      data.monitoring_username || 'rajesh.sharma@solax',
+      data.monitoring_portal_url || null,
+      data.monitoring_plant_id || null,
+      data.monitoring_username || null,
       data.warranty_docket_url || null,
       serializeJsonField(data.scheduled_visits),
-      userId
+      userId, data.amc_plan_id || null, serializeJsonField(data.amc_plan_snapshot)
     ]
   );
   return result.insertId;
@@ -168,29 +176,31 @@ const updateWarranty = async (db, projectId, data) => {
       monitoring_plant_id = ?,
       monitoring_username = ?,
       warranty_docket_url = ?,
-      scheduled_visits = ?
+      scheduled_visits = ?,
+      amc_plan_id = ?,
+      amc_plan_snapshot = ?
      WHERE project_id = ? AND is_deleted = 0`,
     [
       data.warranty_certificate_no || null,
       data.panel_warranty_years,
-      data.panel_product_warranty_years || 12,
+      data.panel_product_warranty_years || null,
       data.panel_product_warranty_end || null,
-      data.panel_performance_warranty_years || 25,
+      data.panel_performance_warranty_years || null,
       data.panel_performance_warranty_end || null,
-      data.inverter_warranty_years,
+      data.inverter_warranty_years || null,
       data.inverter_warranty_end || null,
-      data.installation_warranty_years,
+      data.installation_warranty_years || null,
       data.installation_warranty_end || null,
       data.warranty_start_date || null,
       data.warranty_end_date || null,
       data.free_service_end_date || null,
       data.amc_start_date || null,
       data.amc_end_date || null,
-      data.amc_plan,
-      data.amc_amount,
-      data.amc_payment_status || 'Paid',
+      data.amc_plan || null,
+      data.amc_amount === '' || data.amc_amount == null ? null : data.amc_amount,
+      data.amc_payment_status || null,
       data.amc_renewal_date || null,
-      data.visit_frequency,
+      data.visit_frequency || null,
       data.panel_serial_numbers || null,
       data.inverter_serial_number || null,
       data.monitoring_portal_url || null,
@@ -198,6 +208,7 @@ const updateWarranty = async (db, projectId, data) => {
       data.monitoring_username || null,
       data.warranty_docket_url || null,
       serializeJsonField(data.scheduled_visits),
+      data.amc_plan_id || null, serializeJsonField(data.amc_plan_snapshot),
       projectId
     ]
   );
