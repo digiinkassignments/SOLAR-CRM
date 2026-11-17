@@ -18,7 +18,7 @@ exports.getInspection = async (req, res) => {
     await ensureInspectionTable(db);
     const pid = await resolveNumericProjectId(db, req.params.id);
     const data = await getInspectionByProject(db, pid);
-    res.json({ inspection: data });
+    res.json({ inspection: data, data });
   } catch (err) {
     console.error('getInspection error:', err);
     res.status(500).json({ message: 'Server error' });
@@ -30,26 +30,48 @@ exports.createInspection = async (req, res) => {
     const db = req.db;
     await ensureInspectionTable(db);
     const pid = await resolveNumericProjectId(db, req.params.id);
-    const existing = await getInspectionByProject(db, pid);
-    if (existing) return res.status(400).json({ message: 'Inspection already exists. Use PUT to update.' });
-    await createInspection(db, pid, req.body, req.user?.id || req.user?.userId);
+
+    // Check if an actual row exists in project_inspections (do not rely on getInspectionByProject fallback)
+    const [rows] = await db.query(
+      "SELECT id FROM project_inspections WHERE project_id = ? AND is_deleted = 0 LIMIT 1",
+      [pid]
+    );
+
+    if (rows && rows.length > 0) {
+      await updateInspection(db, pid, req.body);
+    } else {
+      await createInspection(db, pid, req.body, req.user?.id || req.user?.userId);
+    }
+
     const data = await getInspectionByProject(db, pid);
-    res.status(201).json({ message: 'Inspection created', inspection: data });
+    res.status(200).json({ message: 'Inspection saved successfully', inspection: data, data });
   } catch (err) {
     console.error('createInspection error:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error: ' + (err.message || err) });
   }
 };
 
 exports.updateInspection = async (req, res) => {
   try {
     const db = req.db;
+    await ensureInspectionTable(db);
     const pid = await resolveNumericProjectId(db, req.params.id);
-    await updateInspection(db, pid, req.body);
+
+    const [rows] = await db.query(
+      "SELECT id FROM project_inspections WHERE project_id = ? AND is_deleted = 0 LIMIT 1",
+      [pid]
+    );
+
+    if (rows && rows.length > 0) {
+      await updateInspection(db, pid, req.body);
+    } else {
+      await createInspection(db, pid, req.body, req.user?.id || req.user?.userId);
+    }
+
     const data = await getInspectionByProject(db, pid);
-    res.json({ message: 'Inspection updated', inspection: data });
+    res.json({ message: 'Inspection updated successfully', inspection: data, data });
   } catch (err) {
     console.error('updateInspection error:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error: ' + (err.message || err) });
   }
 };
