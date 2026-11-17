@@ -13,6 +13,7 @@ import '../calculator/solar_calculator_view.dart';
 import '../finance/finance_view.dart';
 import '../stock/stock_list_view.dart';
 import '../settings/settings_view.dart';
+import '../financing/financing_hub_view.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -133,6 +134,15 @@ class _AdminShellState extends State<AdminShell> {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SolarCalculatorView()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.account_balance_outlined, color: Color(0xFF7C3AED), size: 22),
+            tooltip: "Subsidy & Finance",
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const FinancingHubView()),
               );
             },
           ),

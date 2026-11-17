@@ -16,6 +16,7 @@ import 'widgets/admin_activity_feed_card.dart';
 import '../calculator/solar_calculator_view.dart';
 import '../finance/finance_view.dart';
 import '../stock/stock_list_view.dart';
+import '../financing/financing_hub_view.dart';
 
 class AdminDashboardView extends StatefulWidget {
   final Function(int)? onNavigateTab;
@@ -229,6 +230,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
                 // Stock & Inventory Management Banner
                 _buildStockCard(isDark, cardBg, borderColor, textPrimary, textSecondary),
+
+                const SizedBox(height: 10),
+
+                // Subsidy & Solar Loans Banner (PM Surya Ghar & Financing)
+                _buildSubsidyAndFinanceCard(isDark, cardBg, borderColor, textPrimary, textSecondary),
 
                 const SizedBox(height: 16),
 
@@ -643,6 +649,99 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               Icons.arrow_forward_ios_rounded,
               size: 16,
               color: AppColors.emeraldGreen,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubsidyAndFinanceCard(
+    bool isDark,
+    Color cardBg,
+    Color borderColor,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const FinancingHubView()),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.brandPrimary.withValues(alpha: 0.35)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.brandPrimary.withValues(alpha: isDark ? 0.06 : 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.brandPrimary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.account_balance_outlined,
+                color: AppColors.brandPrimary,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          "Subsidy & Finance",
+                          style: AppTypography.headingSmall(color: textPrimary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.brandPrimary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          "SURYA GHAR",
+                          style: AppTypography.badge(color: AppColors.brandPrimary),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    "Track PM Surya Ghar 9 portal stages, document vault & solar rooftop loans",
+                    style: AppTypography.caption(color: textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: AppColors.brandPrimary,
             ),
           ],
         ),

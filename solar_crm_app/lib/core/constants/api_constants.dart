@@ -86,4 +86,20 @@ class ApiConstants {
   static const String stockReport = "/stock/report";
   static String stockItemByBarcode(String code) => "/stock/items/barcode/${Uri.encodeComponent(code)}";
   static const String stockQuickScanIn = "/stock/quick-scan-in";
+
+  // Subsidies & PM Surya Ghar Hub (Matching https://digiinksolutions.solops.cloud/subsidies)
+  static const String subsidiesList = "/subsidies/list";
+  static const String applySubsidy = "/subsidies/apply";
+  static String subsidyByLead(int leadId) => "/subsidies/$leadId";
+  static const String subsidyUploadDoc = "/subsidies/upload-doc";
+  static String subsidyVerifyDoc(int docId) => "/subsidies/verify-doc/$docId";
+  static const String subsidyReject = "/subsidies/reject";
+  static String subsidyResolveFix(int id) => "/subsidies/resolve-fix/$id";
+
+  // Solar Loans & Financing Hub
+  static const String loans = "/loans";
+  static const String loanStats = "/loans/stats";
+  static String loanDetails(int id) => "/loans/$id";
+  static String loanByLead(int leadId) => "/loans/lead/$leadId";
+  static String loanUploadDoc(int id) => "/loans/$id/upload-doc";
 }
