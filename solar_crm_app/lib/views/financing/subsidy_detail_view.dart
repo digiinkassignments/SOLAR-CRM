@@ -608,24 +608,33 @@ Current Portal Stage: $_currentPortalStage
                       ),
                       child: Text("LEAD #${widget.leadId}", style: AppTypography.badge(color: AppColors.brandPrimary)),
                     ),
-                    const SizedBox(width: 8),
-                    if (_isDcrCompliant)
+                    const SizedBox(width: 6),
+                    if (_isDcrCompliant) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
                           color: AppColors.emeraldGreen.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Text("DCR COMPLIANT", style: AppTypography.badge(color: AppColors.emeraldGreen)),
+                        child: Text("DCR", style: AppTypography.badge(color: AppColors.emeraldGreen)),
                       ),
+                      const SizedBox(width: 6),
+                    ],
                     const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          currentStageObj['label'] as String,
+                          style: AppTypography.badge(color: color),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      child: Text(currentStageObj['label'] as String, style: AppTypography.badge(color: color)),
                     ),
                   ],
                 ),
@@ -941,13 +950,20 @@ Current Portal Stage: $_currentPortalStage
                       onPressed: () => _showImagePreviewDialog(uploaded),
                     ),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.all(4),
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                           icon: const Icon(Icons.camera_alt_outlined, size: 18),
                           tooltip: "Re-take Photo",
                           onPressed: () => _pickAndUploadDocument(type, ImageSource.camera),
                         ),
                         IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.all(4),
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                           icon: const Icon(Icons.photo_library_outlined, size: 18),
                           tooltip: "Re-upload from Gallery",
                           onPressed: () => _pickAndUploadDocument(type, ImageSource.gallery),

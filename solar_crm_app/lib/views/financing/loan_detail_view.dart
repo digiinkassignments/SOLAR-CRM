@@ -1039,15 +1039,22 @@ class _LoanDetailViewState extends State<LoanDetailView> {
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    loan.bankName,
+                    style: AppTypography.badge(color: color),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                child: Text(loan.bankName, style: AppTypography.badge(color: color)),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -1082,7 +1089,14 @@ class _LoanDetailViewState extends State<LoanDetailView> {
               if (loan.city != null && loan.city!.isNotEmpty) ...[
                 const Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
                 const SizedBox(width: 4),
-                Text("${loan.city}${loan.state != null ? ', ${loan.state}' : ''}", style: AppTypography.bodySmall(color: textSecondary)),
+                Expanded(
+                  child: Text(
+                    "${loan.city}${loan.state != null ? ', ${loan.state}' : ''}",
+                    style: AppTypography.bodySmall(color: textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ],
           ),
@@ -1576,19 +1590,28 @@ class _LoanDetailViewState extends State<LoanDetailView> {
 
                     if (hasDoc) ...[
                       IconButton(
-                        icon: const Icon(Icons.visibility_outlined, size: 20, color: AppColors.skyBlue),
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        icon: const Icon(Icons.visibility_outlined, size: 18, color: AppColors.skyBlue),
                         onPressed: () => _showImagePreviewDialog(docType, existingDoc!.fileUrl),
                         tooltip: "Preview",
                       ),
                     ],
 
                     IconButton(
-                      icon: const Icon(Icons.camera_alt_outlined, size: 20, color: AppColors.brandPrimary),
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      icon: const Icon(Icons.camera_alt_outlined, size: 18, color: AppColors.brandPrimary),
                       onPressed: () => _pickAndUploadDocument(docType, ImageSource.camera),
                       tooltip: "Camera Capture",
                     ),
                     IconButton(
-                      icon: const Icon(Icons.photo_library_outlined, size: 20, color: AppColors.brandPrimary),
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      icon: const Icon(Icons.photo_library_outlined, size: 18, color: AppColors.brandPrimary),
                       onPressed: () => _pickAndUploadDocument(docType, ImageSource.gallery),
                       tooltip: "Gallery Upload",
                     ),

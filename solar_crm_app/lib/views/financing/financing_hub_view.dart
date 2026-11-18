@@ -498,7 +498,7 @@ Current Portal Stage: ${item.stage}
                 child: Text("LEAD #${item.leadId}", style: AppTypography.badge(color: AppColors.brandPrimary)),
               ),
               const SizedBox(width: 6),
-              if (item.isDcrCompliant != null)
+              if (item.isDcrCompliant != null) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
@@ -510,20 +510,31 @@ Current Portal Stage: ${item.stage}
                     style: AppTypography.badge(color: item.isDcrCompliant == true ? AppColors.emeraldGreen : const Color(0xFFF59E0B)),
                   ),
                 ),
+                const SizedBox(width: 6),
+              ],
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-                    const SizedBox(width: 4),
-                    Text(label, style: AppTypography.badge(color: color)),
-                  ],
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          label,
+                          style: AppTypography.badge(color: color),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -856,16 +867,23 @@ Current Portal Stage: ${item.stage}
               // Top Row: Bank & Stage
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(4),
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        item.bankName,
+                        style: AppTypography.badge(color: color),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    child: Text(item.bankName, style: AppTypography.badge(color: color)),
                   ),
                   const SizedBox(width: 8),
-                  if (!item.isSideStatusActive)
+                  if (!item.isSideStatusActive) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
@@ -874,7 +892,8 @@ Current Portal Stage: ${item.stage}
                       ),
                       child: Text(item.sideStatus.toUpperCase(), style: AppTypography.badge(color: AppColors.errorRed)),
                     ),
-                  const Spacer(),
+                    const SizedBox(width: 8),
+                  ],
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
