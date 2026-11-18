@@ -19,6 +19,10 @@ class ProjectProvider extends ChangeNotifier {
   bool _isLoadingSurveys = false;
   bool _isSubmitting = false;
 
+  ProjectModel? _selectedProject;
+  bool _isLoadingDetails = false;
+  String? _detailsError;
+
   ProjectProvider({required this.apiClient});
 
   // Getters
@@ -33,6 +37,9 @@ class ProjectProvider extends ChangeNotifier {
   List<Map<String, dynamic>> get completedSurveys => _completedSurveys;
   bool get isLoadingSurveys => _isLoadingSurveys;
   bool get isSubmitting => _isSubmitting;
+  ProjectModel? get selectedProject => _selectedProject;
+  bool get isLoadingDetails => _isLoadingDetails;
+  String? get detailsError => _detailsError;
 
   // 1. Fetch Paginated Projects
   Future<void> fetchProjects({
@@ -187,7 +194,7 @@ class ProjectProvider extends ChangeNotifier {
   }
 
   // 7. Update Project Stage
-  Future<Map<String, dynamic>> updateProjectStage(int projectId, String newStage, {String? notes}) async {
+  Future<Map<String, dynamic>> updateProjectStage(dynamic projectId, String newStage, {String? notes}) async {
     try {
       final response = await apiClient.dio.put(
         ApiConstants.projectUpdateStage(projectId),
@@ -197,13 +204,60 @@ class ProjectProvider extends ChangeNotifier {
         },
       );
       if (response.data != null && response.data['success'] == true) {
-        await fetchProjects();
-        await fetchStats();
+        await fetchProjectDetails(projectId);
+        fetchProjects();
+        fetchStats();
         return {'success': true, 'message': response.data['message'] ?? 'Stage updated'};
       }
       return {'success': false, 'message': response.data?['message'] ?? 'Update failed'};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // 8. Fetch Project Details by ID or Number
+  Future<void> fetchProjectDetails(dynamic id) async {
+    _isLoadingDetails = true;
+    _detailsError = null;
+    notifyListeners();
+
+    try {
+      final response = await apiClient.dio.get(ApiConstants.projectDetails(id));
+      if (response.data != null && response.data['success'] == true && response.data['data'] != null) {
+        _selectedProject = ProjectModel.fromJson(response.data['data'] as Map<String, dynamic>);
+      } else {
+        _detailsError = response.data?['message'] ?? 'Project not found';
+      }
+    } catch (e) {
+      _detailsError = e.toString();
+    } finally {
+      _isLoadingDetails = false;
+      notifyListeners();
+    }
+  }
+
+  // 9. Update Project Details
+  Future<Map<String, dynamic>> updateProject(dynamic id, Map<String, dynamic> data) async {
+    _isSubmitting = true;
+    notifyListeners();
+
+    try {
+      final response = await apiClient.dio.put(
+        ApiConstants.projectDetails(id),
+        data: data,
+      );
+
+      if (response.data != null && response.data['success'] == true) {
+        await fetchProjectDetails(id);
+        fetchProjects();
+        return {'success': true, 'message': response.data['message'] ?? 'Project updated successfully'};
+      }
+      return {'success': false, 'message': response.data?['message'] ?? 'Failed to update project'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
     }
   }
 }

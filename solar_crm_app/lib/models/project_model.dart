@@ -28,6 +28,7 @@ class ProjectModel {
   final DateTime? installationEndDate;
   final DateTime? completionDate;
   final String? notes;
+  final List<ProjectStageLogModel> stageLogs;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -59,6 +60,7 @@ class ProjectModel {
     this.installationEndDate,
     this.completionDate,
     this.notes,
+    this.stageLogs = const [],
     this.createdAt,
     this.updatedAt,
   });
@@ -229,8 +231,65 @@ class ProjectModel {
       installationEndDate: parseDate(json['installation_end_date']),
       completionDate: parseDate(json['completion_date']),
       notes: json['notes']?.toString(),
+      stageLogs: (json['stage_logs'] is List)
+          ? (json['stage_logs'] as List)
+              .map((l) => ProjectStageLogModel.fromJson(l as Map<String, dynamic>))
+              .toList()
+          : [],
       createdAt: parseDate(json['created_at']),
       updatedAt: parseDate(json['updated_at']),
+    );
+  }
+}
+
+class ProjectStageLogModel {
+  final int id;
+  final int projectId;
+  final String? fromStage;
+  final String toStage;
+  final int? changedBy;
+  final String? changedByName;
+  final String? notes;
+  final DateTime? createdAt;
+
+  ProjectStageLogModel({
+    required this.id,
+    required this.projectId,
+    this.fromStage,
+    required this.toStage,
+    this.changedBy,
+    this.changedByName,
+    this.notes,
+    this.createdAt,
+  });
+
+  factory ProjectStageLogModel.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(dynamic d) {
+      if (d == null) return null;
+      try {
+        return DateTime.parse(d.toString());
+      } catch (_) {
+        return null;
+      }
+    }
+
+    return ProjectStageLogModel(
+      id: json['id'] is int
+          ? json['id'] as int
+          : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      projectId: json['project_id'] is int
+          ? json['project_id'] as int
+          : int.tryParse(json['project_id']?.toString() ?? '0') ?? 0,
+      fromStage: json['from_stage']?.toString(),
+      toStage: json['to_stage']?.toString() ?? '',
+      changedBy: json['changed_by'] != null
+          ? (json['changed_by'] is int
+              ? json['changed_by'] as int
+              : int.tryParse(json['changed_by']?.toString() ?? '0'))
+          : null,
+      changedByName: json['changed_by_name']?.toString(),
+      notes: json['notes']?.toString(),
+      createdAt: parseDate(json['created_at']),
     );
   }
 }

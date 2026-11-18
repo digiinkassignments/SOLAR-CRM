@@ -7,6 +7,7 @@ import '../../core/constants/app_typography.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/project_model.dart';
 import '../../providers/project_provider.dart';
+import 'project_detail_view.dart';
 import 'sheets/new_project_sheet.dart';
 
 class ProjectsListView extends StatefulWidget {
@@ -289,17 +290,26 @@ class _ProjectsListViewState extends State<ProjectsListView> {
     final color = meta['color'] as Color;
     final percent = project.progressPercent;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ProjectDetailView(projectId: project.id),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           // Top Row: Project Number & Stage Badge
           Row(
             children: [
@@ -522,10 +532,9 @@ class _ProjectsListViewState extends State<ProjectsListView> {
               const SizedBox(width: 6),
               OutlinedButton.icon(
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text("Opening Project #${project.projectNumber} (Workspace detail coming in next step)"),
-                      backgroundColor: AppColors.brandPrimary,
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ProjectDetailView(projectId: project.id),
                     ),
                   );
                 },
@@ -541,7 +550,8 @@ class _ProjectsListViewState extends State<ProjectsListView> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
