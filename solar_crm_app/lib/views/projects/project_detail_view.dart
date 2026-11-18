@@ -18,11 +18,8 @@ class ProjectDetailView extends StatefulWidget {
   State<ProjectDetailView> createState() => _ProjectDetailViewState();
 }
 
-class _ProjectDetailViewState extends State<ProjectDetailView>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  final List<String> _tabs = [
+class _ProjectDetailViewState extends State<ProjectDetailView> {
+  static const List<String> _tabs = [
     "Overview & Stages",
     "Stage History",
     "Pre-Install Inspection",
@@ -36,16 +33,9 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadDetails();
     });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   void _loadDetails() {
@@ -89,7 +79,9 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.darkSurfaceElevated : AppColors.lightSurfaceElevated,
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? AppColors.darkSurfaceElevated
+            : AppColors.lightSurfaceElevated,
         title: const Text("Delete Project?"),
         content: Text(
           "Are you sure you want to delete project ${project.projectNumber} (${project.customerName})? This action cannot be undone.",
@@ -142,193 +134,186 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
     final isLoading = provider.isLoadingDetails;
     final error = provider.detailsError;
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
-      appBar: AppBar(
-        elevation: 0,
-        scrolledUnderElevation: 0,
+    return DefaultTabController(
+      length: _tabs.length,
+      child: Scaffold(
         backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
-          tooltip: "Back to Projects",
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              project?.customerName ?? "Project Details",
-              style: AppTypography.headingSmall(color: textPrimary),
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (project != null)
+        appBar: AppBar(
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_rounded, color: textPrimary),
+            onPressed: () => Navigator.of(context).pop(),
+            tooltip: "Back to Projects",
+          ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                project.projectNumber,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: textSecondary,
+                project?.customerName ?? "Project Details",
+                style: AppTypography.headingSmall(color: textPrimary),
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (project != null)
+                Text(
+                  project.projectNumber,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: textSecondary,
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.refresh_rounded, color: textPrimary),
+              tooltip: "Refresh",
+              onPressed: _loadDetails,
+            ),
+            if (project != null) ...[
+              IconButton(
+                icon: Icon(Icons.edit_outlined, size: 20, color: textPrimary),
+                tooltip: "Edit details",
+                onPressed: () => EditProjectSheet.show(context, project),
+              ),
+              IconButton(
+                icon: const Icon(Icons.swap_horiz_rounded, size: 22, color: AppColors.brandPrimary),
+                tooltip: "Change stage",
+                onPressed: () => ChangeStageSheet.show(context, project),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.errorRed),
+                tooltip: "Delete project",
+                onPressed: () => _confirmDelete(context, project),
+              ),
+            ],
+          ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(44),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+                border: Border(
+                  bottom: BorderSide(color: borderColor),
                 ),
               ),
-          ],
+              child: TabBar(
+                isScrollable: true,
+                indicatorColor: AppColors.brandPrimary,
+                indicatorSize: TabBarIndicatorSize.label,
+                indicatorWeight: 3,
+                labelColor: AppColors.brandPrimary,
+                unselectedLabelColor: textSecondary,
+                labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                tabs: _tabs.map((t) => Tab(text: t)).toList(),
+              ),
+            ),
+          ),
         ),
-        actions: [
-          if (project != null) ...[
-            IconButton(
-              icon: Icon(Icons.edit_outlined, size: 20, color: textPrimary),
-              tooltip: "Edit details",
-              onPressed: () => EditProjectSheet.show(context, project),
-            ),
-            IconButton(
-              icon: const Icon(Icons.swap_horiz_rounded, size: 22, color: AppColors.brandPrimary),
-              tooltip: "Change stage",
-              onPressed: () => ChangeStageSheet.show(context, project),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, size: 20, color: AppColors.errorRed),
-              tooltip: "Delete project",
-              onPressed: () => _confirmDelete(context, project),
-            ),
-          ],
-        ],
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.brandPrimary))
-          : error != null
-              ? _buildErrorState(error)
-              : project == null
-                  ? _buildNotFoundState()
-                  : RefreshIndicator(
-                      onRefresh: () async => _loadDetails(),
-                      child: Column(
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator(color: AppColors.brandPrimary))
+            : error != null
+                ? _buildErrorState(error)
+                : project == null
+                    ? _buildNotFoundState()
+                    : TabBarView(
                         children: [
-                          // 1. TOP HEADER CARD (Pure Black & Aligned)
-                          _buildTopHeaderCard(project, isDark, cardBg, surfaceBg, borderColor, textPrimary, textSecondary),
+                          // Tab 0: Overview & Stages
+                          _buildOverviewAndStagesTab(project, isDark, cardBg, surfaceBg, borderColor, textPrimary, textSecondary),
 
-                          // 2. SCROLLABLE TAB NAVIGATION BAR (Pure Black with Brand Indicator)
-                          Container(
-                            color: isDark ? AppColors.darkBackground : AppColors.lightBackground,
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(color: borderColor),
-                              ),
-                            ),
-                            child: TabBar(
-                              controller: _tabController,
-                              isScrollable: true,
-                              tabAlignment: TabAlignment.start,
-                              indicatorColor: AppColors.brandPrimary,
-                              indicatorSize: TabBarIndicatorSize.label,
-                              indicatorWeight: 3,
-                              labelColor: AppColors.brandPrimary,
-                              unselectedLabelColor: textSecondary,
-                              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                              unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                              tabs: _tabs.map((t) => Tab(text: t)).toList(),
-                            ),
+                          // Tab 1: Stage History
+                          _buildStageHistoryTab(project, isDark, cardBg, surfaceBg, borderColor, textPrimary, textSecondary),
+
+                          // Tab 2: Pre-Install Inspection
+                          _buildStagePlaceholderTab(
+                            title: "Pre-Install Site Inspection",
+                            description: "Drone & roof survey, shadow analysis, structure load-bearing and BOM checklist.",
+                            icon: Icons.checklist_rounded,
+                            accentColor: AppColors.skyBlue,
+                            isDark: isDark,
+                            cardBg: cardBg,
+                            surfaceBg: surfaceBg,
+                            borderColor: borderColor,
+                            textPrimary: textPrimary,
+                            textSecondary: textSecondary,
                           ),
 
-                          // 3. TAB CONTENT VIEWS
-                          Expanded(
-                            child: TabBarView(
-                              controller: _tabController,
-                              children: [
-                                // Tab 0: Overview & Stages
-                                _buildOverviewAndStagesTab(project, isDark, cardBg, surfaceBg, borderColor, textPrimary, textSecondary),
+                          // Tab 3: Installation Progress
+                          _buildStagePlaceholderTab(
+                            title: "Installation & Execution Progress",
+                            description: "Civil structure erection, solar module clamping, inverter wiring & grounding earthing.",
+                            icon: Icons.construction_rounded,
+                            accentColor: AppColors.brandPrimary,
+                            isDark: isDark,
+                            cardBg: cardBg,
+                            surfaceBg: surfaceBg,
+                            borderColor: borderColor,
+                            textPrimary: textPrimary,
+                            textSecondary: textSecondary,
+                          ),
 
-                                // Tab 1: Stage History
-                                _buildStageHistoryTab(project, isDark, cardBg, surfaceBg, borderColor, textPrimary, textSecondary),
+                          // Tab 4: Commissioning
+                          _buildStagePlaceholderTab(
+                            title: "DISCOM Net-Meter & Commissioning",
+                            description: "Bi-directional smart meter sync, grid interconnection approvals & energization certs.",
+                            icon: Icons.electric_bolt_rounded,
+                            accentColor: AppColors.emeraldGreen,
+                            isDark: isDark,
+                            cardBg: cardBg,
+                            surfaceBg: surfaceBg,
+                            borderColor: borderColor,
+                            textPrimary: textPrimary,
+                            textSecondary: textSecondary,
+                          ),
 
-                                // Tab 2: Pre-Install Inspection
-                                _buildStagePlaceholderTab(
-                                  title: "Pre-Install Site Inspection",
-                                  description: "Drone & roof survey, shadow analysis, structure load-bearing and BOM checklist.",
-                                  icon: Icons.checklist_rounded,
-                                  accentColor: AppColors.skyBlue,
-                                  isDark: isDark,
-                                  cardBg: cardBg,
-                                  surfaceBg: surfaceBg,
-                                  borderColor: borderColor,
-                                  textPrimary: textPrimary,
-                                  textSecondary: textSecondary,
-                                ),
+                          // Tab 5: Final Inspection
+                          _buildStagePlaceholderTab(
+                            title: "Final QC & Technical Sign-off",
+                            description: "Safety audit, IV curve testing, inverter generation validation and safety clearances.",
+                            icon: Icons.fact_check_outlined,
+                            accentColor: const Color(0xFF0891B2),
+                            isDark: isDark,
+                            cardBg: cardBg,
+                            surfaceBg: surfaceBg,
+                            borderColor: borderColor,
+                            textPrimary: textPrimary,
+                            textSecondary: textSecondary,
+                          ),
 
-                                // Tab 3: Installation Progress
-                                _buildStagePlaceholderTab(
-                                  title: "Installation & Execution Progress",
-                                  description: "Civil structure erection, solar module clamping, inverter wiring & grounding earthing.",
-                                  icon: Icons.construction_rounded,
-                                  accentColor: AppColors.brandPrimary,
-                                  isDark: isDark,
-                                  cardBg: cardBg,
-                                  surfaceBg: surfaceBg,
-                                  borderColor: borderColor,
-                                  textPrimary: textPrimary,
-                                  textSecondary: textSecondary,
-                                ),
+                          // Tab 6: Customer Handover
+                          _buildStagePlaceholderTab(
+                            title: "Customer Handover & Dossier",
+                            description: "Handover pack, warranty certificates, OEM serial tags and customer sign-off OTP.",
+                            icon: Icons.handshake_outlined,
+                            accentColor: AppColors.emeraldGreen,
+                            isDark: isDark,
+                            cardBg: cardBg,
+                            surfaceBg: surfaceBg,
+                            borderColor: borderColor,
+                            textPrimary: textPrimary,
+                            textSecondary: textSecondary,
+                          ),
 
-                                // Tab 4: Commissioning
-                                _buildStagePlaceholderTab(
-                                  title: "DISCOM Net-Meter & Commissioning",
-                                  description: "Bi-directional smart meter sync, grid interconnection approvals & energization certs.",
-                                  icon: Icons.electric_bolt_rounded,
-                                  accentColor: AppColors.emeraldGreen,
-                                  isDark: isDark,
-                                  cardBg: cardBg,
-                                  surfaceBg: surfaceBg,
-                                  borderColor: borderColor,
-                                  textPrimary: textPrimary,
-                                  textSecondary: textSecondary,
-                                ),
-
-                                // Tab 5: Final Inspection
-                                _buildStagePlaceholderTab(
-                                  title: "Final QC & Technical Sign-off",
-                                  description: "Safety audit, IV curve testing, inverter generation validation and safety clearances.",
-                                  icon: Icons.fact_check_outlined,
-                                  accentColor: const Color(0xFF0891B2),
-                                  isDark: isDark,
-                                  cardBg: cardBg,
-                                  surfaceBg: surfaceBg,
-                                  borderColor: borderColor,
-                                  textPrimary: textPrimary,
-                                  textSecondary: textSecondary,
-                                ),
-
-                                // Tab 6: Customer Handover
-                                _buildStagePlaceholderTab(
-                                  title: "Customer Handover & Dossier",
-                                  description: "Handover pack, warranty certificates, OEM serial tags and customer sign-off OTP.",
-                                  icon: Icons.handshake_outlined,
-                                  accentColor: AppColors.emeraldGreen,
-                                  isDark: isDark,
-                                  cardBg: cardBg,
-                                  surfaceBg: surfaceBg,
-                                  borderColor: borderColor,
-                                  textPrimary: textPrimary,
-                                  textSecondary: textSecondary,
-                                ),
-
-                                // Tab 7: Warranty & AMC
-                                _buildStagePlaceholderTab(
-                                  title: "Warranty & AMC Maintenance",
-                                  description: "25-year solar generation performance guarantee, inverter warranty and routine AMC visits.",
-                                  icon: Icons.verified_outlined,
-                                  accentColor: const Color(0xFF0D9488),
-                                  isDark: isDark,
-                                  cardBg: cardBg,
-                                  surfaceBg: surfaceBg,
-                                  borderColor: borderColor,
-                                  textPrimary: textPrimary,
-                                  textSecondary: textSecondary,
-                                ),
-                              ],
-                            ),
+                          // Tab 7: Warranty & AMC
+                          _buildStagePlaceholderTab(
+                            title: "Warranty & AMC Maintenance",
+                            description: "25-year solar generation performance guarantee, inverter warranty and routine AMC visits.",
+                            icon: Icons.verified_outlined,
+                            accentColor: const Color(0xFF0D9488),
+                            isDark: isDark,
+                            cardBg: cardBg,
+                            surfaceBg: surfaceBg,
+                            borderColor: borderColor,
+                            textPrimary: textPrimary,
+                            textSecondary: textSecondary,
                           ),
                         ],
                       ),
-                    ),
+      ),
     );
   }
 
@@ -348,8 +333,10 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
         .where((e) => e != null && e.isNotEmpty)
         .join(", ");
 
+    final progressClamped = project.progressPercent.clamp(0.0, 1.0);
+
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cardBg,
@@ -494,7 +481,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                     ClipRRect(
                       borderRadius: BorderRadius.circular(2),
                       child: LinearProgressIndicator(
-                        value: project.progressPercent,
+                        value: progressClamped,
                         minHeight: 4,
                         backgroundColor: surfaceBg,
                         valueColor: const AlwaysStoppedAnimation<Color>(AppColors.brandPrimary),
@@ -630,457 +617,463 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
     Color textSecondary,
   ) {
     final currentStageIndex = ProjectModel.stages.indexOf(project.stage);
-    final progressPct = (project.progressPercent * 100).round();
+    final progressPct = (project.progressPercent.clamp(0.0, 1.0) * 100).round();
     final address = [project.customerAddress, project.city, project.state, project.pincode]
         .where((e) => e != null && e.isNotEmpty)
         .join(", ");
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      children: [
-        // 1. DELIVERY MILESTONES (10-STAGE PIPELINE STEPPER) - FIRST & PROMINENT
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Delivery milestones",
-                        style: AppTypography.heading(size: 15, color: textPrimary),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        "Track your delivery milestones and approvals",
-                        style: TextStyle(fontSize: 11, color: textSecondary),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.brandPrimary.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.brandPrimary.withValues(alpha: 0.3)),
-                    ),
-                    child: Text(
-                      "$progressPct% done",
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.brandPrimary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
+    return RefreshIndicator(
+      onRefresh: () async => _loadDetails(),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          // 1. TOP HEADER SUMMARY CARD
+          _buildTopHeaderCard(project, isDark, cardBg, surfaceBg, borderColor, textPrimary, textSecondary),
 
-              // Progress Bar
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    "Stage ${currentStageIndex >= 0 ? currentStageIndex + 1 : 1} of 10: ${project.stage}",
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textSecondary),
-                  ),
-                  Text(
-                    "$progressPct% of workflow",
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.brandPrimary),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: project.progressPercent,
-                  minHeight: 6,
-                  backgroundColor: surfaceBg,
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.brandPrimary),
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // 10 Sequential Milestones Cards (Pure Black Palette)
-              ...ProjectModel.stages.asMap().entries.map((entry) {
-                final index = entry.key;
-                final stageName = entry.value;
-                final isCompleted = currentStageIndex >= 0 && index < currentStageIndex;
-                final isCurrent = index == currentStageIndex;
-                final meta = ProjectModel.stageConfig[stageName] ?? {};
-                final nextStageCandidate = index + 1 < ProjectModel.stages.length
-                    ? ProjectModel.stages[index + 1]
-                    : null;
-
-                final matchingLog = project.stageLogs.cast<ProjectStageLogModel?>().firstWhere(
-                  (l) => l?.toStage == stageName,
-                  orElse: () => null,
-                );
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isCurrent
-                        ? (isDark ? AppColors.brandPrimary.withValues(alpha: 0.12) : const Color(0xFFFFFBEB))
-                        : isCompleted
-                            ? (isDark ? AppColors.emeraldGreen.withValues(alpha: 0.08) : const Color(0xFFF0FDF4))
-                            : surfaceBg,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isCurrent
-                          ? AppColors.brandPrimary
-                          : isCompleted
-                              ? (isDark ? AppColors.emeraldGreen.withValues(alpha: 0.35) : const Color(0xFFBBF7D0))
-                              : borderColor,
-                      width: isCurrent ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // Status Icon
-                          if (isCompleted)
-                            const Icon(Icons.check_circle_rounded, size: 18, color: AppColors.emeraldGreen)
-                          else if (isCurrent)
-                            const Icon(Icons.radio_button_checked_rounded, size: 18, color: AppColors.brandPrimary)
-                          else
-                            Icon(Icons.radio_button_unchecked_rounded, size: 18, color: textSecondary),
-                          const SizedBox(width: 8),
-
-                          // Stage Title
-                          Expanded(
-                            child: Text(
-                              "${index + 1}. $stageName",
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: isCurrent ? FontWeight.w800 : (isCompleted ? FontWeight.w700 : FontWeight.w600),
-                                color: isCurrent
-                                    ? AppColors.brandPrimary
-                                    : isCompleted
-                                        ? AppColors.emeraldGreen
-                                        : textPrimary,
-                              ),
-                            ),
-                          ),
-
-                          // Badge for Current
-                          if (isCurrent)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppColors.brandPrimary,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Text(
-                                "CURRENT ACTIVE STAGE",
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-
-                      // Description
-                      Padding(
-                        padding: const EdgeInsets.only(left: 26),
-                        child: Text(
-                          meta['description']?.toString() ?? '',
-                          style: TextStyle(fontSize: 11, color: textSecondary),
-                        ),
-                      ),
-
-                      // Timestamp if completed
-                      if (isCompleted && matchingLog?.createdAt != null) ...[
-                        const SizedBox(height: 3),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 26),
-                          child: Text(
-                            "Completed on ${DateFormat('dd MMM yyyy, hh:mm a').format(matchingLog!.createdAt!)}",
-                            style: const TextStyle(fontSize: 10, color: AppColors.emeraldGreen, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ],
-
-                      // 1-Click Advance Button on Active Stage
-                      if (isCurrent && nextStageCandidate != null) ...[
-                        const SizedBox(height: 10),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 26),
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.brandPrimary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              minimumSize: Size.zero,
-                              elevation: 0,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                            ),
-                            icon: const Icon(Icons.arrow_forward_rounded, size: 14),
-                            label: Text(
-                              "Advance to: $nextStageCandidate",
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                            ),
-                            onPressed: () => _quickAdvance(project, nextStageCandidate),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // 2. CUSTOMER & SITE PROFILE CARD
-        _buildSectionCard(
-          title: "CUSTOMER & SITE PROFILE",
-          cardBg: cardBg,
-          borderColor: borderColor,
-          textPrimary: textPrimary,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Customer Name", style: TextStyle(fontSize: 11, color: textSecondary)),
-                      const SizedBox(height: 2),
-                      Text(
-                        project.customerName,
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: textPrimary),
-                      ),
-                    ],
-                  ),
-                ),
-                InkWell(
-                  onTap: () => _makeCall(project.customerPhone),
-                  borderRadius: BorderRadius.circular(6),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.phone_outlined, size: 14, color: AppColors.brandPrimary),
-                        const SizedBox(width: 4),
-                        Text(
-                          project.customerPhone,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.brandPrimary,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+          // 2. DELIVERY MILESTONES (10-STAGE PIPELINE STEPPER)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor),
             ),
-            const SizedBox(height: 12),
-            Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Installation Site Location", style: TextStyle(fontSize: 11, color: textSecondary)),
-                const SizedBox(height: 4),
+                // Header Row
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(Icons.location_on_outlined, size: 16, color: textSecondary),
-                    const SizedBox(width: 4),
-                    Expanded(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Delivery milestones",
+                          style: AppTypography.heading(size: 15, color: textPrimary),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "Track your delivery milestones and approvals",
+                          style: TextStyle(fontSize: 11, color: textSecondary),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.brandPrimary.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.brandPrimary.withValues(alpha: 0.3)),
+                      ),
                       child: Text(
-                        address.isNotEmpty ? address : "Site address not specified",
-                        style: TextStyle(fontSize: 13, color: textPrimary, height: 1.3),
+                        "$progressPct% done",
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.brandPrimary,
+                        ),
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 10),
+
+                // Progress Bar
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Stage ${currentStageIndex >= 0 ? currentStageIndex + 1 : 1} of 10: ${project.stage}",
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textSecondary),
+                    ),
+                    Text(
+                      "$progressPct% of workflow",
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.brandPrimary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: project.progressPercent.clamp(0.0, 1.0),
+                    minHeight: 6,
+                    backgroundColor: surfaceBg,
+                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.brandPrimary),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // 10 Sequential Milestones Cards (Pure Black Palette)
+                ...ProjectModel.stages.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final stageName = entry.value;
+                  final isCompleted = currentStageIndex >= 0 && index < currentStageIndex;
+                  final isCurrent = index == currentStageIndex;
+                  final meta = ProjectModel.stageConfig[stageName] ?? {};
+                  final nextStageCandidate = index + 1 < ProjectModel.stages.length
+                      ? ProjectModel.stages[index + 1]
+                      : null;
+
+                  final matchingLog = project.stageLogs.cast<ProjectStageLogModel?>().firstWhere(
+                    (l) => l?.toStage == stageName,
+                    orElse: () => null,
+                  );
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isCurrent
+                          ? (isDark ? AppColors.brandPrimary.withValues(alpha: 0.12) : const Color(0xFFFFFBEB))
+                          : isCompleted
+                              ? (isDark ? AppColors.emeraldGreen.withValues(alpha: 0.08) : const Color(0xFFF0FDF4))
+                              : surfaceBg,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isCurrent
+                            ? AppColors.brandPrimary
+                            : isCompleted
+                                ? (isDark ? AppColors.emeraldGreen.withValues(alpha: 0.35) : const Color(0xFFBBF7D0))
+                                : borderColor,
+                        width: isCurrent ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // Status Icon
+                            if (isCompleted)
+                              const Icon(Icons.check_circle_rounded, size: 18, color: AppColors.emeraldGreen)
+                            else if (isCurrent)
+                              const Icon(Icons.radio_button_checked_rounded, size: 18, color: AppColors.brandPrimary)
+                            else
+                              Icon(Icons.radio_button_unchecked_rounded, size: 18, color: textSecondary),
+                            const SizedBox(width: 8),
+
+                            // Stage Title
+                            Expanded(
+                              child: Text(
+                                "${index + 1}. $stageName",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: isCurrent ? FontWeight.w800 : (isCompleted ? FontWeight.w700 : FontWeight.w600),
+                                  color: isCurrent
+                                      ? AppColors.brandPrimary
+                                      : isCompleted
+                                          ? AppColors.emeraldGreen
+                                          : textPrimary,
+                                ),
+                              ),
+                            ),
+
+                            // Badge for Current
+                            if (isCurrent)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.brandPrimary,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  "CURRENT ACTIVE STAGE",
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+
+                        // Description
+                        Padding(
+                          padding: const EdgeInsets.only(left: 26),
+                          child: Text(
+                            meta['description']?.toString() ?? '',
+                            style: TextStyle(fontSize: 11, color: textSecondary),
+                          ),
+                        ),
+
+                        // Timestamp if completed
+                        if (isCompleted && matchingLog?.createdAt != null) ...[
+                          const SizedBox(height: 3),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 26),
+                            child: Text(
+                              "Completed on ${DateFormat('dd MMM yyyy, hh:mm a').format(matchingLog!.createdAt!)}",
+                              style: const TextStyle(fontSize: 10, color: AppColors.emeraldGreen, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+
+                        // 1-Click Advance Button on Active Stage
+                        if (isCurrent && nextStageCandidate != null) ...[
+                          const SizedBox(height: 10),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 26),
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.brandPrimary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                minimumSize: Size.zero,
+                                elevation: 0,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                              icon: const Icon(Icons.arrow_forward_rounded, size: 14),
+                              label: Text(
+                                "Advance to: $nextStageCandidate",
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                              ),
+                              onPressed: () => _quickAdvance(project, nextStageCandidate),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }),
               ],
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
+          ),
+          const SizedBox(height: 12),
 
-        // 3. SOLAR TECHNICAL SPECIFICATIONS
-        _buildSectionCard(
-          title: "SOLAR TECHNICAL SPECIFICATIONS",
-          cardBg: cardBg,
-          borderColor: borderColor,
-          textPrimary: textPrimary,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("System Capacity", style: TextStyle(fontSize: 11, color: textSecondary)),
-                      const SizedBox(height: 4),
-                      Row(
+          // 3. CUSTOMER & SITE PROFILE CARD
+          _buildSectionCard(
+            title: "CUSTOMER & SITE PROFILE",
+            cardBg: cardBg,
+            borderColor: borderColor,
+            textPrimary: textPrimary,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Customer Name", style: TextStyle(fontSize: 11, color: textSecondary)),
+                        const SizedBox(height: 2),
+                        Text(
+                          project.customerName,
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: textPrimary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => _makeCall(project.customerPhone),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.solar_power_outlined, size: 18, color: AppColors.brandPrimary),
-                          const SizedBox(width: 6),
+                          const Icon(Icons.phone_outlined, size: 14, color: AppColors.brandPrimary),
+                          const SizedBox(width: 4),
                           Text(
-                            "${project.systemCapacityKw.toStringAsFixed(2)} kW",
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textPrimary),
+                            project.customerPhone,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.brandPrimary,
+                              decoration: TextDecoration.underline,
+                            ),
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: Column(
+                ],
+              ),
+              const SizedBox(height: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Installation Site Location", style: TextStyle(fontSize: 11, color: textSecondary)),
+                  const SizedBox(height: 4),
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Solar Modules", style: TextStyle(fontSize: 11, color: textSecondary)),
-                      const SizedBox(height: 4),
-                      Text(
-                        project.panelCount != null && project.panelCount! > 0
-                            ? "${project.panelCount} Panels"
-                            : "Standard Array",
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: textPrimary),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Grid Inverter", style: TextStyle(fontSize: 11, color: textSecondary)),
-                      const SizedBox(height: 4),
-                      Text(
-                        project.inverterKw != null && project.inverterKw! > 0
-                            ? "${project.inverterKw} kW Smart"
-                            : "Grid-Tied",
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: textPrimary),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // 4. PROJECT EXECUTION SCHEDULE
-        _buildSectionCard(
-          title: "PROJECT EXECUTION SCHEDULE",
-          cardBg: cardBg,
-          borderColor: borderColor,
-          textPrimary: textPrimary,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Installation Start", style: TextStyle(fontSize: 11, color: textSecondary)),
-                      const SizedBox(height: 4),
-                      Text(
-                        project.installationStartDate != null
-                            ? DateFormat('dd/MM/yyyy').format(project.installationStartDate!)
-                            : "—",
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Target Completion", style: TextStyle(fontSize: 11, color: textSecondary)),
-                      const SizedBox(height: 4),
-                      Text(
-                        project.installationEndDate != null
-                            ? DateFormat('dd/MM/yyyy').format(project.installationEndDate!)
-                            : "—",
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Actual Handover", style: TextStyle(fontSize: 11, color: textSecondary)),
-                      const SizedBox(height: 4),
-                      Text(
-                        project.completionDate != null
-                            ? DateFormat('dd/MM/yyyy').format(project.completionDate!)
-                            : "—",
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: project.completionDate != null ? AppColors.emeraldGreen : textPrimary,
+                      Icon(Icons.location_on_outlined, size: 16, color: textSecondary),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          address.isNotEmpty ? address : "Site address not specified",
+                          style: TextStyle(fontSize: 13, color: textPrimary, height: 1.3),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
 
-        // 5. PROJECT NOTES
-        _buildSectionCard(
-          title: "PROJECT NOTES",
-          cardBg: cardBg,
-          borderColor: borderColor,
-          textPrimary: textPrimary,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: surfaceBg,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: borderColor),
+          // 4. SOLAR TECHNICAL SPECIFICATIONS
+          _buildSectionCard(
+            title: "SOLAR TECHNICAL SPECIFICATIONS",
+            cardBg: cardBg,
+            borderColor: borderColor,
+            textPrimary: textPrimary,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("System Capacity", style: TextStyle(fontSize: 11, color: textSecondary)),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.solar_power_outlined, size: 18, color: AppColors.brandPrimary),
+                            const SizedBox(width: 6),
+                            Text(
+                              "${project.systemCapacityKw.toStringAsFixed(2)} kW",
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textPrimary),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Solar Modules", style: TextStyle(fontSize: 11, color: textSecondary)),
+                        const SizedBox(height: 4),
+                        Text(
+                          project.panelCount != null && project.panelCount! > 0
+                              ? "${project.panelCount} Panels"
+                              : "Standard Array",
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: textPrimary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Grid Inverter", style: TextStyle(fontSize: 11, color: textSecondary)),
+                        const SizedBox(height: 4),
+                        Text(
+                          project.inverterKw != null && project.inverterKw! > 0
+                              ? "${project.inverterKw} kW Smart"
+                              : "Grid-Tied",
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: textPrimary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              child: Text(
-                (project.notes != null && project.notes!.trim().isNotEmpty)
-                    ? project.notes!
-                    : "NIL NIL",
-                style: TextStyle(fontSize: 12, color: textSecondary, height: 1.4),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // 5. PROJECT EXECUTION SCHEDULE
+          _buildSectionCard(
+            title: "PROJECT EXECUTION SCHEDULE",
+            cardBg: cardBg,
+            borderColor: borderColor,
+            textPrimary: textPrimary,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Installation Start", style: TextStyle(fontSize: 11, color: textSecondary)),
+                        const SizedBox(height: 4),
+                        Text(
+                          project.installationStartDate != null
+                            ? DateFormat('dd/MM/yyyy').format(project.installationStartDate!)
+                            : "—",
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Target Completion", style: TextStyle(fontSize: 11, color: textSecondary)),
+                        const SizedBox(height: 4),
+                        Text(
+                          project.installationEndDate != null
+                            ? DateFormat('dd/MM/yyyy').format(project.installationEndDate!)
+                            : "—",
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Actual Handover", style: TextStyle(fontSize: 11, color: textSecondary)),
+                        const SizedBox(height: 4),
+                        Text(
+                          project.completionDate != null
+                            ? DateFormat('dd/MM/yyyy').format(project.completionDate!)
+                            : "—",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: project.completionDate != null ? AppColors.emeraldGreen : textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
-      ],
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // 6. PROJECT NOTES
+          _buildSectionCard(
+            title: "PROJECT NOTES",
+            cardBg: cardBg,
+            borderColor: borderColor,
+            textPrimary: textPrimary,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: surfaceBg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Text(
+                  (project.notes != null && project.notes!.trim().isNotEmpty)
+                      ? project.notes!
+                      : "NIL NIL",
+                  style: TextStyle(fontSize: 12, color: textSecondary, height: 1.4),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -1098,108 +1091,111 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
   ) {
     final logs = project.stageLogs;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Stage Transition Audit Trail",
-                style: AppTypography.heading(size: 16, color: textPrimary),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                "Logged milestones and status adjustments with user signatures.",
-                style: TextStyle(fontSize: 11, color: textSecondary),
-              ),
-              const SizedBox(height: 16),
+    return RefreshIndicator(
+      onRefresh: () async => _loadDetails(),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Stage Transition Audit Trail",
+                  style: AppTypography.heading(size: 16, color: textPrimary),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Logged milestones and status adjustments with user signatures.",
+                  style: TextStyle(fontSize: 11, color: textSecondary),
+                ),
+                const SizedBox(height: 16),
 
-              if (logs.isEmpty)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Text(
-                      "No stage transitions recorded yet.",
-                      style: TextStyle(fontSize: 12, color: textSecondary),
+                if (logs.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Text(
+                        "No stage transitions recorded yet.",
+                        style: TextStyle(fontSize: 12, color: textSecondary),
+                      ),
                     ),
-                  ),
-                )
-              else
-                ...logs.map((log) {
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: surfaceBg,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: borderColor),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                if (log.fromStage != null && log.fromStage!.isNotEmpty) ...[
+                  )
+                else
+                  ...logs.map((log) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: surfaceBg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  if (log.fromStage != null && log.fromStage!.isNotEmpty) ...[
+                                    Text(
+                                      log.fromStage!,
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textSecondary),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.arrow_forward_rounded, size: 12, color: AppColors.brandPrimary),
+                                    const SizedBox(width: 4),
+                                  ],
                                   Text(
-                                    log.fromStage!,
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textSecondary),
+                                    log.toStage,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.brandPrimary,
+                                    ),
                                   ),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.arrow_forward_rounded, size: 12, color: AppColors.brandPrimary),
-                                  const SizedBox(width: 4),
                                 ],
-                                Text(
-                                  log.toStage,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.brandPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (log.createdAt != null)
-                              Text(
-                                DateFormat('dd MMM yyyy, hh:mm a').format(log.createdAt!),
-                                style: TextStyle(fontSize: 10, color: textSecondary),
                               ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "Changed by: ${log.changedByName ?? "System"}",
-                          style: TextStyle(fontSize: 11, color: textSecondary),
-                        ),
-                        if (log.notes != null && log.notes!.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            "\"${log.notes}\"",
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontStyle: FontStyle.italic,
-                              color: textPrimary,
-                            ),
+                              if (log.createdAt != null)
+                                Text(
+                                  DateFormat('dd MMM yyyy, hh:mm a').format(log.createdAt!),
+                                  style: TextStyle(fontSize: 10, color: textSecondary),
+                                ),
+                            ],
                           ),
+                          const SizedBox(height: 6),
+                          Text(
+                            "Changed by: ${log.changedByName ?? "System"}",
+                            style: TextStyle(fontSize: 11, color: textSecondary),
+                          ),
+                          if (log.notes != null && log.notes!.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              "\"${log.notes}\"",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontStyle: FontStyle.italic,
+                                color: textPrimary,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                  );
-                }),
-            ],
+                      ),
+                    );
+                  }),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
