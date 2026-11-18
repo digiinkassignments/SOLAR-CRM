@@ -113,7 +113,6 @@ class _ProjectsListViewState extends State<ProjectsListView> {
 
     final provider = Provider.of<ProjectProvider>(context);
     final projects = provider.projects;
-    final stats = provider.stats;
     final isLoading = provider.isLoading;
 
     return Scaffold(
@@ -150,64 +149,9 @@ class _ProjectsListViewState extends State<ProjectsListView> {
         onRefresh: () async => _loadData(),
         child: Column(
           children: [
-            // 4 KPI Stats Cards matching Web
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildKpiCard(
-                      title: "TOTAL PROJECTS",
-                      value: stats.totalProjects.toString(),
-                      subtitle: "All project records",
-                      icon: Icons.folder_special_outlined,
-                      color: AppColors.brandPrimary,
-                      cardBg: cardBg,
-                      borderColor: borderColor,
-                      textPrimary: textPrimary,
-                    ),
-                    const SizedBox(width: 10),
-                    _buildKpiCard(
-                      title: "IN EXECUTION",
-                      value: stats.inExecution.toString(),
-                      subtitle: "Approvals to commissioning",
-                      icon: Icons.engineering_outlined,
-                      color: AppColors.skyBlue,
-                      cardBg: cardBg,
-                      borderColor: borderColor,
-                      textPrimary: textPrimary,
-                    ),
-                    const SizedBox(width: 10),
-                    _buildKpiCard(
-                      title: "DISCOM & SUBSIDY",
-                      value: stats.subsidyPipeline.toString(),
-                      subtitle: "Applied & received",
-                      icon: Icons.account_balance_outlined,
-                      color: const Color(0xFF0891B2),
-                      cardBg: cardBg,
-                      borderColor: borderColor,
-                      textPrimary: textPrimary,
-                    ),
-                    const SizedBox(width: 10),
-                    _buildKpiCard(
-                      title: "HANDOVER & CARE",
-                      value: stats.completedHandover.toString(),
-                      subtitle: "Handover and warranty",
-                      icon: Icons.check_circle_outline_rounded,
-                      color: AppColors.emeraldGreen,
-                      cardBg: cardBg,
-                      borderColor: borderColor,
-                      textPrimary: textPrimary,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
             // Search Filter
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
@@ -599,74 +543,5 @@ class _ProjectsListViewState extends State<ProjectsListView> {
       ),
     );
   }
-
-  Widget _buildKpiCard({
-    required String title,
-    required String value,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required Color cardBg,
-    required Color borderColor,
-    required Color textPrimary,
-  }) {
-    return Container(
-      width: 155,
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: 4,
-            child: Container(color: color),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 14, right: 12, top: 10, bottom: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        title,
-                        style: AppTypography.caption(color: Colors.grey, fontWeight: FontWeight.w700),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Icon(icon, size: 14, color: color),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: AppTypography.caption(color: Colors.grey),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
+
