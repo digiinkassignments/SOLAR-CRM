@@ -93,7 +93,7 @@ const createCustomer = async (req, res) => {
     console.error("createCustomer error:", error);
     return res.status(error.status || 500).json({
       success: false,
-      message: "Failed to create customer.",
+      message: error.status ? error.message : "Failed to create customer.",
       error: error.message,
     });
   }

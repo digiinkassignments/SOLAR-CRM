@@ -283,7 +283,8 @@ const createCustomer = async (data, userId, db = defaultDb) => {
   await ensureCustomerTables(db);
   const customerCode = await generateCustomerCode(db);
 
-  const [res] = await db.query(
+  const insert = async (connection) => {
+  const [res] = await connection.query(
     `INSERT INTO customers (
       customer_code, customer_name, mobile_number, alternate_number, email,
       address, city, state, pincode, electricity_consumer_number, discom_name,
@@ -312,6 +313,9 @@ const createCustomer = async (data, userId, db = defaultDb) => {
   );
 
   return { id: res.insertId, customer_code: customerCode };
+  };
+  if (data.request_key || data.invoice_amount || data.payment_amount) return require("../services/customerOpening").create(db,data,userId,insert);
+  return insert(db);
 };
 
 // Get Customers List with Aggregated Financials & Projects Count
@@ -387,7 +391,8 @@ const getCustomers = async (filters = {}, db = defaultDb) => {
   sql += ` ORDER BY c.id DESC LIMIT 150`;
 
   const [rows] = await db.query(sql, params);
-  return rows;
+  const opening = await require("../services/customerOpening").records(db, rows.map(row=>row.id));
+  return rows.map(row=>{const record=opening.find(item=>Number(item.customer_id)===Number(row.id));return {...row,total_billed_amount:Number(row.total_billed_amount)+Number(record?.invoice_amount||0),total_paid_amount:Number(row.total_paid_amount)+Number(record?.amount_paid||0),total_balance_amount:Number(row.total_balance_amount)+Number(record?.invoice_amount||0)-Number(record?.amount_paid||0)};});
 };
 
 // Get Full 360° Customer Profile By ID
@@ -451,6 +456,7 @@ const getCustomerById = async (id, db = defaultDb) => {
 
   return {
     ...customer,
+    opening_record: (await require("../services/customerOpening").records(db,[customer.id]))[0] || null,
     projects,
     quotations,
     invoices,
