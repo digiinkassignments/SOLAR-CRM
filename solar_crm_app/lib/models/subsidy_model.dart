@@ -1,5 +1,46 @@
 import 'package:flutter/material.dart';
 
+class SubsidyStatsModel {
+  final int totalProjects;
+  final int countRegistered;
+  final int countFeasibility;
+  final int countInInstallation;
+  final int countNetMeter;
+  final int countCredited;
+  final int countRejected;
+  final double totalExpectedSubsidy;
+  final double totalDisbursedSubsidy;
+
+  SubsidyStatsModel({
+    this.totalProjects = 0,
+    this.countRegistered = 0,
+    this.countFeasibility = 0,
+    this.countInInstallation = 0,
+    this.countNetMeter = 0,
+    this.countCredited = 0,
+    this.countRejected = 0,
+    this.totalExpectedSubsidy = 0.0,
+    this.totalDisbursedSubsidy = 0.0,
+  });
+
+  factory SubsidyStatsModel.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic v) => v is int ? v : int.tryParse(v?.toString() ?? '0') ?? 0;
+    double parseDouble(dynamic v) => v is num ? v.toDouble() : double.tryParse(v?.toString() ?? '0.0') ?? 0.0;
+
+    return SubsidyStatsModel(
+      totalProjects: parseInt(json['total_projects']),
+      countRegistered: parseInt(json['count_registered']),
+      countFeasibility: parseInt(json['count_feasibility']),
+      countInInstallation: parseInt(json['count_in_installation']),
+      countNetMeter: parseInt(json['count_net_meter']),
+      countCredited: parseInt(json['count_credited']),
+      countRejected: parseInt(json['count_rejected']),
+      totalExpectedSubsidy: parseDouble(json['total_expected_subsidy']),
+      totalDisbursedSubsidy: parseDouble(json['total_disbursed_subsidy']),
+    );
+  }
+}
+
 class SubsidyItemModel {
   final int? id;
   final int leadId;
@@ -7,11 +48,23 @@ class SubsidyItemModel {
   final String? customerPhone;
   final String? consumerNumber;
   final String? discom;
+  final String? discomDivision;
   final double plantCapacity;
   final double calculatedSubsidy;
+  final double expectedSubsidy;
+  final double amountReceived;
   final String stage;
   final String? portalAckNo;
   final String? discomApplicationNo;
+  final int? daysInStage;
+  final int? slaExpectedDays;
+  final bool? isDcrCompliant;
+  final String? address;
+  final String? city;
+  final String? state;
+  final String? pincode;
+  final int totalDocsUploaded;
+  final int activeRejectionsCount;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -22,11 +75,23 @@ class SubsidyItemModel {
     this.customerPhone,
     this.consumerNumber,
     this.discom,
+    this.discomDivision,
     this.plantCapacity = 3.0,
     this.calculatedSubsidy = 78000.0,
+    this.expectedSubsidy = 78000.0,
+    this.amountReceived = 0.0,
     this.stage = 'registered',
     this.portalAckNo,
     this.discomApplicationNo,
+    this.daysInStage,
+    this.slaExpectedDays,
+    this.isDcrCompliant,
+    this.address,
+    this.city,
+    this.state,
+    this.pincode,
+    this.totalDocsUploaded = 0,
+    this.activeRejectionsCount = 0,
     this.createdAt,
     this.updatedAt,
   });
@@ -151,18 +216,47 @@ class SubsidyItemModel {
       return double.tryParse(v.toString()) ?? fallback;
     }
 
+    int? parseInt(dynamic v) {
+      if (v == null) return null;
+      if (v is int) return v;
+      return int.tryParse(v.toString());
+    }
+
+    bool? parseBool(dynamic v) {
+      if (v == null) return null;
+      if (v is bool) return v;
+      if (v is num) return v == 1;
+      final str = v.toString().toLowerCase();
+      return str == '1' || str == 'true';
+    }
+
+    final double expected = parseDouble(json['expected_subsidy'] ?? json['calculated_subsidy'] ?? json['subsidy_amount'], 78000.0);
+    final double received = parseDouble(json['amount_received'] ?? json['disbursed_subsidy'], 0.0);
+
     return SubsidyItemModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id']?.toString() ?? ''),
       leadId: json['lead_id'] is int ? json['lead_id'] : int.tryParse(json['lead_id']?.toString() ?? '0') ?? 0,
       customerName: json['customer_name']?.toString() ?? json['name']?.toString() ?? 'Solar Customer',
-      customerPhone: json['customer_phone']?.toString() ?? json['phone']?.toString(),
+      customerPhone: json['mobile_number']?.toString() ?? json['customer_phone']?.toString() ?? json['phone']?.toString(),
       consumerNumber: json['consumer_number']?.toString(),
-      discom: json['discom']?.toString() ?? 'JVVNL',
-      plantCapacity: parseDouble(json['plant_capacity'] ?? json['system_capacity_kw'], 3.0),
-      calculatedSubsidy: parseDouble(json['calculated_subsidy'] ?? json['subsidy_amount'], 78000.0),
-      stage: json['stage']?.toString() ?? json['portal_status']?.toString() ?? 'registered',
-      portalAckNo: json['portal_ack_no']?.toString() ?? json['application_number']?.toString(),
+      discom: json['discom_name']?.toString() ?? json['discom']?.toString() ?? 'DISCOM',
+      discomDivision: json['discom_division']?.toString(),
+      plantCapacity: parseDouble(json['system_capacity_kw'] ?? json['plant_capacity'], 3.0),
+      calculatedSubsidy: expected,
+      expectedSubsidy: expected,
+      amountReceived: received,
+      stage: json['portal_status']?.toString() ?? json['stage']?.toString() ?? 'registered',
+      portalAckNo: json['application_number']?.toString() ?? json['portal_ack_no']?.toString(),
       discomApplicationNo: json['discom_application_no']?.toString(),
+      daysInStage: parseInt(json['days_in_stage']),
+      slaExpectedDays: parseInt(json['sla_expected_days']),
+      isDcrCompliant: parseBool(json['is_dcr_compliant']),
+      address: json['address']?.toString(),
+      city: json['city']?.toString(),
+      state: json['state']?.toString(),
+      pincode: json['pincode']?.toString(),
+      totalDocsUploaded: parseInt(json['total_docs_uploaded']) ?? 0,
+      activeRejectionsCount: parseInt(json['active_rejections_count']) ?? 0,
       createdAt: parseDate(json['created_at']),
       updatedAt: parseDate(json['updated_at']),
     );
@@ -224,4 +318,3 @@ class SubsidyDocumentModel {
     );
   }
 }
-

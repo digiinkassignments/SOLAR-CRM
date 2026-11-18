@@ -552,30 +552,37 @@ class _LoanSheetState extends State<LoanSheet> {
                   Expanded(
                     flex: 3,
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: _selectedStage,
                       decoration: InputDecoration(
                         labelText: "Loan Stage",
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      items: _stages.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                      items: _stages.map((s) => DropdownMenuItem(
+                        value: s,
+                        child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1),
+                      )).toList(),
                       onChanged: (val) {
                         if (val != null) setState(() => _selectedStage = val);
                       },
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
                     flex: 2,
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: _selectedSideStatus,
                       decoration: InputDecoration(
                         labelText: "Status",
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'Active', child: Text('Active')),
-                        DropdownMenuItem(value: 'Rejected', child: Text('Rejected')),
-                        DropdownMenuItem(value: 'Withdrawn', child: Text('Withdrawn')),
+                        DropdownMenuItem(value: 'Active', child: Text('Active', overflow: TextOverflow.ellipsis)),
+                        DropdownMenuItem(value: 'Rejected', child: Text('Rejected', overflow: TextOverflow.ellipsis)),
+                        DropdownMenuItem(value: 'Withdrawn', child: Text('Withdrawn', overflow: TextOverflow.ellipsis)),
                       ],
                       onChanged: (val) {
                         if (val != null) setState(() => _selectedSideStatus = val);

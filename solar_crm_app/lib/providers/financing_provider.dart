@@ -11,6 +11,7 @@ class FinancingProvider extends ChangeNotifier {
   // --- Subsidies State ---
   List<SubsidyItemModel> _subsidies = [];
   int _totalSubsidies = 0;
+  SubsidyStatsModel _subsidyStats = SubsidyStatsModel();
   bool _isLoadingSubsidies = false;
   String? _subsidiesError;
 
@@ -33,6 +34,7 @@ class FinancingProvider extends ChangeNotifier {
   // Getters - Subsidies
   List<SubsidyItemModel> get subsidies => _subsidies;
   int get totalSubsidies => _totalSubsidies;
+  SubsidyStatsModel get subsidyStats => _subsidyStats;
   bool get isLoadingSubsidies => _isLoadingSubsidies;
   String? get subsidiesError => _subsidiesError;
   SubsidyItemModel? get activeSubsidy => _activeSubsidy;
@@ -76,9 +78,24 @@ class FinancingProvider extends ChangeNotifier {
       if (response.data != null && response.data['success'] == true) {
         final data = response.data['data'];
         List rawList = [];
-        if (data is Map && data['rows'] != null) {
-          rawList = data['rows'] as List;
-          _totalSubsidies = data['count'] is int ? data['count'] : int.tryParse(data['count']?.toString() ?? '0') ?? rawList.length;
+        if (data is Map) {
+          if (data['subsidies'] != null && data['subsidies'] is List) {
+            rawList = data['subsidies'] as List;
+          } else if (data['rows'] != null && data['rows'] is List) {
+            rawList = data['rows'] as List;
+          }
+
+          if (data['total'] is int) {
+            _totalSubsidies = data['total'] as int;
+          } else if (data['count'] is int) {
+            _totalSubsidies = data['count'] as int;
+          } else {
+            _totalSubsidies = int.tryParse(data['total']?.toString() ?? data['count']?.toString() ?? '0') ?? rawList.length;
+          }
+
+          if (data['stats'] != null && data['stats'] is Map) {
+            _subsidyStats = SubsidyStatsModel.fromJson(data['stats'] as Map<String, dynamic>);
+          }
         } else if (data is List) {
           rawList = data;
           _totalSubsidies = rawList.length;

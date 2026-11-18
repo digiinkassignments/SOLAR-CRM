@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/utils/formatters.dart';
@@ -11,8 +13,7 @@ import 'sheets/subsidy_detail_sheet.dart';
 import 'sheets/loan_sheet.dart';
 
 class FinancingHubView extends StatefulWidget {
-  final int initialTab; // 0: Subsidies, 1: Loans
-
+  final int initialTab;
   const FinancingHubView({super.key, this.initialTab = 0});
 
   @override
@@ -22,10 +23,12 @@ class FinancingHubView extends StatefulWidget {
 class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  // Search and Filter State - Subsidy
   final TextEditingController _subsidySearchController = TextEditingController();
-  final TextEditingController _loanSearchController = TextEditingController();
-
   String _selectedSubsidyStage = 'All';
+
+  // Search and Filter State - Loans
+  final TextEditingController _loanSearchController = TextEditingController();
   String _selectedLoanStage = 'All';
 
   final List<String> _subsidyStages = [
@@ -39,6 +42,7 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
     'commissioning_issued',
     'bank_details_submitted',
     'subsidy_credited',
+    'rejected',
   ];
 
   final List<String> _loanStages = [
@@ -82,6 +86,42 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
       stage: _selectedLoanStage,
     );
     provider.fetchLoanStats();
+  }
+
+  Future<void> _openNationalPortal() async {
+    final uri = Uri.parse("https://pmsuryaghar.gov.in/");
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Could not launch National Portal url")),
+        );
+      }
+    }
+  }
+
+  void _copyPortalDataPack(SubsidyItemModel item) {
+    final text = """=== PM SURYA GHAR PORTAL DATA PACK ===
+Applicant: ${item.customerName}
+Electricity Bill CA No.: ${item.consumerNumber ?? "N/A"}
+PM Surya Ghar App No.: ${item.portalAckNo ?? "Pending"}
+Address: ${[item.address, item.city, item.state, item.pincode].where((e) => e != null && e.isNotEmpty).join(", ")}
+Capacity: ${item.plantCapacity} kW
+DISCOM: ${item.discom ?? "Not recorded"} (${item.discomDivision ?? item.city ?? "Circle Office"})
+DCR Compliant: ${item.isDcrCompliant == true ? "YES (Recorded Compliant)" : "Needs Verification"}
+Expected Subsidy: ₹${item.expectedSubsidy.toStringAsFixed(0)}
+Current Portal Stage: ${item.stage}
+======================================""";
+
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Copied Portal Data Pack for ${item.customerName}!"),
+        backgroundColor: AppColors.brandNavy,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -156,7 +196,7 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
         icon: const Icon(Icons.add_rounded),
         label: Text(
           _tabController.index == 0 ? "Apply Subsidy" : "New Loan",
-          style: const TextStyle(fontWeight: FontWeight.w700),
+          style: AppTypography.button(),
         ),
         onPressed: () {
           if (_tabController.index == 0) {
@@ -181,16 +221,19 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
     Color textSecondary,
   ) {
     final subsidies = provider.subsidies;
+    final stats = provider.subsidyStats;
     final isLoading = provider.isLoadingSubsidies;
 
-    final creditedCount = subsidies.where((s) => s.stage == 'subsidy_credited' || s.stage == 'disbursed').length;
-    final feasibilityCount = subsidies.where((s) => s.stage == 'feasibility_approved').length;
+    final totalProjects = stats.totalProjects > 0 ? stats.totalProjects : provider.totalSubsidies;
+    final feasibilityCount = stats.countFeasibility > 0 ? stats.countFeasibility : subsidies.where((s) => s.stage == 'feasibility_approved').length;
+    final netMeterCount = stats.countNetMeter > 0 ? stats.countNetMeter : subsidies.where((s) => s.stage == 'net_meter_applied' || s.stage == 'commissioning_issued').length;
+    final creditedCount = stats.countCredited > 0 ? stats.countCredited : subsidies.where((s) => s.stage == 'subsidy_credited' || s.stage == 'disbursed').length;
 
     return RefreshIndicator(
       onRefresh: () async => _loadData(),
       child: Column(
         children: [
-          // Top KPI Strip
+          // Top KPI Strip (4 Cards matching Web CRM)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: SingleChildScrollView(
@@ -198,20 +241,30 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
               child: Row(
                 children: [
                   _buildKpiCard(
-                    title: "APPLICATIONS",
-                    value: provider.totalSubsidies.toString(),
+                    title: "TRACKED PROJECTS",
+                    value: totalProjects.toString(),
                     subtitle: "National Portal registered",
-                    color: AppColors.brandPrimary,
+                    color: AppColors.brandNavy == textPrimary ? AppColors.brandPrimary : const Color(0xFF60A5FA),
                     cardBg: cardBg,
                     borderColor: borderColor,
                     textPrimary: textPrimary,
                   ),
                   const SizedBox(width: 8),
                   _buildKpiCard(
-                    title: "FEASIBILITY OK",
+                    title: "FEASIBILITY",
                     value: feasibilityCount.toString(),
-                    subtitle: "Approved by DISCOM",
-                    color: const Color(0xFF7C3AED),
+                    subtitle: "DISCOM feasibility OK",
+                    color: const Color(0xFF8B5CF6),
+                    cardBg: cardBg,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildKpiCard(
+                    title: "NET METERING",
+                    value: netMeterCount.toString(),
+                    subtitle: "Inspection & grid sync",
+                    color: const Color(0xFFEA580C),
                     cardBg: cardBg,
                     borderColor: borderColor,
                     textPrimary: textPrimary,
@@ -225,6 +278,78 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
                     cardBg: cardBg,
                     borderColor: borderColor,
                     textPrimary: textPrimary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Financial Summary Strip & National Portal Link
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: borderColor),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        RichText(
+                          text: TextSpan(
+                            style: AppTypography.caption(color: textSecondary),
+                            children: [
+                              const TextSpan(text: "Expected Subsidy: "),
+                              TextSpan(
+                                text: Formatters.formatCurrency(stats.totalExpectedSubsidy > 0 ? stats.totalExpectedSubsidy : 78000.0 * totalProjects),
+                                style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        RichText(
+                          text: TextSpan(
+                            style: AppTypography.caption(color: textSecondary),
+                            children: [
+                              const TextSpan(text: "Recorded Credits: "),
+                              TextSpan(
+                                text: Formatters.formatCurrency(stats.totalDisbursedSubsidy),
+                                style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.emeraldGreen),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  InkWell(
+                    onTap: _openNationalPortal,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.brandPrimary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.brandPrimary.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.open_in_new_rounded, size: 12, color: AppColors.brandPrimary),
+                          const SizedBox(width: 4),
+                          Text(
+                            "Portal",
+                            style: AppTypography.badge(color: AppColors.brandPrimary),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -260,7 +385,7 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
             ),
           ),
 
-          // Filter Chips
+          // Filter Chips (PM Surya Ghar 9 Portal Stages)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -298,7 +423,7 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
           // Subsidies List
           Expanded(
             child: isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator(color: AppColors.brandPrimary))
                 : subsidies.isEmpty
                     ? Center(
                         child: Column(
@@ -310,6 +435,10 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
                             const SizedBox(height: 8),
                             ElevatedButton.icon(
                               onPressed: () => ApplySubsidySheet.show(context),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.brandPrimary,
+                                foregroundColor: Colors.white,
+                              ),
                               icon: const Icon(Icons.add_rounded, size: 16),
                               label: const Text("Apply for PM Surya Ghar"),
                             ),
@@ -342,7 +471,7 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
     final color = info['color'] as Color;
     final label = info['label'] as String;
     final owner = info['owner'] as String;
-    final days = info['expectedDays'] as int;
+    final expectedDays = item.slaExpectedDays ?? (info['expectedDays'] as int);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -366,6 +495,19 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
                 ),
                 child: Text("LEAD #${item.leadId}", style: AppTypography.badge(color: AppColors.brandPrimary)),
               ),
+              const SizedBox(width: 6),
+              if (item.isDcrCompliant != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: item.isDcrCompliant == true ? AppColors.emeraldGreen.withValues(alpha: 0.12) : const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    item.isDcrCompliant == true ? "DCR" : "VERIFY DCR",
+                    style: AppTypography.badge(color: item.isDcrCompliant == true ? AppColors.emeraldGreen : const Color(0xFFF59E0B)),
+                  ),
+                ),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -387,14 +529,31 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
 
           const SizedBox(height: 8),
 
-          Text(
-            item.customerName,
-            style: AppTypography.bodyMedium(color: textPrimary, fontWeight: FontWeight.w700),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.customerName,
+                      style: AppTypography.bodyMedium(color: textPrimary, fontWeight: FontWeight.w700),
+                    ),
+                    if (item.customerPhone != null && item.customerPhone!.isNotEmpty)
+                      Text(item.customerPhone!, style: AppTypography.caption(color: textSecondary)),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 16),
+                tooltip: "Copy Portal Data Pack",
+                onPressed: () => _copyPortalDataPack(item),
+              ),
+            ],
           ),
-          if (item.customerPhone != null && item.customerPhone!.isNotEmpty)
-            Text(item.customerPhone!, style: AppTypography.caption(color: textSecondary)),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
 
           // Details row
           Row(
@@ -408,15 +567,15 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
                 ),
               ),
               Text(
-                "Subsidy: ${Formatters.formatCurrency(item.calculatedSubsidy)}",
+                "Subsidy: ${Formatters.formatCurrency(item.expectedSubsidy)}",
                 style: AppTypography.bodySmall(color: AppColors.emeraldGreen, fontWeight: FontWeight.w700),
               ),
             ],
           ),
 
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
-            "Capacity: ${item.plantCapacity} kW • Owner: $owner • SLA: $days Days",
+            "Capacity: ${item.plantCapacity} kW • Owner: $owner • ${item.daysInStage != null ? '${item.daysInStage} days in stage' : 'SLA: $expectedDays Days'}",
             style: AppTypography.caption(color: textSecondary),
           ),
 
@@ -490,7 +649,7 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
       onRefresh: () async => _loadData(),
       child: Column(
         children: [
-          // 4 Stats Cards
+          // 4 Stats Cards matching Web CRM
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: SingleChildScrollView(
@@ -502,16 +661,6 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
                     value: stats.totalLoans.toString(),
                     subtitle: "Solar financing cases",
                     color: AppColors.skyBlue,
-                    cardBg: cardBg,
-                    borderColor: borderColor,
-                    textPrimary: textPrimary,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildKpiCard(
-                    title: "DISBURSED VALUE",
-                    value: Formatters.formatCurrency(stats.totalDisbursedAmount, compact: true),
-                    subtitle: "Lender payments completed",
-                    color: AppColors.emeraldGreen,
                     cardBg: cardBg,
                     borderColor: borderColor,
                     textPrimary: textPrimary,
@@ -532,6 +681,16 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
                     value: stats.sanctionedLoans.toString(),
                     subtitle: "Approved by bank",
                     color: const Color(0xFF6366F1),
+                    cardBg: cardBg,
+                    borderColor: borderColor,
+                    textPrimary: textPrimary,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildKpiCard(
+                    title: "DISBURSED VALUE",
+                    value: Formatters.formatCurrency(stats.totalDisbursedAmount, compact: true),
+                    subtitle: "Lender payments completed",
+                    color: AppColors.emeraldGreen,
                     cardBg: cardBg,
                     borderColor: borderColor,
                     textPrimary: textPrimary,
@@ -604,7 +763,7 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
           // Loans List
           Expanded(
             child: isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator(color: AppColors.brandPrimary))
                 : loans.isEmpty
                     ? Center(
                         child: Column(
@@ -616,6 +775,10 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
                             const SizedBox(height: 8),
                             ElevatedButton.icon(
                               onPressed: () => LoanSheet.show(context),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.brandPrimary,
+                                foregroundColor: Colors.white,
+                              ),
                               icon: const Icon(Icons.add_rounded, size: 16),
                               label: const Text("New Loan Application"),
                             ),
@@ -659,7 +822,7 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top: Bank & Status
+          // Top Row: Bank & Stage
           Row(
             children: [
               Container(
@@ -668,7 +831,7 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
                   color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(item.loanStage.toUpperCase(), style: AppTypography.badge(color: color)),
+                child: Text(item.bankName, style: AppTypography.badge(color: color)),
               ),
               const SizedBox(width: 8),
               if (!item.isSideStatusActive)
@@ -681,9 +844,13 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
                   child: Text(item.sideStatus.toUpperCase(), style: AppTypography.badge(color: AppColors.errorRed)),
                 ),
               const Spacer(),
-              Text(
-                Formatters.formatCurrency(item.sanctionedAmount > 0 ? item.sanctionedAmount : item.loanAmountApplied),
-                style: AppTypography.bodyMedium(color: color, fontWeight: FontWeight.w700),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(item.loanStage, style: AppTypography.badge(color: color)),
               ),
             ],
           ),
@@ -694,60 +861,84 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
             item.customerName,
             style: AppTypography.bodyMedium(color: textPrimary, fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 2),
-          Text(
-            "Lender: ${item.bankName}",
-            style: AppTypography.caption(color: textSecondary, fontWeight: FontWeight.w600),
-          ),
+          if (item.customerPhone != null && item.customerPhone!.isNotEmpty)
+            Text(item.customerPhone!, style: AppTypography.caption(color: textSecondary)),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
 
-          // Stage Progress Bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: percent,
-              backgroundColor: isDark ? Colors.white10 : Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 5,
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Financial Row
+          // 4-box financial summary
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "Applied: ${Formatters.formatCurrency(item.loanAmountApplied)}",
-                style: AppTypography.caption(color: textSecondary),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Requested", style: AppTypography.caption(color: textSecondary)),
+                    Text(Formatters.formatCurrency(item.loanAmountApplied), style: AppTypography.bodySmall(color: textPrimary, fontWeight: FontWeight.w700)),
+                  ],
+                ),
               ),
-              Text(
-                "EMI: ₹${item.monthlyEmi.toStringAsFixed(0)} / mo (${item.tenureMonths}m @ ${item.interestRate}%)",
-                style: AppTypography.caption(color: AppColors.emeraldGreen, fontWeight: FontWeight.w700),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Sanctioned", style: AppTypography.caption(color: textSecondary)),
+                    Text(Formatters.formatCurrency(item.sanctionedAmount), style: AppTypography.bodySmall(color: textPrimary, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Disbursed", style: AppTypography.caption(color: textSecondary)),
+                    Text(Formatters.formatCurrency(item.disbursedAmount), style: AppTypography.bodySmall(color: AppColors.emeraldGreen, fontWeight: FontWeight.w700)),
+                  ],
+                ),
               ),
             ],
           ),
 
-          if (item.portalApplicationNo != null && item.portalApplicationNo!.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              "Ref: ${item.portalApplicationNo}",
-              style: AppTypography.caption(color: textSecondary),
-            ),
-          ],
+          const SizedBox(height: 10),
+
+          // EMI & Progress
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "EMI: ₹${item.monthlyEmi.toStringAsFixed(0)} / mo • ${item.tenureMonths} Mos @ ${item.interestRate}%",
+                style: AppTypography.caption(color: textSecondary),
+              ),
+              Text(
+                "Stage ${(percent * 5).toInt()} of 5",
+                style: AppTypography.caption(color: color, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          LinearProgressIndicator(
+            value: percent,
+            backgroundColor: color.withValues(alpha: 0.15),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            borderRadius: BorderRadius.circular(4),
+            minHeight: 5,
+          ),
 
           const SizedBox(height: 10),
           const Divider(),
           const SizedBox(height: 4),
 
-          // Action Buttons
+          // Edit & Open Action
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               OutlinedButton.icon(
-                onPressed: () => LoanSheet.show(context, existingLoan: item),
+                onPressed: () {
+                  LoanSheet.show(
+                    context,
+                    existingLoan: item,
+                  );
+                },
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   side: BorderSide(color: borderColor),
@@ -755,18 +946,6 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
                 ),
                 icon: const Icon(Icons.edit_outlined, size: 14),
                 label: const Text("Manage Loan", style: TextStyle(fontSize: 12)),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                onPressed: () => LoanSheet.show(context, existingLoan: item),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.skyBlue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                icon: const Icon(Icons.cloud_upload_outlined, size: 14),
-                label: const Text("Sanction Docs", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
               ),
             ],
           ),
@@ -785,29 +964,58 @@ class _FinancingHubViewState extends State<FinancingHubView> with SingleTickerPr
     required Color textPrimary,
   }) {
     return Container(
-      width: 150,
-      padding: const EdgeInsets.all(12),
+      width: 155,
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border(
-          left: BorderSide(color: color, width: 3.5),
-          top: BorderSide(color: borderColor),
-          right: BorderSide(color: borderColor),
-          bottom: BorderSide(color: borderColor),
-        ),
+        border: Border.all(color: borderColor),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
         children: [
-          Text(title, style: AppTypography.badge(color: color)),
-          const SizedBox(height: 4),
-          Text(value, style: AppTypography.headingSmall(color: textPrimary)),
-          const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 4,
+            child: Container(color: color),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 14, right: 12, top: 10, bottom: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
-

@@ -87,14 +87,14 @@ class ApiConstants {
   static String stockItemByBarcode(String code) => "/stock/items/barcode/${Uri.encodeComponent(code)}";
   static const String stockQuickScanIn = "/stock/quick-scan-in";
 
-  // Subsidies & PM Surya Ghar Hub (Matching https://digiinksolutions.solops.cloud/subsidies)
-  static const String subsidiesList = "/subsidies/list";
-  static const String applySubsidy = "/subsidies/apply";
-  static String subsidyByLead(int leadId) => "/subsidies/$leadId";
-  static const String subsidyUploadDoc = "/subsidies/upload-doc";
-  static String subsidyVerifyDoc(int docId) => "/subsidies/verify-doc/$docId";
-  static const String subsidyReject = "/subsidies/reject";
-  static String subsidyResolveFix(int id) => "/subsidies/resolve-fix/$id";
+  // Subsidies & PM Surya Ghar Hub (Matching backend /api/subsidy/*)
+  static const String subsidiesList = "/subsidy/list";
+  static const String applySubsidy = "/subsidy/apply";
+  static String subsidyByLead(int leadId) => "/subsidy/$leadId";
+  static const String subsidyUploadDoc = "/subsidy/upload-doc";
+  static String subsidyVerifyDoc(int docId) => "/subsidy/verify-doc/$docId";
+  static const String subsidyReject = "/subsidy/reject";
+  static String subsidyResolveFix(int id) => "/subsidy/resolve-fix/$id";
 
   // Solar Loans & Financing Hub
   static const String loans = "/loans";
