@@ -158,10 +158,11 @@ class _EditProjectSheetState extends State<EditProjectSheet> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final surfaceBg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final textPrimary = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
+    final textSecondary = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
 
     final totalCost = double.tryParse(_totalCostController.text.trim()) ?? 0.0;
     final amountRec = double.tryParse(_amountReceivedController.text.trim()) ?? 0.0;
@@ -170,7 +171,7 @@ class _EditProjectSheetState extends State<EditProjectSheet> {
     return Container(
       height: MediaQuery.of(context).size.height * 0.92,
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurfaceElevated,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -392,7 +393,7 @@ class _EditProjectSheetState extends State<EditProjectSheet> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        color: surfaceBg,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: borderColor),
                       ),
@@ -516,7 +517,7 @@ class _EditProjectSheetState extends State<EditProjectSheet> {
                   child: ElevatedButton(
                     onPressed: _isSaving ? null : _save,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F172A),
+                      backgroundColor: AppColors.brandPrimary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -597,3 +598,4 @@ class _EditProjectSheetState extends State<EditProjectSheet> {
     );
   }
 }
+

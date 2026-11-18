@@ -89,6 +89,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark ? AppColors.darkSurfaceElevated : AppColors.lightSurfaceElevated,
         title: const Text("Delete Project?"),
         content: Text(
           "Are you sure you want to delete project ${project.projectNumber} (${project.customerName})? This action cannot be undone.",
@@ -130,10 +131,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final surfaceBg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final textPrimary = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
+    final textSecondary = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
 
     final provider = Provider.of<ProjectProvider>(context);
     final project = provider.selectedProject;
@@ -141,28 +143,45 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
     final error = provider.detailsError;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
+        backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: Icon(Icons.arrow_back_rounded, color: textPrimary),
           onPressed: () => Navigator.of(context).pop(),
           tooltip: "Back to Projects",
         ),
-        title: Text(
-          project?.projectNumber ?? "Project Details",
-          style: AppTypography.headingSmall(),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              project?.customerName ?? "Project Details",
+              style: AppTypography.headingSmall(color: textPrimary),
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (project != null)
+              Text(
+                project.projectNumber,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: textSecondary,
+                ),
+              ),
+          ],
         ),
         actions: [
           if (project != null) ...[
             IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 20),
+              icon: Icon(Icons.edit_outlined, size: 20, color: textPrimary),
               tooltip: "Edit details",
               onPressed: () => EditProjectSheet.show(context, project),
             ),
             IconButton(
-              icon: const Icon(Icons.swap_horiz_rounded, size: 22),
+              icon: const Icon(Icons.swap_horiz_rounded, size: 22, color: AppColors.brandPrimary),
               tooltip: "Change stage",
               onPressed: () => ChangeStageSheet.show(context, project),
             ),
@@ -184,15 +203,14 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                       onRefresh: () async => _loadDetails(),
                       child: Column(
                         children: [
-                          // Top Header Card (Matches Web Header)
-                          _buildTopHeaderCard(project, isDark, cardBg, borderColor, textPrimary, textSecondary),
+                          // 1. TOP HEADER CARD (Pure Black & Aligned)
+                          _buildTopHeaderCard(project, isDark, cardBg, surfaceBg, borderColor, textPrimary, textSecondary),
 
-                          // Scrollable Tab Navigation Bar
+                          // 2. SCROLLABLE TAB NAVIGATION BAR (Pure Black with Brand Indicator)
                           Container(
+                            color: isDark ? AppColors.darkBackground : AppColors.lightBackground,
                             decoration: BoxDecoration(
-                              color: cardBg,
                               border: Border(
-                                top: BorderSide(color: borderColor),
                                 bottom: BorderSide(color: borderColor),
                               ),
                             ),
@@ -200,35 +218,37 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                               controller: _tabController,
                               isScrollable: true,
                               tabAlignment: TabAlignment.start,
-                              indicatorColor: AppColors.brandNavy == textPrimary ? AppColors.brandPrimary : const Color(0xFF3B82F6),
+                              indicatorColor: AppColors.brandPrimary,
+                              indicatorSize: TabBarIndicatorSize.label,
                               indicatorWeight: 3,
-                              labelColor: textPrimary,
+                              labelColor: AppColors.brandPrimary,
                               unselectedLabelColor: textSecondary,
-                              labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                              unselectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                              labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                              unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                               tabs: _tabs.map((t) => Tab(text: t)).toList(),
                             ),
                           ),
 
-                          // Tab Content Views
+                          // 3. TAB CONTENT VIEWS
                           Expanded(
                             child: TabBarView(
                               controller: _tabController,
                               children: [
                                 // Tab 0: Overview & Stages
-                                _buildOverviewAndStagesTab(project, isDark, cardBg, borderColor, textPrimary, textSecondary),
+                                _buildOverviewAndStagesTab(project, isDark, cardBg, surfaceBg, borderColor, textPrimary, textSecondary),
 
                                 // Tab 1: Stage History
-                                _buildStageHistoryTab(project, isDark, cardBg, borderColor, textPrimary, textSecondary),
+                                _buildStageHistoryTab(project, isDark, cardBg, surfaceBg, borderColor, textPrimary, textSecondary),
 
                                 // Tab 2: Pre-Install Inspection
                                 _buildStagePlaceholderTab(
                                   title: "Pre-Install Site Inspection",
                                   description: "Drone & roof survey, shadow analysis, structure load-bearing and BOM checklist.",
                                   icon: Icons.checklist_rounded,
-                                  accentColor: const Color(0xFF7C3AED),
+                                  accentColor: AppColors.skyBlue,
                                   isDark: isDark,
                                   cardBg: cardBg,
+                                  surfaceBg: surfaceBg,
                                   borderColor: borderColor,
                                   textPrimary: textPrimary,
                                   textSecondary: textSecondary,
@@ -239,9 +259,10 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                                   title: "Installation & Execution Progress",
                                   description: "Civil structure erection, solar module clamping, inverter wiring & grounding earthing.",
                                   icon: Icons.construction_rounded,
-                                  accentColor: const Color(0xFFEA580C),
+                                  accentColor: AppColors.brandPrimary,
                                   isDark: isDark,
                                   cardBg: cardBg,
+                                  surfaceBg: surfaceBg,
                                   borderColor: borderColor,
                                   textPrimary: textPrimary,
                                   textSecondary: textSecondary,
@@ -252,9 +273,10 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                                   title: "DISCOM Net-Meter & Commissioning",
                                   description: "Bi-directional smart meter sync, grid interconnection approvals & energization certs.",
                                   icon: Icons.electric_bolt_rounded,
-                                  accentColor: const Color(0xFF4F46E5),
+                                  accentColor: AppColors.emeraldGreen,
                                   isDark: isDark,
                                   cardBg: cardBg,
+                                  surfaceBg: surfaceBg,
                                   borderColor: borderColor,
                                   textPrimary: textPrimary,
                                   textSecondary: textSecondary,
@@ -268,6 +290,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                                   accentColor: const Color(0xFF0891B2),
                                   isDark: isDark,
                                   cardBg: cardBg,
+                                  surfaceBg: surfaceBg,
                                   borderColor: borderColor,
                                   textPrimary: textPrimary,
                                   textSecondary: textSecondary,
@@ -278,9 +301,10 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                                   title: "Customer Handover & Dossier",
                                   description: "Handover pack, warranty certificates, OEM serial tags and customer sign-off OTP.",
                                   icon: Icons.handshake_outlined,
-                                  accentColor: const Color(0xFF059669),
+                                  accentColor: AppColors.emeraldGreen,
                                   isDark: isDark,
                                   cardBg: cardBg,
+                                  surfaceBg: surfaceBg,
                                   borderColor: borderColor,
                                   textPrimary: textPrimary,
                                   textSecondary: textSecondary,
@@ -294,6 +318,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                                   accentColor: const Color(0xFF0D9488),
                                   isDark: isDark,
                                   cardBg: cardBg,
+                                  surfaceBg: surfaceBg,
                                   borderColor: borderColor,
                                   textPrimary: textPrimary,
                                   textSecondary: textSecondary,
@@ -308,12 +333,13 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
   }
 
   // ==========================================
-  // TOP HEADER CARD (Matches Web Section 2)
+  // TOP HEADER CARD (Matches Web with NO OVERFLOW)
   // ==========================================
   Widget _buildTopHeaderCard(
     ProjectModel project,
     bool isDark,
     Color cardBg,
+    Color surfaceBg,
     Color borderColor,
     Color textPrimary,
     Color textSecondary,
@@ -323,75 +349,80 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
         .join(", ");
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Project Number Overline
+          // Row 1: Project Number Pill & Stage Badge
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Flexible(
-                child: Text(
-                  project.projectNumber,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: textSecondary,
-                    letterSpacing: 0.5,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: surfaceBg,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: borderColor),
                   ),
-                  overflow: TextOverflow.ellipsis,
+                  child: Text(
+                    project.projectNumber,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: textPrimary,
+                      letterSpacing: 0.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      side: BorderSide(color: borderColor),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.brandPrimary.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.brandPrimary.withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppColors.brandPrimary, shape: BoxShape.circle)),
+                    const SizedBox(width: 5),
+                    Text(
+                      project.stage,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.brandPrimary,
+                      ),
                     ),
-                    icon: const Icon(Icons.edit_outlined, size: 13),
-                    label: const Text("Edit", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                    onPressed: () => EditProjectSheet.show(context, project),
-                  ),
-                  const SizedBox(width: 6),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F172A),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    icon: const Icon(Icons.swap_horiz_rounded, size: 14),
-                    label: const Text("Change stage", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                    onPressed: () => ChangeStageSheet.show(context, project),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
 
           // Customer Name
           Text(
             project.customerName,
-            style: AppTypography.heading(size: 20, color: textPrimary),
+            style: AppTypography.heading(size: 19, color: textPrimary),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
 
           // Address
-          if (address.isNotEmpty)
+          if (address.isNotEmpty) ...[
+            const SizedBox(height: 3),
             Row(
               children: [
                 Icon(Icons.location_on_outlined, size: 13, color: textSecondary),
@@ -406,15 +437,49 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                 ),
               ],
             ),
-          const SizedBox(height: 14),
-          const Divider(height: 1),
+          ],
           const SizedBox(height: 12),
 
-          // 4-Column Metric Grid
+          // Full-Width Action Buttons (NEVER OVERFLOWS)
           Row(
             children: [
               Expanded(
-                flex: 3,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    side: BorderSide(color: borderColor),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: Icon(Icons.edit_outlined, size: 14, color: textPrimary),
+                  label: Text("Edit Details", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary)),
+                  onPressed: () => EditProjectSheet.show(context, project),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.brandPrimary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.swap_horiz_rounded, size: 16),
+                  label: const Text("Change Stage", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  onPressed: () => ChangeStageSheet.show(context, project),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Divider(height: 1, color: borderColor),
+          const SizedBox(height: 10),
+
+          // 2x2 Metric Grid (Clean on Mobile)
+          Row(
+            children: [
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -431,16 +496,15 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                       child: LinearProgressIndicator(
                         value: project.progressPercent,
                         minHeight: 4,
-                        backgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                        backgroundColor: surfaceBg,
                         valueColor: const AlwaysStoppedAnimation<Color>(AppColors.brandPrimary),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 14),
               Expanded(
-                flex: 2,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -448,14 +512,17 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                     const SizedBox(height: 2),
                     Text(
                       "${project.systemCapacityKw.toStringAsFixed(2)} kW",
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textPrimary),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
               Expanded(
-                flex: 2,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -469,9 +536,8 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 14),
               Expanded(
-                flex: 2,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -496,7 +562,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                color: surfaceBg,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: borderColor),
               ),
@@ -552,12 +618,13 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
   }
 
   // ==========================================
-  // TAB 0: OVERVIEW & 10-STAGE PIPELINE (Matches Web)
+  // TAB 0: OVERVIEW & 10-STAGE PIPELINE (Pure Black & Focused)
   // ==========================================
   Widget _buildOverviewAndStagesTab(
     ProjectModel project,
     bool isDark,
     Color cardBg,
+    Color surfaceBg,
     Color borderColor,
     Color textPrimary,
     Color textSecondary,
@@ -571,7 +638,224 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        // 1. CUSTOMER & SITE PROFILE CARD
+        // 1. DELIVERY MILESTONES (10-STAGE PIPELINE STEPPER) - FIRST & PROMINENT
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Delivery milestones",
+                        style: AppTypography.heading(size: 15, color: textPrimary),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "Track your delivery milestones and approvals",
+                        style: TextStyle(fontSize: 11, color: textSecondary),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.brandPrimary.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.brandPrimary.withValues(alpha: 0.3)),
+                    ),
+                    child: Text(
+                      "$progressPct% done",
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.brandPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // Progress Bar
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Stage ${currentStageIndex >= 0 ? currentStageIndex + 1 : 1} of 10: ${project.stage}",
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textSecondary),
+                  ),
+                  Text(
+                    "$progressPct% of workflow",
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.brandPrimary),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: project.progressPercent,
+                  minHeight: 6,
+                  backgroundColor: surfaceBg,
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.brandPrimary),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // 10 Sequential Milestones Cards (Pure Black Palette)
+              ...ProjectModel.stages.asMap().entries.map((entry) {
+                final index = entry.key;
+                final stageName = entry.value;
+                final isCompleted = currentStageIndex >= 0 && index < currentStageIndex;
+                final isCurrent = index == currentStageIndex;
+                final meta = ProjectModel.stageConfig[stageName] ?? {};
+                final nextStageCandidate = index + 1 < ProjectModel.stages.length
+                    ? ProjectModel.stages[index + 1]
+                    : null;
+
+                final matchingLog = project.stageLogs.cast<ProjectStageLogModel?>().firstWhere(
+                  (l) => l?.toStage == stageName,
+                  orElse: () => null,
+                );
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isCurrent
+                        ? (isDark ? AppColors.brandPrimary.withValues(alpha: 0.12) : const Color(0xFFFFFBEB))
+                        : isCompleted
+                            ? (isDark ? AppColors.emeraldGreen.withValues(alpha: 0.08) : const Color(0xFFF0FDF4))
+                            : surfaceBg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isCurrent
+                          ? AppColors.brandPrimary
+                          : isCompleted
+                              ? (isDark ? AppColors.emeraldGreen.withValues(alpha: 0.35) : const Color(0xFFBBF7D0))
+                              : borderColor,
+                      width: isCurrent ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Status Icon
+                          if (isCompleted)
+                            const Icon(Icons.check_circle_rounded, size: 18, color: AppColors.emeraldGreen)
+                          else if (isCurrent)
+                            const Icon(Icons.radio_button_checked_rounded, size: 18, color: AppColors.brandPrimary)
+                          else
+                            Icon(Icons.radio_button_unchecked_rounded, size: 18, color: textSecondary),
+                          const SizedBox(width: 8),
+
+                          // Stage Title
+                          Expanded(
+                            child: Text(
+                              "${index + 1}. $stageName",
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: isCurrent ? FontWeight.w800 : (isCompleted ? FontWeight.w700 : FontWeight.w600),
+                                color: isCurrent
+                                    ? AppColors.brandPrimary
+                                    : isCompleted
+                                        ? AppColors.emeraldGreen
+                                        : textPrimary,
+                              ),
+                            ),
+                          ),
+
+                          // Badge for Current
+                          if (isCurrent)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.brandPrimary,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                "CURRENT ACTIVE STAGE",
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+
+                      // Description
+                      Padding(
+                        padding: const EdgeInsets.only(left: 26),
+                        child: Text(
+                          meta['description']?.toString() ?? '',
+                          style: TextStyle(fontSize: 11, color: textSecondary),
+                        ),
+                      ),
+
+                      // Timestamp if completed
+                      if (isCompleted && matchingLog?.createdAt != null) ...[
+                        const SizedBox(height: 3),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 26),
+                          child: Text(
+                            "Completed on ${DateFormat('dd MMM yyyy, hh:mm a').format(matchingLog!.createdAt!)}",
+                            style: const TextStyle(fontSize: 10, color: AppColors.emeraldGreen, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+
+                      // 1-Click Advance Button on Active Stage
+                      if (isCurrent && nextStageCandidate != null) ...[
+                        const SizedBox(height: 10),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 26),
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.brandPrimary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              minimumSize: Size.zero,
+                              elevation: 0,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                            icon: const Icon(Icons.arrow_forward_rounded, size: 14),
+                            label: Text(
+                              "Advance to: $nextStageCandidate",
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                            ),
+                            onPressed: () => _quickAdvance(project, nextStageCandidate),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // 2. CUSTOMER & SITE PROFILE CARD
         _buildSectionCard(
           title: "CUSTOMER & SITE PROFILE",
           cardBg: cardBg,
@@ -602,14 +886,14 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.phone_outlined, size: 14, color: Color(0xFF2563EB)),
+                        const Icon(Icons.phone_outlined, size: 14, color: AppColors.brandPrimary),
                         const SizedBox(width: 4),
                         Text(
                           project.customerPhone,
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF2563EB),
+                            color: AppColors.brandPrimary,
                             decoration: TextDecoration.underline,
                           ),
                         ),
@@ -644,7 +928,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
         ),
         const SizedBox(height: 12),
 
-        // 2. SOLAR TECHNICAL SPECIFICATIONS
+        // 3. SOLAR TECHNICAL SPECIFICATIONS
         _buildSectionCard(
           title: "SOLAR TECHNICAL SPECIFICATIONS",
           cardBg: cardBg,
@@ -661,7 +945,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.solar_power_outlined, size: 18, color: Color(0xFFD97706)),
+                          const Icon(Icons.solar_power_outlined, size: 18, color: AppColors.brandPrimary),
                           const SizedBox(width: 6),
                           Text(
                             "${project.systemCapacityKw.toStringAsFixed(2)} kW",
@@ -708,7 +992,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
         ),
         const SizedBox(height: 12),
 
-        // 3. PROJECT EXECUTION SCHEDULE
+        // 4. PROJECT EXECUTION SCHEDULE
         _buildSectionCard(
           title: "PROJECT EXECUTION SCHEDULE",
           cardBg: cardBg,
@@ -772,7 +1056,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
         ),
         const SizedBox(height: 12),
 
-        // 4. PROJECT NOTES
+        // 5. PROJECT NOTES
         _buildSectionCard(
           title: "PROJECT NOTES",
           cardBg: cardBg,
@@ -783,7 +1067,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                color: surfaceBg,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: borderColor),
               ),
@@ -796,223 +1080,6 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
             ),
           ],
         ),
-        const SizedBox(height: 20),
-
-        // 5. DELIVERY MILESTONES (10-STAGE INTERACTIVE PIPELINE STEPPER)
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: borderColor),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Delivery milestones",
-                        style: AppTypography.heading(size: 16, color: textPrimary),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        "Track your delivery milestones, approvals and customer handover",
-                        style: TextStyle(fontSize: 11, color: textSecondary),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFBFDBFE)),
-                    ),
-                    child: Text(
-                      "$progressPct% of workflow",
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF1D4ED8),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Progress Bar
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    "Stage ${currentStageIndex >= 0 ? currentStageIndex + 1 : 1} of 10: ${project.stage}",
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textSecondary),
-                  ),
-                  Text(
-                    "$progressPct% of workflow",
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.brandPrimary),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: project.progressPercent,
-                  minHeight: 7,
-                  backgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    project.stageMeta['color'] as Color? ?? AppColors.brandPrimary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // 10 Sequential Milestones Cards
-              ...ProjectModel.stages.asMap().entries.map((entry) {
-                final index = entry.key;
-                final stageName = entry.value;
-                final isCompleted = currentStageIndex >= 0 && index < currentStageIndex;
-                final isCurrent = index == currentStageIndex;
-                final meta = ProjectModel.stageConfig[stageName] ?? {};
-                final nextStageCandidate = index + 1 < ProjectModel.stages.length
-                    ? ProjectModel.stages[index + 1]
-                    : null;
-
-                final matchingLog = project.stageLogs.cast<ProjectStageLogModel?>().firstWhere(
-                  (l) => l?.toStage == stageName,
-                  orElse: () => null,
-                );
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isCurrent
-                        ? (isDark ? const Color(0xFF2E1065).withValues(alpha: 0.3) : const Color(0xFFF5F3FF))
-                        : isCompleted
-                            ? (isDark ? const Color(0xFF064E3B).withValues(alpha: 0.25) : const Color(0xFFF0FDF4))
-                            : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC)),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isCurrent
-                          ? (isDark ? const Color(0xFF7C3AED) : const Color(0xFFDDD6FE))
-                          : isCompleted
-                              ? (isDark ? const Color(0xFF059669) : const Color(0xFFBBF7D0))
-                              : borderColor,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // Status Icon
-                          if (isCompleted)
-                            const Icon(Icons.check_circle_rounded, size: 20, color: Color(0xFF16A34A))
-                          else if (isCurrent)
-                            const Icon(Icons.radio_button_checked_rounded, size: 20, color: Color(0xFF7C3AED))
-                          else
-                            const Icon(Icons.radio_button_unchecked_rounded, size: 20, color: Color(0xFF94A3B8)),
-                          const SizedBox(width: 8),
-
-                          // Stage Title
-                          Expanded(
-                            child: Text(
-                              "${index + 1}. $stageName",
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: isCurrent ? FontWeight.w800 : (isCompleted ? FontWeight.w700 : FontWeight.w600),
-                                color: isCurrent
-                                    ? (isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED))
-                                    : isCompleted
-                                        ? const Color(0xFF16A34A)
-                                        : textPrimary,
-                              ),
-                            ),
-                          ),
-
-                          // Badge for Current
-                          if (isCurrent)
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF7C3AED),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Text(
-                                "CURRENT ACTIVE STAGE",
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-
-                      // Description
-                      Padding(
-                        padding: const EdgeInsets.only(left: 28),
-                        child: Text(
-                          meta['description']?.toString() ?? '',
-                          style: TextStyle(fontSize: 11, color: textSecondary),
-                        ),
-                      ),
-
-                      // Timestamp if completed
-                      if (isCompleted && matchingLog?.createdAt != null) ...[
-                        const SizedBox(height: 4),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 28),
-                          child: Text(
-                            "Completed on ${DateFormat('dd MMM yyyy, hh:mm a').format(matchingLog!.createdAt!)}",
-                            style: const TextStyle(fontSize: 10, color: Color(0xFF15803D), fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ],
-
-                      // 1-Click Advance Button on Active Stage
-                      if (isCurrent && nextStageCandidate != null) ...[
-                        const SizedBox(height: 10),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 28),
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF7C3AED),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                            ),
-                            icon: const Icon(Icons.arrow_forward_rounded, size: 14),
-                            label: Text(
-                              "Advance to: $nextStageCandidate",
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                            ),
-                            onPressed: () => _quickAdvance(project, nextStageCandidate),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -1024,6 +1091,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
     ProjectModel project,
     bool isDark,
     Color cardBg,
+    Color surfaceBg,
     Color borderColor,
     Color textPrimary,
     Color textSecondary,
@@ -1037,7 +1105,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: cardBg,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: borderColor),
           ),
           child: Column(
@@ -1067,10 +1135,10 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
               else
                 ...logs.map((log) {
                   return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
+                    margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      color: surfaceBg,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: borderColor),
                     ),
@@ -1088,7 +1156,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textSecondary),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.arrow_forward_rounded, size: 12, color: Color(0xFF2563EB)),
+                                  const Icon(Icons.arrow_forward_rounded, size: 12, color: AppColors.brandPrimary),
                                   const SizedBox(width: 4),
                                 ],
                                 Text(
@@ -1096,7 +1164,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
                                   style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF2563EB),
+                                    color: AppColors.brandPrimary,
                                   ),
                                 ),
                               ],
@@ -1145,6 +1213,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
     required Color accentColor,
     required bool isDark,
     required Color cardBg,
+    required Color surfaceBg,
     required Color borderColor,
     required Color textPrimary,
     required Color textSecondary,
@@ -1165,7 +1234,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.12),
+                  color: accentColor.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(icon, size: 36, color: accentColor),
@@ -1186,7 +1255,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                  color: surfaceBg,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -1209,10 +1278,10 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
     required List<Widget> children,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor),
       ),
       child: Column(
@@ -1227,7 +1296,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView>
               letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           ...children,
         ],
       ),

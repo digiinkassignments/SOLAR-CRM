@@ -147,8 +147,8 @@ class _NewProjectSheetState extends State<NewProjectSheet> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final textSecondary = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
 
     final provider = Provider.of<ProjectProvider>(context);
     final engineers = provider.engineers;
@@ -161,7 +161,7 @@ class _NewProjectSheetState extends State<NewProjectSheet> {
     return Container(
       height: MediaQuery.of(context).size.height * 0.90,
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurfaceElevated,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(

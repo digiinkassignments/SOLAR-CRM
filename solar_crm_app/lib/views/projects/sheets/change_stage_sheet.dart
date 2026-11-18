@@ -72,10 +72,10 @@ class _ChangeStageSheetState extends State<ChangeStageSheet> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final textPrimary = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
+    final textSecondary = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
 
     final currentConfig = widget.project.stageMeta;
 
@@ -84,7 +84,7 @@ class _ChangeStageSheetState extends State<ChangeStageSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurfaceElevated,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SafeArea(
@@ -125,10 +125,10 @@ class _ChangeStageSheetState extends State<ChangeStageSheet> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: (currentConfig['bg'] as Color? ?? Colors.grey.shade100),
+                  color: isDark ? AppColors.brandPrimary.withValues(alpha: 0.14) : (currentConfig['bg'] as Color? ?? Colors.grey.shade100),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: (currentConfig['border'] as Color? ?? Colors.grey.shade300),
+                    color: isDark ? AppColors.brandPrimary.withValues(alpha: 0.4) : (currentConfig['border'] as Color? ?? Colors.grey.shade300),
                   ),
                 ),
                 child: Row(
@@ -138,7 +138,7 @@ class _ChangeStageSheetState extends State<ChangeStageSheet> {
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: (currentConfig['color'] as Color? ?? AppColors.brandPrimary),
+                        color: isDark ? AppColors.brandPrimary : (currentConfig['color'] as Color? ?? AppColors.brandPrimary),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -148,7 +148,7 @@ class _ChangeStageSheetState extends State<ChangeStageSheet> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: (currentConfig['color'] as Color? ?? textPrimary),
+                        color: isDark ? AppColors.brandPrimary : (currentConfig['color'] as Color? ?? textPrimary),
                       ),
                     ),
                   ],
@@ -294,3 +294,4 @@ class _ChangeStageSheetState extends State<ChangeStageSheet> {
     );
   }
 }
+
