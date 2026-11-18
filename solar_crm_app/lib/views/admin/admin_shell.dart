@@ -14,6 +14,7 @@ import '../finance/finance_view.dart';
 import '../stock/stock_list_view.dart';
 import '../settings/settings_view.dart';
 import '../financing/financing_hub_view.dart';
+import '../projects/projects_list_view.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -31,7 +32,6 @@ class _AdminShellState extends State<AdminShell> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryTextColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
     final secondaryTextColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
-    final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     final pages = [
@@ -42,17 +42,7 @@ class _AdminShellState extends State<AdminShell> {
       ),
       const LeadsListView(),
       const CustomersListView(),
-      _buildTabPlaceholder(
-        title: "Active Solar Projects",
-        subtitle: "Track live project execution, stages, hardware serials, and customer commissioning status.",
-        icon: Icons.solar_power_outlined,
-        actionLabel: "Explore Projects",
-        isDark: isDark,
-        primaryTextColor: primaryTextColor,
-        secondaryTextColor: secondaryTextColor,
-        cardBg: cardBg,
-        borderColor: borderColor,
-      ),
+      const ProjectsListView(),
       const UsersListView(),
       const SettingsView(),
     ];
@@ -239,70 +229,6 @@ class _AdminShellState extends State<AdminShell> {
               label: "Settings",
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTabPlaceholder({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required String actionLabel,
-    required bool isDark,
-    required Color primaryTextColor,
-    required Color secondaryTextColor,
-    required Color cardBg,
-    required Color borderColor,
-  }) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Container(
-          padding: const EdgeInsets.all(24.0),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: borderColor, width: 1),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.brandPrimary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(icon, size: 40, color: AppColors.brandPrimary),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: AppTypography.heading(size: 20, color: primaryTextColor),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: AppTypography.body(color: secondaryTextColor),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Text(
-                  "Connecting to live SaaS APIs in next module",
-                  style: AppTypography.badge(color: AppColors.brandPrimary),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

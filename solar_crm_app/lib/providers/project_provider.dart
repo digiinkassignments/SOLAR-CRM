@@ -1,0 +1,209 @@
+import 'package:flutter/material.dart';
+import '../core/constants/api_constants.dart';
+import '../core/network/api_client.dart';
+import '../models/project_model.dart';
+
+class ProjectProvider extends ChangeNotifier {
+  final ApiClient apiClient;
+
+  List<ProjectModel> _projects = [];
+  int _totalCount = 0;
+  int _currentPage = 1;
+  int _totalPages = 1;
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  ProjectStatsModel _stats = ProjectStatsModel();
+  List<Map<String, dynamic>> _engineers = [];
+  List<Map<String, dynamic>> _completedSurveys = [];
+  bool _isLoadingSurveys = false;
+  bool _isSubmitting = false;
+
+  ProjectProvider({required this.apiClient});
+
+  // Getters
+  List<ProjectModel> get projects => _projects;
+  int get totalCount => _totalCount;
+  int get currentPage => _currentPage;
+  int get totalPages => _totalPages;
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+  ProjectStatsModel get stats => _stats;
+  List<Map<String, dynamic>> get engineers => _engineers;
+  List<Map<String, dynamic>> get completedSurveys => _completedSurveys;
+  bool get isLoadingSurveys => _isLoadingSurveys;
+  bool get isSubmitting => _isSubmitting;
+
+  // 1. Fetch Paginated Projects
+  Future<void> fetchProjects({
+    String? search,
+    String? stage,
+    int? assignedTo,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final queryParams = <String, dynamic>{
+        'page': page,
+        'limit': limit,
+      };
+
+      if (search != null && search.trim().isNotEmpty) {
+        queryParams['search'] = search.trim();
+      }
+      if (stage != null && stage != 'All' && stage.isNotEmpty) {
+        queryParams['stage'] = stage;
+      }
+      if (assignedTo != null && assignedTo > 0) {
+        queryParams['assigned_to'] = assignedTo;
+      }
+
+      final response = await apiClient.dio.get(
+        ApiConstants.projects,
+        queryParameters: queryParams,
+      );
+
+      if (response.data != null && response.data['success'] == true) {
+        final data = response.data['data'];
+        List rawList = [];
+        if (data is Map && data['projects'] is List) {
+          rawList = data['projects'] as List;
+          _totalCount = data['total'] is int ? data['total'] as int : int.tryParse(data['total']?.toString() ?? '0') ?? rawList.length;
+          _currentPage = data['page'] is int ? data['page'] as int : 1;
+          _totalPages = data['totalPages'] is int ? data['totalPages'] as int : 1;
+        } else if (data is List) {
+          rawList = data;
+          _totalCount = rawList.length;
+        }
+
+        _projects = rawList
+            .map((item) => ProjectModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } else {
+        _errorMessage = response.data?['message'] ?? 'Failed to load projects';
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // 2. Fetch Project Stage Statistics
+  Future<void> fetchStats() async {
+    try {
+      final response = await apiClient.dio.get(ApiConstants.projectStats);
+      if (response.data != null && response.data['success'] == true) {
+        final data = response.data['data'];
+        if (data is List) {
+          _stats = ProjectStatsModel.fromRows(data);
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching project stats: $e");
+    }
+  }
+
+  // 3. Fetch Site Engineers for Assignment
+  Future<void> fetchEngineers() async {
+    try {
+      final response = await apiClient.dio.get("/surveys/engineers");
+      if (response.data != null && response.data['success'] == true) {
+        final data = response.data['data'];
+        if (data is List) {
+          _engineers = List<Map<String, dynamic>>.from(data);
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching engineers: $e");
+    }
+  }
+
+  // 4. Fetch Completed Surveys for Project Linking
+  Future<void> fetchCompletedSurveys() async {
+    _isLoadingSurveys = true;
+    notifyListeners();
+    try {
+      final response = await apiClient.dio.get(ApiConstants.projectCompletedSurveys);
+      if (response.data != null && response.data['success'] == true) {
+        final data = response.data['data'];
+        if (data is List) {
+          _completedSurveys = List<Map<String, dynamic>>.from(data);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching completed surveys: $e");
+    } finally {
+      _isLoadingSurveys = false;
+      notifyListeners();
+    }
+  }
+
+  // 5. Create Project
+  Future<Map<String, dynamic>> createProject(Map<String, dynamic> payload) async {
+    _isSubmitting = true;
+    notifyListeners();
+
+    try {
+      final response = await apiClient.dio.post(
+        ApiConstants.projects,
+        data: payload,
+      );
+
+      if (response.data != null && response.data['success'] == true) {
+        await fetchProjects();
+        await fetchStats();
+        return {'success': true, 'message': response.data['message'] ?? 'Project created successfully'};
+      }
+      return {'success': false, 'message': response.data?['message'] ?? 'Failed to create project'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
+  }
+
+  // 6. Delete Project
+  Future<Map<String, dynamic>> deleteProject(int projectId) async {
+    try {
+      final response = await apiClient.dio.delete(ApiConstants.projectDetails(projectId));
+      if (response.data != null && response.data['success'] == true) {
+        await fetchProjects();
+        await fetchStats();
+        return {'success': true, 'message': response.data['message'] ?? 'Project deleted'};
+      }
+      return {'success': false, 'message': response.data?['message'] ?? 'Delete failed'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // 7. Update Project Stage
+  Future<Map<String, dynamic>> updateProjectStage(int projectId, String newStage, {String? notes}) async {
+    try {
+      final response = await apiClient.dio.put(
+        ApiConstants.projectUpdateStage(projectId),
+        data: {
+          'stage': newStage,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        },
+      );
+      if (response.data != null && response.data['success'] == true) {
+        await fetchProjects();
+        await fetchStats();
+        return {'success': true, 'message': response.data['message'] ?? 'Stage updated'};
+      }
+      return {'success': false, 'message': response.data?['message'] ?? 'Update failed'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+}

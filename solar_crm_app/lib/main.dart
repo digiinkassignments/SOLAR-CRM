@@ -13,6 +13,7 @@ import 'providers/finance_provider.dart';
 import 'providers/stock_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/financing_provider.dart';
+import 'providers/project_provider.dart';
 import 'views/splash/splash_screen.dart';
 
 void main() async {
@@ -60,6 +61,9 @@ void main() async {
         ),
         ChangeNotifierProvider<FinancingProvider>(
           create: (_) => FinancingProvider(apiClient: apiClient),
+        ),
+        ChangeNotifierProvider<ProjectProvider>(
+          create: (_) => ProjectProvider(apiClient: apiClient),
         ),
       ],
       child: const SolarCrmApp(),

@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import '../widgets/logout_dialog.dart';
 import '../settings/settings_view.dart';
+import '../projects/projects_list_view.dart';
 
 class EngineerShell extends StatefulWidget {
   const EngineerShell({super.key});
@@ -65,9 +66,7 @@ class _EngineerShellState extends State<EngineerShell> {
       Center(
         child: Text("Evidence Uploads", style: AppTypography.headingMedium(color: primaryTextColor)),
       ),
-      Center(
-        child: Text("Active Projects", style: AppTypography.headingMedium(color: primaryTextColor)),
-      ),
+      const ProjectsListView(),
       const SettingsView(),
     ];
 
