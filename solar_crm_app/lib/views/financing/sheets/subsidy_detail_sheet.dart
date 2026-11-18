@@ -6,6 +6,7 @@ import '../../../core/constants/app_typography.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../models/subsidy_model.dart';
 import '../../../providers/financing_provider.dart';
+import '../subsidy_detail_view.dart';
 
 class SubsidyDetailSheet extends StatefulWidget {
   final int leadId;
@@ -17,12 +18,16 @@ class SubsidyDetailSheet extends StatefulWidget {
     required this.customerName,
   });
 
-  static Future<void> show(BuildContext context, {required int leadId, required String customerName}) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => SubsidyDetailSheet(leadId: leadId, customerName: customerName),
+  static Future<void> show(BuildContext context, {required int leadId, required String customerName, int initialTab = 0}) {
+    return Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => SubsidyDetailView(
+          leadId: leadId,
+          customerName: customerName,
+          initialTab: initialTab,
+        ),
+      ),
     );
   }
 

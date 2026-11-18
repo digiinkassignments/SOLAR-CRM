@@ -591,12 +591,11 @@ Current Portal Stage: ${item.stage}
                 flex: 1,
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    ApplySubsidySheet.show(
+                    SubsidyDetailSheet.show(
                       context,
                       leadId: item.leadId,
                       customerName: item.customerName,
-                      consumerNo: item.consumerNumber,
-                      capacity: item.plantCapacity,
+                      initialTab: 2,
                     );
                   },
                   style: OutlinedButton.styleFrom(
@@ -622,6 +621,7 @@ Current Portal Stage: ${item.stage}
                       context,
                       leadId: item.leadId,
                       customerName: item.customerName,
+                      initialTab: 1,
                     );
                   },
                   style: ElevatedButton.styleFrom(

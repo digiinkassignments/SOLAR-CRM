@@ -18,6 +18,8 @@ class FinancingProvider extends ChangeNotifier {
   // Selected Subsidy Details & Documents
   SubsidyItemModel? _activeSubsidy;
   List<SubsidyDocumentModel> _activeDocuments = [];
+  List<dynamic> _activeRejections = [];
+  List<dynamic> _activeLogs = [];
   bool _isLoadingDetails = false;
   bool _isUploadingDoc = false;
 
@@ -39,6 +41,8 @@ class FinancingProvider extends ChangeNotifier {
   String? get subsidiesError => _subsidiesError;
   SubsidyItemModel? get activeSubsidy => _activeSubsidy;
   List<SubsidyDocumentModel> get activeDocuments => _activeDocuments;
+  List<dynamic> get activeRejections => _activeRejections;
+  List<dynamic> get activeLogs => _activeLogs;
   bool get isLoadingDetails => _isLoadingDetails;
   bool get isUploadingDoc => _isUploadingDoc;
 
@@ -121,8 +125,9 @@ class FinancingProvider extends ChangeNotifier {
       final response = await apiClient.dio.get(ApiConstants.subsidyByLead(leadId));
       if (response.data != null && response.data['success'] == true && response.data['data'] != null) {
         final d = response.data['data'];
-        if (d['subsidy'] != null && d['subsidy'] is Map) {
-          _activeSubsidy = SubsidyItemModel.fromJson(d['subsidy'] as Map<String, dynamic>);
+        final appData = d['application'] ?? d['subsidy'];
+        if (appData != null && appData is Map) {
+          _activeSubsidy = SubsidyItemModel.fromJson(appData as Map<String, dynamic>);
         }
         if (d['documents'] != null && d['documents'] is List) {
           _activeDocuments = (d['documents'] as List)
@@ -130,6 +135,16 @@ class FinancingProvider extends ChangeNotifier {
               .toList();
         } else {
           _activeDocuments = [];
+        }
+        if (d['rejections'] != null && d['rejections'] is List) {
+          _activeRejections = d['rejections'] as List;
+        } else {
+          _activeRejections = [];
+        }
+        if (d['logs'] != null && d['logs'] is List) {
+          _activeLogs = d['logs'] as List;
+        } else {
+          _activeLogs = [];
         }
       }
     } catch (e) {
@@ -218,6 +233,49 @@ class FinancingProvider extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint("Error verifying document: $e");
+    }
+    return false;
+  }
+
+  // 6. Log Subsidy Rejection & Create Actionable Fix Task
+  Future<Map<String, dynamic>> logSubsidyRejection({
+    required int leadId,
+    required String category,
+    required String reason,
+    required String fixTask,
+  }) async {
+    try {
+      final response = await apiClient.dio.post(
+        ApiConstants.subsidyReject,
+        data: {
+          'lead_id': leadId,
+          'rejection_category': category,
+          'rejection_reason': reason,
+          'fix_task': fixTask,
+        },
+      );
+      if (response.data != null && response.data['success'] == true) {
+        await fetchSubsidyDetails(leadId);
+        await fetchSubsidies();
+        return {'success': true, 'message': 'Portal query / rejection recorded'};
+      }
+      return {'success': false, 'message': response.data?['message'] ?? 'Failed to log rejection'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // 7. Resolve Rejection Fix Task
+  Future<bool> resolveRejectionFixTask(int logId, int leadId) async {
+    try {
+      final response = await apiClient.dio.put(ApiConstants.subsidyResolveFix(logId));
+      if (response.data != null && response.data['success'] == true) {
+        await fetchSubsidyDetails(leadId);
+        await fetchSubsidies();
+        return true;
+      }
+    } catch (e) {
+      debugPrint("Error resolving rejection: $e");
     }
     return false;
   }
