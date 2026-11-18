@@ -392,7 +392,7 @@ const getCustomers = async (filters = {}, db = defaultDb) => {
 
   const [rows] = await db.query(sql, params);
   const opening = await require("../services/customerOpening").records(db, rows.map(row=>row.id));
-  return rows.map(row=>{const record=opening.find(item=>Number(item.customer_id)===Number(row.id));return {...row,total_billed_amount:Number(row.total_billed_amount)+Number(record?.invoice_amount||0),total_paid_amount:Number(row.total_paid_amount)+Number(record?.amount_paid||0),total_balance_amount:Number(row.total_balance_amount)+Number(record?.invoice_amount||0)-Number(record?.amount_paid||0)};});
+  return rows.map(row=>{const record=opening.find(item=>Number(item.customer_id)===Number(row.id));return {...row,plant_size_kw:record?.plant_size_kw ?? null,total_billed_amount:Number(row.total_billed_amount)+Number(record?.invoice_amount||0),total_paid_amount:Number(row.total_paid_amount)+Number(record?.amount_paid||0),total_balance_amount:Number(row.total_balance_amount)+Number(record?.invoice_amount||0)-Number(record?.amount_paid||0)};});
 };
 
 // Get Full 360° Customer Profile By ID

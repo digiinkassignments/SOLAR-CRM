@@ -3,12 +3,15 @@ const {cents,validDate}=require('./customerWorkspace');
 const ready=new WeakMap();
 const fail=message=>{throw Object.assign(new Error(message),{status:400});};
 async function ensure(db){
- if(!ready.has(db))ready.set(db,db.query(`CREATE TABLE IF NOT EXISTS customer_opening_records (
+ if(!ready.has(db))ready.set(db,(async()=>{await db.query(`CREATE TABLE IF NOT EXISTS customer_opening_records (
  customer_id INT PRIMARY KEY, request_key VARCHAR(80) NOT NULL UNIQUE, payload_hash CHAR(64) NOT NULL,
  invoice_amount DECIMAL(12,2) NOT NULL, amount_paid DECIMAL(12,2) NOT NULL,
  invoice_reference VARCHAR(100) NULL, payment_date DATE NULL, payment_mode VARCHAR(50) NULL,
  payment_reference VARCHAR(100) NULL, recorded_by INT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
- ) ENGINE=InnoDB`).catch(e=>{ready.delete(db);throw e;}));
+ ) ENGINE=InnoDB`);
+ const [columns]=await db.query("SHOW COLUMNS FROM customer_opening_records LIKE 'plant_size_kw'");
+ if(!columns.length){try{await db.query("ALTER TABLE customer_opening_records ADD COLUMN plant_size_kw DECIMAL(10,3) NULL");}catch(e){if(e.code!=='ER_DUP_FIELDNAME')throw e;}}
+ })().catch(e=>{ready.delete(db);throw e;}));
  await ready.get(db);
 }
 function validate(data){
@@ -32,5 +35,5 @@ async function create(db,data,userId,insert){
  await c.commit();return customer;
  }catch(e){await c.rollback();throw e;}finally{c.release();}
 }
-async function records(db,ids){await ensure(db);if(!ids.length)return [];const [rows]=await db.query('SELECT customer_id,invoice_amount,amount_paid,invoice_reference,payment_date,payment_mode,payment_reference,created_at FROM customer_opening_records WHERE customer_id IN (?)',[ids]);return rows;}
+async function records(db,ids){await ensure(db);if(!ids.length)return [];const [rows]=await db.query('SELECT customer_id,plant_size_kw,invoice_amount,amount_paid,invoice_reference,payment_date,payment_mode,payment_reference,created_at FROM customer_opening_records WHERE customer_id IN (?)',[ids]);return rows;}
 module.exports={ensure,validate,create,records};

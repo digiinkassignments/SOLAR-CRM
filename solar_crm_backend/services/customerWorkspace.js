@@ -51,6 +51,17 @@ function validateImport(row) {
   if (row.assigned_to != null && row.assigned_to !== '' && (!Number.isSafeInteger(Number(row.assigned_to)) || Number(row.assigned_to) <= 0)) return 'Assigned salesperson is invalid.';
   if (row.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(row.email).trim())) return 'Email address is invalid.';
   if (row.solar_requirement && !['Residential', 'Commercial', 'Industrial'].includes(row.solar_requirement)) return 'Customer type must be Residential, Commercial or Industrial.';
+  const financialError=validateImportFinancials(row);
+  if(financialError)return financialError;
+  return null;
+}
+function validateImportFinancials(row){
+  const amount=cents(row.invoice_amount || '0'),paid=cents(row.payment_amount || '0');
+  if(!Number.isSafeInteger(amount)||!Number.isSafeInteger(paid))return 'Final amount and Payment received must be non-negative amounts with up to 2 decimal places.';
+  if(paid>amount)return 'Payment received cannot exceed Final amount.';
+  if(row.plant_size_kw!==undefined&&row.plant_size_kw!==null&&row.plant_size_kw!==''){
+    if(!/^\d+(\.\d{1,3})?$/.test(String(row.plant_size_kw))||Number(row.plant_size_kw)<=0||Number(row.plant_size_kw)>9999999.999)return 'Plant size must be a positive kW value with up to 3 decimal places.';
+  }
   return null;
 }
 async function accessibleCustomer(db, id, user) {
@@ -70,6 +81,7 @@ async function importCustomers(db, body, user) {
   if (!Array.isArray(body.rows) || !body.rows.length || body.rows.length > 100) fail('Import between 1 and 100 customer rows at a time.');
   if (!/^[a-zA-Z0-9-]{16,80}$/.test(body.request_key || '')) fail('Import request ID is required.');
   await ensure(db);
+  await require('./customerOpening').ensure(db);
   const hash = crypto.createHash('sha256').update(JSON.stringify(body.rows)).digest('hex');
   const c = await db.getConnection();
   try {
@@ -95,8 +107,13 @@ async function importCustomers(db, body, user) {
       const [[existing]] = await c.query("SELECT id FROM customers WHERE RIGHT(REGEXP_REPLACE(mobile_number,'[^0-9]',''),10)=? LIMIT 1 FOR UPDATE", [mobile]);
       if (existing) { result.skipped++; result.duplicates.push({ row: index + 2, message: 'Customer mobile number already exists; existing details were preserved.' }); continue; }
       const code = 'CUST-' + crypto.randomBytes(10).toString('hex').toUpperCase();
-      await c.query(`INSERT INTO customers(customer_code,customer_name,mobile_number,alternate_number,email,address,city,state,pincode,solar_requirement,lead_source,notes,assigned_to,created_by)
+      const [inserted] = await c.query(`INSERT INTO customers(customer_code,customer_name,mobile_number,alternate_number,email,address,city,state,pincode,solar_requirement,lead_source,notes,assigned_to,created_by)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [code, String(row.customer_name).trim(), mobile, row.alternate_number || null, row.email ? String(row.email).trim() : null, row.address || null, row.city || null, row.state || null, row.pincode || null, row.solar_requirement || 'Residential', row.lead_source ? String(row.lead_source).trim() : null, row.notes || null, assigned, user.id]);
+      if(row.plant_size_kw || Number(row.invoice_amount)>0 || Number(row.payment_amount)>0){
+        const rowHash=crypto.createHash('sha256').update(JSON.stringify(row)).digest('hex');
+        const key=crypto.createHash('sha256').update(body.request_key+':'+index).digest('hex');
+        await c.query(`INSERT INTO customer_opening_records(customer_id,request_key,payload_hash,plant_size_kw,invoice_amount,amount_paid,recorded_by) VALUES (?,?,?,?,?,?,?)`,[inserted.insertId,key,rowHash,row.plant_size_kw || null,cents(row.invoice_amount || '0')/100,cents(row.payment_amount || '0')/100,user.id]);
+      }
       result.imported++;
     }
     await c.query('INSERT INTO customer_import_batches(request_key,payload_hash,result_json,created_by) VALUES (?,?,?,?)', [body.request_key, hash, JSON.stringify(result), user.id]);
@@ -144,4 +161,4 @@ async function savePlan(db, customerId, invoiceId, body, user) {
     await c.commit(); return { version: body.version + 1 };
   } catch (e) { await c.rollback(); throw e; } finally { c.release(); }
 }
-module.exports = { ensure, phone, cents, validDate, validateImport, accessibleCustomer, importCustomers, allocateMilestones, invoiceForCustomer, validatePlan, savePlan };
+module.exports = { validateImportFinancials, ensure, phone, cents, validDate, validateImport, accessibleCustomer, importCustomers, allocateMilestones, invoiceForCustomer, validatePlan, savePlan };
