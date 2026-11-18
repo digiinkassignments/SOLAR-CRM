@@ -1,9 +1,69 @@
 import 'package:flutter/material.dart';
 
+class LoanDocumentModel {
+  final int id;
+  final int loanId;
+  final int? leadId;
+  final String docType;
+  final String? fileName;
+  final String fileUrl;
+  final String verificationStatus;
+  final DateTime? uploadedAt;
+
+  LoanDocumentModel({
+    required this.id,
+    required this.loanId,
+    this.leadId,
+    required this.docType,
+    this.fileName,
+    required this.fileUrl,
+    this.verificationStatus = 'Pending',
+    this.uploadedAt,
+  });
+
+  factory LoanDocumentModel.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(dynamic d) {
+      if (d == null) return null;
+      try {
+        return DateTime.parse(d.toString());
+      } catch (_) {
+        return null;
+      }
+    }
+
+    int parseInt(dynamic v, int fallback) {
+      if (v == null) return fallback;
+      if (v is int) return v;
+      return int.tryParse(v.toString()) ?? fallback;
+    }
+
+    return LoanDocumentModel(
+      id: parseInt(json['id'], 0),
+      loanId: parseInt(json['loan_id'], 0),
+      leadId: json['lead_id'] != null ? parseInt(json['lead_id'], 0) : null,
+      docType: json['doc_type']?.toString() ?? 'Document',
+      fileName: json['file_name']?.toString(),
+      fileUrl: json['file_url']?.toString() ?? '',
+      verificationStatus: json['verification_status']?.toString() ?? 'Pending',
+      uploadedAt: parseDate(json['uploaded_at']),
+    );
+  }
+
+  String getFullFileUrl(String baseUrl) {
+    if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+      return fileUrl;
+    }
+    final cleanBase = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+    final cleanPath = fileUrl.startsWith('/') ? fileUrl : '/$fileUrl';
+    return '$cleanBase$cleanPath';
+  }
+}
+
 class LoanItemModel {
   final int id;
   final int leadId;
   final int? projectId;
+  final String? projectNumber;
   final String customerName;
   final String? customerPhone;
   final String? customerEmail;
@@ -12,10 +72,17 @@ class LoanItemModel {
   final String bankName;
   final String? bankBranch;
   final String? bankIfsc;
+  final String? bankDsaName;
+  final String? bankDsaPhone;
   final String? portalApplicationNo;
   final String loanStage;
   final String sideStatus;
   final String? rejectionReason;
+  final String? stoppedAtStage;
+  final String? backwardReason;
+  final bool subsidyCreditedToLoan;
+  final String? sanctionLetterUrl;
+  final String? internalNotes;
   final double systemCapacityKw;
   final double totalProjectCost;
   final double subsidyExpected;
@@ -30,11 +97,13 @@ class LoanItemModel {
   final DateTime? sanctionDate;
   final DateTime? disbursalDate;
   final DateTime? createdAt;
+  final List<LoanDocumentModel> documents;
 
   LoanItemModel({
     required this.id,
     required this.leadId,
     this.projectId,
+    this.projectNumber,
     required this.customerName,
     this.customerPhone,
     this.customerEmail,
@@ -43,10 +112,17 @@ class LoanItemModel {
     required this.bankName,
     this.bankBranch,
     this.bankIfsc,
+    this.bankDsaName,
+    this.bankDsaPhone,
     this.portalApplicationNo,
     this.loanStage = 'Eligibility & Docs',
     this.sideStatus = 'Active',
     this.rejectionReason,
+    this.stoppedAtStage,
+    this.backwardReason,
+    this.subsidyCreditedToLoan = false,
+    this.sanctionLetterUrl,
+    this.internalNotes,
     this.systemCapacityKw = 3.0,
     this.totalProjectCost = 0.0,
     this.subsidyExpected = 78000.0,
@@ -61,6 +137,7 @@ class LoanItemModel {
     this.sanctionDate,
     this.disbursalDate,
     this.createdAt,
+    this.documents = const [],
   });
 
   // 5 Loan Stages Configuration
@@ -132,22 +209,37 @@ class LoanItemModel {
       return int.tryParse(v.toString()) ?? fallback;
     }
 
+    List<LoanDocumentModel> parsedDocs = [];
+    if (json['documents'] is List) {
+      parsedDocs = (json['documents'] as List)
+          .map((d) => LoanDocumentModel.fromJson(d as Map<String, dynamic>))
+          .toList();
+    }
+
     return LoanItemModel(
       id: parseInt(json['id'], 0),
       leadId: parseInt(json['lead_id'], 0),
       projectId: json['project_id'] != null ? parseInt(json['project_id'], 0) : null,
-      customerName: json['customer_name']?.toString() ?? 'Solar Customer',
-      customerPhone: json['customer_phone']?.toString(),
-      customerEmail: json['customer_email']?.toString(),
-      city: json['city']?.toString(),
-      state: json['state']?.toString(),
+      projectNumber: json['project_number']?.toString(),
+      customerName: json['customer_name']?.toString() ?? json['lead_customer_name']?.toString() ?? json['lead_name']?.toString() ?? 'Solar Customer',
+      customerPhone: json['customer_phone']?.toString() ?? json['lead_phone']?.toString(),
+      customerEmail: json['customer_email']?.toString() ?? json['lead_email']?.toString(),
+      city: json['city']?.toString() ?? json['lead_city']?.toString(),
+      state: json['state']?.toString() ?? json['lead_state']?.toString(),
       bankName: json['bank_name']?.toString() ?? 'State Bank of India (SBI)',
       bankBranch: json['bank_branch']?.toString(),
       bankIfsc: json['bank_ifsc']?.toString(),
+      bankDsaName: json['bank_dsa_name']?.toString(),
+      bankDsaPhone: json['bank_dsa_phone']?.toString(),
       portalApplicationNo: json['portal_application_no']?.toString(),
       loanStage: json['loan_stage']?.toString() ?? 'Eligibility & Docs',
       sideStatus: json['side_status']?.toString() ?? 'Active',
       rejectionReason: json['rejection_reason']?.toString(),
+      stoppedAtStage: json['stopped_at_stage']?.toString(),
+      backwardReason: json['backward_reason']?.toString(),
+      subsidyCreditedToLoan: json['subsidy_credited_to_loan'] == 1 || json['subsidy_credited_to_loan'] == true,
+      sanctionLetterUrl: json['sanction_letter_url']?.toString(),
+      internalNotes: json['internal_notes']?.toString(),
       systemCapacityKw: parseDouble(json['system_capacity_kw'], 3.0),
       totalProjectCost: parseDouble(json['total_project_cost'], 0.0),
       subsidyExpected: parseDouble(json['subsidy_expected'], 78000.0),
@@ -162,6 +254,7 @@ class LoanItemModel {
       sanctionDate: parseDate(json['sanction_date']),
       disbursalDate: parseDate(json['disbursal_date']),
       createdAt: parseDate(json['created_at']),
+      documents: parsedDocs,
     );
   }
 }

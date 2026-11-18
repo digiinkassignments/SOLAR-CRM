@@ -11,6 +11,7 @@ import '../../providers/financing_provider.dart';
 import 'sheets/apply_subsidy_sheet.dart';
 import 'sheets/subsidy_detail_sheet.dart';
 import 'sheets/loan_sheet.dart';
+import 'loan_detail_view.dart';
 
 class FinancingHubView extends StatefulWidget {
   final int initialTab;
@@ -829,147 +830,190 @@ Current Portal Stage: ${item.stage}
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Top Row: Bank & Stage
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(item.bankName, style: AppTypography.badge(color: color)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (ctx) => LoanDetailView(
+                loanId: item.id,
+                initialLoan: item,
               ),
-              const SizedBox(width: 8),
-              if (!item.isSideStatusActive)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.errorRed.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(4),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Row: Bank & Stage
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(item.bankName, style: AppTypography.badge(color: color)),
                   ),
-                  child: Text(item.sideStatus.toUpperCase(), style: AppTypography.badge(color: AppColors.errorRed)),
-                ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(item.loanStage, style: AppTypography.badge(color: color)),
+                  const SizedBox(width: 8),
+                  if (!item.isSideStatusActive)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorRed.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(item.sideStatus.toUpperCase(), style: AppTypography.badge(color: AppColors.errorRed)),
+                    ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(item.loanStage, style: AppTypography.badge(color: color)),
+                  ),
+                ],
               ),
-            ],
-          ),
 
-          const SizedBox(height: 8),
+              const SizedBox(height: 8),
 
-          Text(
-            item.customerName,
-            style: AppTypography.bodyMedium(color: textPrimary, fontWeight: FontWeight.w700),
-          ),
-          if (item.customerPhone != null && item.customerPhone!.isNotEmpty)
-            Text(item.customerPhone!, style: AppTypography.caption(color: textSecondary)),
-
-          const SizedBox(height: 10),
-
-          // 4-box financial summary
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Requested", style: AppTypography.caption(color: textSecondary)),
-                    Text(Formatters.formatCurrency(item.loanAmountApplied), style: AppTypography.bodySmall(color: textPrimary, fontWeight: FontWeight.w700)),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Sanctioned", style: AppTypography.caption(color: textSecondary)),
-                    Text(Formatters.formatCurrency(item.sanctionedAmount), style: AppTypography.bodySmall(color: textPrimary, fontWeight: FontWeight.w700)),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Disbursed", style: AppTypography.caption(color: textSecondary)),
-                    Text(Formatters.formatCurrency(item.disbursedAmount), style: AppTypography.bodySmall(color: AppColors.emeraldGreen, fontWeight: FontWeight.w700)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // EMI & Progress
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  "EMI: ₹${item.monthlyEmi.toStringAsFixed(0)} / mo • ${item.tenureMonths} Mos @ ${item.interestRate}%",
-                  style: AppTypography.caption(color: textSecondary),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
               Text(
-                "Stage ${(percent * 5).toInt()} of 5",
-                style: AppTypography.caption(color: color, fontWeight: FontWeight.w700),
+                item.customerName,
+                style: AppTypography.bodyMedium(color: textPrimary, fontWeight: FontWeight.w700),
+              ),
+              if (item.customerPhone != null && item.customerPhone!.isNotEmpty)
+                Text(item.customerPhone!, style: AppTypography.caption(color: textSecondary)),
+
+              const SizedBox(height: 10),
+
+              // 4-box financial summary
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Requested", style: AppTypography.caption(color: textSecondary)),
+                        Text(Formatters.formatCurrency(item.loanAmountApplied), style: AppTypography.bodySmall(color: textPrimary, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Sanctioned", style: AppTypography.caption(color: textSecondary)),
+                        Text(Formatters.formatCurrency(item.sanctionedAmount), style: AppTypography.bodySmall(color: textPrimary, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Disbursed", style: AppTypography.caption(color: textSecondary)),
+                        Text(Formatters.formatCurrency(item.disbursedAmount), style: AppTypography.bodySmall(color: AppColors.emeraldGreen, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              // EMI & Progress
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      "EMI: ₹${item.monthlyEmi.toStringAsFixed(0)} / mo • ${item.tenureMonths} Mos @ ${item.interestRate}%",
+                      style: AppTypography.caption(color: textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Stage ${(percent * 5).toInt()} of 5",
+                    style: AppTypography.caption(color: color, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              LinearProgressIndicator(
+                value: percent,
+                backgroundColor: color.withValues(alpha: 0.15),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+                borderRadius: BorderRadius.circular(4),
+                minHeight: 5,
+              ),
+
+              const SizedBox(height: 10),
+              const Divider(),
+              const SizedBox(height: 4),
+
+              // Edit & Open Action
+              Row(
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        LoanSheet.show(
+                          context,
+                          existingLoan: item,
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        side: BorderSide(color: borderColor),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: const Icon(Icons.edit_outlined, size: 14),
+                      label: const Text("Edit Form", style: TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 1,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (ctx) => LoanDetailView(
+                              loanId: item.id,
+                              initialLoan: item,
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.brandPrimary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: const Icon(Icons.account_tree_outlined, size: 14),
+                      label: const Text("Pipeline & Vault", style: TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          LinearProgressIndicator(
-            value: percent,
-            backgroundColor: color.withValues(alpha: 0.15),
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-            borderRadius: BorderRadius.circular(4),
-            minHeight: 5,
-          ),
-
-          const SizedBox(height: 10),
-          const Divider(),
-          const SizedBox(height: 4),
-
-          // Edit & Open Action
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () {
-                  LoanSheet.show(
-                    context,
-                    existingLoan: item,
-                  );
-                },
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  side: BorderSide(color: borderColor),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                icon: const Icon(Icons.edit_outlined, size: 14),
-                label: const Text("Manage Loan", style: TextStyle(fontSize: 12)),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }

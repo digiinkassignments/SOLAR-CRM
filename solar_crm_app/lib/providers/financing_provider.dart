@@ -27,7 +27,9 @@ class FinancingProvider extends ChangeNotifier {
   List<LoanItemModel> _loans = [];
   int _totalLoans = 0;
   LoanStatsModel _loanStats = LoanStatsModel();
+  LoanItemModel? _selectedLoan;
   bool _isLoadingLoans = false;
+  bool _isLoadingLoanDetails = false;
   String? _loansError;
   bool _isSubmittingLoan = false;
 
@@ -50,7 +52,9 @@ class FinancingProvider extends ChangeNotifier {
   List<LoanItemModel> get loans => _loans;
   int get totalLoans => _totalLoans;
   LoanStatsModel get loanStats => _loanStats;
+  LoanItemModel? get selectedLoan => _selectedLoan;
   bool get isLoadingLoans => _isLoadingLoans;
+  bool get isLoadingLoanDetails => _isLoadingLoanDetails;
   String? get loansError => _loansError;
   bool get isSubmittingLoan => _isSubmittingLoan;
 
@@ -412,6 +416,9 @@ class FinancingProvider extends ChangeNotifier {
 
       if (response.data != null && response.data['success'] == true) {
         await fetchLoans();
+        if (loanId > 0) {
+          await fetchLoanDetails(loanId);
+        }
         return {'success': true, 'message': response.data['message'] ?? 'Loan document uploaded'};
       }
       return {'success': false, 'message': response.data?['message'] ?? 'Upload failed'};
@@ -420,6 +427,41 @@ class FinancingProvider extends ChangeNotifier {
     } finally {
       _isUploadingDoc = false;
       notifyListeners();
+    }
+  }
+
+  // 6. Get Loan by ID (with documents)
+  Future<LoanItemModel?> fetchLoanDetails(int id) async {
+    _isLoadingLoanDetails = true;
+    notifyListeners();
+    try {
+      final response = await apiClient.dio.get(ApiConstants.loanDetails(id));
+      if (response.data != null && response.data['success'] == true && response.data['data'] != null) {
+        _selectedLoan = LoanItemModel.fromJson(response.data['data'] as Map<String, dynamic>);
+        return _selectedLoan;
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Error fetching loan details: $e");
+      return null;
+    } finally {
+      _isLoadingLoanDetails = false;
+      notifyListeners();
+    }
+  }
+
+  // 7. Delete Loan Record
+  Future<Map<String, dynamic>> deleteLoan(int loanId) async {
+    try {
+      final response = await apiClient.dio.delete(ApiConstants.loanDetails(loanId));
+      if (response.data != null && response.data['success'] == true) {
+        await fetchLoans();
+        await fetchLoanStats();
+        return {'success': true, 'message': response.data['message'] ?? 'Loan deleted'};
+      }
+      return {'success': false, 'message': response.data?['message'] ?? 'Delete failed'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
     }
   }
 }
