@@ -1,3 +1,4 @@
+import {portalRole, homePath} from "../../utils/portalRoles";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -89,7 +90,8 @@ const ChangePassword = () => {
 
       // Redirect based on role
       const role = (user?.role_name || user?.role || "").toLowerCase();
-      if (role.includes("manager")) navigate("/manager/dashboard", { replace: true });
+      if (portalRole(user)) navigate(homePath(user), {replace:true});
+      else if (role.includes("manager")) navigate("/manager/dashboard", { replace: true });
       else if (role.includes("sales")) navigate("/sales/dashboard", { replace: true });
       else navigate("/dashboard", { replace: true });
     } catch (err) {

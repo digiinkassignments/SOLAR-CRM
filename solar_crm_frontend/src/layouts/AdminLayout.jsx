@@ -8,11 +8,15 @@ import OnboardingTour from "../components/OnboardingTour";
 
 import ImpersonationBanner from "../components/ImpersonationBanner";
 
+import {useAuth} from "../context/AuthContext";
+import {portalRole} from "../utils/portalRoles";
+
 const EXPANDED_SIDEBAR_WIDTH = 260;
 const COLLAPSED_SIDEBAR_WIDTH = 76;
 const NAVBAR_HEIGHT = 64;
 
 const AdminLayout = () => {
+  const {user}=useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -28,7 +32,7 @@ const AdminLayout = () => {
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: "#F8FAFC" }}>
-      <OnboardingTour role="admin" />
+      {!portalRole(user) && <OnboardingTour role="admin" />}
       {/* Fixed Navbar */}
       <Navbar
         handleDrawerToggle={handleDrawerToggle}

@@ -31,7 +31,7 @@ const getCustomers = async (req, res) => {
     });
   } catch (error) {
     console.error("getCustomers error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: "Failed to fetch customers.",
       error: error.message,
@@ -45,6 +45,7 @@ const getCustomerById = async (req, res) => {
     const db = req.db || defaultDb;
     const { id } = req.params;
 
+    await require('../services/customerWorkspace').accessibleCustomer(db, id, req.user);
     const customer = await customerModel.getCustomerById(id, db);
     if (!customer) {
       return res.status(404).json({
@@ -59,9 +60,9 @@ const getCustomerById = async (req, res) => {
     });
   } catch (error) {
     console.error("getCustomerById error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
-      message: "Failed to fetch customer profile.",
+      message: error.status ? error.message : "Failed to fetch customer profile.",
       error: error.message,
     });
   }
@@ -81,6 +82,7 @@ const createCustomer = async (req, res) => {
       });
     }
 
+    if(req.body.lead_source != null && (typeof req.body.lead_source !== 'string' || req.body.lead_source.length>150))return res.status(400).json({success:false,message:'Lead source must be text up to 150 characters.'});
     const created = await customerModel.createCustomer(req.body, userId, db);
     return res.status(201).json({
       success: true,
@@ -89,7 +91,7 @@ const createCustomer = async (req, res) => {
     });
   } catch (error) {
     console.error("createCustomer error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: "Failed to create customer.",
       error: error.message,
@@ -103,6 +105,7 @@ const updateCustomer = async (req, res) => {
     const db = req.db || defaultDb;
     const { id } = req.params;
 
+    if(req.body.lead_source != null && (typeof req.body.lead_source !== 'string' || req.body.lead_source.length>150))return res.status(400).json({success:false,message:'Lead source must be text up to 150 characters.'});
     await customerModel.updateCustomer(id, req.body, db);
     return res.json({
       success: true,
@@ -110,7 +113,7 @@ const updateCustomer = async (req, res) => {
     });
   } catch (error) {
     console.error("updateCustomer error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: "Failed to update customer.",
       error: error.message,
@@ -131,7 +134,7 @@ const deleteCustomer = async (req, res) => {
     });
   } catch (error) {
     console.error("deleteCustomer error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: "Failed to delete customer.",
       error: error.message,

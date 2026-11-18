@@ -44,6 +44,7 @@ export default function AddCustomerModal({ open, onClose, onCustomerCreated }) {
     sanctioned_load_kw: "",
     customer_gstin: "",
     solar_requirement: "Residential",
+    lead_source: "",
     notes: "",
   });
 
@@ -97,7 +98,8 @@ export default function AddCustomerModal({ open, onClose, onCustomerCreated }) {
       sanctioned_load_kw: "",
       customer_gstin: "",
       solar_requirement: "Residential",
-      notes: "",
+      lead_source: "",
+    notes: "",
     });
     onClose();
   };
@@ -114,6 +116,7 @@ export default function AddCustomerModal({ open, onClose, onCustomerCreated }) {
       <form onSubmit={handleSubmit}>
         <DialogContent sx={{ p: 3 }}>
           {managerMode && <TextField select required fullWidth size="small" label="Assigned salesperson" name="assigned_to" value={formData.assigned_to||""} onChange={handleChange} sx={{mb:2}}>{team.map(rep=><MenuItem key={rep.id} value={rep.id}>{rep.full_name}</MenuItem>)}</TextField>}
+          <TextField fullWidth size="small" label="Lead source" name="lead_source" placeholder="e.g. Referral, Website, Meta Ads" value={formData.lead_source || ""} onChange={handleChange} sx={{mb:2}}/>
           <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.textSecondary, textTransform: "uppercase", letterSpacing: "0.05em" }}>
             1. Primary Information
           </Typography>

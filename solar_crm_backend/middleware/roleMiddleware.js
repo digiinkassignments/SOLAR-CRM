@@ -7,7 +7,7 @@ const { db: defaultDb } = require("../config/db");
 // Backward-compatible role check (by role_id)
 const authorizeRoles = (...roles) => {
     return (req, res, next) => {
-        if (!req.user || !roles.includes(req.user.role_id)) {
+        if (!req.user || !(roles.includes(Number(req.user.role_id)) || (req.portalRole === "finance" && roles.includes(1)))) {
             return res.status(403).json({
                 success: false,
                 message: "You are not authorized to access this resource."

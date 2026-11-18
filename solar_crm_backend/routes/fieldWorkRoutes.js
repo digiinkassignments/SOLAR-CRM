@@ -262,11 +262,11 @@ router.patch('/tasks/:taskId', wrap(async (req, res) => {
         Inspection: ['quality'],
         Documents: ['documents']
       };
-      const [[proof]] = await c.query("SELECT COUNT(*) AS total FROM crm_field_entries WHERE resource_type=? AND resource_id=? AND created_by=? AND kind IN (?) AND created_at>=? AND status IN ('Submitted','Approved')", [t.resource_type, t.resource_id, t.assigned_to, kinds[t.kind] || [], t.created_at]);
+      const [[proof]] = await c.query("SELECT COUNT(*) AS total FROM crm_field_entries WHERE resource_type=? AND resource_id=? AND created_by=? AND kind IN (?) AND created_at>=? AND (status IN ('Submitted','Approved') OR (kind='survey' AND status='Completed'))", [t.resource_type, t.resource_id, t.assigned_to, kinds[t.kind] || [], t.created_at]);
       if (!proof.total) fail('Submit a field record with evidence before submitting the task.');
     }
     if (b.status === 'Completed') {
-      const [[proof]] = await c.query("SELECT COUNT(*) AS total FROM crm_field_entries WHERE resource_type=? AND resource_id=? AND created_by=? AND kind IN (?) AND status='Approved' AND created_at>=?", [t.resource_type, t.resource_id, t.assigned_to, {
+      const [[proof]] = await c.query("SELECT COUNT(*) AS total FROM crm_field_entries WHERE resource_type=? AND resource_id=? AND created_by=? AND kind IN (?) AND (status='Approved' OR (kind='survey' AND status='Completed')) AND created_at>=?", [t.resource_type, t.resource_id, t.assigned_to, {
         Survey: ['survey'],
         Installation: ['work_log', 'installation'],
         Quality: ['quality'],
@@ -394,7 +394,7 @@ router.post('/entries/:entryId/submit', wrap(async (req, res) => {
     const today = sales.localClock(prefs.timezone).date;
     for (const key of ['log_date', 'visit_date', 'handover_date']) if (d[key] && d[key] > today) fail('Actual work/visit dates cannot be in the future.');
     const [[files]] = await c.query('SELECT COUNT(*) AS total FROM crm_field_files WHERE entry_id=?', [e.id]);
-    if (w.definitions[e.kind].evidence && !files.total) fail('Attach supporting photo/PDF evidence before submission.');
+    if (e.kind !== 'survey' && w.definitions[e.kind].evidence && !files.total) fail('Attach supporting photo/PDF evidence before submission.');
     if (e.kind === 'serials') {
       for (const row of d.rows) await c.query('INSERT INTO crm_field_serials(project_id,entry_id,component,brand,model,serial) VALUES (?,?,?,?,?,?)', [e.resource_id, e.id, row.component, row.brand.slice(0, 100), row.model.slice(0, 150), row.serial.slice(0, 150)]);
     }
@@ -477,13 +477,13 @@ router.post('/entries/:entryId/submit', wrap(async (req, res) => {
       const [result] = await c.query('INSERT INTO installation_logs(project_id,log_date,phase,work_done,workers_count,hours_worked,crew_names,materials_used,issues_faced,progress_percent,safety_checklist,weather,supervisor_signoff,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL,0,?)', [e.resource_id, d.log_date, d.phase.slice(0, 80), d.work_done, d.workers_count, d.hours_worked, d.crew || null, d.materials_used || null, d.issues || null, d.progress_percent, JSON.stringify(d.checks), req.user.id]);
       await c.query('UPDATE crm_field_entries SET legacy_log_id=? WHERE id=?', [result.insertId, e.id]);
     }
-    await c.query("UPDATE crm_field_entries SET status=?,version=version+1 WHERE id=?", [automaticConversion ? 'Completed' : 'Submitted', e.id]);
+    await c.query("UPDATE crm_field_entries SET status=?,version=version+1 WHERE id=?", [e.kind === 'survey' ? 'Completed' : 'Submitted', e.id]);
     await w.event(c, e.resource_type, e.resource_id, 'Record submitted', e.id, w.definitions[e.kind].label, req.user.id);
     await c.commit();
     res.json({
       success: true,
       data: automaticConversion,
-      message: automaticConversion ? 'Feasible survey saved. Customer and project created or linked automatically.' : 'Work submitted. Coordinator review is separate from completion and utility approval.'
+      message: automaticConversion ? 'Feasible survey saved. Customer and project created or linked automatically.' : e.kind === 'survey' ? 'Survey completed.' : 'Work submitted. Coordinator review is separate from completion and utility approval.'
     });
   } catch (e) {
     await c.rollback();

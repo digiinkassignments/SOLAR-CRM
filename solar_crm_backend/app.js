@@ -25,6 +25,8 @@ app.use((req, res, next) => {
 });
 
 // ── Route Imports (existing) ─────────────────────────────────
+app.use(require("./middleware/portalContext"));
+app.use("/api/portals", require("./routes/portalRoutes"));
 app.use(require("./middleware/managerContext"));
 app.use(require("./middleware/engineerContext"));
 

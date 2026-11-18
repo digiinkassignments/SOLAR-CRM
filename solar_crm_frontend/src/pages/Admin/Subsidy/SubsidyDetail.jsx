@@ -271,8 +271,8 @@ const REQUIRED_DOC_TYPES = [
 export default function SubsidyDetail() {
   const { leadId } = useParams();
   const navigate = useNavigate();
-  const hubPath = window.location.pathname.startsWith("/manager/") ? "/manager/subsidies" : "/subsidies";
-  const dashboardPath = hubPath.startsWith("/manager/") ? "/manager/dashboard" : "/dashboard";
+  const hubPath = window.location.pathname.startsWith("/applications/") ? "/applications/subsidies" : window.location.pathname.startsWith("/manager/") ? "/manager/subsidies" : "/subsidies";
+  const dashboardPath = hubPath.startsWith("/applications/") ? "/applications/dashboard" : hubPath.startsWith("/manager/") ? "/manager/dashboard" : "/dashboard";
 
   // Data states
   const [lead, setLead] = useState(null);

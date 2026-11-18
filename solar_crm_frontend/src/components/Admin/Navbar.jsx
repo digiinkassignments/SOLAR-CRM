@@ -1,3 +1,4 @@
+import {portalRole} from "../../utils/portalRoles";
 import useWorkspaceNavigate from "../../hooks/useWorkspaceNavigate";
 import ReminderInbox from "../ReminderInbox";
 import { useState, useEffect, useMemo } from "react";
@@ -36,7 +37,6 @@ const API_BASE_URL =
 
 // Dynamic Breadcrumbs and Page Title Mapping
 const getPageMetadata = (pathname) => {
-  if (pathname.startsWith("/field-work")) return { title: "Field Operations", breadcrumb: "Field Operations" };
   if (pathname.startsWith("/team")) return { title: "Sales Team", breadcrumb: "Team" };
   if (pathname.startsWith("/followups")) return { title: "Team Follow-ups", breadcrumb: "Follow-ups" };
   if (pathname.startsWith("/stock")) return { title: "Stock Management", breadcrumb: "Stock" };
@@ -162,7 +162,7 @@ const Navbar = ({ handleDrawerToggle, handleToggleCollapse, collapsed, sidebarWi
       .toUpperCase()
     : "U";
 
-  const pageMeta = getPageMetadata(location.pathname.replace(/^\/manager(?=\/)/, ""));
+  const pageMeta = /\/(finance|applications)\/dashboard$/.test(location.pathname) ? {title:portalRole(user)==='finance'?'Finance Dashboard':'Application Manager Dashboard',breadcrumb:'Dashboard'} : getPageMetadata(location.pathname.replace(/^\/(manager|finance|applications)(?=\/)/, ""));
 
   // Formatting Date and Time
   const dayName = currentTime.toLocaleDateString("en-US", { weekday: "long" });

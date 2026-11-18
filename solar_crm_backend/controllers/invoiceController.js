@@ -248,6 +248,7 @@ const getPublicInvoice = async (req, res) => {
 // 5. Record Payment Installment
 const recordPayment = async (req, res) => {
   try {
+    if(req.clientInfo?.id && req.user?.client_id && Number(req.clientInfo.id)!==Number(req.user.client_id)) return res.status(403).json({success:false,message:'Sign in to this company again.'});
     const db = req.db || defaultDb;
     const userId = req.user?.id || null;
     const { id } = req.params;

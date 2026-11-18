@@ -140,7 +140,7 @@ const PORTAL_STAGE_CONFIG = {
 
 export default function SubsidyTracker() {
   const navigate = useNavigate();
-  const base = window.location.pathname.startsWith("/manager/") ? "/manager/subsidies" : "/subsidies";
+  const base = window.location.pathname.startsWith("/applications/") ? "/applications/subsidies" : window.location.pathname.startsWith("/manager/") ? "/manager/subsidies" : "/subsidies";
   const sequenceRef = useRef(0);
   const [loadError, setLoadError] = useState("");
 

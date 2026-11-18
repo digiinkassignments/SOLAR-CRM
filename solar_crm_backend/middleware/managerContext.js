@@ -34,7 +34,7 @@ module.exports=async(req,res,next)=>{
       }
     }
     if(module==='users'&&key&& !['team','fcm-token'].includes(key))return res.sendStatus(403);
-    if(['projects','customers','quotations','invoices','loans'].includes(module)&&key&&!['public','stats','bulk-delete','lead','project'].includes(key)){
+    if(['projects','customers','quotations','invoices','loans'].includes(module)&&key&&!(module==='customers'&&key==='bulk-import')&&!['public','stats','bulk-delete','lead','project'].includes(key)){
       const table={projects:'projects',customers:'customers',quotations:'quotations',invoices:'invoices',loans:'solar_loans'}[module];
       const where=module==='projects'?'(id=? OR project_uuid=? OR project_number=?)':'id=?';
       const values=module==='projects'?[Number(key)||0,key,key]:[key];

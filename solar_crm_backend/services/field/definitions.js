@@ -10,7 +10,7 @@ const definitions = {
   survey: {
     label: 'Site survey',
     resource: 'survey',
-    evidence: true,
+    evidence: false,
     fields: [
       field('roof_type', 'Roof type', 'select', true, [
         'RCC Flat Roof',
@@ -74,7 +74,7 @@ const definitions = {
       field('gps_latitude', 'Latitude', 'number'),
       field('gps_longitude', 'Longitude', 'number')
     ],
-    checks: ['Customer consent recorded', 'Roof and access inspected', 'Electrical supply verified']
+    checks: []
   }
 };
 function validDate(value) {

@@ -281,7 +281,7 @@ export default function FieldWorkspace({
           }}>{definitions[e.kind]?.fields.filter(f => e.data[f.key] !== undefined && e.data[f.key] !== '').map(f => <Box key={f.key}><Typography variant="caption" color="text.secondary">{f.label}</Typography><Typography variant="body2" sx={{
                 whiteSpace: 'pre-wrap',
                 overflowWrap: 'anywhere'
-              }}>{e.data[f.key]}</Typography></Box>)}</Box>{e.data.checks && <Stack direction="row" useFlexGap sx={{
+              }}>{e.data[f.key]}</Typography></Box>)}</Box>{e.kind !== 'survey' && e.data.checks && <Stack direction="row" useFlexGap sx={{
             gap: 1,
             flexWrap: 'wrap',
             mb: 2
@@ -322,7 +322,7 @@ export default function FieldWorkspace({
  {!detail.entries.length && <Paper variant="outlined" sx={{
           ...cardSx,
           mb: 2
-        }}><Typography color="text.secondary">No field records yet. Add a draft, attach site evidence and submit it for review.</Typography></Paper>}
+        }}><Typography color="text.secondary">{type === 'survey' ? 'No field records yet. Complete the survey report; use Survey documents for supporting files.' : 'No field records yet. Add a draft, attach site evidence and submit it for review.'}</Typography></Paper>}
  {detail.serials.length > 0 && <Paper sx={{
           ...cardSx,
           mb: 2
@@ -543,7 +543,7 @@ function RecordEditor({
           saved_at: new Date().toISOString()
         }));
       } catch {/* Device draft storage is optional. */}
-      for (const file of files) {
+      for (const file of (kind === 'survey' ? [] : files)) {
         const body = new FormData();
         body.append('file', file);
         await api.post(`/field-work/entries/${savedId}/files`, body, {headers:{"Content-Type":"multipart/form-data"}});
@@ -553,7 +553,7 @@ function RecordEditor({
         version: currentVersion
       });
       localStorage.removeItem(key);
-      toast.success(submit ? kind === 'survey' && form.feasibility_verdict === 'Feasible' ? 'Feasible survey saved. Customer and project linked automatically.' : 'Work submitted for review.' : 'Draft saved.');
+      toast.success(submit ? kind === 'survey' && form.feasibility_verdict === 'Feasible' ? 'Feasible survey saved. Customer and project linked automatically.' : kind === 'survey' ? 'Survey completed.' : 'Work submitted for review.' : 'Draft saved.');
       onSaved();
     } catch (e) {
       setError(e.response?.data?.message || 'Save/upload failed. The draft and unuploaded files remain here for retry.');
@@ -670,7 +670,7 @@ function RecordEditor({
                 ))}
               </TextField>
             );
-          })}</Box>{def.checks && <Paper variant="outlined" sx={{
+          })}</Box>{kind !== 'survey' && def.checks?.length > 0 && <Paper variant="outlined" sx={{
           p: 2,
           borderRadius: 2
         }}><Typography fontWeight={700}>Required completion checklist</Typography>{def.checks.map(c => <FormControlLabel key={c} sx={{
@@ -713,7 +713,7 @@ function RecordEditor({
           } : {
             component: 'Panel'
           }])}>Add item</Button></Box>}
- <Paper variant="outlined" sx={{
+ {kind !== 'survey' && <Paper variant="outlined" sx={{
           p: 2,
           borderRadius: 2
         }}><Typography fontWeight={700}>Private evidence {def.evidence ? '(required for submission)' : ''}</Typography><Typography variant="body2" color="text.secondary" sx={{
@@ -733,11 +733,11 @@ function RecordEditor({
           }}><Typography variant="body2" sx={{
               overflowWrap: 'anywhere',
               flex: 1
-            }}>{f.name}</Typography><IconButton aria-label={'Remove file ' + f.name} size="small" disabled={busy} onClick={() => setFiles(files.filter((_, n) => n !== i))}><DeleteOutline /></IconButton></Stack>)}</Paper></Stack></DialogContent><DialogActions sx={{
+            }}>{f.name}</Typography><IconButton aria-label={'Remove file ' + f.name} size="small" disabled={busy} onClick={() => setFiles(files.filter((_, n) => n !== i))}><DeleteOutline /></IconButton></Stack>)}</Paper>}</Stack></DialogContent><DialogActions sx={{
       p: 2,
       gap: 1,
       flexWrap: 'wrap'
-    }}><Button disabled={busy} onClick={onClose}>Cancel</Button><Button disabled={busy} variant="outlined" onClick={() => save(false)}>Save draft</Button><Button disabled={busy} variant="contained" onClick={() => save(true)}>{busy ? 'Saving…' : 'Submit for review'}</Button></DialogActions></Dialog>;
+    }}><Button disabled={busy} onClick={onClose}>Cancel</Button><Button disabled={busy} variant="outlined" onClick={() => save(false)}>Save draft</Button><Button disabled={busy} variant="contained" onClick={() => save(true)}>{busy ? 'Saving…' : kind === 'survey' ? 'Complete survey' : 'Submit for review'}</Button></DialogActions></Dialog>;
 }
 function ActionDialog({
   dialog,

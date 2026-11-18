@@ -29,7 +29,7 @@ const verifyToken = (req, res, next) => {
         );
 
         // Save User Data
-        req.user = decoded;
+        req.user = { ...decoded, ...(req.portalRole ? {portal_role:req.portalRole} : {}) };
         if (!req.user.client_id && req.clientInfo?.id) {
             req.user.client_id = req.clientInfo.id;
         }
@@ -50,4 +50,4 @@ const verifyToken = (req, res, next) => {
 module.exports = {
     verifyToken,
     authMiddleware: verifyToken
-};
+};

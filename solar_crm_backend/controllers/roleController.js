@@ -84,6 +84,7 @@ const getAvailablePermissions = async (req, res) => {
 const getAllRoles = async (req, res) => {
   try {
     const db = req.db || defaultDb;
+    await require("../services/portalRoles").ensurePortalRoles(db);
     const [roles] = await db.query(`
       SELECT 
         r.id,
@@ -205,6 +206,7 @@ const updateRole = async (req, res) => {
     }
 
     const role = existing[0];
+    if (require('../services/portalRoles').portalRole(role.role_name)) return res.status(403).json({success:false,message:'Portal roles have fixed module access. Manage their users from User Management.'});
 
     // System roles protection: Super Admin role name cannot be renamed
     const updatedName = role.is_system && role.id === 1 ? role.role_name : (role_name ? String(role_name).trim() : role.role_name);

@@ -45,15 +45,18 @@ const getInitials = (name) => {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 };
 
+import {portalRole} from "../../utils/portalRoles";
+
 const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWidth = 260 }) => {
   const routeLocation = useLocation();
-  const location = { ...routeLocation, pathname: routeLocation.pathname.replace(/^\/manager(?=\/)/, "") };
+  const location = { ...routeLocation, pathname: routeLocation.pathname.replace(/^\/(manager|finance|applications)(?=\/)/, "") };
   const navigate  = useWorkspaceNavigate();
   const { user, logout, hasPermission } = useAuth();
   const { can } = usePlanFeatures();
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   const isManager = Number(user?.role_id) === 2;
+  const portal = portalRole(user);
   const fullName       = user?.full_name || user?.name || "User";
   const roleName       = user?.role_name || user?.role || "Administrator";
   const avatarInitials = getInitials(fullName);
@@ -105,7 +108,6 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
 
     { isSection: true, title: "PROJECT EXECUTION" },
     { title: "Projects", icon: <EngineeringIcon />, path: "/projects", featureKey: null, requiredPermission: "projects:view" },
-    { title: "Field Operations", icon: <EngineeringIcon />, path: "/field-work", featureKey: null, requiredPermission: "projects:view" },
     { title: "Stock Management", icon: <Inventory2OutlinedIcon />, path: "/stock", featureKey: null, requiredPermission: "stock:view" },
 
     { isSection: true, title: "REPORTS & SETTINGS" },
@@ -113,7 +115,12 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
     { title: "Settings", icon: <SettingsOutlinedIcon />, path: "/settings", featureKey: null, requiredPermission: "settings:view" },
   ];
 
-  const navigationMenuItems = isManager ? [...baseNavigationMenuItems.filter(item => item.path !== "/users"),
+  const portalMenu = portal === 'finance' ? [
+    baseNavigationMenuItems[0],
+    {isSection:true,title:'FINANCE OPERATIONS'},
+    ...['/customers','/quotations','/invoices','/calculator','/stock'].map(path=>baseNavigationMenuItems.find(item=>item.path===path)),
+  ] : [baseNavigationMenuItems[0],{isSection:true,title:'APPLICATION OPERATIONS'},baseNavigationMenuItems.find(item=>item.path==='/subsidies')];
+  const navigationMenuItems = portal ? portalMenu : isManager ? [...baseNavigationMenuItems.filter(item => item.path !== "/users"),
     { isSection: true, title: "TEAM OPERATIONS" },
     { title: "Sales Team", icon: <GroupOutlinedIcon />, path: "/team" },
     { title: "Team Follow-ups", icon: <EventNoteOutlinedIcon />, path: "/followups" },
@@ -148,7 +155,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
               Solar CRM
             </Typography>
             <Typography variant="caption" sx={{ fontFamily: "'Inter', sans-serif", color: "#F59E0B", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", display: "block" }}>
-              ENTERPRISE PLATFORM
+              {portal === 'finance' ? 'FINANCE PORTAL' : portal ? 'APPLICATION MANAGER' : 'ENTERPRISE PLATFORM'}
             </Typography>
           </Box>
         )}
@@ -200,7 +207,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
               );
             }
 
-            if (!isManager && item.requiredPermission && !hasPermission(item.requiredPermission)) {
+            if (!portal && !isManager && item.requiredPermission && !hasPermission(item.requiredPermission)) {
               return null;
             }
 

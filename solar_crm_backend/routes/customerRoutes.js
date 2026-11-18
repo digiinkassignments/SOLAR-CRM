@@ -23,6 +23,12 @@ if (typeof clientDbMiddleware === "function") {
   router.use(clientDbMiddleware);
 }
 
+router.use((req,res,next)=>{
+  if(req.clientInfo?.id && req.user?.client_id && Number(req.clientInfo.id)!==Number(req.user.client_id)) return res.status(403).json({success:false,message:'Sign in to this company again.'});
+  next();
+});
+router.use(require('./customerWorkspaceRoutes'));
+
 // 1. View Customers List & 360 Profile (Admin, Manager & Sales)
 router.get("/", authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER, ROLE_SALES), getCustomers);
 router.get("/:id", authorizeRoles(ROLE_SUPER_ADMIN, ROLE_MANAGER, ROLE_SALES), getCustomerById);

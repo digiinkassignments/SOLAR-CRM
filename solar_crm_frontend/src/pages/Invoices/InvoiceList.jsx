@@ -1,3 +1,4 @@
+import {portalRole} from "../../utils/portalRoles";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Box, Typography, Button, TextField, InputAdornment, Table, TableBody,
@@ -45,8 +46,8 @@ export default function InvoiceList() {
   const { user } = useAuth();
   const roleName = (user?.role_name || user?.role || "").toLowerCase();
   const isSuperAdmin = [1,2].includes(Number(user?.role_id)) || roleName.includes("super") || roleName === "admin";
-  const canCreateOrPay = isSuperAdmin || user?.role_id === 2 || roleName.includes("manager");
-  const canDeleteInvoice = isSuperAdmin;
+  const canCreateOrPay = portalRole(user)==='finance' || isSuperAdmin || user?.role_id === 2 || roleName.includes("manager");
+  const canDeleteInvoice = isSuperAdmin || portalRole(user)==='finance';
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");

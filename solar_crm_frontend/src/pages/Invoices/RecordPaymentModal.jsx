@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -42,6 +42,7 @@ const inputSx = {
 };
 
 const RecordPaymentModal = ({ open, onClose, invoice = null, onPaymentRecorded = null }) => {
+  const requestKey = useRef(crypto.randomUUID());
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [paymentMode, setPaymentMode] = useState("Bank Transfer");
@@ -49,6 +50,9 @@ const RecordPaymentModal = ({ open, onClose, invoice = null, onPaymentRecorded =
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (open) { requestKey.current = crypto.randomUUID(); setAmount(""); setReferenceNumber(""); setNotes(""); }
+  }, [open, invoice?.id]);
   if (!invoice) return null;
 
   const currentBalance = parseFloat(invoice.balance_due) || 0;
@@ -61,14 +65,13 @@ const RecordPaymentModal = ({ open, onClose, invoice = null, onPaymentRecorded =
       return;
     }
     if (numAmount > currentBalance) {
-      if (!window.confirm("Payment amount exceeds outstanding balance. Continue?")) {
-        return;
-      }
+      toast.error("Payment exceeds the outstanding invoice balance."); return;
     }
 
     setLoading(true);
     try {
       const res = await api.post(`/invoices/${invoice.id}/payments`, {
+        request_key: requestKey.current,
         amount: numAmount,
         payment_date: paymentDate,
         payment_mode: paymentMode,
@@ -99,6 +102,7 @@ const RecordPaymentModal = ({ open, onClose, invoice = null, onPaymentRecorded =
         sx: {
           m: { xs: 1, sm: 3 },
           width: { xs: "calc(100% - 16px)", sm: "calc(100% - 48px)" },
+          maxWidth: 640,
           maxHeight: { xs: "calc(100dvh - 16px)", sm: "calc(100dvh - 48px)" },
           borderRadius: "14px",
           border: `1px solid ${COLORS.border}`,

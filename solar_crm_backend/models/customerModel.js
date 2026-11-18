@@ -54,6 +54,8 @@ const ensureCustomerTables = async (db = defaultDb) => {
     await addColIfMissing("quotations", "customer_id", "INT DEFAULT NULL");
     await addColIfMissing("invoices", "customer_id", "INT DEFAULT NULL");
 
+    await require('../services/customerWorkspace').ensure(db);
+
     // Automatically sync any past Won leads that don't have customer records yet
     await autoSyncWonLeads(db);
   } catch (err) {
@@ -285,8 +287,8 @@ const createCustomer = async (data, userId, db = defaultDb) => {
     `INSERT INTO customers (
       customer_code, customer_name, mobile_number, alternate_number, email,
       address, city, state, pincode, electricity_consumer_number, discom_name,
-      sanctioned_load_kw, customer_gstin, solar_requirement, notes, assigned_to, created_by
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sanctioned_load_kw, customer_gstin, solar_requirement, notes, assigned_to, created_by, lead_source
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       customerCode,
       data.customer_name,
@@ -305,6 +307,7 @@ const createCustomer = async (data, userId, db = defaultDb) => {
       data.notes || null,
       data.assigned_to || null,
       userId || null,
+      data.lead_source?.trim() || null,
     ]
   );
 
@@ -320,7 +323,9 @@ const getCustomers = async (filters = {}, db = defaultDb) => {
     SELECT 
       c.*,
       u.full_name AS assigned_to_name,
+      (SELECT COUNT(*) FROM customer_payment_milestones cm WHERE cm.customer_id=c.id) AS total_milestones,
       l.lead_code,
+      COALESCE(NULLIF(c.lead_source,''),l.lead_source) AS effective_lead_source,
       (
         SELECT COUNT(p.id) 
         FROM projects p 
@@ -390,7 +395,7 @@ const getCustomerById = async (id, db = defaultDb) => {
   await ensureCustomerTables(db);
 
   const [customerRows] = await db.query(
-    `SELECT c.*, u.full_name AS assigned_to_name, uc.full_name AS created_by_name, l.lead_code
+    `SELECT c.*, u.full_name AS assigned_to_name, uc.full_name AS created_by_name, l.lead_code, COALESCE(NULLIF(c.lead_source,''),l.lead_source) AS effective_lead_source
      FROM customers c
      LEFT JOIN users u ON c.assigned_to = u.id
      LEFT JOIN users uc ON c.created_by = uc.id
@@ -473,7 +478,8 @@ const updateCustomer = async (id, data, db = defaultDb) => {
       solar_requirement = ?,
       status = ?,
       notes = ?,
-      assigned_to = ?
+      assigned_to = ?,
+      lead_source = IF(?, ?, lead_source)
      WHERE id = ?`,
     [
       data.customer_name,
@@ -492,6 +498,8 @@ const updateCustomer = async (id, data, db = defaultDb) => {
       data.status || "Active",
       data.notes || null,
       data.assigned_to || null,
+      Object.hasOwn(data, "lead_source"),
+      data.lead_source?.trim() || null,
       id,
     ]
   );

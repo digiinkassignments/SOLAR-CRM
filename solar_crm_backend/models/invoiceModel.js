@@ -345,71 +345,7 @@ const getInvoiceByToken = async (token, db = defaultDb) => {
 // Record additional payment on an invoice
 const recordPayment = async (invoiceId, paymentData, userId = null, db = defaultDb) => {
   await ensureInvoiceTables(db);
-  const [invRows] = await db.query(`SELECT * FROM invoices WHERE id = ? LIMIT 1`, [invoiceId]);
-  if (invRows.length === 0) throw new Error("Invoice not found");
-
-  const inv = invRows[0];
-  const newPaymentAmount = parseFloat(paymentData.amount) || 0;
-  if (newPaymentAmount <= 0) throw new Error("Payment amount must be greater than zero");
-
-  const newTotalPaid = parseFloat(inv.amount_paid) + newPaymentAmount;
-  const newBalanceDue = Math.max(0, parseFloat(inv.net_payable_amount) - newTotalPaid);
-
-  let newStatus = "Partially Paid";
-  if (newBalanceDue === 0) {
-    newStatus = "Paid";
-  }
-
-  const paymentDate = paymentData.payment_date || new Date().toISOString().split("T")[0];
-
-  // Insert payment ledger record
-  await db.query(
-    `INSERT INTO invoice_payments (invoice_id, amount, payment_date, payment_mode, reference_number, notes, recorded_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
-      invoiceId,
-      newPaymentAmount,
-      paymentDate,
-      paymentData.payment_mode || "Bank Transfer",
-      paymentData.reference_number || null,
-      paymentData.notes || null,
-      userId,
-    ]
-  );
-
-  // Update invoice balance and status
-  await db.query(
-    `UPDATE invoices SET
-       amount_paid = ?,
-       balance_due = ?,
-       payment_status = ?,
-       payment_date = ?,
-       updated_at = CURRENT_TIMESTAMP
-     WHERE id = ?`,
-    [newTotalPaid, newBalanceDue, newStatus, paymentDate, invoiceId]
-  );
-
-  // Log in lead activity
-  if (inv.lead_id) {
-    try {
-      await db.query(
-        `INSERT INTO lead_activity_logs (lead_id, action_type, new_value, remark, performed_by) VALUES (?, 'Payment Received', ?, ?, ?)`,
-        [
-          inv.lead_id,
-          `₹${newPaymentAmount.toLocaleString("en-IN")}`,
-          `Payment of ₹${newPaymentAmount.toLocaleString("en-IN")} received against Invoice ${inv.invoice_number}. Balance due: ₹${newBalanceDue.toLocaleString("en-IN")}`,
-          userId,
-        ]
-      );
-    } catch (e) { }
-  }
-
-  return {
-    invoice_id: invoiceId,
-    amount_paid: newTotalPaid,
-    balance_due: newBalanceDue,
-    payment_status: newStatus,
-  };
+  return require('../services/invoiceReceipt').record(db, invoiceId, paymentData, userId);
 };
 
 module.exports = {

@@ -9,6 +9,8 @@ const routeFeatureMap = {
   "/manager/reports":  "has_reports",
 };
 
+import {portalRole,homePath} from "../utils/portalRoles";
+
 const PrivateRoute = ({ allowedRoles = [] }) => {
   const { user, token, loading } = useAuth();
   const { can, loading: planLoading } = usePlanFeatures();
@@ -25,7 +27,10 @@ const PrivateRoute = ({ allowedRoles = [] }) => {
   // 4. Role check
   const userRole = (user?.role_name || user?.role || "").toLowerCase().trim();
   const roleId = Number(user?.role_id) || 0;
-  const isCustomRole = roleId > 4 || user?.is_system === 0;
+  const portal=portalRole(user);
+  if(portal && Number(user.is_password_changed)===0)return <Navigate to="/change-password" replace/>;
+  if(portal && !allowedRoles.some(role=>role.toLowerCase()===userRole)) return <Navigate to={homePath(user)} replace/>;
+  const isCustomRole = !portal && (roleId > 4 || user?.is_system === 0) && allowedRoles.includes("Admin");
 
   // Custom roles use AdminLayout (sidebar filters dynamically by permissions)
   // so if allowedRoles includes "Admin" or "Super Admin", custom roles are allowed.

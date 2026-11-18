@@ -1,3 +1,4 @@
+import {portalRole} from "../../utils/portalRoles";
 import QuotationHistoryDialog from "../../components/QuotationHistoryDialog";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -197,7 +198,7 @@ const QuotationList = () => {
   const { user } = useAuth();
   const roleName = (user?.role_name || user?.role || "").toLowerCase();
   const isSuperAdmin = [1,2].includes(Number(user?.role_id)) || roleName.includes("super") || roleName === "admin";
-  const canDeleteQuotation = isSuperAdmin;
+  const canDeleteQuotation = isSuperAdmin || portalRole(user)==='finance';
 
   const [loading, setLoading] = useState(true);
   const [quotations, setQuotations] = useState([]);

@@ -9,7 +9,7 @@ import LoansList from "../Loans/LoansList";
 export default function FinancingHub() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const base = pathname.startsWith("/manager/") ? "/manager/subsidies" : "/subsidies";
+  const base = pathname.startsWith("/applications/") ? "/applications/subsidies" : pathname.startsWith("/manager/") ? "/manager/subsidies" : "/subsidies";
   const loans = pathname.endsWith("/loans");
   return <FinanceWorkspace>
     <Box sx={{ mb: 3 }}>

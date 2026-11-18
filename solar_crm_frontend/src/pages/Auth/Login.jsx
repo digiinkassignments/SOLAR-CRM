@@ -1,3 +1,4 @@
+import {portalRole, homePath} from "../../utils/portalRoles";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { loginUser, getTenantInfo } from "../../services/authService";
@@ -37,9 +38,12 @@ const Login = () => {
 
   useEffect(() => {
     if (token && user) {
+      if(Number(user.is_password_changed)===0){navigate("/change-password",{replace:true});return;}
       const userRole = (user?.role_name || user?.role || "").toLowerCase();
 
-      if (userRole.includes("manager")) {
+      if (portalRole(user)) {
+        navigate(homePath(user), {replace:true});
+      } else if (userRole.includes("manager")) {
         navigate("/manager/dashboard", { replace: true });
       } else if (userRole.includes("sales")) {
         navigate("/sales/dashboard", { replace: true });

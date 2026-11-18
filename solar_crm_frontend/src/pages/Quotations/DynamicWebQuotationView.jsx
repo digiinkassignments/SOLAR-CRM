@@ -48,48 +48,31 @@ const resolveLogoUrl = (rawLogo) => {
     const idx = rawLogo.indexOf("/uploads/");
     return rawLogo.substring(idx);
   }
+  if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
   const cleanPath = rawLogo.startsWith("/") ? rawLogo : `/uploads/company/${rawLogo}`;
   return cleanPath;
 };
 
-// Convert image URL to Base64 so html2canvas renders without canvas taint
-const convertImageToBase64 = (url) => {
-  return new Promise((resolve) => {
-    if (!url || typeof url !== "string" || url.startsWith("data:")) {
-      return resolve(url);
-    }
-
-    fetch(url)
-      .then((res) => {
-        if (!res.ok) throw new Error("fetch failed");
-        return res.blob();
-      })
-      .then((blob) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = () => resolve(url);
-        reader.readAsDataURL(blob);
-      })
-      .catch(() => {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          try {
-            const canvas = document.createElement("canvas");
-            canvas.width = img.naturalWidth || img.width || 120;
-            canvas.height = img.naturalHeight || img.height || 40;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL("image/png"));
-          } catch {
-            resolve(url);
-          }
-        };
-        img.onerror = () => resolve(url);
-        img.src = url;
-      });
-  });
-};
+// Decode every Settings upload (including WEBP) to PNG before embedding in the PDF.
+const convertImageToBase64 = (url) => new Promise((resolve, reject) => {
+  if (!url) { resolve(null); return; }
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+  const timer = setTimeout(() => { image.src = ""; reject(new Error("Company logo could not be loaded. Please retry.")); }, 15000);
+  image.onload = () => {
+    clearTimeout(timer);
+    try {
+      const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/png"));
+    } catch { reject(new Error("Company logo could not be embedded. Check the logo in Settings.")); }
+  };
+  image.onerror = () => { clearTimeout(timer); reject(new Error("Company logo could not be loaded. Check the logo in Settings.")); };
+  image.src = url;
+});
 
 const DynamicWebQuotationView = () => {
   const { token } = useParams();
@@ -103,6 +86,7 @@ const DynamicWebQuotationView = () => {
   const [acceptedSuccess, setAcceptedSuccess] = useState(false);
   const [openConvertInvoiceModal, setOpenConvertInvoiceModal] = useState(false);
   const [logoSrc, setLogoSrc] = useState(null);
+  const [pdfBusy,setPdfBusy]=useState(false);
   const [shareAnchorEl, setShareAnchorEl] = useState(null);
 
   useEffect(() => {
@@ -121,28 +105,7 @@ const DynamicWebQuotationView = () => {
   }, [quotation, loading]);
 
   useEffect(() => {
-    let isMounted = true;
-    if (company?.company_logo || company?.logo_url || company?.logo) {
-      const rawLogo = company.company_logo || company.logo_url || company.logo;
-      const targetUrl = resolveLogoUrl(rawLogo);
-      if (targetUrl) {
-        if (targetUrl.startsWith("data:")) {
-          setLogoSrc(targetUrl);
-        } else {
-          // Set same-origin URL first for instant UI display
-          setLogoSrc(targetUrl);
-          // Convert to Base64 in background for flawless html2canvas PDF rendering
-          convertImageToBase64(targetUrl).then((base64) => {
-            if (isMounted && base64 && base64.startsWith("data:")) {
-              setLogoSrc(base64);
-            }
-          });
-        }
-      }
-    }
-    return () => {
-      isMounted = false;
-    };
+    setLogoSrc(resolveLogoUrl(company?.company_logo || company?.logo_url || company?.logo));
   }, [company]);
 
   const [aiInsights, setAiInsights] = useState(null);
@@ -220,76 +183,34 @@ const DynamicWebQuotationView = () => {
     }
   };
 
-  const handleDownloadPdf = async () => {
-    const element = document.getElementById("printable-zoho-quotation");
-    if (!element) return;
-
+  const handleDownloadPdf = async (mode = "download") => {
+    if(pdfBusy)return;
+    const preview=mode==="print"?window.open("about:blank","_blank"):null;
+    if(mode==="print"&&!preview){toast.error("Allow a new tab to open the print-ready PDF.");return;}
+    if(preview){preview.opener=null;preview.document.title="Preparing quotation PDF";}
+    setPdfBusy(true);
     toast.loading("Preparing your quotation PDF...", { id: "pdf-toast" });
-
-    // Pre-convert any images in element to Base64 before exporting
-    const imgs = element.querySelectorAll("img");
-    for (const img of imgs) {
-      if (img.src && !img.src.startsWith("data:")) {
-        try {
-          const b64 = await convertImageToBase64(img.src);
-          if (b64 && b64.startsWith("data:")) {
-            img.src = b64;
-          }
-        } catch (e) {
-          console.warn("PDF pre-convert image error:", e);
-        }
+    try {
+      const {createSolarQuotationPdf}=await import("./solarQuotationPdf");
+      const configuredLogo = resolveLogoUrl(company?.company_logo || company?.logo_url || company?.logo);
+      const logo = await convertImageToBase64(configuredLogo);
+      const pdf=createSolarQuotationPdf({quotation,company,logoSrc:logo,lineItems:quotationLineItems,
+        totals:{base:finalBase,structure:finalStructure,discount:numDiscount,taxable:subtotalBeforeGst,gst:numGstAmount,gstRate:numGstRate,total:totalGrossInvestment,subsidy:numSubsidy,net:numNetPayable},
+        isAccepted:quotation.status==="Accepted",aiInsights});
+      if(preview){
+        const url=URL.createObjectURL(pdf.output("blob"));preview.location.replace(url);
+        const closed=setInterval(()=>{if(preview.closed){URL.revokeObjectURL(url);clearInterval(closed);}},1000);
+        toast.success("Print-ready PDF opened. Use the PDF viewer's Print button.",{id:"pdf-toast"});
+      }else{
+        const filename=String(quotation.quotation_number || "Proposal").replace(/[^a-zA-Z0-9_-]/g,"_");
+        await pdf.save(`Solar_Quotation_${filename}.pdf`,{returnPromise:true});
+        toast.success("Quotation PDF downloaded.", { id: "pdf-toast" });
       }
-    }
-
-    import("html2pdf.js").then((html2pdfModule) => {
-      const html2pdf = html2pdfModule.default || html2pdfModule;
-      const opt = {
-        margin: [12, 10, 15, 10],
-        filename: `Solar_Quotation_${quotation?.quotation_number || "Proposal"}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          scrollY: 0,
-          scrollX: 0,
-          windowWidth: 1024,
-          onclone: (document) => {
-            const page = document.getElementById("printable-zoho-quotation");
-            if (page) { page.style.width = "718px"; page.style.maxWidth = "718px"; }
-          },
-        },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"], avoid: [".pdf-keep-together", "tr"] },
-      };
-
-      html2pdf()
-        .set(opt)
-        .from(element)
-        .toPdf()
-        .get("pdf")
-        .then((pdf) => {
-          const pageCount = pdf.internal.getNumberOfPages();
-          for (let page = 1; page <= pageCount; page += 1) {
-            pdf.setPage(page);
-            pdf.setFontSize(8);
-            pdf.setTextColor(90, 90, 90);
-            pdf.text(`${quotation?.quotation_number || "Solar Quotation"}  •  ${page} / ${pageCount}`, pdf.internal.pageSize.getWidth() - 10, pdf.internal.pageSize.getHeight() - 6, { align: "right" });
-          }
-        })
-        .save()
-        .then(() => {
-          toast.success("Quotation PDF downloaded.", { id: "pdf-toast" });
-        })
-        .catch((err) => {
-          console.error("PDF save error:", err);
-          toast.error("Opening print dialog fallback...", { id: "pdf-toast" });
-          window.print();
-        });
-    }).catch((e) => {
-      console.error("html2pdf import error:", e);
-      window.print();
-    });
+    } catch(error) {
+      if(preview)preview.close();
+      console.error("Quotation PDF error:",error);
+      toast.error("PDF could not be generated. Please retry.", { id: "pdf-toast" });
+    }finally{setPdfBusy(false);}
   };
 
   const handleShareWhatsApp = () => {
@@ -299,7 +220,7 @@ const DynamicWebQuotationView = () => {
     const publicUrl = `${window.location.origin}/quote/${quotation.public_token || quotation.quotation_number || quotation.id}`;
     const compName = company?.company_name || "Solar Power Solutions";
 
-    const message = `Hello ${quotation.customer_name},\n\nHere is your official solar energy system proposal (${quotation.system_capacity_kw} kW System) from ${compName}.\n\n💰 Total Net Investment: ${formatIndianCurrency(quotation.net_payable_amount)}\n📄 View Digital Proposal & Download 1-Page PDF:\n${publicUrl}\n\nThank you!`;
+    const message = `Hello ${quotation.customer_name},\n\nHere is your official solar energy system proposal (${quotation.system_capacity_kw} kW System) from ${compName}.\n\n💰 Total Net Investment: ${formatIndianCurrency(quotation.net_payable_amount)}\n📄 View Digital Proposal & Download PDF:\n${publicUrl}\n\nThank you!`;
 
     const whatsappUrl = `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, "_blank");
@@ -600,7 +521,8 @@ const DynamicWebQuotationView = () => {
                 variant="outlined"
                 size="small"
                 startIcon={<PrintIcon sx={{ fontSize: 16, color: "#666666" }} />}
-                onClick={() => window.print()}
+                onClick={() => handleDownloadPdf("print")}
+                disabled={pdfBusy}
                 sx={{
                   color: "#333333",
                   borderColor: "#CCCCCC",
@@ -625,6 +547,7 @@ const DynamicWebQuotationView = () => {
                 size="small"
                 startIcon={<PictureAsPdfIcon sx={{ fontSize: 16, color: "#444444" }} />}
                 onClick={handleDownloadPdf}
+                disabled={pdfBusy}
                 sx={{
                   color: "#333333",
                   borderColor: "#DDDDDD",

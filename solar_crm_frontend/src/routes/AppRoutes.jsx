@@ -1,6 +1,8 @@
+import PortalDashboard from "../pages/Portals/PortalDashboard";
+import {portalRole, homePath} from "../utils/portalRoles";
 import FieldWorkspace from "../pages/Engineer/field/FieldWorkspace";
 import React, { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, useNavigate, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate, Navigate, useParams } from "react-router-dom";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
@@ -97,7 +99,9 @@ const HomeOrLogin = () => {
       return;
     }
     const role = (user?.role_name || user?.role || "").toLowerCase();
-      if (role.includes("manager")) {
+      if (portalRole(user)) {
+        navigate(homePath(user), {replace:true});
+      } else if (role.includes("manager")) {
         navigate("/manager/dashboard", { replace: true });
       } else if (role.includes("sales")) {
         navigate("/sales/dashboard", { replace: true });
@@ -164,11 +168,7 @@ const AppRoutes = () => {
             <Route path="/stock/transactions" element={<StockTransactions />} />
             <Route path="/stock/alerts"       element={<StockAlerts />} />
             <Route path="/stock/:id"          element={<StockDetail />} />
-            <Route path="/field-work" element={<FieldWorkspace />} />
-<Route path="/field-work/tasks" element={<FieldWorkspace mode="tasks" />} />
-<Route path="/field-work/projects" element={<FieldWorkspace mode="projects" />} />
-<Route path="/field-work/surveys" element={<FieldWorkspace mode="surveys" />} />
-<Route path="/field-work/surveys/:id" element={<FieldWorkspace resourceType="survey" />} />
+            <Route path="/field-work/*" element={<Navigate to="/projects" replace />} />
             <Route path="/reports"    element={<Reports />} />
             <Route path="/settings"   element={<Settings />} />
             <Route path="/profile"    element={<Profile />} />
@@ -195,11 +195,7 @@ const AppRoutes = () => {
             <Route path="/manager/projects/:id" element={<ProjectDetail />} />
             <Route path="/manager/projects/:id/field" element={<RedirectToManagerProject />} />
             <Route path="/manager/followups"  element={<TeamFollowups />} />
-            <Route path="/manager/field-work" element={<FieldWorkspace />} />
-<Route path="/manager/field-work/tasks" element={<FieldWorkspace mode="tasks" />} />
-<Route path="/manager/field-work/projects" element={<FieldWorkspace mode="projects" />} />
-<Route path="/manager/field-work/surveys" element={<FieldWorkspace mode="surveys" />} />
-<Route path="/manager/field-work/surveys/:id" element={<FieldWorkspace resourceType="survey" />} />
+            <Route path="/manager/field-work/*" element={<Navigate to="/manager/projects" replace />} />
             <Route path="/manager/reports" element={<Reports />} />
             <Route path="/manager/reports/team" element={<ManagerReports />} />
             <Route path="/manager/settings" element={<Settings />} />
@@ -239,6 +235,29 @@ const AppRoutes = () => {
             <Route path="/engineer/profile"    element={<Profile />} />
           </Route>
         </Route>
+
+<Route element={<PrivateRoute allowedRoles={["Finance"]} />}>
+<Route element={<SubscriptionGuard><AdminLayout /></SubscriptionGuard>}>
+<Route path="/finance/dashboard" element={<PortalDashboard/>}/>
+<Route path="/finance/stock" element={<StockList/>}/>
+<Route path="/finance/stock/transactions" element={<StockTransactions/>}/>
+<Route path="/finance/stock/alerts" element={<StockAlerts/>}/>
+<Route path="/finance/stock/:id" element={<StockDetail/>}/>
+<Route path="/finance/quotations" element={<QuotationList/>}/>
+<Route path="/finance/invoices" element={<InvoiceList/>}/>
+<Route path="/finance/calculator" element={<SolarCalculator/>}/>
+<Route path="/finance/customers" element={<CustomersList/>}/>
+<Route path="/finance/customers/:id" element={<CustomerDetail/>}/>
+<Route path="/finance/profile" element={<Profile/>}/>
+</Route></Route>
+<Route element={<PrivateRoute allowedRoles={["Application Manager"]} />}>
+<Route element={<SubscriptionGuard><AdminLayout /></SubscriptionGuard>}>
+<Route path="/applications/dashboard" element={<PortalDashboard/>}/>
+<Route path="/applications/subsidies" element={<FinancingHub/>}/>
+<Route path="/applications/subsidies/loans" element={<FinancingHub/>}/>
+<Route path="/applications/subsidies/:leadId" element={<SubsidyDetail/>}/>
+<Route path="/applications/profile" element={<Profile/>}/>
+</Route></Route>
 
         <Route path="*" element={<HomeOrLogin />} />
       </Routes>

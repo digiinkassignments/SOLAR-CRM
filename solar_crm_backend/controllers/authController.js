@@ -75,6 +75,7 @@ const login = async (req, res) => {
         role_id: user.role_id,
         client_id: clientInfo?.id || user.client_id || null,
         permissions: userPermissions,
+        portal_role: require("../services/portalRoles").portalRole(user.role_name),
       },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
