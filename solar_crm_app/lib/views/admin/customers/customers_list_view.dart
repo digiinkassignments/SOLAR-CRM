@@ -136,6 +136,7 @@ class _CustomersListViewState extends State<CustomersListView> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: _openAddCustomerSheet,
         backgroundColor: AppColors.brandPrimary,
         foregroundColor: Colors.black,

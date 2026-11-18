@@ -191,6 +191,7 @@ Current Portal Stage: ${item.stage}
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         backgroundColor: AppColors.brandPrimary,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
@@ -583,45 +584,60 @@ Current Portal Stage: ${item.stage}
           const Divider(),
           const SizedBox(height: 4),
 
-          // Actions
+          // Actions (Responsive to avoid overflow)
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              OutlinedButton.icon(
-                onPressed: () {
-                  ApplySubsidySheet.show(
-                    context,
-                    leadId: item.leadId,
-                    customerName: item.customerName,
-                    consumerNo: item.consumerNumber,
-                    capacity: item.plantCapacity,
-                  );
-                },
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  side: BorderSide(color: borderColor),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              Expanded(
+                flex: 1,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    ApplySubsidySheet.show(
+                      context,
+                      leadId: item.leadId,
+                      customerName: item.customerName,
+                      consumerNo: item.consumerNumber,
+                      capacity: item.plantCapacity,
+                    );
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    side: BorderSide(color: borderColor),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.edit_outlined, size: 14),
+                  label: const Text(
+                    "Edit Info",
+                    style: TextStyle(fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                icon: const Icon(Icons.edit_outlined, size: 14),
-                label: const Text("Edit Portal Info", style: TextStyle(fontSize: 12)),
               ),
               const SizedBox(width: 8),
-              ElevatedButton.icon(
-                onPressed: () {
-                  SubsidyDetailSheet.show(
-                    context,
-                    leadId: item.leadId,
-                    customerName: item.customerName,
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.brandPrimary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    SubsidyDetailSheet.show(
+                      context,
+                      leadId: item.leadId,
+                      customerName: item.customerName,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.brandPrimary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.folder_shared_outlined, size: 14),
+                  label: const Text(
+                    "Vault (Camera / Docs)",
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                icon: const Icon(Icons.folder_shared_outlined, size: 14),
-                label: const Text("Open Vault (Camera / Docs)", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
               ),
             ],
           ),
@@ -903,12 +919,16 @@ Current Portal Stage: ${item.stage}
 
           // EMI & Progress
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "EMI: ₹${item.monthlyEmi.toStringAsFixed(0)} / mo • ${item.tenureMonths} Mos @ ${item.interestRate}%",
-                style: AppTypography.caption(color: textSecondary),
+              Expanded(
+                child: Text(
+                  "EMI: ₹${item.monthlyEmi.toStringAsFixed(0)} / mo • ${item.tenureMonths} Mos @ ${item.interestRate}%",
+                  style: AppTypography.caption(color: textSecondary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               Text(
                 "Stage ${(percent * 5).toInt()} of 5",
                 style: AppTypography.caption(color: color, fontWeight: FontWeight.w700),

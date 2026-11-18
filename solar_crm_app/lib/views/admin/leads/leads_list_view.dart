@@ -173,6 +173,7 @@ class _LeadsListViewState extends State<LeadsListView> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: _openAddLeadSheet,
         backgroundColor: AppColors.brandPrimary,
         foregroundColor: Colors.black,

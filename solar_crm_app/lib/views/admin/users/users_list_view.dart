@@ -196,6 +196,7 @@ class _UsersListViewState extends State<UsersListView> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: _openCreateUserSheet,
         backgroundColor: AppColors.brandPrimary,
         foregroundColor: Colors.black,
