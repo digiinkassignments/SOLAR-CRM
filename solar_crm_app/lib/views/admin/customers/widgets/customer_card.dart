@@ -86,22 +86,28 @@ class CustomerCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: reqColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    customer.solarRequirement,
-                    style: AppTypography.caption(
-                      color: reqColor,
-                      fontWeight: FontWeight.w600,
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: reqColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      customer.solarRequirement,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.caption(
+                        color: reqColor,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 4),
                 PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                   icon: Icon(Icons.more_vert_rounded, color: textSecondary, size: 20),
                   color: isDark ? AppColors.darkSurfaceElevated : AppColors.lightSurfaceElevated,
                   shape: RoundedRectangleBorder(
@@ -181,14 +187,22 @@ class CustomerCard extends StatelessWidget {
                           if (customer.city != null && customer.city!.isNotEmpty) ...[
                             Icon(Icons.location_on_outlined, size: 13, color: textSecondary),
                             const SizedBox(width: 3),
-                            Text(
-                              "${customer.city}${customer.state != null ? ', ${customer.state}' : ''}",
-                              style: AppTypography.caption(color: textSecondary),
+                            Expanded(
+                              child: Text(
+                                "${customer.city}${customer.state != null ? ', ${customer.state}' : ''}",
+                                style: AppTypography.caption(color: textSecondary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ] else
-                            Text(
-                              "Location not specified",
-                              style: AppTypography.caption(color: textSecondary),
+                            Expanded(
+                              child: Text(
+                                "Location not specified",
+                                style: AppTypography.caption(color: textSecondary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                         ],
                       ),
@@ -354,17 +368,26 @@ class CustomerCard extends StatelessWidget {
             if (customer.assignedToName != null && customer.assignedToName!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    "Sales Rep: ${customer.assignedToName}",
-                    style: AppTypography.badge(color: textSecondary),
-                  ),
-                  if (customer.electricityConsumerNumber != null && customer.electricityConsumerNumber!.isNotEmpty)
-                    Text(
-                      "CA: ${customer.electricityConsumerNumber}",
+                  Flexible(
+                    child: Text(
+                      "Sales Rep: ${customer.assignedToName}",
                       style: AppTypography.badge(color: textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                  ),
+                  if (customer.electricityConsumerNumber != null && customer.electricityConsumerNumber!.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        "CA: ${customer.electricityConsumerNumber}",
+                        style: AppTypography.badge(color: textSecondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],

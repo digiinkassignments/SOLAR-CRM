@@ -379,7 +379,15 @@ class _CustomersListViewState extends State<CustomersListView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: AppTypography.caption(color: textSecondary)),
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTypography.caption(color: textSecondary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 4),
               Icon(icon, color: color, size: 16),
             ],
           ),
