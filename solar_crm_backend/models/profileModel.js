@@ -18,6 +18,7 @@ const getMyProfile = async (userId, db = defaultDb) => {
             u.password,
             u.profile_image,
             u.status,
+            u.is_password_changed,
             u.last_login,
             u.created_at,
             u.updated_at
@@ -76,7 +77,8 @@ const updateMyProfile = async (data, db = defaultDb) => {
 const changePassword = async (userId, hashedPassword, db = defaultDb) => {
     const [result] = await db.query(
         `UPDATE users
-        SET password = ?
+        SET password = ?,
+            is_password_changed = 1
         WHERE
             id = ?
             AND is_deleted = 0`,

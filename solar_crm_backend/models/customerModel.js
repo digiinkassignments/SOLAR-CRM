@@ -454,9 +454,28 @@ const getCustomerById = async (id, db = defaultDb) => {
     [id, leadId]
   );
 
+  const openingRecord = (await require("../services/customerOpening").records(db,[customer.id]))[0] || null;
+  const openingInvoice = Number(openingRecord?.invoice_amount) || 0;
+  const openingPaid = Number(openingRecord?.amount_paid) || 0;
+  const openingDue = Math.max(0, openingInvoice - openingPaid);
+
+  const invoiceBilled = (invoices || []).reduce((sum, row) => sum + (Number(row.gross_total) || 0), 0);
+  const invoicePaid = (invoices || []).reduce((sum, row) => sum + (Number(row.amount_paid) || 0), 0);
+  const invoiceDue = (invoices || []).reduce((sum, row) => sum + (Number(row.balance_due) || 0), 0);
+
+  const totalBilled = openingInvoice + invoiceBilled;
+  const totalPaid = openingPaid + invoicePaid;
+  const totalDue = openingDue + invoiceDue;
+  const totalSystemKw = (projects || []).reduce((sum, row) => sum + (Number(row.system_capacity_kw) || 0), 0) || Number(openingRecord?.plant_size_kw) || Number(customer.plant_size_kw) || 0;
+
   return {
     ...customer,
-    opening_record: (await require("../services/customerOpening").records(db,[customer.id]))[0] || null,
+    total_projects: (projects || []).length,
+    total_system_kw: totalSystemKw,
+    total_billed_amount: totalBilled,
+    total_paid_amount: totalPaid,
+    total_balance_amount: totalDue,
+    opening_record: openingRecord,
     projects,
     quotations,
     invoices,

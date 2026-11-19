@@ -241,6 +241,7 @@ class _Customer360SheetState extends State<Customer360Sheet> with SingleTickerPr
                       _buildOverviewTab(
                         detail?.customer ?? widget.customer,
                         detail?.openingRecord,
+                        detail?.invoices ?? [],
                         surfaceColor,
                         borderColor,
                         textPrimary,
@@ -290,22 +291,46 @@ class _Customer360SheetState extends State<Customer360Sheet> with SingleTickerPr
   Widget _buildOverviewTab(
     CustomerModel c,
     CustomerOpeningRecord? opening,
+    List<dynamic> invoices,
     Color surfaceColor,
     Color borderColor,
     Color textPrimary,
     Color textSecondary,
   ) {
-    // If list already calculated totals, use them directly without double-adding opening amount.
-    // If list had 0 (e.g. newly created without invoice), reflect opening amounts cleanly.
-    final billed = c.totalBilledAmount > 0
-        ? c.totalBilledAmount
-        : (opening?.invoiceAmount ?? 0.0);
-    final paid = c.totalPaidAmount > 0
-        ? c.totalPaidAmount
-        : (opening?.amountPaid ?? 0.0);
-    final balance = c.totalBalanceAmount > 0
-        ? c.totalBalanceAmount
-        : (billed - paid > 0 ? billed - paid : 0.0);
+    // 1. Calculate actual generated invoices sum
+    double invoiceBilledSum = 0.0;
+    double invoicePaidSum = 0.0;
+    double invoiceDueSum = 0.0;
+
+    for (final inv in invoices) {
+      if (inv is Map) {
+        invoiceBilledSum += double.tryParse(inv['gross_total']?.toString() ?? '0') ?? 0.0;
+        invoicePaidSum += double.tryParse(inv['amount_paid']?.toString() ?? '0') ?? 0.0;
+        invoiceDueSum += double.tryParse(inv['balance_due']?.toString() ?? '0') ?? 0.0;
+      }
+    }
+
+    // 2. Opening record amounts
+    final openingInvoice = opening?.invoiceAmount ?? 0.0;
+    final openingPaid = opening?.amountPaid ?? 0.0;
+    final openingDue = (openingInvoice - openingPaid > 0) ? (openingInvoice - openingPaid) : 0.0;
+
+    // 3. True combined financial summary: opening record + actual generated invoices
+    final double billed;
+    final double paid;
+    final double balance;
+
+    if (invoices.isNotEmpty || opening != null) {
+      billed = openingInvoice + invoiceBilledSum;
+      paid = openingPaid + invoicePaidSum;
+      balance = openingDue + invoiceDueSum;
+    } else {
+      billed = c.totalBilledAmount;
+      paid = c.totalPaidAmount;
+      balance = c.totalBalanceAmount > 0
+          ? c.totalBalanceAmount
+          : (billed - paid > 0 ? billed - paid : 0.0);
+    }
 
     final effectivePlantSize = opening?.plantSizeKw ?? c.plantSizeKw;
 

@@ -150,6 +150,7 @@ const getUserById = async (id, db = defaultDb) => {
             u.phone,
             u.profile_image,
             u.status,
+            u.is_password_changed,
             u.last_login,
             u.created_at,
             r.role_name,

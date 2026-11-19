@@ -113,6 +113,17 @@ class AuthProvider extends ChangeNotifier {
       if (resData['success'] == true && resData['data'] != null) {
         final profileMap = Map<String, dynamic>.from(resData['data']);
 
+        // Preserve existing is_password_changed requirement if server response omits the key
+        final existingUser = _user;
+        if (profileMap['is_password_changed'] == null && existingUser != null) {
+          profileMap['is_password_changed'] = existingUser.isPasswordChanged;
+        }
+
+        // Also preserve existing permissions if server profile omits them
+        if (profileMap['permissions'] == null && existingUser != null) {
+          profileMap['permissions'] = existingUser.permissions;
+        }
+
         // Build fresh UserModel directly from server database row
         final freshUser = UserModel.fromJson(profileMap);
 
