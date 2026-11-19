@@ -9,6 +9,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../models/project_model.dart';
 import '../../providers/project_provider.dart';
+import 'sheets/amc_plan_manager_sheet.dart';
 import 'sheets/change_stage_sheet.dart';
 import 'sheets/commissioning_form_sheet.dart';
 import 'sheets/customer_handover_form_sheet.dart';
@@ -16,6 +17,7 @@ import 'sheets/edit_project_sheet.dart';
 import 'sheets/final_inspection_form_sheet.dart';
 import 'sheets/log_installation_progress_sheet.dart';
 import 'sheets/log_service_visit_sheet.dart';
+import 'sheets/record_payment_sheet.dart';
 import 'sheets/review_inspection_sheet.dart';
 import 'sheets/warranty_amc_form_sheet.dart';
 
@@ -5284,6 +5286,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
               border: Border.all(color: borderColor),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Icon(Icons.support_agent_rounded, size: 20, color: Color(0xFF3B82F6)),
                 const SizedBox(width: 10),
@@ -5301,6 +5304,24 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                         style: TextStyle(fontSize: 10, color: textSecondary, height: 1.3),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    AmcPlanManagerSheet.show(context);
+                  },
+                  icon: const Icon(Icons.edit_note_rounded, size: 15),
+                  label: const Text(
+                    "Edit AMC Plans",
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: textPrimary,
+                    side: BorderSide(color: borderColor),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: Size.zero,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
               ],
@@ -5327,26 +5348,71 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                   children: [
                     Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.receipt_long_rounded, size: 18, color: Color(0xFF16A34A)),
-                        SizedBox(width: 6),
-                        Text(
+                      children: [
+                        const Icon(Icons.receipt_long_rounded, size: 18, color: Color(0xFF16A34A)),
+                        const SizedBox(width: 6),
+                        const Text(
                           "PAYMENT CLEARANCE GATE",
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF166534)),
                         ),
+                        const SizedBox(width: 6),
+                        Text(
+                          "(${project.paymentStatus.isNotEmpty ? project.paymentStatus : (balDue == 0 && contractVal > 0 ? '100% Cleared' : 'Pending')})",
+                          style: TextStyle(fontSize: 10, color: textSecondary, fontWeight: FontWeight.w600),
+                        ),
                       ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFDCFCE7),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0xFF86EFAC)),
-                      ),
-                      child: const Text(
-                        "Cleared for Handover",
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF16A34A)),
-                      ),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: balDue == 0 && contractVal > 0
+                                ? const Color(0xFFDCFCE7)
+                                : (isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7)),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: balDue == 0 && contractVal > 0
+                                  ? const Color(0xFF86EFAC)
+                                  : const Color(0xFFF59E0B),
+                            ),
+                          ),
+                          child: Text(
+                            balDue == 0 && contractVal > 0 ? "Cleared for Handover" : "Payment Pending",
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: balDue == 0 && contractVal > 0
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFFD97706),
+                            ),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            RecordPaymentSheet.show(
+                              context,
+                              project: project,
+                              handover: handover,
+                            );
+                          },
+                          icon: const Icon(Icons.payment_rounded, size: 13, color: Color(0xFF16A34A)),
+                          label: const Text(
+                            "Record / Update Payment",
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF166534)),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF86EFAC)),
+                            backgroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -5379,7 +5445,14 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                         children: [
                           Text("Balance Due", style: TextStyle(fontSize: 10, color: textSecondary)),
                           const SizedBox(height: 2),
-                          Text("₹${balDue.toStringAsFixed(0)}", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textPrimary)),
+                          Text(
+                            "₹${balDue.toStringAsFixed(0)}",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: balDue > 0 ? const Color(0xFFDC2626) : textPrimary,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -5394,13 +5467,23 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     border: Border.all(color: const Color(0xFFCBD5E1)),
                   ),
                   child: Row(
-                    children: const [
-                      Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
-                      SizedBox(width: 6),
+                    children: [
+                      Icon(
+                        balDue == 0 && contractVal > 0 ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                        size: 14,
+                        color: balDue == 0 && contractVal > 0 ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                      ),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          "100% Commercial Clearance Approved: Full project cost has been received. Project is commercially eligible for official document handover and signoff.",
-                          style: TextStyle(fontSize: 10, color: Color(0xFF166534), fontWeight: FontWeight.w600),
+                          balDue == 0 && contractVal > 0
+                              ? "100% Commercial Clearance Approved: Full project cost has been received. Project is commercially eligible for official document handover and signoff."
+                              : "Commercial Clearance Pending: Outstanding balance of ₹${balDue.toStringAsFixed(0)}. Complete payment collection to unlock full handover dossiers.",
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: balDue == 0 && contractVal > 0 ? const Color(0xFF166534) : const Color(0xFFB45309),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -6184,6 +6267,24 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                   child: Text(
                     "AMC plans are defined by your company. Select a plan explicitly for each contract.",
                     style: TextStyle(fontSize: 11, color: textSecondary),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    AmcPlanManagerSheet.show(context);
+                  },
+                  icon: const Icon(Icons.edit_note_rounded, size: 14),
+                  label: const Text(
+                    "Edit AMC Plans",
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: textPrimary,
+                    side: BorderSide(color: borderColor),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
               ],

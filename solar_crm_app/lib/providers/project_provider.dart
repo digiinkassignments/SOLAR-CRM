@@ -717,6 +717,86 @@ class ProjectProvider extends ChangeNotifier {
     }
   }
 
+  Future<Map<String, dynamic>> saveCompanyAmcPlan({
+    required Map<String, dynamic> data,
+    int? planId,
+  }) async {
+    try {
+      if (planId != null && planId > 0) {
+        await apiClient.dio.put('${ApiConstants.amcPlans}/$planId', data: data);
+      } else {
+        await apiClient.dio.post(ApiConstants.amcPlans, data: data);
+      }
+      await fetchCompanyAmcPlans();
+      return {'success': true, 'message': 'Company AMC plan saved successfully!'};
+    } catch (e) {
+      debugPrint("saveCompanyAmcPlan error: $e");
+      String errorMsg = e.toString();
+      if (e is DioException) {
+        errorMsg = e.response?.data?['message'] ?? e.message ?? errorMsg;
+      }
+      return {'success': false, 'message': errorMsg};
+    }
+  }
+
+  Future<Map<String, dynamic>> recordHandoverPayment(
+    dynamic projectId, {
+    required double contractValue,
+    required double totalPaid,
+    required String paymentMode,
+    String? paymentRef,
+    CustomerHandoverModel? currentHandover,
+  }) async {
+    try {
+      final balance = (contractValue - totalPaid).clamp(0.0, double.infinity);
+      final paymentStatus = (contractValue > 0 && balance == 0)
+          ? "Completed"
+          : (totalPaid > 0 ? "Partial" : "Pending");
+
+      // 1. Update project commercial fields
+      await apiClient.dio.put(
+        ApiConstants.projectDetails(projectId),
+        data: {
+          'total_cost': contractValue,
+          'amount_received': totalPaid,
+          'payment_status': paymentStatus,
+        },
+      );
+
+      // 2. Update handover commercial fields
+      final handoverMap = currentHandover != null ? currentHandover.toJson() : <String, dynamic>{};
+      handoverMap['contract_value'] = contractValue;
+      handoverMap['amount_paid'] = totalPaid;
+      handoverMap['balance_due'] = balance;
+      handoverMap['payment_status'] = paymentStatus;
+
+      final handoverUrl = ApiConstants.projectHandover(projectId);
+      if (currentHandover != null && (currentHandover.id ?? 0) > 0) {
+        await apiClient.dio.put(handoverUrl, data: handoverMap);
+      } else {
+        await apiClient.dio.post(handoverUrl, data: handoverMap);
+      }
+
+      await fetchProjectDetails(projectId);
+      await fetchCustomerHandover(projectId);
+
+      return {
+        'success': true,
+        'balance': balance,
+        'message': balance == 0
+            ? "Payment updated: 100% Cleared! Customer Handover is now commercially unlocked."
+            : "Payment updated: Recorded. Remaining balance: ₹${balance.toStringAsFixed(0)}.",
+      };
+    } catch (e) {
+      debugPrint("recordHandoverPayment error: $e");
+      String errorMsg = e.toString();
+      if (e is DioException) {
+        errorMsg = e.response?.data?['message'] ?? e.message ?? errorMsg;
+      }
+      return {'success': false, 'message': errorMsg};
+    }
+  }
+
   Future<Map<String, dynamic>> saveWarrantyAmc(dynamic projectId, Map<String, dynamic> data) async {
     try {
       final url = ApiConstants.projectWarranty(projectId);
