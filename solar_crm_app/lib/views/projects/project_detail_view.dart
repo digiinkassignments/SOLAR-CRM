@@ -1979,14 +1979,19 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                "Customer / Representative Digital Signature",
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: isDark ? const Color(0xFF34D399) : const Color(0xFF166534),
+                              Expanded(
+                                child: Text(
+                                  "Customer / Representative Digital Signature",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark ? const Color(0xFF34D399) : const Color(0xFF166534),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
@@ -3000,30 +3005,38 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                               child: _buildSignatureThumb(log.signatureData!),
                             ),
                             const SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: const [
-                                    Icon(Icons.check_circle_rounded, size: 12, color: AppColors.emeraldGreen),
-                                    SizedBox(width: 3),
-                                    Text(
-                                      "Signature Recorded",
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.emeraldGreen,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: const [
+                                      Icon(Icons.check_circle_rounded, size: 12, color: AppColors.emeraldGreen),
+                                      SizedBox(width: 3),
+                                      Flexible(
+                                        child: Text(
+                                          "Signature Recorded",
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.emeraldGreen,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                if (log.supervisorSignoffTime != null)
-                                  Text(
-                                    formatCleanDate(log.supervisorSignoffTime),
-                                    style: TextStyle(fontSize: 10, color: textSecondary),
+                                    ],
                                   ),
-                              ],
+                                  if (log.supervisorSignoffTime != null)
+                                    Text(
+                                      formatCleanDate(log.supervisorSignoffTime),
+                                      style: TextStyle(fontSize: 10, color: textSecondary),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
