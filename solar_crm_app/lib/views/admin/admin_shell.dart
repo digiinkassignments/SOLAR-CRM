@@ -9,11 +9,7 @@ import 'admin_dashboard_view.dart';
 import 'users/users_list_view.dart';
 import 'customers/customers_list_view.dart';
 import 'leads/leads_list_view.dart';
-import '../calculator/solar_calculator_view.dart';
-import '../finance/finance_view.dart';
-import '../stock/stock_list_view.dart';
 import '../settings/settings_view.dart';
-import '../financing/financing_hub_view.dart';
 import '../projects/projects_list_view.dart';
 
 class AdminShell extends StatefulWidget {
@@ -100,42 +96,6 @@ class _AdminShellState extends State<AdminShell> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.inventory_2_outlined, color: AppColors.emeraldGreen, size: 22),
-            tooltip: "Stock & Inventory",
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const StockListView()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.receipt_long_rounded, color: AppColors.skyBlue, size: 22),
-            tooltip: "Quotations & Invoices",
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const FinanceView()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.calculate_outlined, color: AppColors.brandPrimary, size: 22),
-            tooltip: "Solar Calculator",
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SolarCalculatorView()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.account_balance_outlined, color: Color(0xFF7C3AED), size: 22),
-            tooltip: "Subsidy & Finance",
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const FinancingHubView()),
-              );
-            },
-          ),
           // Header Profile Avatar (Opens Settings)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -176,6 +136,7 @@ class _AdminShellState extends State<AdminShell> {
               );
             },
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: IndexedStack(
