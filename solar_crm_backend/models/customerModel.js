@@ -314,7 +314,7 @@ const createCustomer = async (data, userId, db = defaultDb) => {
 
   return { id: res.insertId, customer_code: customerCode };
   };
-  if (data.request_key || data.invoice_amount || data.payment_amount) return require("../services/customerOpening").create(db,data,userId,insert);
+  if (data.request_key || data.invoice_amount || data.payment_amount || data.plant_size_kw) return require("../services/customerOpening").create(db,data,userId,insert);
   return insert(db);
 };
 

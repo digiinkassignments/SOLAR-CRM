@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const {cents,validDate}=require('./customerWorkspace');
+const {cents,validDate,validateImportFinancials}=require('./customerWorkspace');
 const ready=new WeakMap();
 const fail=message=>{throw Object.assign(new Error(message),{status:400});};
 async function ensure(db){
@@ -15,6 +15,8 @@ async function ensure(db){
  await ready.get(db);
 }
 function validate(data){
+ const financialError=validateImportFinancials(data);
+ if(financialError)fail(financialError);
  const amount=cents(data.invoice_amount || '0'),paid=cents(data.payment_amount || '0');
  if(!Number.isSafeInteger(amount)||!Number.isSafeInteger(paid))fail('Use non-negative amounts with up to 2 decimal places.');
  if(paid>amount)fail('Payment received cannot exceed the invoice amount.');
@@ -31,7 +33,7 @@ async function create(db,data,userId,insert){
  const [[old]]=await c.query('SELECT o.*,c.customer_code FROM customer_opening_records o JOIN customers c ON c.id=o.customer_id WHERE o.request_key=? FOR UPDATE',[data.request_key]);
  if(old){if(old.payload_hash!==hash||Number(old.recorded_by)!==Number(userId))fail('Request ID was already used for different customer data.');await c.commit();return {id:old.customer_id,customer_code:old.customer_code};}
  const customer=await insert(c);
- await c.query('INSERT INTO customer_opening_records(customer_id,request_key,payload_hash,invoice_amount,amount_paid,invoice_reference,payment_date,payment_mode,payment_reference,recorded_by) VALUES (?,?,?,?,?,?,?,?,?,?)',[customer.id,data.request_key,hash,values.amount,values.paid,data.invoice_reference||null,values.paid?data.payment_date:null,values.paid?data.payment_mode:null,values.paid?data.payment_reference||null:null,userId]);
+ await c.query('INSERT INTO customer_opening_records(customer_id,request_key,payload_hash,invoice_amount,amount_paid,invoice_reference,payment_date,payment_mode,payment_reference,recorded_by,plant_size_kw) VALUES (?,?,?,?,?,?,?,?,?,?,?)',[customer.id,data.request_key,hash,values.amount,values.paid,data.invoice_reference||null,values.paid?data.payment_date:null,values.paid?data.payment_mode:null,values.paid?data.payment_reference||null:null,userId,data.plant_size_kw || null]);
  await c.commit();return customer;
  }catch(e){await c.rollback();throw e;}finally{c.release();}
 }
