@@ -1,8 +1,11 @@
+import '../core/constants/api_constants.dart';
+
 class UserModel {
   final int id;
   final String name;
   final String email;
   final String? phone;
+  final String? profileImage;
   final int roleId;
   final String roleName;
   final String status;
@@ -14,6 +17,7 @@ class UserModel {
     required this.name,
     required this.email,
     this.phone,
+    this.profileImage,
     required this.roleId,
     required this.roleName,
     this.status = 'Active',
@@ -51,11 +55,35 @@ class UserModel {
       roleName.toLowerCase() == "engineer" ||
       roleName.toLowerCase() == "technical engineer";
 
+  String? getFullImageUrl(String? workspace) {
+    if (profileImage == null || profileImage!.trim().isEmpty || profileImage == 'null') {
+      return null;
+    }
+    final img = profileImage!.trim();
+    if (img.startsWith('http://') || img.startsWith('https://')) {
+      return img;
+    }
+
+    String cleanPath = img.startsWith('/') ? img.substring(1) : img;
+
+    if (!cleanPath.startsWith('uploads/profiles/')) {
+      if (cleanPath.startsWith('uploads/')) {
+        cleanPath = cleanPath.replaceFirst('uploads/', 'uploads/profiles/');
+      } else {
+        cleanPath = 'uploads/profiles/$cleanPath';
+      }
+    }
+
+    final origin = ApiConstants.getWebOrigin(workspace);
+    return "$origin/$cleanPath";
+  }
+
   UserModel copyWith({
     int? id,
     String? name,
     String? email,
     String? phone,
+    String? profileImage,
     int? roleId,
     String? roleName,
     String? status,
@@ -67,6 +95,7 @@ class UserModel {
       name: name ?? this.name,
       email: email ?? this.email,
       phone: phone ?? this.phone,
+      profileImage: profileImage ?? this.profileImage,
       roleId: roleId ?? this.roleId,
       roleName: roleName ?? this.roleName,
       status: status ?? this.status,
@@ -88,6 +117,7 @@ class UserModel {
       name: json['full_name'] ?? json['name'] ?? '',
       email: json['email'] ?? '',
       phone: json['phone']?.toString(),
+      profileImage: json['profile_image']?.toString(),
       roleId: json['role_id'] is int
           ? json['role_id']
           : int.tryParse(json['role_id']?.toString() ?? '3') ?? 3,
@@ -106,6 +136,7 @@ class UserModel {
       'name': name,
       'email': email,
       'phone': phone,
+      'profile_image': profileImage,
       'role_id': roleId,
       'role_name': roleName,
       'status': status,

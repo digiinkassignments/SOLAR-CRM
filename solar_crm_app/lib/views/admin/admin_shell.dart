@@ -12,6 +12,7 @@ import 'leads/leads_list_view.dart';
 import '../settings/settings_view.dart';
 import '../projects/projects_list_view.dart';
 import '../widgets/navbar_location_pill.dart';
+import '../widgets/user_profile_avatar.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -100,30 +101,10 @@ class _AdminShellState extends State<AdminShell> {
           const NavbarLocationPill(),
           const SizedBox(width: 4),
           // Header Profile Avatar (Opens Settings)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: InkWell(
-              onTap: () => setState(() => _currentIndex = 5),
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: _currentIndex == 5 ? AppColors.brandPrimary : borderColor,
-                    width: 2,
-                  ),
-                ),
-                child: CircleAvatar(
-                  radius: 14,
-                  backgroundColor: AppColors.brandNavy,
-                  child: Text(
-                    (auth.user?.name.isNotEmpty == true ? auth.user!.name[0] : "A").toUpperCase(),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                ),
-              ),
-            ),
+          UserProfileAvatar(
+            radius: 14,
+            isSelected: _currentIndex == 5,
+            onTap: () => setState(() => _currentIndex = 5),
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: AppColors.errorRed, size: 22),

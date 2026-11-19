@@ -8,6 +8,7 @@ import '../widgets/logout_dialog.dart';
 import '../settings/settings_view.dart';
 import '../projects/projects_list_view.dart';
 import '../widgets/navbar_location_pill.dart';
+import '../widgets/user_profile_avatar.dart';
 
 class EngineerShell extends StatefulWidget {
   const EngineerShell({super.key});
@@ -94,30 +95,10 @@ class _EngineerShellState extends State<EngineerShell> {
         actions: [
           const NavbarLocationPill(),
           const SizedBox(width: 4),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: InkWell(
-              onTap: () => setState(() => _currentIndex = 3),
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: _currentIndex == 3 ? AppColors.brandPrimary : borderColor,
-                    width: 2,
-                  ),
-                ),
-                child: CircleAvatar(
-                  radius: 14,
-                  backgroundColor: AppColors.brandNavy,
-                  child: Text(
-                    (user?.name.isNotEmpty == true ? user!.name[0] : "E").toUpperCase(),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                ),
-              ),
-            ),
+          UserProfileAvatar(
+            radius: 14,
+            isSelected: _currentIndex == 3,
+            onTap: () => setState(() => _currentIndex = 3),
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: AppColors.errorRed),

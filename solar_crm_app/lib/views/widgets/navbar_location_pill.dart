@@ -283,3 +283,4 @@ class _NavbarLocationPillState extends State<NavbarLocationPill> {
     );
   }
 }
+
