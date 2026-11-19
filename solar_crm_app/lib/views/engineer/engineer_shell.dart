@@ -7,8 +7,11 @@ import '../auth/login_screen.dart';
 import '../widgets/logout_dialog.dart';
 import '../settings/settings_view.dart';
 import '../projects/projects_list_view.dart';
+import '../admin/leads/leads_list_view.dart';
+import '../calculator/solar_calculator_view.dart';
 import '../widgets/navbar_location_pill.dart';
 import '../widgets/user_profile_avatar.dart';
+import 'engineer_dashboard_view.dart';
 
 class EngineerShell extends StatefulWidget {
   const EngineerShell({super.key});
@@ -26,49 +29,14 @@ class _EngineerShellState extends State<EngineerShell> {
     final user = auth.user;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryTextColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-    final secondaryTextColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
-    final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     final pages = [
-      Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: surfaceColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: borderColor),
-                ),
-                child: const Icon(
-                  Icons.engineering_outlined,
-                  size: 48,
-                  color: AppColors.emeraldGreen,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                "Site Engineering Ready",
-                style: AppTypography.headingMedium(color: primaryTextColor),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "GPS Site Navigation, Feasibility Form & Camera uploads ready for live API integration.",
-                textAlign: TextAlign.center,
-                style: AppTypography.subtitle(color: secondaryTextColor),
-              ),
-            ],
-          ),
-        ),
-      ),
-      Center(
-        child: Text("Evidence Uploads", style: AppTypography.headingMedium(color: primaryTextColor)),
+      EngineerDashboardView(
+        onNavigateTab: (index) => setState(() => _currentIndex = index),
       ),
       const ProjectsListView(),
+      const LeadsListView(),
+      const SolarCalculatorView(),
       const SettingsView(),
     ];
 
@@ -76,7 +44,7 @@ class _EngineerShellState extends State<EngineerShell> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: InkWell(
-          onTap: () => setState(() => _currentIndex = 3),
+          onTap: () => setState(() => _currentIndex = 4),
           borderRadius: BorderRadius.circular(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,9 +52,11 @@ class _EngineerShellState extends State<EngineerShell> {
               Text(
                 user?.name ?? "Engineer Workspace",
                 style: AppTypography.headingSmall(color: primaryTextColor),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               Text(
-                "SITE ENGINEER • ${auth.workspace?.toUpperCase()}",
+                "ENGINEER • ${auth.workspace?.toUpperCase()}",
                 style: AppTypography.badge(color: AppColors.emeraldGreen),
               ),
             ],
@@ -97,8 +67,8 @@ class _EngineerShellState extends State<EngineerShell> {
           const SizedBox(width: 4),
           UserProfileAvatar(
             radius: 14,
-            isSelected: _currentIndex == 3,
-            onTap: () => setState(() => _currentIndex = 3),
+            isSelected: _currentIndex == 4,
+            onTap: () => setState(() => _currentIndex = 4),
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: AppColors.errorRed),
@@ -124,26 +94,32 @@ class _EngineerShellState extends State<EngineerShell> {
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         selectedItemColor: AppColors.emeraldGreen,
+        unselectedItemColor: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.assignment_outlined),
-            activeIcon: Icon(Icons.assignment),
-            label: "Surveys",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.camera_alt_outlined),
-            activeIcon: Icon(Icons.camera_alt),
-            label: "Evidence",
+            icon: Icon(Icons.dashboard_outlined),
+            activeIcon: Icon(Icons.dashboard_rounded),
+            label: "Overview",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.solar_power_outlined),
-            activeIcon: Icon(Icons.solar_power),
+            activeIcon: Icon(Icons.solar_power_rounded),
             label: "Projects",
           ),
           BottomNavigationBarItem(
+            icon: Icon(Icons.assignment_outlined),
+            activeIcon: Icon(Icons.assignment_rounded),
+            label: "Surveys",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calculate_outlined),
+            activeIcon: Icon(Icons.calculate_rounded),
+            label: "Calculator",
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
+            activeIcon: Icon(Icons.settings_rounded),
             label: "Settings",
           ),
         ],

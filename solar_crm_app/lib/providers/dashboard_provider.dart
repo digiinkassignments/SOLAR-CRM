@@ -5,6 +5,7 @@ import '../core/network/api_client.dart';
 import '../models/admin_dashboard_model.dart';
 import '../models/manager_dashboard_model.dart';
 import '../models/sales_dashboard_model.dart';
+import '../models/engineer_dashboard_model.dart';
 import 'auth_provider.dart';
 
 class DashboardProvider extends ChangeNotifier {
@@ -20,6 +21,7 @@ class DashboardProvider extends ChangeNotifier {
     _adminStats = null;
     _managerStats = null;
     _salesStats = null;
+    _engineerStats = null;
     notifyListeners();
   }
 
@@ -28,12 +30,14 @@ class DashboardProvider extends ChangeNotifier {
   AdminDashboardModel? _adminStats;
   ManagerDashboardModel? _managerStats;
   SalesDashboardModel? _salesStats;
+  EngineerDashboardModel? _engineerStats;
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   AdminDashboardModel? get adminStats => _adminStats;
   ManagerDashboardModel? get managerStats => _managerStats;
   SalesDashboardModel? get salesStats => _salesStats;
+  EngineerDashboardModel? get engineerStats => _engineerStats;
 
   Future<void> fetchAdminDashboard({bool isRefresh = false}) async {
     if (!isRefresh && _adminStats != null) {
@@ -119,6 +123,39 @@ class DashboardProvider extends ChangeNotifier {
         _errorMessage = null;
       } else {
         _errorMessage = resData['message'] ?? 'Failed to load sales dashboard.';
+      }
+    } on DioException catch (e) {
+      if (e.response?.data is Map && e.response?.data['message'] != null) {
+        _errorMessage = e.response?.data['message'];
+      } else {
+        _errorMessage = 'Network connection error. Pull down to retry.';
+      }
+    } catch (e) {
+      _errorMessage = 'An unexpected error occurred: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchEngineerDashboard({bool isRefresh = false}) async {
+    if (!isRefresh && _engineerStats != null) {
+      // Already loaded
+    } else {
+      _isLoading = true;
+      _errorMessage = null;
+      notifyListeners();
+    }
+
+    try {
+      final response = await apiClient.dio.get(ApiConstants.engineerDashboard);
+      final resData = response.data;
+
+      if (resData['success'] == true && resData['data'] != null) {
+        _engineerStats = EngineerDashboardModel.fromJson(resData['data']);
+        _errorMessage = null;
+      } else {
+        _errorMessage = resData['message'] ?? 'Failed to load engineer dashboard.';
       }
     } on DioException catch (e) {
       if (e.response?.data is Map && e.response?.data['message'] != null) {
