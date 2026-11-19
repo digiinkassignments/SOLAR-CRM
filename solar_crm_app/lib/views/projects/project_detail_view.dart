@@ -1750,9 +1750,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     children: [
                       const Icon(Icons.home_repair_service_rounded, size: 18, color: Color(0xFFF59E0B)),
                       const SizedBox(width: 8),
-                      Text(
-                        "Section 1: Roof & Solar Geometry",
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                      Expanded(
+                        child: Text(
+                          "Section 1: Roof & Solar Geometry",
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                        ),
                       ),
                     ],
                   ),
@@ -1806,9 +1808,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     children: [
                       const Icon(Icons.electric_bolt_rounded, size: 18, color: Color(0xFFF97316)),
                       const SizedBox(width: 8),
-                      Text(
-                        "Section 2: Electrical & DISCOM Grid Connection",
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                      Expanded(
+                        child: Text(
+                          "Section 2: Electrical & DISCOM Grid Connection",
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                        ),
                       ),
                     ],
                   ),
@@ -1857,9 +1861,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     children: [
                       const Icon(Icons.wb_sunny_rounded, size: 18, color: Color(0xFFEAB308)),
                       const SizedBox(width: 8),
-                      Text(
-                        "Section 3: Site Conditions & Geolocation",
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                      Expanded(
+                        child: Text(
+                          "Section 3: Site Conditions & Geolocation",
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                        ),
                       ),
                     ],
                   ),
@@ -1903,9 +1909,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     children: [
                       const Icon(Icons.assignment_turned_in_rounded, size: 18, color: Color(0xFF10B981)),
                       const SizedBox(width: 8),
-                      Text(
-                        "Section 4: Inspection Decision & Sign-Off",
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                      Expanded(
+                        child: Text(
+                          "Section 4: Inspection Decision & Sign-Off",
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                        ),
                       ),
                     ],
                   ),
@@ -3754,12 +3762,14 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     children: [
                       const Icon(Icons.speed_rounded, color: Color(0xFFF59E0B), size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        "Section 1: Electrical & Net Meter Readings",
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: textPrimary,
+                      Expanded(
+                        child: Text(
+                          "Section 1: Electrical & Net Meter Readings",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: textPrimary,
+                          ),
                         ),
                       ),
                     ],
@@ -3881,12 +3891,14 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     children: [
                       const Icon(Icons.security_rounded, color: Color(0xFFF97316), size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        "Section 2: Anti-Islanding & Insulation Protection",
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: textPrimary,
+                      Expanded(
+                        child: Text(
+                          "Section 2: Anti-Islanding & Insulation Protection",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: textPrimary,
+                          ),
                         ),
                       ),
                     ],
@@ -3984,12 +3996,14 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     children: [
                       const Icon(Icons.assignment_turned_in_rounded, color: Color(0xFF10B981), size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        "Section 3: Commissioning Decision & Formal Sign-Off",
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: textPrimary,
+                      Expanded(
+                        child: Text(
+                          "Section 3: Commissioning Decision & Formal Sign-Off",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: textPrimary,
+                          ),
                         ),
                       ),
                     ],
@@ -4571,12 +4585,14 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     children: [
                       const Icon(Icons.assignment_turned_in_rounded, color: Color(0xFF10B981), size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        "Section 1: Quality & Compliance Clearances",
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: textPrimary,
+                      Expanded(
+                        child: Text(
+                          "Section 1: Quality & Compliance Clearances",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: textPrimary,
+                          ),
                         ),
                       ),
                     ],
@@ -4685,12 +4701,14 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     children: [
                       const Icon(Icons.speed_rounded, color: Color(0xFFF59E0B), size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        "Section 2: Commissioning Benchmark Verification",
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: textPrimary,
+                      Expanded(
+                        child: Text(
+                          "Section 2: Commissioning Benchmark Verification",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: textPrimary,
+                          ),
                         ),
                       ),
                     ],
@@ -4788,12 +4806,14 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     children: [
                       const Icon(Icons.build_circle_outlined, color: Color(0xFFF97316), size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        "Section 3: Defect Tracking, Rework Status & Formal Approval",
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: textPrimary,
+                      Expanded(
+                        child: Text(
+                          "Section 3: Defect Tracking, Rework Status & Formal Approval",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: textPrimary,
+                          ),
                         ),
                       ),
                     ],
