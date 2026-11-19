@@ -102,4 +102,4 @@ async function complete(db,input,ip,provision) {
     `<h2>Welcome to SolOps</h2><p>Your 7-day free trial is ready.</p><p><a href="${url}">Open your workspace</a></p><p>Username: <strong>${escape(data.subdomain)}</strong><br>Temporary password: <strong>${escape(result.tempPassword)}</strong></p><p>Trial ends: ${escape(expiry)} IST. Change your password after signing in.</p><p>No card required. No automatic charge.</p><p>Support: +91 90241 54995 · digiink2505@gmail.com</p>`);}catch{emailSent=false;}
   return {workspace_url:url,username:data.subdomain,temporary_password:result.tempPassword,trial_ends_at:result.trialEndAt,email_sent:emailSent};
 }
-module.exports={POLICY_VERSION,validate,hash,escape,ensure,requestCode,complete};
+module.exports={POLICY_VERSION,validate,hash,escape,ensure,send,requestCode,complete};
