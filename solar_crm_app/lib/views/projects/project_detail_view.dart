@@ -3060,9 +3060,9 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                         ),
                       ],
 
-                      // Photos
+                      // Photos with Tag & Caption + Lightbox Viewer
                       if (log.photos.isNotEmpty) ...[
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         Text(
                           "FIELD PHOTOS (${log.photos.length})",
                           style: TextStyle(
@@ -3071,32 +3071,84 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                             color: textSecondary,
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         SizedBox(
-                          height: 70,
+                          height: 110,
                           child: ListView.separated(
                             scrollDirection: Axis.horizontal,
                             itemCount: log.photos.length,
-                            separatorBuilder: (context, index) => const SizedBox(width: 8),
+                            separatorBuilder: (context, index) => const SizedBox(width: 10),
                             itemBuilder: (ctx, pIdx) {
                               final p = log.photos[pIdx];
                               String fullUrl = p.photoUrl;
                               if (!fullUrl.startsWith('http')) {
                                 fullUrl = "https://${ApiConstants.baseDomain}$fullUrl";
                               }
-                              return ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: Image.network(
-                                  fullUrl,
-                                  width: 70,
-                                  height: 70,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Container(
-                                    width: 70,
-                                    height: 70,
+                              return GestureDetector(
+                                onTap: () => _showPhotoLightbox(context, fullUrl, p.caption, p.photoTag),
+                                child: Container(
+                                  width: 90,
+                                  decoration: BoxDecoration(
                                     color: surfaceBg,
-                                    alignment: Alignment.center,
-                                    child: const Icon(Icons.photo_outlined, size: 20, color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: borderColor),
+                                  ),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Stack(
+                                          children: [
+                                            Positioned.fill(
+                                              child: Image.network(
+                                                fullUrl,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) => Container(
+                                                  color: surfaceBg,
+                                                  alignment: Alignment.center,
+                                                  child: const Icon(Icons.photo_outlined, size: 22, color: Colors.grey),
+                                                ),
+                                              ),
+                                            ),
+                                            if (p.photoTag != null && p.photoTag!.isNotEmpty)
+                                              Positioned(
+                                                top: 4,
+                                                left: 4,
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.black.withValues(alpha: 0.75),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    p.photoTag!,
+                                                    style: const TextStyle(
+                                                      fontSize: 8.5,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (p.caption != null && p.caption!.trim().isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                                          child: Text(
+                                            p.caption!,
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              color: textPrimary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                               );
@@ -3137,6 +3189,73 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
       }
     } catch (_) {}
     return const Icon(Icons.draw, size: 16);
+  }
+
+  void _showPhotoLightbox(BuildContext context, String url, String? caption, String? tag) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  if (tag != null && tag.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.brandPrimary,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        tag,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    )
+                  else
+                    const SizedBox.shrink(),
+                  IconButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    icon: const Icon(Icons.close, color: Colors.white, size: 22),
+                  ),
+                ],
+              ),
+            ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: InteractiveViewer(
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox(
+                    height: 200,
+                    child: Center(
+                      child: Icon(Icons.broken_image, color: Colors.white54, size: 40),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (caption != null && caption.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Text(
+                  caption,
+                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   // Quick Set Target Date Dialog

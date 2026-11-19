@@ -65,10 +65,30 @@ exports.uploadPhotos = async (req, res) => {
       return res.status(400).json({ message: 'No photos uploaded.' });
     }
     const pid = await resolveNumericProjectId(req.db, req.params.id);
-    const photoUrls = files.map((f) => `/uploads/installation/${f.filename}`);
-    await saveLogPhotos(req.db, req.params.logId, photoUrls);
+
+    let captionsMeta = [];
+    if (req.body.captions) {
+      try {
+        captionsMeta = typeof req.body.captions === 'string' ? JSON.parse(req.body.captions) : req.body.captions;
+      } catch (e) {
+        captionsMeta = [];
+      }
+    }
+
+    const photoObjects = files.map((f, idx) => {
+      const meta = (Array.isArray(captionsMeta) && captionsMeta[idx]) ? captionsMeta[idx] : {};
+      return {
+        photo_url: `/uploads/installation/${f.filename}`,
+        caption: meta.caption || null,
+        photo_tag: meta.tag || 'During',
+        file_name: f.originalname,
+        file_size: f.size,
+      };
+    });
+
+    await saveLogPhotos(req.db, req.params.logId, photoObjects);
     const data = await getAllLogs(req.db, pid);
-    res.status(201).json({ message: 'Photos uploaded successfully', photoUrls, ...data });
+    res.status(201).json({ message: 'Photos uploaded successfully', photos: photoObjects, ...data });
   } catch (err) {
     console.error('uploadPhotos error:', err);
     res.status(500).json({ message: 'Server error' });

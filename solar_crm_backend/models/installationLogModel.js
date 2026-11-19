@@ -272,10 +272,18 @@ const updateLog = async (db, logId, projectId, data) => {
 const saveLogPhotos = async (db, logId, photos = []) => {
   await ensureInstallationLogsTable(db);
   for (const p of photos) {
-    await db.query(
-      `INSERT INTO installation_log_photos (log_id, photo_url, caption, photo_tag, file_name, file_size) VALUES (?, ?, ?, ?, ?, ?)`,
-      [logId, p.photo_url, p.caption || null, p.photo_tag || 'Work Progress', p.file_name || null, p.file_size || null]
-    );
+    const url = typeof p === 'string' ? p : (p?.photo_url || null);
+    const caption = typeof p === 'object' ? (p?.caption || null) : null;
+    const tag = typeof p === 'object' ? (p?.photo_tag || p?.tag || 'During') : 'During';
+    const fileName = typeof p === 'object' ? (p?.file_name || null) : null;
+    const fileSize = typeof p === 'object' ? (p?.file_size || null) : null;
+
+    if (url) {
+      await db.query(
+        `INSERT INTO installation_log_photos (log_id, photo_url, caption, photo_tag, file_name, file_size) VALUES (?, ?, ?, ?, ?, ?)`,
+        [logId, url, caption, tag, fileName, fileSize]
+      );
+    }
   }
 };
 

@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/geo_camera_helper.dart';
 import '../../../models/installation_log_model.dart';
 import '../../../models/project_model.dart';
 import '../../../providers/project_provider.dart';
@@ -142,9 +143,10 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
   bool _supervisorSignoff = true;
   String? _signatureData;
 
-  // Photos
-  final List<File> _selectedPhotos = [];
+  // Photos with Geo-Tag, Before/After & Captions
+  final List<_PhotoEntry> _photoEntries = [];
   final ImagePicker _picker = ImagePicker();
+  bool _isCapturingGeoPhoto = false;
 
   bool _isSubmitting = false;
 
@@ -228,6 +230,9 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
     for (var m in _materials) {
       m.dispose();
     }
+    for (var p in _photoEntries) {
+      p.dispose();
+    }
     super.dispose();
   }
 
@@ -260,26 +265,77 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
   }
 
   Future<void> _pickPhotos(ImageSource source) async {
+    if (_photoEntries.length >= 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Maximum 10 site photos allowed per daily log."),
+          backgroundColor: AppColors.errorRed,
+        ),
+      );
+      return;
+    }
+
     try {
       if (source == ImageSource.camera) {
-        final photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80);
+        setState(() => _isCapturingGeoPhoto = true);
+
+        // 1. Get GPS coordinates for Geo-tagging
+        final position = await GeoCameraHelper.getCurrentPosition();
+
+        // 2. Open camera
+        final photo = await _picker.pickImage(
+          source: ImageSource.camera,
+          imageQuality: 85,
+        );
+
         if (photo != null) {
+          final originalFile = File(photo.path);
+
+          // 3. Watermark with Geo-tags (GPS + Date/Time + Powered by SolOps)
+          final watermarkedFile = await GeoCameraHelper.watermarkGeoPhoto(
+            imageFile: originalFile,
+            position: position,
+            projectNumber: widget.project.projectNumber,
+            systemCapacity: widget.project.systemCapacityKw.toString(),
+            phase: _selectedPhase,
+          );
+
+          final gpsText = position != null
+              ? "${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}"
+              : null;
+
           setState(() {
-            _selectedPhotos.add(File(photo.path));
+            _photoEntries.add(_PhotoEntry(
+              file: watermarkedFile,
+              captionCtrl: TextEditingController(),
+              tag: 'During',
+              isGeoTagged: true,
+              gpsInfo: gpsText,
+            ));
           });
         }
       } else {
-        final photos = await _picker.pickMultiImage(imageQuality: 80);
+        // Gallery selection
+        final photos = await _picker.pickMultiImage(imageQuality: 85);
         if (photos.isNotEmpty) {
           setState(() {
-            final remaining = 10 - _selectedPhotos.length;
-            final toAdd = photos.take(remaining).map((p) => File(p.path)).toList();
-            _selectedPhotos.addAll(toAdd);
+            final remaining = 10 - _photoEntries.length;
+            final toAdd = photos.take(remaining).map((p) {
+              return _PhotoEntry(
+                file: File(p.path),
+                captionCtrl: TextEditingController(),
+                tag: 'During',
+                isGeoTagged: false,
+              );
+            }).toList();
+            _photoEntries.addAll(toAdd);
           });
         }
       }
     } catch (e) {
       debugPrint("Error picking photo: $e");
+    } finally {
+      if (mounted) setState(() => _isCapturingGeoPhoto = false);
     }
   }
 
@@ -334,12 +390,18 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
         'signature_data': _signatureData,
       };
 
+      final photoCaptions = _photoEntries.map((p) => {
+        'caption': p.captionCtrl.text.trim(),
+        'tag': p.tag,
+      }).toList();
+
       final provider = Provider.of<ProjectProvider>(context, listen: false);
       final res = await provider.saveInstallationLog(
         widget.project.id,
         payload,
         logId: widget.existingLog?.id,
-        photos: _selectedPhotos,
+        photos: _photoEntries.map((p) => p.file).toList(),
+        photoCaptions: photoCaptions,
       );
 
       if (mounted) {
@@ -1120,10 +1182,10 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                     const SizedBox(height: 16),
 
                     // ==========================================
-                    // 8. SITE PHOTOS PICKER
+                    // 8. SITE PHOTOS PICKER (UP TO 10 WITH BEFORE/AFTER CAPTIONS)
                     // ==========================================
                     _buildSectionCard(
-                      title: "SITE PHOTOS (UP TO 10)",
+                      title: "SITE PHOTOS (UP TO 10 WITH CAPTIONS)",
                       icon: Icons.photo_camera_rounded,
                       cardBg: cardBg,
                       borderColor: borderColor,
@@ -1132,11 +1194,20 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          if (_isCapturingGeoPhoto)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 8),
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.brandPrimary),
+                              ),
+                            ),
                           IconButton(
-                            onPressed: () => _pickPhotos(ImageSource.camera),
+                            onPressed: _isCapturingGeoPhoto ? null : () => _pickPhotos(ImageSource.camera),
                             icon: const Icon(Icons.camera_alt_rounded, size: 20, color: AppColors.brandPrimary),
                             splashRadius: 20,
-                            tooltip: "Take Photo",
+                            tooltip: "Geo Camera (GPS & Watermark)",
                           ),
                           IconButton(
                             onPressed: () => _pickPhotos(ImageSource.gallery),
@@ -1149,52 +1220,192 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (_selectedPhotos.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isDark ? const Color(0xFF334155) : const Color(0xFFBFDBFE),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFF2563EB)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    "Geo Camera: Camera photos are automatically watermarked with GPS coordinates, Date/Time & 'Powered by SolOps'.",
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E40AF),
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          if (_photoEntries.isEmpty)
                             Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Text(
-                                "No photos selected yet. Use camera or gallery buttons above to attach site work photos.",
-                                style: TextStyle(fontSize: 12, color: textSecondary, fontStyle: FontStyle.italic),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Center(
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.add_a_photo_outlined, size: 32, color: textSecondary.withValues(alpha: 0.6)),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      "No photos added yet. Tap Camera for Geo-tagged photos or Gallery to upload.",
+                                      style: TextStyle(fontSize: 12, color: textSecondary, fontStyle: FontStyle.italic),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
                               ),
                             )
                           else
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: List.generate(_selectedPhotos.length, (idx) {
-                                final photo = _selectedPhotos[idx];
-                                return Stack(
+                            ...List.generate(_photoEntries.length, (idx) {
+                              final entry = _photoEntries[idx];
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: borderColor),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.file(
-                                        photo,
-                                        width: 80,
-                                        height: 80,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 2,
-                                      right: 2,
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          setState(() => _selectedPhotos.removeAt(idx));
-                                        },
-                                        child: Container(
-                                          padding: const EdgeInsets.all(2),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.black87,
-                                            shape: BoxShape.circle,
+                                    // Image Thumbnail with Geo badge
+                                    Stack(
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Image.file(
+                                            entry.file,
+                                            width: 76,
+                                            height: 76,
+                                            fit: BoxFit.cover,
                                           ),
-                                          child: const Icon(Icons.close, size: 14, color: Colors.white),
                                         ),
+                                        if (entry.isGeoTagged)
+                                          Positioned(
+                                            bottom: 2,
+                                            left: 2,
+                                            right: 2,
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withValues(alpha: 0.75),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: const [
+                                                  Icon(Icons.location_on, size: 9, color: Color(0xFFFACC15)),
+                                                  SizedBox(width: 2),
+                                                  Flexible(
+                                                    child: Text(
+                                                      "Geo Tag",
+                                                      style: TextStyle(fontSize: 8.5, color: Colors.white, fontWeight: FontWeight.bold),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(width: 10),
+
+                                    // Tag selector & Caption input
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // Tag dropdown
+                                          Row(
+                                            children: [
+                                              Container(
+                                                height: 28,
+                                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                                decoration: BoxDecoration(
+                                                  color: isDark ? const Color(0xFF242424) : const Color(0xFFF8FAFC),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  border: Border.all(color: borderColor),
+                                                ),
+                                                child: DropdownButtonHideUnderline(
+                                                  child: DropdownButton<String>(
+                                                    value: entry.tag,
+                                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textPrimary),
+                                                    dropdownColor: cardBg,
+                                                    items: const [
+                                                      DropdownMenuItem(value: 'Before', child: Text('Tag: Before')),
+                                                      DropdownMenuItem(value: 'During', child: Text('Tag: During')),
+                                                      DropdownMenuItem(value: 'After', child: Text('Tag: After')),
+                                                      DropdownMenuItem(value: 'Structure', child: Text('Tag: Structure')),
+                                                      DropdownMenuItem(value: 'Inverter', child: Text('Tag: Inverter')),
+                                                      DropdownMenuItem(value: 'Earthing', child: Text('Tag: Earthing')),
+                                                    ],
+                                                    onChanged: (val) {
+                                                      if (val != null) setState(() => entry.tag = val);
+                                                    },
+                                                  ),
+                                                ),
+                                              ),
+                                              const Spacer(),
+                                              // Remove photo
+                                              IconButton(
+                                                onPressed: () {
+                                                  setState(() {
+                                                    entry.dispose();
+                                                    _photoEntries.removeAt(idx);
+                                                  });
+                                                },
+                                                icon: const Icon(Icons.close_rounded, size: 16, color: AppColors.errorRed),
+                                                padding: EdgeInsets.zero,
+                                                constraints: const BoxConstraints(),
+                                                splashRadius: 16,
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 6),
+
+                                          // Caption input
+                                          TextFormField(
+                                            controller: entry.captionCtrl,
+                                            style: TextStyle(fontSize: 11.5, color: textPrimary),
+                                            decoration: InputDecoration(
+                                              hintText: "Caption (e.g. Before panel placement, Earthing pit...)",
+                                              hintStyle: TextStyle(fontSize: 11, color: textSecondary.withValues(alpha: 0.7)),
+                                              filled: true,
+                                              fillColor: isDark ? const Color(0xFF242424) : const Color(0xFFF8FAFC),
+                                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                              isDense: true,
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(6),
+                                                borderSide: BorderSide(color: borderColor),
+                                              ),
+                                              enabledBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(6),
+                                                borderSide: BorderSide(color: borderColor),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
-                                );
-                              }),
-                            ),
+                                ),
+                              );
+                            }),
                         ],
                       ),
                     ),
@@ -1534,5 +1745,25 @@ class _MaterialRowData {
   void dispose() {
     itemCtrl.dispose();
     quantityCtrl.dispose();
+  }
+}
+
+class _PhotoEntry {
+  final File file;
+  final TextEditingController captionCtrl;
+  String tag;
+  final bool isGeoTagged;
+  final String? gpsInfo;
+
+  _PhotoEntry({
+    required this.file,
+    required this.captionCtrl,
+    this.tag = 'During',
+    this.isGeoTagged = false,
+    this.gpsInfo,
+  });
+
+  void dispose() {
+    captionCtrl.dispose();
   }
 }
