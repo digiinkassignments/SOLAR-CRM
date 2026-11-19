@@ -4,6 +4,7 @@ import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../models/company_settings_model.dart';
 import '../models/profile_model.dart';
+import 'auth_provider.dart';
 
 class SettingsProvider extends ChangeNotifier {
   final ApiClient apiClient;
@@ -17,7 +18,20 @@ class SettingsProvider extends ChangeNotifier {
   bool _isUploadingPhoto = false;
   String? _errorMessage;
 
-  SettingsProvider({required this.apiClient});
+  SettingsProvider({required this.apiClient}) {
+    AuthProvider.registerResetCallback(reset);
+  }
+
+  void reset() {
+    _profile = null;
+    _companySettings = null;
+    _isLoading = false;
+    _isSavingProfile = false;
+    _isChangingPassword = false;
+    _isUploadingPhoto = false;
+    _errorMessage = null;
+    notifyListeners();
+  }
 
   // Getters
   ProfileModel? get profile => _profile;

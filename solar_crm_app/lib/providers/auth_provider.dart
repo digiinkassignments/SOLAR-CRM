@@ -7,6 +7,24 @@ import '../core/storage/storage_service.dart';
 import '../models/user_model.dart';
 import '../models/tenant_model.dart';
 
+enum SessionStatus {
+  authenticated,
+  expired,
+  networkError,
+}
+
+class SessionVerificationResult {
+  final SessionStatus status;
+  final String? message;
+  final UserModel? user;
+
+  SessionVerificationResult({
+    required this.status,
+    this.message,
+    this.user,
+  });
+}
+
 class AuthProvider extends ChangeNotifier {
   final ApiClient apiClient;
 
@@ -19,8 +37,9 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Trigger all registered provider reset callbacks
+  /// Trigger all registered provider reset callbacks and invalidate in-flight network requests
   static void triggerResetAll() {
+    ApiClient.invalidateSession();
     for (final cb in _onResetCallbacks) {
       try {
         cb();
@@ -74,6 +93,73 @@ class AuthProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Verify active session with the backend server upon app restart
+  Future<SessionVerificationResult> verifySession() async {
+    final token = _token ?? await StorageService.getToken();
+    if (token == null || token.isEmpty) {
+      return SessionVerificationResult(
+        status: SessionStatus.expired,
+        message: "No active session token found.",
+      );
+    }
+
+    try {
+      final response = await apiClient.dio.get(ApiConstants.userProfile);
+      final resData = response.data;
+
+      if (resData['success'] == true && resData['data'] != null) {
+        final profileMap = Map<String, dynamic>.from(resData['data']);
+
+        // Build fresh UserModel directly from server database row
+        final freshUser = UserModel.fromJson(profileMap);
+
+        // Account status check (reject deactivated/suspended users)
+        if (freshUser.status.toLowerCase() != 'active') {
+          await logout();
+          return SessionVerificationResult(
+            status: SessionStatus.expired,
+            message: "Account is ${freshUser.status.toLowerCase()}. Please contact administrator.",
+          );
+        }
+
+        // Update in-memory user and persistent storage
+        _user = freshUser;
+        _token = token;
+        await StorageService.saveUserJson(jsonEncode(freshUser.toJson()));
+        notifyListeners();
+
+        return SessionVerificationResult(
+          status: SessionStatus.authenticated,
+          user: freshUser,
+        );
+      } else {
+        await logout();
+        return SessionVerificationResult(
+          status: SessionStatus.expired,
+          message: resData['message']?.toString() ?? "Session expired. Please log in again.",
+        );
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        await logout();
+        return SessionVerificationResult(
+          status: SessionStatus.expired,
+          message: "Session expired or access revoked. Please log in again.",
+        );
+      }
+      // Connection timeout, socket exception, offline network failure
+      return SessionVerificationResult(
+        status: SessionStatus.networkError,
+        message: "Unable to connect to server. Check your network connection.",
+      );
+    } catch (e) {
+      return SessionVerificationResult(
+        status: SessionStatus.networkError,
+        message: "Network error during session verification: $e",
+      );
     }
   }
 

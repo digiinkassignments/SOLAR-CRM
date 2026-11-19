@@ -6,8 +6,25 @@ class ApiClient {
   late Dio dio;
   String? currentWorkspace;
 
+  /// Global session epoch counter to discard late responses from previous sessions
+  static int sessionGeneration = 0;
+
+  /// Global cancel token actively cancelling pending requests on logout
+  static CancelToken _sessionCancelToken = CancelToken();
+
   /// Global callback invoked on HTTP 401 Unauthorized responses
   static void Function()? onUnauthorized;
+
+  /// Invalidate active session: cancels pending requests & bumps session generation
+  static void invalidateSession() {
+    sessionGeneration++;
+    try {
+      if (!_sessionCancelToken.isCancelled) {
+        _sessionCancelToken.cancel("Session invalidated");
+      }
+    } catch (_) {}
+    _sessionCancelToken = CancelToken();
+  }
 
   ApiClient() {
     dio = Dio(
@@ -24,6 +41,10 @@ class ApiClient {
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          // Attach session cancellation and generation check
+          options.cancelToken ??= _sessionCancelToken;
+          options.extra['sessionGeneration'] = sessionGeneration;
+
           // Attach Bearer Token if available
           final token = await StorageService.getToken();
           if (token != null && token.isNotEmpty) {
@@ -37,7 +58,24 @@ class ApiClient {
 
           return handler.next(options);
         },
+        onResponse: (response, handler) {
+          final reqGen = response.requestOptions.extra['sessionGeneration'];
+          if (reqGen != null && reqGen != sessionGeneration) {
+            // Late response arriving after logout or session switch: discard
+            return handler.reject(
+              DioException(
+                requestOptions: response.requestOptions,
+                error: "Late response ignored due to session invalidation.",
+                type: DioExceptionType.cancel,
+              ),
+            );
+          }
+          return handler.next(response);
+        },
         onError: (DioException e, handler) {
+          if (e.type == DioExceptionType.cancel || e.error == "Session invalidated") {
+            return handler.next(e);
+          }
           if (e.response?.statusCode == 401) {
             final path = e.requestOptions.path;
             final isAuthCheck = path.contains(ApiConstants.login) ||

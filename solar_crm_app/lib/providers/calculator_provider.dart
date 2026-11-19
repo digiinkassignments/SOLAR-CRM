@@ -3,12 +3,33 @@ import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../models/lead_model.dart';
 import '../models/solar_calculator_model.dart';
+import 'auth_provider.dart';
 
 class CalculatorProvider extends ChangeNotifier {
   final ApiClient apiClient;
 
   CalculatorProvider({required this.apiClient}) {
+    AuthProvider.registerResetCallback(reset);
     _recalculate();
+  }
+
+  void reset() {
+    _calcMode = "bill";
+    _monthlyBill = 5000.0;
+    _monthlyUnits = 640.0;
+    _roofAreaSqft = 400.0;
+    _roofUsablePercent = 80.0;
+    _selectedState = "Rajasthan";
+    _tariffRate = 7.8;
+    _propertyType = "Residential";
+    _subsidyType = "PM Surya Ghar (DCR)";
+    _customerName = "";
+    _customerPhone = "";
+    _leadId = null;
+    _isSaving = false;
+    _saveMessage = null;
+    _recalculate();
+    notifyListeners();
   }
 
   String _calcMode = "bill"; // "bill" | "units" | "roof"

@@ -20,6 +20,8 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  String? _networkError;
+
   @override
   void initState() {
     super.initState();
@@ -27,7 +29,11 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkNavigation() async {
-    await Future.delayed(const Duration(milliseconds: 1200));
+    setState(() {
+      _networkError = null;
+    });
+
+    await Future.delayed(const Duration(milliseconds: 1000));
     if (!mounted) return;
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -40,7 +46,7 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    if (!auth.isAuthenticated || auth.user == null) {
+    if (!auth.isAuthenticated || auth.token == null) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -48,8 +54,27 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
+    // Live session verification with backend database
+    final result = await auth.verifySession();
+    if (!mounted) return;
+
+    if (result.status == SessionStatus.expired) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+      return;
+    }
+
+    if (result.status == SessionStatus.networkError) {
+      setState(() {
+        _networkError = result.message ?? "Unable to connect to server. Check your connection.";
+      });
+      return;
+    }
+
     // Role-based deny-by-default routing & initial password change enforcement
-    final user = auth.user!;
+    final user = result.user ?? auth.user!;
     if (user.isPasswordChanged == 0) {
       Navigator.pushReplacement(
         context,
@@ -122,15 +147,81 @@ class _SplashScreenState extends State<SplashScreen> {
               "ENTERPRISE MOBILE SUITE",
               style: AppTypography.badge(color: AppColors.brandPrimary),
             ),
-            const SizedBox(height: 40),
-            const SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.brandPrimary),
+            const SizedBox(height: 32),
+            if (_networkError != null) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorRed.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.errorRed.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.wifi_off_rounded, color: AppColors.errorRed, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _networkError!,
+                              style: const TextStyle(fontSize: 12, color: AppColors.errorRed),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: ElevatedButton.icon(
+                        onPressed: _checkNavigation,
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: const Text("Retry Connection", style: TextStyle(fontWeight: FontWeight.w700)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.brandPrimary,
+                          foregroundColor: Colors.black,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextButton(
+                      onPressed: () async {
+                        final auth = Provider.of<AuthProvider>(context, listen: false);
+                        await auth.logout();
+                        if (context.mounted) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                          );
+                        }
+                      },
+                      child: Text(
+                        "Sign Out to Login Screen",
+                        style: TextStyle(
+                          color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ] else ...[
+              const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.brandPrimary),
+                ),
+              ),
+            ],
           ],
         ),
       ),

@@ -238,7 +238,14 @@ class _Customer360SheetState extends State<Customer360Sheet> with SingleTickerPr
                 : TabBarView(
                     controller: _tabController,
                     children: [
-                      _buildOverviewTab(widget.customer, surfaceColor, borderColor, textPrimary, textSecondary),
+                      _buildOverviewTab(
+                        detail?.customer ?? widget.customer,
+                        detail?.openingRecord,
+                        surfaceColor,
+                        borderColor,
+                        textPrimary,
+                        textSecondary,
+                      ),
                       _buildProjectsTab(detail?.projects ?? [], surfaceColor, borderColor, textPrimary, textSecondary),
                       _buildInvoicesTab(detail?.invoices ?? [], surfaceColor, borderColor, textPrimary, textSecondary),
                       _buildQuotationsTab(detail?.quotations ?? [], surfaceColor, borderColor, textPrimary, textSecondary),
@@ -282,11 +289,26 @@ class _Customer360SheetState extends State<Customer360Sheet> with SingleTickerPr
 
   Widget _buildOverviewTab(
     CustomerModel c,
+    CustomerOpeningRecord? opening,
     Color surfaceColor,
     Color borderColor,
     Color textPrimary,
     Color textSecondary,
   ) {
+    // If list already calculated totals, use them directly without double-adding opening amount.
+    // If list had 0 (e.g. newly created without invoice), reflect opening amounts cleanly.
+    final billed = c.totalBilledAmount > 0
+        ? c.totalBilledAmount
+        : (opening?.invoiceAmount ?? 0.0);
+    final paid = c.totalPaidAmount > 0
+        ? c.totalPaidAmount
+        : (opening?.amountPaid ?? 0.0);
+    final balance = c.totalBalanceAmount > 0
+        ? c.totalBalanceAmount
+        : (billed - paid > 0 ? billed - paid : 0.0);
+
+    final effectivePlantSize = opening?.plantSizeKw ?? c.plantSizeKw;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -305,27 +327,93 @@ class _Customer360SheetState extends State<Customer360Sheet> with SingleTickerPr
               children: [
                 _buildFinancialMetric(
                   "Gross Billed",
-                  Formatters.formatCurrency(c.totalBilledAmount, compact: true),
+                  Formatters.formatCurrency(billed, compact: true),
                   textPrimary,
                   textSecondary,
                 ),
                 Container(width: 1, height: 28, color: borderColor),
                 _buildFinancialMetric(
                   "Total Paid",
-                  Formatters.formatCurrency(c.totalPaidAmount, compact: true),
+                  Formatters.formatCurrency(paid, compact: true),
                   AppColors.emeraldGreen,
                   textSecondary,
                 ),
                 Container(width: 1, height: 28, color: borderColor),
                 _buildFinancialMetric(
                   "Balance Due",
-                  Formatters.formatCurrency(c.totalBalanceAmount, compact: true),
-                  c.totalBalanceAmount > 0 ? AppColors.errorRed : AppColors.emeraldGreen,
+                  Formatters.formatCurrency(balance, compact: true),
+                  balance > 0 ? AppColors.errorRed : AppColors.emeraldGreen,
                   textSecondary,
                 ),
               ],
             ),
           ),
+
+          if (opening != null || effectivePlantSize != null) ...[
+            const SizedBox(height: 16),
+            // Opening Installation & Contract Card
+            Text("OPENING CONTRACT & SYSTEM SPECS", style: AppTypography.badge(color: AppColors.brandPrimary)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: surfaceColor,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.brandPrimary.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                children: [
+                  _buildInfoLine(
+                    "System Capacity (Plant Size)",
+                    effectivePlantSize != null ? "${effectivePlantSize.toStringAsFixed(2)} kW" : "Not recorded",
+                    textPrimary,
+                    textSecondary,
+                  ),
+                  if (opening != null) ...[
+                    Divider(color: borderColor, height: 16),
+                    _buildInfoLine(
+                      "Final Contract Amount",
+                      "₹${Formatters.formatCurrency(opening.invoiceAmount)}",
+                      textPrimary,
+                      textSecondary,
+                    ),
+                    Divider(color: borderColor, height: 16),
+                    _buildInfoLine(
+                      "Payment Received",
+                      "₹${Formatters.formatCurrency(opening.amountPaid)}",
+                      AppColors.emeraldGreen,
+                      textSecondary,
+                    ),
+                    Divider(color: borderColor, height: 16),
+                    _buildInfoLine(
+                      "Opening Balance Due",
+                      "₹${Formatters.formatCurrency(opening.invoiceAmount - opening.amountPaid > 0 ? opening.invoiceAmount - opening.amountPaid : 0.0)}",
+                      (opening.invoiceAmount - opening.amountPaid) > 0 ? AppColors.errorRed : AppColors.emeraldGreen,
+                      textSecondary,
+                    ),
+                    if (opening.paymentMode != null || opening.paymentDate != null) ...[
+                      Divider(color: borderColor, height: 16),
+                      _buildInfoLine(
+                        "Payment Details",
+                        "${opening.paymentMode ?? 'Payment'}${opening.paymentDate != null ? ' • ${opening.paymentDate}' : ''}",
+                        textPrimary,
+                        textSecondary,
+                      ),
+                    ],
+                    if (opening.paymentReference != null && opening.paymentReference!.isNotEmpty) ...[
+                      Divider(color: borderColor, height: 16),
+                      _buildInfoLine(
+                        "Payment Reference",
+                        opening.paymentReference!,
+                        textPrimary,
+                        textSecondary,
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          ],
 
           const SizedBox(height: 16),
 

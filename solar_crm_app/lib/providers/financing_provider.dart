@@ -4,6 +4,7 @@ import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../models/subsidy_model.dart';
 import '../models/loan_model.dart';
+import 'auth_provider.dart';
 
 class FinancingProvider extends ChangeNotifier {
   final ApiClient apiClient;
@@ -33,7 +34,32 @@ class FinancingProvider extends ChangeNotifier {
   String? _loansError;
   bool _isSubmittingLoan = false;
 
-  FinancingProvider({required this.apiClient});
+  FinancingProvider({required this.apiClient}) {
+    AuthProvider.registerResetCallback(reset);
+  }
+
+  void reset() {
+    _subsidies = [];
+    _totalSubsidies = 0;
+    _subsidyStats = SubsidyStatsModel();
+    _isLoadingSubsidies = false;
+    _subsidiesError = null;
+    _activeSubsidy = null;
+    _activeDocuments = [];
+    _activeRejections = [];
+    _activeLogs = [];
+    _isLoadingDetails = false;
+    _isUploadingDoc = false;
+    _loans = [];
+    _totalLoans = 0;
+    _loanStats = LoanStatsModel();
+    _selectedLoan = null;
+    _isLoadingLoans = false;
+    _isLoadingLoanDetails = false;
+    _loansError = null;
+    _isSubmittingLoan = false;
+    notifyListeners();
+  }
 
   // Getters - Subsidies
   List<SubsidyItemModel> get subsidies => _subsidies;

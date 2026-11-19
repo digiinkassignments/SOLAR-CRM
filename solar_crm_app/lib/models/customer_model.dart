@@ -107,7 +107,11 @@ class CustomerModel {
       assignedToName: json['assigned_to_name']?.toString(),
       leadCode: json['lead_code']?.toString(),
       leadSource: json['effective_lead_source']?.toString() ?? json['lead_source']?.toString(),
-      plantSizeKw: json['plant_size_kw'] != null ? parseDouble(json['plant_size_kw']) : null,
+      plantSizeKw: json['plant_size_kw'] != null
+          ? parseDouble(json['plant_size_kw'])
+          : (json['opening_record'] != null && json['opening_record'] is Map
+              ? parseDouble((json['opening_record'] as Map)['plant_size_kw'])
+              : null),
       totalProjects: parseInt(json['total_projects']),
       totalSystemKw: parseDouble(json['total_system_kw']),
       totalBilledAmount: parseDouble(json['total_billed_amount']),
@@ -178,8 +182,53 @@ class CustomerStats {
   }
 }
 
+class CustomerOpeningRecord {
+  final int customerId;
+  final double? plantSizeKw;
+  final double invoiceAmount; // Final amount
+  final double amountPaid;    // Payment received
+  final String? invoiceReference;
+  final String? paymentDate;
+  final String? paymentMode;
+  final String? paymentReference;
+  final String? createdAt;
+
+  CustomerOpeningRecord({
+    required this.customerId,
+    this.plantSizeKw,
+    this.invoiceAmount = 0.0,
+    this.amountPaid = 0.0,
+    this.invoiceReference,
+    this.paymentDate,
+    this.paymentMode,
+    this.paymentReference,
+    this.createdAt,
+  });
+
+  factory CustomerOpeningRecord.fromJson(Map<String, dynamic> json) {
+    double parseDouble(dynamic val, [double fallback = 0.0]) {
+      if (val == null) return fallback;
+      if (val is num) return val.toDouble();
+      return double.tryParse(val.toString()) ?? fallback;
+    }
+
+    return CustomerOpeningRecord(
+      customerId: int.tryParse(json['customer_id']?.toString() ?? '0') ?? 0,
+      plantSizeKw: json['plant_size_kw'] != null ? parseDouble(json['plant_size_kw']) : null,
+      invoiceAmount: parseDouble(json['invoice_amount']),
+      amountPaid: parseDouble(json['amount_paid']),
+      invoiceReference: json['invoice_reference']?.toString(),
+      paymentDate: json['payment_date']?.toString(),
+      paymentMode: json['payment_mode']?.toString(),
+      paymentReference: json['payment_reference']?.toString(),
+      createdAt: json['created_at']?.toString(),
+    );
+  }
+}
+
 class Customer360Detail {
   final CustomerModel customer;
+  final CustomerOpeningRecord? openingRecord;
   final List<dynamic> projects;
   final List<dynamic> quotations;
   final List<dynamic> invoices;
@@ -187,6 +236,7 @@ class Customer360Detail {
 
   Customer360Detail({
     required this.customer,
+    this.openingRecord,
     required this.projects,
     required this.quotations,
     required this.invoices,
@@ -194,8 +244,14 @@ class Customer360Detail {
   });
 
   factory Customer360Detail.fromJson(Map<String, dynamic> json) {
+    CustomerOpeningRecord? opening;
+    if (json['opening_record'] != null && json['opening_record'] is Map) {
+      opening = CustomerOpeningRecord.fromJson(Map<String, dynamic>.from(json['opening_record']));
+    }
+
     return Customer360Detail(
       customer: CustomerModel.fromJson(json),
+      openingRecord: opening,
       projects: json['projects'] as List? ?? [],
       quotations: json['quotations'] as List? ?? [],
       invoices: json['invoices'] as List? ?? [],
