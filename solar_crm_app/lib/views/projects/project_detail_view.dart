@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -1962,6 +1963,72 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                   if (inspection.signatureDate != null) ...[
                     const SizedBox(height: 12),
                     renderDetailItem("Sign-Off Date", formatCleanDate(inspection.signatureDate)),
+                  ],
+                  if (inspection.signatureData != null && inspection.signatureData!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF0F291E) : const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF10B981)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "Customer / Representative Digital Signature",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark ? const Color(0xFF34D399) : const Color(0xFF166534),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDCFCE7),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: const Color(0xFF86EFAC)),
+                                ),
+                                child: const Text(
+                                  "✓ Signature Verified",
+                                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF16A34A)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            height: 70,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFCBD5E1)),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: inspection.signatureData!.startsWith('data:image')
+                                  ? Image.memory(
+                                      base64Decode(inspection.signatureData!.split(',').last),
+                                      fit: BoxFit.contain,
+                                    )
+                                  : Image.network(
+                                      inspection.signatureData!,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) => const Center(
+                                        child: Icon(Icons.broken_image_rounded, color: Colors.grey),
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                   const SizedBox(height: 12),
                   renderDetailItem("Technical Remarks & Conditions", inspection.remarks?.isNotEmpty == true ? inspection.remarks : "Auto-prefilled from Site Survey"),

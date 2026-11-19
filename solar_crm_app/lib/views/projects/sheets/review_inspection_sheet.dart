@@ -7,6 +7,7 @@ import '../../../core/constants/app_typography.dart';
 import '../../../models/inspection_model.dart';
 import '../../../models/project_model.dart';
 import '../../../providers/project_provider.dart';
+import '../../common/signature_capture_widget.dart';
 
 class ReviewInspectionSheet extends StatefulWidget {
   final ProjectModel project;
@@ -77,6 +78,7 @@ class _ReviewInspectionSheetState extends State<ReviewInspectionSheet> {
   final _customerSignOffCtrl = TextEditingController();
   DateTime? _signOffDate;
   final _remarksCtrl = TextEditingController();
+  String? _signatureData;
 
   @override
   void initState() {
@@ -158,6 +160,9 @@ class _ReviewInspectionSheetState extends State<ReviewInspectionSheet> {
       if (data.inspectionDate != null) _inspectionDate = data.inspectionDate!;
       if (data.customerSignatureName != null) _customerSignOffCtrl.text = data.customerSignatureName!;
       if (data.signatureDate != null) _signOffDate = data.signatureDate!;
+      if (data.signatureData != null && data.signatureData!.isNotEmpty) {
+        _signatureData = data.signatureData!;
+      }
       if (data.remarks != null) _remarksCtrl.text = data.remarks!;
     } else {
       _meterType = recommendedMeter;
@@ -374,7 +379,7 @@ class _ReviewInspectionSheetState extends State<ReviewInspectionSheet> {
       'remarks': _remarksCtrl.text.trim(),
       'customer_signature_name': _customerSignOffCtrl.text.trim(),
       'signature_date': _signOffDate != null ? DateFormat('yyyy-MM-dd').format(_signOffDate!) : null,
-      'signature_data': widget.initialData?.signatureData ?? '',
+      'signature_data': _signatureData ?? '',
     };
 
     final scaffold = ScaffoldMessenger.of(context);
@@ -991,7 +996,25 @@ class _ReviewInspectionSheetState extends State<ReviewInspectionSheet> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
+
+                        SignatureCaptureWidget(
+                          initialDataUrl: _signatureData,
+                          onSignatureChanged: (val) {
+                            setState(() {
+                              _signatureData = val;
+                            });
+                          },
+                          label: "Customer / Representative Signature",
+                          helperText: "Sign digitally using touchscreen/finger or upload signature image",
+                          isDark: isDark,
+                          cardBg: cardBg,
+                          surfaceBg: surfaceBg,
+                          borderColor: borderColor,
+                          textPrimary: textPrimary,
+                          textSecondary: textSecondary,
+                        ),
+                        const SizedBox(height: 16),
 
                         _buildTextField(
                           controller: _remarksCtrl,
