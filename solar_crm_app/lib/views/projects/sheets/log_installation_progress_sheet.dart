@@ -292,11 +292,18 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
           final originalFile = File(photo.path);
 
           // 3. Watermark with Geo-tags (GPS + Date/Time + Powered by SolOps)
+          final addressParts = [
+            widget.project.customerAddress,
+            widget.project.city,
+            widget.project.state,
+          ].where((s) => s != null && s.trim().isNotEmpty).join(', ');
+
           final watermarkedFile = await GeoCameraHelper.watermarkGeoPhoto(
             imageFile: originalFile,
             position: position,
             projectNumber: widget.project.projectNumber,
             systemCapacity: widget.project.systemCapacityKw.toString(),
+            locationAddress: addressParts.isNotEmpty ? addressParts : null,
             phase: _selectedPhase,
           );
 
@@ -1280,48 +1287,52 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // Image Thumbnail with Geo badge
-                                    Stack(
-                                      children: [
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Image.file(
-                                            entry.file,
-                                            width: 76,
-                                            height: 76,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                        if (entry.isGeoTagged)
-                                          Positioned(
-                                            bottom: 2,
-                                            left: 2,
-                                            right: 2,
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                              decoration: BoxDecoration(
-                                                color: Colors.black.withValues(alpha: 0.75),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: const [
-                                                  Icon(Icons.location_on, size: 9, color: Color(0xFFFACC15)),
-                                                  SizedBox(width: 2),
-                                                  Flexible(
-                                                    child: Text(
-                                                      "Geo Tag",
-                                                      style: TextStyle(fontSize: 8.5, color: Colors.white, fontWeight: FontWeight.bold),
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
+                                    // Image Thumbnail with Geo badge (Clickable to preview)
+                                    InkWell(
+                                      onTap: () => _showPhotoPreviewDialog(context, entry, idx),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Stack(
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Image.file(
+                                              entry.file,
+                                              width: 76,
+                                              height: 76,
+                                              fit: BoxFit.cover,
                                             ),
                                           ),
-                                      ],
+                                          if (entry.isGeoTagged)
+                                            Positioned(
+                                              bottom: 2,
+                                              left: 2,
+                                              right: 2,
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black.withValues(alpha: 0.75),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: const [
+                                                    Icon(Icons.location_on, size: 9, color: Color(0xFFFACC15)),
+                                                    SizedBox(width: 2),
+                                                    Flexible(
+                                                      child: Text(
+                                                        "Geo Tag",
+                                                        style: TextStyle(fontSize: 8.5, color: Colors.white, fontWeight: FontWeight.bold),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
                                     ),
                                     const SizedBox(width: 10),
 
@@ -1396,6 +1407,31 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                                               enabledBorder: OutlineInputBorder(
                                                 borderRadius: BorderRadius.circular(6),
                                                 borderSide: BorderSide(color: borderColor),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+
+                                          // Click to preview full photo
+                                          InkWell(
+                                            onTap: () => _showPhotoPreviewDialog(context, entry, idx),
+                                            borderRadius: BorderRadius.circular(4),
+                                            child: Padding(
+                                              padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: const [
+                                                  Icon(Icons.visibility_rounded, size: 13, color: AppColors.brandPrimary),
+                                                  SizedBox(width: 4),
+                                                  Text(
+                                                    "Preview Full Photo with Watermark",
+                                                    style: TextStyle(
+                                                      fontSize: 10.5,
+                                                      fontWeight: FontWeight.w700,
+                                                      color: AppColors.brandPrimary,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ),
@@ -1725,6 +1761,168 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showPhotoPreviewDialog(BuildContext context, _PhotoEntry entry, int index) {
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          backgroundColor: const Color(0xFF0F172A),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 24),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: entry.isGeoTagged ? const Color(0xFF065F46) : const Color(0xFF1E3A8A),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            entry.isGeoTagged ? Icons.location_on : Icons.photo,
+                            size: 13,
+                            color: entry.isGeoTagged ? const Color(0xFF34D399) : const Color(0xFF93C5FD),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            entry.isGeoTagged ? "Geo-Tagged Camera Photo" : "Uploaded Photo",
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Image preview with zoom/pan
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.55,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: InteractiveViewer(
+                    minScale: 0.8,
+                    maxScale: 4.0,
+                    child: Image.file(
+                      entry.file,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Details & Caption area
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          "Tag: ",
+                          style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        Container(
+                          height: 28,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFF334155)),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: entry.tag,
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+                              dropdownColor: const Color(0xFF1E293B),
+                              items: const [
+                                DropdownMenuItem(value: 'Before', child: Text('Before')),
+                                DropdownMenuItem(value: 'During', child: Text('During')),
+                                DropdownMenuItem(value: 'After', child: Text('After')),
+                                DropdownMenuItem(value: 'Structure', child: Text('Structure')),
+                                DropdownMenuItem(value: 'Inverter', child: Text('Inverter')),
+                                DropdownMenuItem(value: 'Earthing', child: Text('Earthing')),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setState(() => entry.tag = val);
+                                  setDialogState(() {});
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              entry.dispose();
+                              _photoEntries.removeAt(index);
+                            });
+                            Navigator.of(ctx).pop();
+                          },
+                          icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.errorRed),
+                          label: const Text("Delete", style: TextStyle(color: AppColors.errorRed, fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: entry.captionCtrl,
+                      style: const TextStyle(fontSize: 12, color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: "Add photo caption...",
+                        hintStyle: const TextStyle(fontSize: 11, color: Colors.white38),
+                        filled: true,
+                        fillColor: const Color(0xFF1E293B),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        isDense: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: const BorderSide(color: Color(0xFF334155)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: const BorderSide(color: Color(0xFF334155)),
+                        ),
+                      ),
+                      onChanged: (val) {
+                        setState(() {});
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
