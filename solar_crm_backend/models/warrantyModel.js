@@ -80,6 +80,13 @@ const serializeJsonField = (val) => {
   return typeof val === 'object' ? JSON.stringify(val) : val;
 };
 
+const cleanDate = (d) => {
+  if (!d) return null;
+  const s = String(d).trim();
+  if (!s || s === 'null' || s === 'undefined') return null;
+  return s.length >= 10 ? s.substring(0, 10) : s;
+};
+
 const getWarrantyAndVisits = async (db, projectId) => {
   const [warrantyRows] = await db.query(
     `SELECT * FROM project_warranty_amc WHERE project_id = ? AND is_deleted = 0 LIMIT 1`,
@@ -117,22 +124,22 @@ const createWarranty = async (db, projectId, data, userId) => {
       projectId, certNo,
       data.panel_warranty_years || null,
       data.panel_product_warranty_years || null,
-      data.panel_product_warranty_end || null,
+      cleanDate(data.panel_product_warranty_end),
       data.panel_performance_warranty_years || null,
-      data.panel_performance_warranty_end || null,
+      cleanDate(data.panel_performance_warranty_end),
       data.inverter_warranty_years || null,
-      data.inverter_warranty_end || null,
+      cleanDate(data.inverter_warranty_end),
       data.installation_warranty_years || null,
-      data.installation_warranty_end || null,
-      data.warranty_start_date || null,
-      data.warranty_end_date || null,
-      data.free_service_end_date || null,
-      data.amc_start_date || null,
-      data.amc_end_date || null,
+      cleanDate(data.installation_warranty_end),
+      cleanDate(data.warranty_start_date),
+      cleanDate(data.warranty_end_date),
+      cleanDate(data.free_service_end_date),
+      cleanDate(data.amc_start_date),
+      cleanDate(data.amc_end_date),
       data.amc_plan || null,
       data.amc_amount === '' || data.amc_amount == null ? null : data.amc_amount,
       data.amc_payment_status || null,
-      data.amc_renewal_date || null,
+      cleanDate(data.amc_renewal_date),
       data.visit_frequency || null,
       data.panel_serial_numbers || null,
       data.inverter_serial_number || null,
@@ -184,22 +191,22 @@ const updateWarranty = async (db, projectId, data) => {
       data.warranty_certificate_no || null,
       data.panel_warranty_years,
       data.panel_product_warranty_years || null,
-      data.panel_product_warranty_end || null,
+      cleanDate(data.panel_product_warranty_end),
       data.panel_performance_warranty_years || null,
-      data.panel_performance_warranty_end || null,
+      cleanDate(data.panel_performance_warranty_end),
       data.inverter_warranty_years || null,
-      data.inverter_warranty_end || null,
+      cleanDate(data.inverter_warranty_end),
       data.installation_warranty_years || null,
-      data.installation_warranty_end || null,
-      data.warranty_start_date || null,
-      data.warranty_end_date || null,
-      data.free_service_end_date || null,
-      data.amc_start_date || null,
-      data.amc_end_date || null,
+      cleanDate(data.installation_warranty_end),
+      cleanDate(data.warranty_start_date),
+      cleanDate(data.warranty_end_date),
+      cleanDate(data.free_service_end_date),
+      cleanDate(data.amc_start_date),
+      cleanDate(data.amc_end_date),
       data.amc_plan || null,
       data.amc_amount === '' || data.amc_amount == null ? null : data.amc_amount,
       data.amc_payment_status || null,
-      data.amc_renewal_date || null,
+      cleanDate(data.amc_renewal_date),
       data.visit_frequency || null,
       data.panel_serial_numbers || null,
       data.inverter_serial_number || null,
@@ -220,7 +227,7 @@ const addServiceVisit = async (db, projectId, data, userId) => {
       project_id, visit_date, technician, issue_reported, resolution, status, created_by
     ) VALUES (?,?,?,?,?,?,?)`,
     [
-      projectId, data.visit_date, data.technician, data.issue_reported, data.resolution, data.status || 'Completed', userId
+      projectId, cleanDate(data.visit_date), data.technician, data.issue_reported, data.resolution, data.status || 'Completed', userId
     ]
   );
   return result.insertId;
@@ -235,7 +242,7 @@ const updateServiceVisit = async (db, visitId, data) => {
       resolution = COALESCE(?, resolution),
       status = COALESCE(?, status)
      WHERE id = ? AND is_deleted = 0`,
-    [data.visit_date, data.technician, data.issue_reported, data.resolution, data.status, visitId]
+    [cleanDate(data.visit_date), data.technician, data.issue_reported, data.resolution, data.status, visitId]
   );
 };
 

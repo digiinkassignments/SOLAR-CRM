@@ -15,7 +15,9 @@ import 'sheets/customer_handover_form_sheet.dart';
 import 'sheets/edit_project_sheet.dart';
 import 'sheets/final_inspection_form_sheet.dart';
 import 'sheets/log_installation_progress_sheet.dart';
+import 'sheets/log_service_visit_sheet.dart';
 import 'sheets/review_inspection_sheet.dart';
+import 'sheets/warranty_amc_form_sheet.dart';
 
 class ProjectDetailView extends StatefulWidget {
   final dynamic projectId;
@@ -54,6 +56,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     provider.fetchCommissioning(widget.projectId);
     provider.fetchFinalInspection(widget.projectId);
     provider.fetchCustomerHandover(widget.projectId);
+    provider.fetchWarrantyAmc(widget.projectId);
   }
 
   Future<void> _makeCall(String phoneNumber) async {
@@ -302,18 +305,15 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                           ),
 
                           // Tab 7: Warranty & AMC
-                          _buildStagePlaceholderTab(
-                            project: project,
-                            title: "Warranty & AMC Maintenance",
-                            description: "25-year solar generation performance guarantee, inverter warranty and routine AMC visits.",
-                            icon: Icons.verified_outlined,
-                            accentColor: const Color(0xFF0D9488),
-                            isDark: isDark,
-                            cardBg: cardBg,
-                            surfaceBg: surfaceBg,
-                            borderColor: borderColor,
-                            textPrimary: textPrimary,
-                            textSecondary: textSecondary,
+                          _buildWarrantyAmcTab(
+                            project,
+                            provider,
+                            isDark,
+                            cardBg,
+                            surfaceBg,
+                            borderColor,
+                            textPrimary,
+                            textSecondary,
                           ),
                         ],
                       ),
@@ -5833,7 +5833,8 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
   Widget _buildWarrantyDisplayCard({
     required IconData icon,
-    required Color iconColor,
+    Color? iconColor,
+    Color? topColor,
     required String title,
     required String years,
     required String subtitle,
@@ -5843,19 +5844,25 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     required Color textPrimary,
     required Color textSecondary,
   }) {
+    final effectiveColor = iconColor ?? topColor ?? textPrimary;
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor),
+        border: Border(
+          top: BorderSide(color: topColor ?? borderColor, width: topColor != null ? 3.0 : 1.0),
+          left: BorderSide(color: borderColor),
+          right: BorderSide(color: borderColor),
+          bottom: BorderSide(color: borderColor),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 14, color: iconColor),
+              Icon(icon, size: 14, color: effectiveColor),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
@@ -5885,77 +5892,933 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   // ==========================================
   // TAB 7: WARRANTY & AMC MODULE WORKSPACE
   // ==========================================
-  Widget _buildStagePlaceholderTab({
-    required ProjectModel project,
-    required String title,
-    required String description,
-    required IconData icon,
-    required Color accentColor,
-    required bool isDark,
-    required Color cardBg,
-    required Color surfaceBg,
-    required Color borderColor,
-    required Color textPrimary,
-    required Color textSecondary,
-  }) {
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        _buildTopMetricsBanner(
-          project,
-          isDark,
-          cardBg,
-          surfaceBg,
-          borderColor,
-          textPrimary,
-          textSecondary,
-        ),
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderColor),
+  Widget _buildWarrantyAmcTab(
+    ProjectModel project,
+    ProjectProvider provider,
+    bool isDark,
+    Color cardBg,
+    Color surfaceBg,
+    Color borderColor,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    final warranty = provider.warrantyAmc;
+    final visits = provider.serviceVisits;
+    final isLoading = provider.isLoadingWarrantyAmc;
+
+    String formatCleanDate(String? dStr) {
+      if (dStr == null || dStr.trim().isEmpty) return "—";
+      try {
+        final d = DateTime.parse(dStr);
+        return DateFormat("dd MMM yyyy").format(d.toLocal());
+      } catch (_) {
+        return dStr;
+      }
+    }
+
+    final defaultCertNo = warranty?.warrantyCertificateNo ??
+        "WAR-${DateTime.now().year}-${project.id.toString().padLeft(4, '0')}";
+
+    final serviceVisitsPerYear = {
+      "Monthly": 12,
+      "Quarterly": 4,
+      "Half-yearly": 2,
+      "Annual": 1,
+    }[warranty?.visitFrequency ?? "Quarterly"] ?? 4;
+
+    final annualAmcFee = warranty?.amcAmount;
+    final amcFeePerVisit = annualAmcFee != null && serviceVisitsPerYear > 0
+        ? annualAmcFee / serviceVisitsPerYear
+        : null;
+
+    final scheduledVisits = warranty?.scheduledVisits ?? [];
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await provider.fetchWarrantyAmc(project.id);
+      },
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          if (isLoading && warranty == null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Center(
+                child: Column(
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 12),
+                    Text(
+                      "Loading warranty & AMC details...",
+                      style: TextStyle(color: textSecondary, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // 1. HEADER CARD: STAGE BANNER & WORKFLOW ACTIONS
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.shield_rounded, color: Color(0xFF059669), size: 22),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                "Warranty & AMC",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: textPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: warranty != null
+                                      ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFDEF7EC))
+                                      : (isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7)),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: warranty != null
+                                        ? const Color(0xFF31C48D)
+                                        : const Color(0xFFF59E0B),
+                                  ),
+                                ),
+                                child: Text(
+                                  warranty != null ? "Warranty record saved" : "Not configured",
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: warranty != null
+                                        ? (isDark ? const Color(0xFF34D399) : const Color(0xFF03543F))
+                                        : const Color(0xFFD97706),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Component warranties, recorded service visits and company-defined AMC contracts.",
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: textSecondary,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Milestone Notice
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0C1929) : const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: isDark ? const Color(0xFF1E3A8A) : const Color(0xFFBFDBFE)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, size: 14, color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          "Current project milestone: ${project.stage}. Check Stage History for saved changes and dates.",
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E40AF),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          WarrantyAmcFormSheet.show(
+                            context,
+                            project: project,
+                            existingWarranty: warranty,
+                          );
+                        },
+                        icon: const Icon(Icons.edit_note_rounded, size: 16),
+                        label: const Text(
+                          "Update Warranty & AMC",
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F172A),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          LogServiceVisitSheet.show(context, project: project);
+                        },
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: const Text(
+                          "Log Visit",
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: textPrimary,
+                          side: BorderSide(color: borderColor),
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          const SizedBox(height: 12),
+
+          // 2. COMPANY AMC NOTICE
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borderColor),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.assignment_outlined, size: 16, color: textSecondary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "AMC plans are defined by your company. Select a plan explicitly for each contract.",
+                    style: TextStyle(fontSize: 11, color: textSecondary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          if (warranty == null) ...[
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0C1929) : const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: isDark ? const Color(0xFF1E3A8A) : const Color(0xFFBFDBFE)),
+              ),
+              child: Text(
+                "No warranty or AMC record has been saved. Values below are draft setup values; tap Update Warranty & AMC to save.",
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E40AF),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // 3. ASSET IDENTIFICATION & CERTIFICATE CARD
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.3) : const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.verified_rounded, color: Color(0xFF2563EB), size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "WARRANTY CERTIFICATE #",
+                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: textSecondary),
+                          ),
+                          Text(
+                            defaultCertNo,
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("WARRANTY START DATE", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: textSecondary)),
+                          const SizedBox(height: 2),
+                          Text(
+                            formatCleanDate(warranty?.warrantyStartDate),
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textPrimary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("FREE 1ST-YEAR SERVICE", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: textSecondary)),
+                          const SizedBox(height: 2),
+                          Text(
+                            "Ends ${formatCleanDate(warranty?.freeServiceEndDate)}",
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF059669)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const Divider(height: 20),
+
+                // Hardware Serials
+                Text(
+                  "REGISTERED HARDWARE SERIAL NUMBERS",
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: textSecondary),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: surfaceBg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "• Panels: ${warranty?.panelSerialNumbers != null && warranty!.panelSerialNumbers!.isNotEmpty ? warranty.panelSerialNumbers : 'Not recorded'}",
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textPrimary),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "• Inverter: ${warranty?.inverterSerialNumber != null && warranty!.inverterSerialNumber!.isNotEmpty ? warranty.inverterSerialNumber : 'Not recorded'}",
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textPrimary),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Cloud Generation Monitoring Portal
+                Text(
+                  "CLOUD GENERATION MONITORING PORTAL",
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: textSecondary),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: surfaceBg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              warranty?.monitoringPortalUrl != null && warranty!.monitoringPortalUrl!.isNotEmpty
+                                  ? warranty.monitoringPortalUrl!
+                                  : "Monitoring URL not configured",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: warranty?.monitoringPortalUrl != null && warranty!.monitoringPortalUrl!.isNotEmpty
+                                    ? const Color(0xFF2563EB)
+                                    : textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "Plant ID: ${warranty?.monitoringPlantId ?? '—'}  |  User: ${warranty?.monitoringUsername ?? '—'}",
+                              style: TextStyle(fontSize: 10, color: textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: warranty?.monitoringPortalUrl != null && warranty!.monitoringPortalUrl!.isNotEmpty
+                              ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7))
+                              : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          warranty?.monitoringPortalUrl != null && warranty!.monitoringPortalUrl!.isNotEmpty
+                              ? "Portal recorded"
+                              : "Not configured",
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: warranty?.monitoringPortalUrl != null && warranty!.monitoringPortalUrl!.isNotEmpty
+                                ? const Color(0xFF166534)
+                                : textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 4. 4-TIER INDEPENDENT COMPONENT WARRANTY CARDS
+          Text(
+            "INDEPENDENT COMPONENT WARRANTIES (START: ${formatCleanDate(warranty?.warrantyStartDate).toUpperCase()})",
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(14),
+              Expanded(
+                child: _buildWarrantyDisplayCard(
+                  title: "Panel Product",
+                  years: "${warranty?.panelProductWarrantyYears ?? 12} Years",
+                  subtitle: "Materials & Workmanship",
+                  validUntil: formatCleanDate(warranty?.panelProductWarrantyEnd),
+                  topColor: const Color(0xFF0284C7),
+                  cardBg: cardBg,
+                  borderColor: borderColor,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                  icon: Icons.solar_power_rounded,
                 ),
-                child: Icon(icon, size: 36, color: accentColor),
               ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: AppTypography.heading(size: 16, color: textPrimary),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                description,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: textSecondary, height: 1.4),
-              ),
-              const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: surfaceBg,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  "Workflows & Evidence Uploads synced with Web CRM",
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textSecondary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildWarrantyDisplayCard(
+                  title: "Panel Power",
+                  years: "${warranty?.panelPerformanceWarrantyYears ?? 25} Years",
+                  subtitle: "Linear Guarantee (>84.8%)",
+                  validUntil: formatCleanDate(warranty?.panelPerformanceWarrantyEnd),
+                  topColor: const Color(0xFF2563EB),
+                  cardBg: cardBg,
+                  borderColor: borderColor,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                  icon: Icons.fact_check_rounded,
                 ),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildWarrantyDisplayCard(
+                  title: "Grid Inverter",
+                  years: "${warranty?.inverterWarrantyYears ?? 5} Years",
+                  subtitle: "OEM Hardware Replacement",
+                  validUntil: formatCleanDate(warranty?.inverterWarrantyEnd),
+                  topColor: const Color(0xFFD97706),
+                  cardBg: cardBg,
+                  borderColor: borderColor,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                  icon: Icons.electric_bolt_rounded,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildWarrantyDisplayCard(
+                  title: "EPC Workmanship",
+                  years: "${warranty?.installationWarrantyYears ?? 5} Years",
+                  subtitle: "Structure & Waterproofing",
+                  validUntil: formatCleanDate(warranty?.installationWarrantyEnd),
+                  topColor: const Color(0xFF059669),
+                  cardBg: cardBg,
+                  borderColor: borderColor,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                  icon: Icons.build_rounded,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // 5. PAID ANNUAL MAINTENANCE CONTRACT (AMC)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "PAID ANNUAL MAINTENANCE CONTRACT",
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textPrimary),
+                        ),
+                        Text(
+                          "Starts after free-service period.",
+                          style: TextStyle(fontSize: 10, color: textSecondary),
+                        ),
+                      ],
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        WarrantyAmcFormSheet.show(
+                          context,
+                          project: project,
+                          existingWarranty: warranty,
+                        );
+                      },
+                      icon: const Icon(Icons.edit_outlined, size: 14),
+                      label: const Text("Edit AMC", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Selected Plan Box
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: surfaceBg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text("SELECTED PLAN", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: textSecondary)),
+                          if (warranty?.visitFrequency != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                warranty!.visitFrequency!,
+                                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: textPrimary),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        warranty?.amcPlan ?? "Plan not selected",
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: textPrimary),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        warranty?.amcPlanSnapshot?['coverage']?.toString() ??
+                            (warranty?.amcPlan != null
+                                ? 'Legacy contract: coverage was not recorded. Tap Edit AMC to select an updated plan.'
+                                : 'No plan selected. Create company plans and select one in Edit AMC.'),
+                        style: TextStyle(fontSize: 11, color: textSecondary, height: 1.3),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Commercial Terms & Fee Box
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: surfaceBg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("COMMERCIAL TERMS & FEE", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: textSecondary)),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            annualAmcFee != null ? "₹${annualAmcFee.toStringAsFixed(0)}" : "Not set",
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: textPrimary),
+                          ),
+                          const SizedBox(width: 4),
+                          Text("/ year", style: TextStyle(fontSize: 10, color: textSecondary)),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: (warranty?.amcPaymentStatus == 'Paid')
+                                  ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7))
+                                  : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              "Status: ${warranty?.amcPaymentStatus ?? 'Not set'}",
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: (warranty?.amcPaymentStatus == 'Paid')
+                                    ? const Color(0xFF166534)
+                                    : textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        project.systemCapacityKw > 0
+                            ? "Calculated for ${project.systemCapacityKw.toStringAsFixed(2)} kW system"
+                            : "System capacity not recorded",
+                        style: TextStyle(fontSize: 10, color: textSecondary),
+                      ),
+                      if (amcFeePerVisit != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          "• ₹${amcFeePerVisit.toStringAsFixed(2)} per ${(warranty?.visitFrequency ?? 'Quarterly').toLowerCase()} visit",
+                          style: TextStyle(fontSize: 10, color: textSecondary),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Contract Term & Renewal Box
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: surfaceBg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("CONTRACT TERM & RENEWAL", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: textSecondary)),
+                      const SizedBox(height: 4),
+                      Text(
+                        warranty?.amcStartDate != null && warranty?.amcEndDate != null
+                            ? "Effective: ${formatCleanDate(warranty!.amcStartDate)} — ${formatCleanDate(warranty.amcEndDate)}"
+                            : "Term not set",
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textPrimary),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "Renewal Date: ${warranty?.amcRenewalDate != null ? formatCleanDate(warranty!.amcRenewalDate) : 'Not set'}",
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 6. PREVENTIVE MAINTENANCE SCHEDULE (SCHEDULED VISITS)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "PREVENTIVE MAINTENANCE SCHEDULE",
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textPrimary),
+                ),
+                Text(
+                  "Saved service intervals and technical scope. Tap a status to toggle Done/Scheduled.",
+                  style: TextStyle(fontSize: 10, color: textSecondary),
+                ),
+                const SizedBox(height: 10),
+
+                if (scheduledVisits.isEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: Text(
+                        "No maintenance visits have been scheduled.",
+                        style: TextStyle(fontSize: 11, color: textSecondary),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  ...scheduledVisits.map((v) {
+                    final isDone = v.status == 'Completed';
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: surfaceBg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      v.quarter ?? "Service Milestone",
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textPrimary),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      formatCleanDate(v.scheduledDate),
+                                      style: TextStyle(fontSize: 11, color: textSecondary),
+                                    ),
+                                  ],
+                                ),
+                                if (v.technician != null && v.technician!.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    "Engineer: ${v.technician}",
+                                    style: TextStyle(fontSize: 10, color: textSecondary),
+                                  ),
+                                ],
+                                if (v.scope != null && v.scope!.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    v.scope!,
+                                    style: TextStyle(fontSize: 10, color: textSecondary),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Interactive Toggle Chip
+                          InkWell(
+                            onTap: () async {
+                              final ok = await provider.toggleScheduledVisit(project.id, v.id);
+                              if (ok && mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text("Visit status changed to ${!isDone ? 'Completed' : 'Scheduled'}"),
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isDone
+                                    ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7))
+                                    : (isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7)),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isDone ? const Color(0xFF10B981) : const Color(0xFFD97706),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isDone ? Icons.check_circle_rounded : Icons.calendar_month_rounded,
+                                    size: 12,
+                                    color: isDone ? const Color(0xFF166534) : const Color(0xFF92400E),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    isDone ? "Completed" : "Scheduled",
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: isDone ? const Color(0xFF166534) : const Color(0xFF92400E),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 7. HISTORICAL FIELD SERVICE LOGS (UNSCHEDULED VISITS)
+          if (visits.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "HISTORICAL FIELD SERVICE LOGS (${visits.length})",
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textPrimary),
+                  ),
+                  const SizedBox(height: 10),
+                  ...visits.map((vis) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: surfaceBg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                formatCleanDate(vis.visitDate),
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textPrimary),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  vis.status ?? "Completed",
+                                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: textPrimary),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Technician: ${vis.technician != null && vis.technician!.isNotEmpty ? vis.technician : '—'}",
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textPrimary),
+                          ),
+                          if (vis.issueReported != null && vis.issueReported!.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              "Issue/Scope: ${vis.issueReported}",
+                              style: TextStyle(fontSize: 10, color: textSecondary),
+                            ),
+                          ],
+                          if (vis.resolution != null && vis.resolution!.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              "Resolution: ${vis.resolution}",
+                              style: TextStyle(fontSize: 10, color: textSecondary),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ],
+      ),
     );
   }
 

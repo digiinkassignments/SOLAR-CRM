@@ -1392,3 +1392,4 @@ class _SignaturePainter extends CustomPainter {
   @override
   bool shouldRepaint(_SignaturePainter oldDelegate) => true;
 }
+

@@ -10,6 +10,7 @@ import '../models/final_inspection_model.dart';
 import '../models/inspection_model.dart';
 import '../models/installation_log_model.dart';
 import '../models/project_model.dart';
+import '../models/warranty_amc_model.dart';
 
 class ProjectProvider extends ChangeNotifier {
   final ApiClient apiClient;
@@ -642,6 +643,183 @@ class ProjectProvider extends ChangeNotifier {
       };
     } catch (e) {
       debugPrint("saveCustomerHandover error: $e");
+      String errorMsg = e.toString();
+      if (e is DioException) {
+        errorMsg = e.response?.data?['message'] ?? e.message ?? errorMsg;
+      }
+      return {'success': false, 'message': errorMsg};
+    }
+  }
+
+  // 18. Warranty & AMC State & Methods
+  WarrantyAmcModel? _warrantyAmc;
+  List<ServiceVisitModel> _serviceVisits = [];
+  List<CompanyAmcPlanModel> _companyAmcPlans = [];
+  bool _isLoadingWarrantyAmc = false;
+  bool _isLoadingAmcPlans = false;
+
+  WarrantyAmcModel? get warrantyAmc => _warrantyAmc;
+  List<ServiceVisitModel> get serviceVisits => _serviceVisits;
+  List<CompanyAmcPlanModel> get companyAmcPlans => _companyAmcPlans;
+  bool get isLoadingWarrantyAmc => _isLoadingWarrantyAmc;
+  bool get isLoadingAmcPlans => _isLoadingAmcPlans;
+
+  Future<void> fetchWarrantyAmc(dynamic projectId) async {
+    _isLoadingWarrantyAmc = true;
+    notifyListeners();
+
+    try {
+      final res = await apiClient.dio.get(ApiConstants.projectWarranty(projectId));
+      final raw = res.data;
+      final wData = raw?['warranty'];
+      final vData = raw?['visits'];
+
+      if (wData != null && wData is Map && (wData['id'] != null || wData['project_id'] != null || wData['warranty_certificate_no'] != null)) {
+        _warrantyAmc = WarrantyAmcModel.fromJson(Map<String, dynamic>.from(wData));
+      } else {
+        _warrantyAmc = null;
+      }
+
+      if (vData != null && vData is List) {
+        _serviceVisits = vData.map((e) => ServiceVisitModel.fromJson(Map<String, dynamic>.from(e))).toList();
+      } else {
+        _serviceVisits = [];
+      }
+    } catch (e) {
+      debugPrint("fetchWarrantyAmc error: $e");
+      _warrantyAmc = null;
+      _serviceVisits = [];
+    } finally {
+      _isLoadingWarrantyAmc = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchCompanyAmcPlans() async {
+    _isLoadingAmcPlans = true;
+    notifyListeners();
+
+    try {
+      final res = await apiClient.dio.get(ApiConstants.amcPlans);
+      final raw = res.data;
+      final plans = raw?['plans'];
+      if (plans != null && plans is List) {
+        _companyAmcPlans = plans.map((e) => CompanyAmcPlanModel.fromJson(Map<String, dynamic>.from(e))).toList();
+      } else {
+        _companyAmcPlans = [];
+      }
+    } catch (e) {
+      debugPrint("fetchCompanyAmcPlans error: $e");
+      _companyAmcPlans = [];
+    } finally {
+      _isLoadingAmcPlans = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> saveWarrantyAmc(dynamic projectId, Map<String, dynamic> data) async {
+    try {
+      final url = ApiConstants.projectWarranty(projectId);
+      final res = await apiClient.dio.post(url, data: data);
+
+      await fetchWarrantyAmc(projectId);
+      await fetchProjectDetails(projectId);
+
+      return {
+        'success': true,
+        'message': res.data?['message'] ?? 'Warranty & AMC saved successfully!',
+        'warranty': _warrantyAmc,
+      };
+    } catch (e) {
+      debugPrint("saveWarrantyAmc error: $e");
+      String errorMsg = e.toString();
+      if (e is DioException) {
+        errorMsg = e.response?.data?['message'] ?? e.message ?? errorMsg;
+      }
+      return {'success': false, 'message': errorMsg};
+    }
+  }
+
+  Future<bool> toggleScheduledVisit(dynamic projectId, dynamic visitId) async {
+    if (_warrantyAmc == null) return false;
+    final currentVisits = List<ScheduledVisitModel>.from(_warrantyAmc!.scheduledVisits);
+    final idx = currentVisits.indexWhere((v) => v.id == visitId);
+    if (idx == -1) return false;
+
+    final target = currentVisits[idx];
+    final nextStatus = target.status == 'Completed' ? 'Scheduled' : 'Completed';
+    final nowStr = DateTime.now().toIso8601String().substring(0, 10);
+    final updated = target.copyWith(
+      status: nextStatus,
+      completedDate: nextStatus == 'Completed' ? nowStr : null,
+    );
+
+    currentVisits[idx] = updated;
+
+    // Optimistically update local model
+    _warrantyAmc = WarrantyAmcModel(
+      id: _warrantyAmc!.id,
+      projectId: _warrantyAmc!.projectId,
+      warrantyCertificateNo: _warrantyAmc!.warrantyCertificateNo,
+      panelWarrantyYears: _warrantyAmc!.panelWarrantyYears,
+      panelProductWarrantyYears: _warrantyAmc!.panelProductWarrantyYears,
+      panelProductWarrantyEnd: _warrantyAmc!.panelProductWarrantyEnd,
+      panelPerformanceWarrantyYears: _warrantyAmc!.panelPerformanceWarrantyYears,
+      panelPerformanceWarrantyEnd: _warrantyAmc!.panelPerformanceWarrantyEnd,
+      inverterWarrantyYears: _warrantyAmc!.inverterWarrantyYears,
+      inverterWarrantyEnd: _warrantyAmc!.inverterWarrantyEnd,
+      installationWarrantyYears: _warrantyAmc!.installationWarrantyYears,
+      installationWarrantyEnd: _warrantyAmc!.installationWarrantyEnd,
+      warrantyStartDate: _warrantyAmc!.warrantyStartDate,
+      warrantyEndDate: _warrantyAmc!.warrantyEndDate,
+      freeServiceEndDate: _warrantyAmc!.freeServiceEndDate,
+      amcStartDate: _warrantyAmc!.amcStartDate,
+      amcEndDate: _warrantyAmc!.amcEndDate,
+      amcPlan: _warrantyAmc!.amcPlan,
+      amcPlanId: _warrantyAmc!.amcPlanId,
+      amcPlanSnapshot: _warrantyAmc!.amcPlanSnapshot,
+      amcAmount: _warrantyAmc!.amcAmount,
+      amcPaymentStatus: _warrantyAmc!.amcPaymentStatus,
+      amcRenewalDate: _warrantyAmc!.amcRenewalDate,
+      visitFrequency: _warrantyAmc!.visitFrequency,
+      panelSerialNumbers: _warrantyAmc!.panelSerialNumbers,
+      inverterSerialNumber: _warrantyAmc!.inverterSerialNumber,
+      monitoringPortalUrl: _warrantyAmc!.monitoringPortalUrl,
+      monitoringPlantId: _warrantyAmc!.monitoringPlantId,
+      monitoringUsername: _warrantyAmc!.monitoringUsername,
+      warrantyDocketUrl: _warrantyAmc!.warrantyDocketUrl,
+      scheduledVisits: currentVisits,
+      createdBy: _warrantyAmc!.createdBy,
+      createdAt: _warrantyAmc!.createdAt,
+      updatedAt: _warrantyAmc!.updatedAt,
+    );
+    notifyListeners();
+
+    try {
+      final payload = _warrantyAmc!.toJson();
+      await apiClient.dio.post(ApiConstants.projectWarranty(projectId), data: payload);
+      await fetchWarrantyAmc(projectId);
+      return true;
+    } catch (e) {
+      debugPrint("toggleScheduledVisit error: $e");
+      await fetchWarrantyAmc(projectId);
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> addServiceVisit(dynamic projectId, Map<String, dynamic> visitData) async {
+    try {
+      final url = ApiConstants.projectWarrantyVisits(projectId);
+      final res = await apiClient.dio.post(url, data: visitData);
+
+      await fetchWarrantyAmc(projectId);
+
+      return {
+        'success': true,
+        'message': res.data?['message'] ?? 'Service visit logged successfully!',
+      };
+    } catch (e) {
+      debugPrint("addServiceVisit error: $e");
       String errorMsg = e.toString();
       if (e is DioException) {
         errorMsg = e.response?.data?['message'] ?? e.message ?? errorMsg;

@@ -115,6 +115,12 @@ class ApiConstants {
   // Project Customer Handover & Warranty Activation
   static String projectHandover(dynamic id) => "/projects/$id/handover";
 
+  // Project Warranty & AMC Lifecycle
+  static String projectWarranty(dynamic id) => "/projects/$id/warranty";
+  static String projectWarrantyVisits(dynamic id) => "/projects/$id/warranty/visits";
+  static String projectWarrantyVisitDetail(dynamic id, dynamic visitId) => "/projects/$id/warranty/visits/$visitId";
+  static const String amcPlans = "/amc-plans";
+
   // Solar Loans & Financing Hub
   static const String loans = "/loans";
   static const String loanStats = "/loans/stats";
