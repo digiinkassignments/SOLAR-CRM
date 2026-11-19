@@ -8,6 +8,11 @@ import '../widgets/logout_dialog.dart';
 import '../settings/settings_view.dart';
 import '../widgets/navbar_location_pill.dart';
 import '../widgets/user_profile_avatar.dart';
+import '../admin/leads/leads_list_view.dart';
+import '../admin/customers/customers_list_view.dart';
+import '../projects/projects_list_view.dart';
+import 'manager_dashboard_view.dart';
+import 'manager_team_view.dart';
 
 class ManagerShell extends StatefulWidget {
   const ManagerShell({super.key});
@@ -25,54 +30,15 @@ class _ManagerShellState extends State<ManagerShell> {
     final user = auth.user;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryTextColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-    final secondaryTextColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
-    final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     final pages = [
-      Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: surfaceColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: borderColor),
-                ),
-                child: const Icon(
-                  Icons.groups_outlined,
-                  size: 48,
-                  color: AppColors.skyBlue,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                "Team Management Ready",
-                style: AppTypography.headingMedium(color: primaryTextColor),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "Team followups, lead allocation & survey schedules ready for live API integration.",
-                textAlign: TextAlign.center,
-                style: AppTypography.subtitle(color: secondaryTextColor),
-              ),
-            ],
-          ),
-        ),
+      ManagerDashboardView(
+        onNavigateTab: (index) => setState(() => _currentIndex = index),
       ),
-      Center(
-        child: Text("Team Leads", style: AppTypography.headingMedium(color: primaryTextColor)),
-      ),
-      Center(
-        child: Text("Survey Schedules", style: AppTypography.headingMedium(color: primaryTextColor)),
-      ),
-      Center(
-        child: Text("Manager Reports", style: AppTypography.headingMedium(color: primaryTextColor)),
-      ),
+      const LeadsListView(),
+      const CustomersListView(),
+      const ProjectsListView(),
+      const ManagerTeamView(),
       const SettingsView(),
     ];
 
@@ -80,7 +46,7 @@ class _ManagerShellState extends State<ManagerShell> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: InkWell(
-          onTap: () => setState(() => _currentIndex = 4),
+          onTap: () => setState(() => _currentIndex = 5),
           borderRadius: BorderRadius.circular(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,9 +54,11 @@ class _ManagerShellState extends State<ManagerShell> {
               Text(
                 user?.name ?? "Team Manager",
                 style: AppTypography.headingSmall(color: primaryTextColor),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               Text(
-                "MANAGER WORKSPACE • ${auth.workspace?.toUpperCase()}",
+                "MANAGER • ${auth.workspace?.toUpperCase()}",
                 style: AppTypography.badge(color: AppColors.skyBlue),
               ),
             ],
@@ -101,8 +69,8 @@ class _ManagerShellState extends State<ManagerShell> {
           const SizedBox(width: 4),
           UserProfileAvatar(
             radius: 14,
-            isSelected: _currentIndex == 4,
-            onTap: () => setState(() => _currentIndex = 4),
+            isSelected: _currentIndex == 5,
+            onTap: () => setState(() => _currentIndex = 5),
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: AppColors.errorRed),
@@ -125,35 +93,36 @@ class _ManagerShellState extends State<ManagerShell> {
         children: pages,
       ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
+        currentIndex: _currentIndex > 4 ? 0 : _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         selectedItemColor: AppColors.skyBlue,
+        unselectedItemColor: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined),
-            activeIcon: Icon(Icons.dashboard),
+            activeIcon: Icon(Icons.dashboard_rounded),
             label: "Overview",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.group_outlined),
-            activeIcon: Icon(Icons.group),
-            label: "Team Leads",
+            icon: Icon(Icons.assignment_outlined),
+            activeIcon: Icon(Icons.assignment_rounded),
+            label: "Leads",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today_outlined),
-            activeIcon: Icon(Icons.calendar_today),
-            label: "Surveys",
+            icon: Icon(Icons.people_outline_rounded),
+            activeIcon: Icon(Icons.people_rounded),
+            label: "Customers",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_outlined),
-            activeIcon: Icon(Icons.bar_chart),
-            label: "Reports",
+            icon: Icon(Icons.solar_power_outlined),
+            activeIcon: Icon(Icons.solar_power_rounded),
+            label: "Projects",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
-            label: "Settings",
+            icon: Icon(Icons.badge_outlined),
+            activeIcon: Icon(Icons.badge_rounded),
+            label: "Team",
           ),
         ],
       ),

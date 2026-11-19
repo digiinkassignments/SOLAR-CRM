@@ -102,3 +102,4 @@ class UserProfileAvatar extends StatelessWidget {
     );
   }
 }
+
