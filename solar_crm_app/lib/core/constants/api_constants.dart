@@ -66,6 +66,7 @@ class ApiConstants {
 
   // Leads endpoints
   static const String leads = "/leads";
+  static const String salesWorkflow = "/sales-workflow";
   static const String followups = "/leads/followups";
   static const String followupStats = "/leads/followups/stats";
   static const String followupsCalendar = "/leads/followups/calendar";

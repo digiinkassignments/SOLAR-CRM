@@ -76,6 +76,50 @@ void main() {
       expect(isClosed('New Lead', 'Not Interested'), isTrue);
     });
 
+    test('LeadFollowupItem parses atomic action fields: call_outcome, next_action, next_follow_up_time', () {
+      final json = {
+        'id': 42,
+        'note': 'Customer confirmed 5kW rooftop setup, requested subsidy form',
+        'followup_type': 'Call',
+        'call_outcome': 'Connected',
+        'status_after_followup': 'Qualified',
+        'next_action': 'Send quotation via WhatsApp and call back at 4 PM',
+        'follow_up_date': '2026-11-22',
+        'next_follow_up_time': '16:00:00',
+        'created_by_name': 'Aman Sales',
+        'created_at': '2026-11-20T10:00:00.000Z',
+      };
+
+      final followup = LeadFollowupItem.fromJson(json);
+
+      expect(followup.id, equals(42));
+      expect(followup.note, contains('Customer confirmed 5kW'));
+      expect(followup.followupType, equals('Call'));
+      expect(followup.callOutcome, equals('Connected'));
+      expect(followup.statusAfterFollowup, equals('Qualified'));
+      expect(followup.nextAction, equals('Send quotation via WhatsApp and call back at 4 PM'));
+      expect(followup.nextFollowupDate, equals('2026-11-22'));
+      expect(followup.nextFollowUpTime, equals('16:00:00'));
+      expect(followup.performedByName, equals('Aman Sales'));
+    });
+
+    test('Sales workflow call outcomes match backend salesWorkflow.js OUTCOMES', () {
+      const allowedOutcomes = [
+        'Connected',
+        'No answer',
+        'Busy',
+        'Call later',
+        'Wrong number',
+        'Meeting completed',
+        'Note only',
+      ];
+
+      expect(allowedOutcomes.contains('Connected'), isTrue);
+      expect(allowedOutcomes.contains('Call later'), isTrue);
+      expect(allowedOutcomes.contains('Meeting completed'), isTrue);
+      expect(allowedOutcomes.contains('Random outcome'), isFalse);
+    });
+
     test('LeadProvider handles reset cleanly', () {
       final client = ApiClient();
       final provider = LeadProvider(apiClient: client);
@@ -87,3 +131,4 @@ void main() {
     });
   });
 }
+

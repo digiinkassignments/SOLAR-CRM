@@ -306,7 +306,57 @@ class LeadProvider extends ChangeNotifier {
     }
   }
 
-  /// Log Call & Add Follow-up
+  /// Atomic sales workflow action: log note, call outcome, pipeline status, next action, date and exact time
+  Future<Map<String, dynamic>> logCallAction({
+    required int leadId,
+    required String note,
+    required String callOutcome,
+    String followupType = "Call",
+    String? statusAfterFollowup,
+    String? nextAction,
+    String? nextFollowUpDate,
+    String? nextFollowUpTime,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        'note': note.trim(),
+        'call_outcome': callOutcome,
+        'followup_type': followupType,
+        if (statusAfterFollowup != null && statusAfterFollowup.isNotEmpty)
+          'status_after_followup': statusAfterFollowup,
+        if (nextAction != null && nextAction.trim().isNotEmpty)
+          'next_action': nextAction.trim(),
+        if (nextFollowUpDate != null && nextFollowUpDate.isNotEmpty)
+          'next_follow_up_date': nextFollowUpDate,
+        if (nextFollowUpTime != null && nextFollowUpTime.isNotEmpty)
+          'next_follow_up_time': nextFollowUpTime,
+      };
+
+      final response = await apiClient.dio.post(
+        "${ApiConstants.salesWorkflow}/leads/$leadId/action",
+        data: payload,
+      );
+
+      final resData = response.data;
+      if (resData['success'] == true) {
+        // Refresh leads list and lead followups
+        await fetchLeads(isRefresh: true);
+        await fetchFollowups(leadId);
+        return {'success': true, 'message': resData['message'] ?? 'Outcome and next action saved.'};
+      } else {
+        return {'success': false, 'message': resData['message'] ?? 'Failed to save action.'};
+      }
+    } on DioException catch (e) {
+      final msg = e.response?.data is Map && e.response?.data['message'] != null
+          ? e.response?.data['message']
+          : 'Failed to record outcome & next action.';
+      return {'success': false, 'message': msg};
+    } catch (e) {
+      return {'success': false, 'message': 'An error occurred: $e'};
+    }
+  }
+
+  /// Backward-compatible legacy wrapper
   Future<Map<String, dynamic>> addFollowup({
     required int leadId,
     required String followupDate,
@@ -314,34 +364,19 @@ class LeadProvider extends ChangeNotifier {
     required String note,
     required String status,
     String followupType = "Call",
+    String callOutcome = "Connected",
+    String? nextAction,
   }) async {
-    try {
-      final response = await apiClient.dio.post(
-        "${ApiConstants.leads}/$leadId/followups",
-        data: {
-          'followup_date': followupDate,
-          'followup_time': followupTime,
-          'note': note,
-          'status': status,
-          'followup_type': followupType,
-        },
-      );
-
-      final resData = response.data;
-      if (resData['success'] == true) {
-        await fetchLeads(isRefresh: true);
-        return {'success': true, 'message': resData['message'] ?? 'Follow-up logged successfully.'};
-      } else {
-        return {'success': false, 'message': resData['message'] ?? 'Failed to log follow-up.'};
-      }
-    } on DioException catch (e) {
-      final msg = e.response?.data is Map && e.response?.data['message'] != null
-          ? e.response?.data['message']
-          : 'Failed to record follow-up.';
-      return {'success': false, 'message': msg};
-    } catch (e) {
-      return {'success': false, 'message': 'An error occurred: $e'};
-    }
+    return logCallAction(
+      leadId: leadId,
+      note: note,
+      callOutcome: callOutcome,
+      followupType: followupType,
+      statusAfterFollowup: status,
+      nextAction: nextAction ?? "Follow-up discussion",
+      nextFollowUpDate: followupDate,
+      nextFollowUpTime: followupTime,
+    );
   }
 
   /// Update Lead Pipeline Status

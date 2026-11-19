@@ -438,26 +438,43 @@ class LeadCard extends StatelessWidget {
               ],
             ),
 
-            if (lead.assignedToName != null && lead.assignedToName!.isNotEmpty) ...[
-              const SizedBox(height: 8),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    lead.assignedToName != null && lead.assignedToName!.isNotEmpty
+                        ? "Assigned: ${lead.assignedToName}"
+                        : "Unassigned",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.badge(color: textSecondary),
+                  ),
+                ),
+                if (lead.nextFollowUpDate != null) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    "Next: ${Formatters.formatDate(lead.nextFollowUpDate)}${lead.nextFollowUpTime != null && lead.nextFollowUpTime!.isNotEmpty ? ' ${lead.nextFollowUpTime}' : ''}",
+                    style: AppTypography.badge(color: AppColors.brandPrimary),
+                  ),
+                ],
+              ],
+            ),
+            if (lead.nextAction != null && lead.nextAction!.trim().isNotEmpty) ...[
+              const SizedBox(height: 6),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  const Icon(Icons.bolt_rounded, size: 13, color: AppColors.brandPrimaryHover),
+                  const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      "Assigned: ${lead.assignedToName}",
+                      lead.nextAction!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.badge(color: textSecondary),
+                      style: AppTypography.badge(color: AppColors.brandPrimaryHover),
                     ),
                   ),
-                  if (lead.nextFollowUpDate != null) ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      "Next: ${Formatters.formatDate(lead.nextFollowUpDate)}",
-                      style: AppTypography.badge(color: AppColors.brandPrimary),
-                    ),
-                  ],
                 ],
               ),
             ],

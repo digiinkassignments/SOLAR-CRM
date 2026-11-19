@@ -223,7 +223,11 @@ class LeadFollowupItem {
   final String note;
   final String followupType;
   final String status;
+  final String? callOutcome;
+  final String? statusAfterFollowup;
+  final String? nextAction;
   final String? nextFollowupDate;
+  final String? nextFollowUpTime;
   final String? performedByName;
   final String createdAt;
 
@@ -232,7 +236,11 @@ class LeadFollowupItem {
     required this.note,
     required this.followupType,
     required this.status,
+    this.callOutcome,
+    this.statusAfterFollowup,
+    this.nextAction,
     this.nextFollowupDate,
+    this.nextFollowUpTime,
     this.performedByName,
     required this.createdAt,
   });
@@ -242,9 +250,17 @@ class LeadFollowupItem {
       id: json['id'] is int ? json['id'] : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       note: json['note']?.toString() ?? json['remark']?.toString() ?? '',
       followupType: json['followup_type']?.toString() ?? 'Call',
-      status: json['status']?.toString() ?? 'Pending',
-      nextFollowupDate: json['next_followup_date']?.toString(),
-      performedByName: json['performed_by_name']?.toString() ?? json['user_name']?.toString(),
+      status: json['status_after_followup']?.toString() ?? json['status']?.toString() ?? 'Pending',
+      callOutcome: json['call_outcome']?.toString(),
+      statusAfterFollowup: json['status_after_followup']?.toString(),
+      nextAction: json['next_action']?.toString(),
+      nextFollowupDate: json['follow_up_date']?.toString() ??
+          json['next_followup_date']?.toString() ??
+          json['next_follow_up_date']?.toString(),
+      nextFollowUpTime: json['next_follow_up_time']?.toString(),
+      performedByName: json['created_by_name']?.toString() ??
+          json['performed_by_name']?.toString() ??
+          json['user_name']?.toString(),
       createdAt: json['created_at']?.toString() ?? '',
     );
   }

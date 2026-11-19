@@ -6,6 +6,8 @@ import '../../../core/constants/app_typography.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/whatsapp_helper.dart';
 import '../../../models/lead_model.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../providers/dashboard_provider.dart';
 import '../../../providers/lead_provider.dart';
 import 'ai_copilot_sheet.dart';
 import 'log_call_sheet.dart';
@@ -57,6 +59,11 @@ class _LeadDetailsSheetState extends State<LeadDetailsSheet> with SingleTickerPr
     final followups = leadProvider.leadFollowups;
     final copilot = leadProvider.aiCopilotData;
 
+    final currentLead = leadProvider.leads.firstWhere(
+      (l) => l.id == widget.lead.id,
+      orElse: () => widget.lead,
+    );
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
@@ -64,7 +71,7 @@ class _LeadDetailsSheetState extends State<LeadDetailsSheet> with SingleTickerPr
     final textSecondary = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
     final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
 
-    final statusColor = Formatters.getStatusColor(widget.lead.status);
+    final statusColor = Formatters.getStatusColor(currentLead.status);
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.88,
@@ -97,7 +104,7 @@ class _LeadDetailsSheetState extends State<LeadDetailsSheet> with SingleTickerPr
                   radius: 24,
                   backgroundColor: AppColors.brandPrimary.withValues(alpha: 0.15),
                   child: Text(
-                    widget.lead.initials,
+                    currentLead.initials,
                     style: AppTypography.heading(size: 18, color: AppColors.brandPrimary, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -110,7 +117,7 @@ class _LeadDetailsSheetState extends State<LeadDetailsSheet> with SingleTickerPr
                         children: [
                           Flexible(
                             child: Text(
-                              widget.lead.customerName,
+                              currentLead.customerName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTypography.heading(size: 18, color: textPrimary),
@@ -124,7 +131,7 @@ class _LeadDetailsSheetState extends State<LeadDetailsSheet> with SingleTickerPr
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              widget.lead.leadCode,
+                              currentLead.leadCode,
                               style: AppTypography.badge(color: AppColors.brandPrimary),
                             ),
                           ),
@@ -140,13 +147,13 @@ class _LeadDetailsSheetState extends State<LeadDetailsSheet> with SingleTickerPr
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              widget.lead.status,
+                              currentLead.status,
                               style: AppTypography.badge(color: statusColor),
                             ),
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            "${Formatters.formatKw(widget.lead.requiredKw)} • ${widget.lead.city ?? 'Site'}",
+                            "${Formatters.formatKw(currentLead.requiredKw)} • ${currentLead.city ?? 'Site'}",
                             style: AppTypography.caption(color: textSecondary),
                           ),
                         ],
@@ -201,7 +208,7 @@ class _LeadDetailsSheetState extends State<LeadDetailsSheet> with SingleTickerPr
                         context: context,
                         isScrollControlled: true,
                         backgroundColor: Colors.transparent,
-                        builder: (_) => AiCopilotSheet(lead: widget.lead),
+                        builder: (_) => AiCopilotSheet(lead: currentLead),
                       );
                     },
                     surfaceColor: surfaceColor,
@@ -215,14 +222,24 @@ class _LeadDetailsSheetState extends State<LeadDetailsSheet> with SingleTickerPr
                     label: "Log Call",
                     color: AppColors.skyBlue,
                     onTap: () async {
+                      final auth = Provider.of<AuthProvider>(context, listen: false);
+                      final dashboard = Provider.of<DashboardProvider>(context, listen: false);
                       final res = await showModalBottomSheet<bool>(
                         context: context,
                         isScrollControlled: true,
                         backgroundColor: Colors.transparent,
-                        builder: (_) => LogCallSheet(lead: widget.lead),
+                        builder: (_) => LogCallSheet(lead: currentLead),
                       );
                       if (res == true && mounted) {
-                        leadProvider.fetchFollowups(widget.lead.id);
+                        await leadProvider.fetchFollowups(currentLead.id);
+                        await leadProvider.fetchLeads(isRefresh: true);
+                        final u = auth.user;
+                        if (u != null) {
+                          if (u.isAdmin) dashboard.fetchAdminDashboard(isRefresh: true);
+                          if (u.isManager) dashboard.fetchManagerDashboard(isRefresh: true);
+                          if (u.isSales) dashboard.fetchSalesDashboard(isRefresh: true);
+                          if (u.isFinance || u.isApplicationManager) dashboard.fetchPortalDashboard(isRefresh: true);
+                        }
                       }
                     },
                     surfaceColor: surfaceColor,
@@ -372,11 +389,11 @@ class _LeadDetailsSheetState extends State<LeadDetailsSheet> with SingleTickerPr
                         textPrimary: textPrimary,
                         textSecondary: textSecondary,
                         items: [
-                          {"label": "Required Capacity", "value": Formatters.formatKw(widget.lead.requiredKw)},
-                          {"label": "Requirement Sector", "value": widget.lead.solarRequirement},
-                          {"label": "Roof Type", "value": widget.lead.roofType ?? "Not specified"},
-                          {"label": "Monthly Units", "value": widget.lead.monthlyConsumptionUnits != null ? "${widget.lead.monthlyConsumptionUnits} kWh" : "N/A"},
-                          {"label": "Quotation Total", "value": widget.lead.quotationAmount > 0 ? Formatters.formatCurrency(widget.lead.quotationAmount) : "Pending"},
+                          {"label": "Required Capacity", "value": Formatters.formatKw(currentLead.requiredKw)},
+                          {"label": "Requirement Sector", "value": currentLead.solarRequirement},
+                          {"label": "Roof Type", "value": currentLead.roofType ?? "Not specified"},
+                          {"label": "Monthly Units", "value": currentLead.monthlyConsumptionUnits != null ? "${currentLead.monthlyConsumptionUnits} kWh" : "N/A"},
+                          {"label": "Quotation Total", "value": currentLead.quotationAmount > 0 ? Formatters.formatCurrency(currentLead.quotationAmount) : "Pending"},
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -387,12 +404,14 @@ class _LeadDetailsSheetState extends State<LeadDetailsSheet> with SingleTickerPr
                         textPrimary: textPrimary,
                         textSecondary: textSecondary,
                         items: [
-                          {"label": "Address", "value": widget.lead.address ?? "Not specified"},
-                          {"label": "City & State", "value": "${widget.lead.city ?? '-'}, ${widget.lead.state ?? '-'}"},
-                          {"label": "Assigned Sales Rep", "value": widget.lead.assignedToName ?? "Unassigned"},
-                          {"label": "Lead Source", "value": widget.lead.leadSource},
-                          if (widget.lead.nextFollowUpDate != null)
-                            {"label": "Next Follow-up", "value": "${Formatters.formatDate(widget.lead.nextFollowUpDate)} ${widget.lead.nextFollowUpTime ?? ''}"},
+                          {"label": "Address", "value": currentLead.address ?? "Not specified"},
+                          {"label": "City & State", "value": "${currentLead.city ?? '-'}, ${currentLead.state ?? '-'}"},
+                          {"label": "Assigned Sales Rep", "value": currentLead.assignedToName ?? "Unassigned"},
+                          {"label": "Lead Source", "value": currentLead.leadSource},
+                          if (currentLead.nextAction != null && currentLead.nextAction!.trim().isNotEmpty)
+                            {"label": "Next Action", "value": currentLead.nextAction!},
+                          if (currentLead.nextFollowUpDate != null)
+                            {"label": "Next Follow-up", "value": "${Formatters.formatDate(currentLead.nextFollowUpDate)} ${currentLead.nextFollowUpTime ?? ''}"},
                         ],
                       ),
                     ],
@@ -479,9 +498,27 @@ class _LeadDetailsSheetState extends State<LeadDetailsSheet> with SingleTickerPr
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      "${f.followupType} • ${f.status}",
-                                      style: AppTypography.body(color: AppColors.brandPrimary, fontWeight: FontWeight.bold),
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            f.followupType,
+                                            style: AppTypography.body(
+                                              color: AppColors.brandPrimary,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          if (f.callOutcome != null && f.callOutcome!.isNotEmpty) ...[
+                                            Text(
+                                              " • ${f.callOutcome}",
+                                              style: AppTypography.body(
+                                                color: textPrimary,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                     ),
                                     Text(
                                       Formatters.formatDate(f.createdAt),
@@ -489,8 +526,56 @@ class _LeadDetailsSheetState extends State<LeadDetailsSheet> with SingleTickerPr
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
+                                if (f.statusAfterFollowup != null && f.statusAfterFollowup!.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Formatters.getStatusColor(f.statusAfterFollowup!).withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      "Stage: ${f.statusAfterFollowup}",
+                                      style: AppTypography.badge(
+                                        color: Formatters.getStatusColor(f.statusAfterFollowup!),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 6),
                                 Text(f.note, style: AppTypography.body(color: textPrimary, fontSize: 13)),
+                                if (f.nextAction != null && f.nextAction!.trim().isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(Icons.bolt_rounded, size: 14, color: AppColors.brandPrimaryHover),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          "Next: ${f.nextAction}",
+                                          style: AppTypography.caption(
+                                            color: AppColors.brandPrimaryHover,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                if (f.nextFollowupDate != null && f.nextFollowupDate!.trim().isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.calendar_today_rounded, size: 12, color: textSecondary),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        "Follow-up: ${Formatters.formatDate(f.nextFollowupDate)} ${f.nextFollowUpTime ?? ''}",
+                                        style: AppTypography.badge(color: textSecondary),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                                 if (f.performedByName != null) ...[
                                   const SizedBox(height: 4),
                                   Text("By: ${f.performedByName}", style: AppTypography.badge(color: textSecondary)),

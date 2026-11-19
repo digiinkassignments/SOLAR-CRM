@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../models/lead_model.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../providers/dashboard_provider.dart';
 import '../../../providers/lead_provider.dart';
 import 'widgets/lead_card.dart';
 import 'add_lead_sheet.dart';
@@ -119,6 +121,9 @@ class _LeadsListViewState extends State<LeadsListView> {
   }
 
   void _openLogCall(LeadModel lead) async {
+    final leadProvider = Provider.of<LeadProvider>(context, listen: false);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final dashboard = Provider.of<DashboardProvider>(context, listen: false);
     final res = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -126,7 +131,14 @@ class _LeadsListViewState extends State<LeadsListView> {
       builder: (_) => LogCallSheet(lead: lead),
     );
     if (res == true && mounted) {
-      Provider.of<LeadProvider>(context, listen: false).fetchLeads(isRefresh: true);
+      leadProvider.fetchLeads(isRefresh: true);
+      final u = auth.user;
+      if (u != null) {
+        if (u.isAdmin) dashboard.fetchAdminDashboard(isRefresh: true);
+        if (u.isManager) dashboard.fetchManagerDashboard(isRefresh: true);
+        if (u.isSales) dashboard.fetchSalesDashboard(isRefresh: true);
+        if (u.isFinance || u.isApplicationManager) dashboard.fetchPortalDashboard(isRefresh: true);
+      }
     }
   }
 
