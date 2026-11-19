@@ -5188,7 +5188,10 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Text(
                                 "Customer Handover",
@@ -5198,7 +5201,6 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                                   color: textPrimary,
                                 ),
                               ),
-                              const SizedBox(width: 8),
                               buildStatusBadge(handover?.handoverStatus),
                             ],
                           ),
@@ -5317,10 +5319,14 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: const [
                         Icon(Icons.receipt_long_rounded, size: 18, color: Color(0xFF16A34A)),
                         SizedBox(width: 6),
@@ -5497,9 +5503,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                   children: [
                     const Icon(Icons.school_rounded, color: Color(0xFF005BAC), size: 20),
                     const SizedBox(width: 8),
-                    Text(
-                      "Customer Training & Mobile App Onboarding",
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                    Expanded(
+                      child: Text(
+                        "Customer Training & Mobile App Onboarding",
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                      ),
                     ),
                   ],
                 ),
@@ -5575,9 +5583,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                   children: [
                     const Icon(Icons.receipt_long_rounded, color: Color(0xFFEF4444), size: 20),
                     const SizedBox(width: 8),
-                    Text(
-                      "Statutory Document Dossier (Delivered to Client)",
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                    Expanded(
+                      child: Text(
+                        "Statutory Document Dossier (Delivered to Client)",
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                      ),
                     ),
                   ],
                 ),
@@ -6026,7 +6036,10 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Text(
                                 "Warranty & AMC",
@@ -6036,7 +6049,6 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                                   color: textPrimary,
                                 ),
                               ),
-                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                 decoration: BoxDecoration(
