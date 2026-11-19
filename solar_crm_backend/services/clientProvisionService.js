@@ -22,6 +22,7 @@ const { exec } = require("child_process");
 const util   = require("util");
 const execAsync = util.promisify(exec);
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const { masterDb } = require("../config/masterDb");
 const { getClientPool } = require("../config/clientDb");
 const { sendSubscriptionEmail } = require("./subscriptionEmailService");
@@ -51,13 +52,23 @@ function generateDbName(clientCode) {
 // ============================================================
 // Create Client Database + Install Solar CRM Schema (All 62 Tables)
 // ============================================================
-async function createClientDatabase(dbName) {
+async function createClientDatabase(dbName, strict = false) {
   // 1. DB create karo
   await mysql.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\`
     CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
 
   // 2. Install Full 62 Solar CRM Tables & Configuration Seeds from solar_crm_master_template.sql
   const templatePath = path.join(__dirname, "../Database/solar_crm_master_template.sql");
+  if (strict) {
+    if (!fs.existsSync(templatePath)) throw new Error('Tenant schema template unavailable');
+    const connection = await require('mysql2/promise').createConnection({
+      host: process.env.DB_HOST, user: process.env.DB_USER, password: process.env.DB_PASSWORD,
+      database: dbName, multipleStatements: true,
+    });
+    try { await connection.query(fs.readFileSync(templatePath, 'utf8')); }
+    finally { await connection.end(); }
+    return getClientPool(dbName);
+  }
   if (fs.existsSync(templatePath)) {
     const host = process.env.DB_HOST || "localhost";
     const user = process.env.DB_USER || "root";
@@ -93,7 +104,7 @@ async function createClientDatabase(dbName) {
 // MAIN FUNCTION: provisionNewClient
 // Super Admin controller se call hoga
 // ============================================================
-async function provisionNewClient({
+async function provisionUnlocked({
   businessName,
   ownerName,
   email,
@@ -104,6 +115,7 @@ async function provisionNewClient({
   planId,
   durationMonths = 1,
   createdBy,
+  trialOptions = null,
 }) {
   const clientCode = await generateClientCode();
   const dbName     = generateDbName(clientCode);
@@ -111,7 +123,9 @@ async function provisionNewClient({
   // Subscription dates calculate karo
   const start     = new Date();
   const end       = new Date();
-  if (durationMonths < 1) {
+  if (trialOptions) {
+    end.setTime(start.getTime() + 7 * 86400000);
+  } else if (durationMonths < 1) {
     const days = Math.round(durationMonths * 30);
     end.setDate(end.getDate() + days);
   } else {
@@ -145,19 +159,25 @@ async function provisionNewClient({
   );
   const clientId = insertResult.insertId;
 
-  // 2. Client DB + schema create karo
-  const clientPool = await createClientDatabase(dbName);
-
-  // Auto-sync all migrations to new tenant DB
   try {
-    const { autoMigrateAllTenants } = require("../Database/autoMigrate");
-    await autoMigrateAllTenants();
-  } catch (mErr) {
-    console.warn("Auto-migrate warning for new tenant:", mErr.message);
+
+  // 2. Client DB + schema create karo
+  const clientPool = await createClientDatabase(dbName, Boolean(trialOptions));
+
+  // Public signup must never import legacy self-running, all-tenant migrations.
+  if (trialOptions) {
+    await require('../services/portalRoles').ensurePortalRoles(clientPool);
+  } else {
+    try {
+      const { autoMigrateAllTenants } = require('../Database/autoMigrate');
+      await autoMigrateAllTenants();
+    } catch (mErr) {
+      console.warn('Auto-migrate warning for new tenant:', mErr.message);
+    }
   }
 
   // 3. Default admin user banao
-  const tempPassword = `Solar@${Math.floor(1000 + Math.random() * 9000)}`;
+  const tempPassword = trialOptions ? `Solops!${crypto.randomBytes(18).toString("base64url")}` : `Solar@${Math.floor(1000 + Math.random() * 9000)}`;
   const hashedPass   = await bcrypt.hash(tempPassword, 10);
 
   const username = subdomain; // subdomain hi username hoga
@@ -178,7 +198,7 @@ async function provisionNewClient({
   const [planRows] = await masterDb.query(
     `SELECT price_monthly FROM plans WHERE id = ? LIMIT 1`, [planId]
   );
-  const amount = planRows[0]?.price_monthly * durationMonths || 0;
+  const amount = trialOptions ? 0 : planRows[0]?.price_monthly * durationMonths || 0;
 
   await masterDb.query(
     `INSERT INTO subscription_history
@@ -192,7 +212,7 @@ async function provisionNewClient({
     `SELECT name FROM plans WHERE id = ? LIMIT 1`, [planId]
   );
   try {
-    await sendSubscriptionEmail("Welcome", {
+    if (!trialOptions) await sendSubscriptionEmail("Welcome", {
       owner_name:       ownerName,
       email:            email,
       subdomain:        subdomain,
@@ -210,7 +230,27 @@ async function provisionNewClient({
     subdomain,
     tempPassword,
     subscriptionEnd: toDateStr(end),
+    trialEndAt: trialOptions ? end.toISOString() : null,
   };
+  } catch (error) {
+    if (trialOptions) {
+      await masterDb.query("UPDATE clients SET status='Locked',notes='Website trial setup failed; support review required.' WHERE id=?",[clientId]).catch(()=>{});
+      error.clientId=clientId;
+    }
+    throw error;
+  }
 }
 
+// Serialize manual and public provisioning so generated client/database codes cannot collide.
+async function provisionNewClient(input) {
+  const connection = await masterDb.getConnection();
+  try {
+    const [[lock]] = await connection.query("SELECT GET_LOCK('solops-client-provision', 20) AS acquired");
+    if (Number(lock.acquired) !== 1) throw new Error('Workspace setup is busy. Please retry shortly.');
+    return await provisionUnlocked(input);
+  } finally {
+    await connection.query("SELECT RELEASE_LOCK('solops-client-provision')").catch(()=>{});
+    connection.release();
+  }
+}
 module.exports = { provisionNewClient };

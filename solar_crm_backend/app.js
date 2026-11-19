@@ -9,6 +9,9 @@ app.use(cors());
 app.use(express.json({ verify: (req, res, buffer) => { if (req.originalUrl.startsWith("/api/integrations/webhooks/")) req.integrationRawBody = Buffer.from(buffer); } }));
 app.use(express.urlencoded({ extended: true }));
 
+// Public registration must run before tenant resolution (apex website has no tenant DB).
+app.use('/api/public/trial', require('./routes/publicTrialRoutes'));
+
 // ── Static Uploads ───────────────────────────────────────────
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
@@ -16,6 +19,7 @@ app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
 // ── Dynamic Client DB Middleware ─────────────────────────────
 const { clientDbMiddleware } = require("./config/clientDb");
 app.use(clientDbMiddleware);
+app.use(require('./middleware/publicTrialAccess'));
 
 // ── Fallback — req.db na ho to default db use karo ──────────
 const { db: defaultDb } = require("./config/db");
