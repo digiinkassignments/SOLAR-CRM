@@ -573,6 +573,7 @@ class _CustomerHandoverFormSheetState extends State<CustomerHandoverFormSheet> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: DropdownButtonFormField<String>(
+                            isExpanded: true,
                             initialValue: _handoverStatus,
                             style: TextStyle(color: textPrimary, fontSize: 12),
                             dropdownColor: cardBg,
@@ -621,6 +622,7 @@ class _CustomerHandoverFormSheetState extends State<CustomerHandoverFormSheet> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
+                            isExpanded: true,
                             initialValue: _trainingCompleted,
                             style: TextStyle(color: textPrimary, fontSize: 12),
                             dropdownColor: cardBg,
@@ -632,7 +634,7 @@ class _CustomerHandoverFormSheetState extends State<CustomerHandoverFormSheet> {
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderColor)),
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderColor)),
                             ),
-                            items: _trainingOptions.map((opt) => DropdownMenuItem(value: opt, child: Text(opt))).toList(),
+                            items: _trainingOptions.map((opt) => DropdownMenuItem(value: opt, child: Text(opt, overflow: TextOverflow.ellipsis))).toList(),
                             onChanged: (val) {
                               if (val != null) setState(() => _trainingCompleted = val);
                             },
@@ -641,6 +643,7 @@ class _CustomerHandoverFormSheetState extends State<CustomerHandoverFormSheet> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: DropdownButtonFormField<String>(
+                            isExpanded: true,
                             initialValue: _appDemoCompleted,
                             style: TextStyle(color: textPrimary, fontSize: 12),
                             dropdownColor: cardBg,
@@ -652,7 +655,7 @@ class _CustomerHandoverFormSheetState extends State<CustomerHandoverFormSheet> {
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderColor)),
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderColor)),
                             ),
-                            items: _trainingOptions.map((opt) => DropdownMenuItem(value: opt, child: Text(opt))).toList(),
+                            items: _trainingOptions.map((opt) => DropdownMenuItem(value: opt, child: Text(opt, overflow: TextOverflow.ellipsis))).toList(),
                             onChanged: (val) {
                               if (val != null) setState(() => _appDemoCompleted = val);
                             },
@@ -666,6 +669,7 @@ class _CustomerHandoverFormSheetState extends State<CustomerHandoverFormSheet> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<bool>(
+                            isExpanded: true,
                             initialValue: _monitoringAppAccessShared,
                             style: TextStyle(color: textPrimary, fontSize: 12),
                             dropdownColor: cardBg,
@@ -678,8 +682,8 @@ class _CustomerHandoverFormSheetState extends State<CustomerHandoverFormSheet> {
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderColor)),
                             ),
                             items: const [
-                              DropdownMenuItem(value: true, child: Text("Yes")),
-                              DropdownMenuItem(value: false, child: Text("No (Pending setup)")),
+                              DropdownMenuItem(value: true, child: Text("Yes", overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: false, child: Text("No (Pending setup)", overflow: TextOverflow.ellipsis)),
                             ],
                             onChanged: (val) {
                               if (val != null) setState(() => _monitoringAppAccessShared = val);
@@ -689,6 +693,7 @@ class _CustomerHandoverFormSheetState extends State<CustomerHandoverFormSheet> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: DropdownButtonFormField<bool>(
+                            isExpanded: true,
                             initialValue: _emergencyContactGiven,
                             style: TextStyle(color: textPrimary, fontSize: 12),
                             dropdownColor: cardBg,
@@ -701,8 +706,8 @@ class _CustomerHandoverFormSheetState extends State<CustomerHandoverFormSheet> {
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderColor)),
                             ),
                             items: const [
-                              DropdownMenuItem(value: true, child: Text("Yes")),
-                              DropdownMenuItem(value: false, child: Text("No")),
+                              DropdownMenuItem(value: true, child: Text("Yes", overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: false, child: Text("No", overflow: TextOverflow.ellipsis)),
                             ],
                             onChanged: (val) {
                               if (val != null) setState(() => _emergencyContactGiven = val);
@@ -838,6 +843,7 @@ class _CustomerHandoverFormSheetState extends State<CustomerHandoverFormSheet> {
                     const SizedBox(height: 10),
 
                     DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: _signoffType,
                       style: TextStyle(color: textPrimary, fontSize: 13),
                       dropdownColor: cardBg,
@@ -849,7 +855,7 @@ class _CustomerHandoverFormSheetState extends State<CustomerHandoverFormSheet> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderColor)),
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderColor)),
                       ),
-                      items: _signoffOptions.map((opt) => DropdownMenuItem(value: opt, child: Text(opt))).toList(),
+                      items: _signoffOptions.map((opt) => DropdownMenuItem(value: opt, child: Text(opt, overflow: TextOverflow.ellipsis))).toList(),
                       onChanged: (val) {
                         if (val != null) setState(() => _signoffType = val);
                       },
@@ -937,13 +943,17 @@ class _CustomerHandoverFormSheetState extends State<CustomerHandoverFormSheet> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                "Customer Handover Signature (Draw or Upload)",
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textPrimary),
+                              Expanded(
+                                child: Text(
+                                  "Customer Handover Signature (Draw or Upload)",
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textPrimary),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              if (_signatureData != null && _signatureData!.isNotEmpty)
+                              if (_signatureData != null && _signatureData!.isNotEmpty) ...[
+                                const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
@@ -956,6 +966,7 @@ class _CustomerHandoverFormSheetState extends State<CustomerHandoverFormSheet> {
                                     style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF16A34A)),
                                   ),
                                 ),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 8),

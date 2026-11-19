@@ -638,9 +638,11 @@ class _FinalInspectionFormSheetState extends State<FinalInspectionFormSheet> {
                                   children: [
                                     const Icon(Icons.check, size: 14, color: Color(0xFF10B981)),
                                     const SizedBox(width: 4),
-                                    Text(
-                                      "Inverter Power: ${cData?.inverterOutputKw != null ? '${cData!.inverterOutputKw} kW' : '3.50 kW'}",
-                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textPrimary),
+                                    Expanded(
+                                      child: Text(
+                                        "Inverter Power: ${cData?.inverterOutputKw != null ? '${cData!.inverterOutputKw} kW' : '3.50 kW'}",
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textPrimary),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -649,9 +651,11 @@ class _FinalInspectionFormSheetState extends State<FinalInspectionFormSheet> {
                                   children: [
                                     const Icon(Icons.check, size: 14, color: Color(0xFF10B981)),
                                     const SizedBox(width: 4),
-                                    Text(
-                                      "Anti-Islanding Trip: ${cData?.antiIslandingTest ?? 'Pass'} • Megger: ${cData?.insulationResistanceMohm != null ? '${cData!.insulationResistanceMohm} MΩ' : '55.00 MΩ'}",
-                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textPrimary),
+                                    Expanded(
+                                      child: Text(
+                                        "Anti-Islanding Trip: ${cData?.antiIslandingTest ?? 'Pass'} • Megger: ${cData?.insulationResistanceMohm != null ? '${cData!.insulationResistanceMohm} MΩ' : '55.00 MΩ'}",
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textPrimary),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -686,6 +690,7 @@ class _FinalInspectionFormSheetState extends State<FinalInspectionFormSheet> {
 
                     // Audit Class Dropdown
                     DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: _inspectorType,
                       style: TextStyle(color: textPrimary, fontSize: 13),
                       dropdownColor: cardBg,
@@ -697,7 +702,7 @@ class _FinalInspectionFormSheetState extends State<FinalInspectionFormSheet> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderColor)),
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderColor)),
                       ),
-                      items: _inspectorTypeOptions.map((opt) => DropdownMenuItem(value: opt, child: Text(opt))).toList(),
+                      items: _inspectorTypeOptions.map((opt) => DropdownMenuItem(value: opt, child: Text(opt, overflow: TextOverflow.ellipsis))).toList(),
                       onChanged: (val) {
                         if (val != null) setState(() => _inspectorType = val);
                       },
@@ -741,6 +746,7 @@ class _FinalInspectionFormSheetState extends State<FinalInspectionFormSheet> {
                         // Final QA Status
                         Expanded(
                           child: DropdownButtonFormField<String>(
+                            isExpanded: true,
                             initialValue: _inspectionStatus,
                             style: TextStyle(color: textPrimary, fontSize: 12),
                             dropdownColor: cardBg,
@@ -782,6 +788,7 @@ class _FinalInspectionFormSheetState extends State<FinalInspectionFormSheet> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
+                            isExpanded: true,
                             initialValue: _reworkStatus,
                             style: TextStyle(color: textPrimary, fontSize: 12),
                             dropdownColor: cardBg,
@@ -793,7 +800,7 @@ class _FinalInspectionFormSheetState extends State<FinalInspectionFormSheet> {
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderColor)),
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: borderColor)),
                             ),
-                            items: _reworkStatusOptions.map((opt) => DropdownMenuItem(value: opt, child: Text(opt))).toList(),
+                            items: _reworkStatusOptions.map((opt) => DropdownMenuItem(value: opt, child: Text(opt, overflow: TextOverflow.ellipsis))).toList(),
                             onChanged: (val) {
                               if (val != null) setState(() => _reworkStatus = val);
                             },
@@ -949,13 +956,17 @@ class _FinalInspectionFormSheetState extends State<FinalInspectionFormSheet> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                "Customer / Client Representative Signature",
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textPrimary),
+                              Expanded(
+                                child: Text(
+                                  "Customer / Client Representative Signature",
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textPrimary),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              if (_signatureData != null && _signatureData!.isNotEmpty)
+                              if (_signatureData != null && _signatureData!.isNotEmpty) ...[
+                                const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
@@ -968,6 +979,7 @@ class _FinalInspectionFormSheetState extends State<FinalInspectionFormSheet> {
                                     style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF16A34A)),
                                   ),
                                 ),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 8),
