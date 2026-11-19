@@ -1,0 +1,5 @@
+**/node_modules/**
+**/dist/**
+**/build/**
+.tmp/**
+solar_landing_page/assets/vendor/**
