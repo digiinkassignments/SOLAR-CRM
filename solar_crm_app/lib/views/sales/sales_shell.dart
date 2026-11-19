@@ -8,6 +8,10 @@ import '../widgets/logout_dialog.dart';
 import '../settings/settings_view.dart';
 import '../widgets/navbar_location_pill.dart';
 import '../widgets/user_profile_avatar.dart';
+import '../admin/leads/leads_list_view.dart';
+import '../admin/customers/customers_list_view.dart';
+import '../calculator/solar_calculator_view.dart';
+import 'sales_dashboard_view.dart';
 
 class SalesShell extends StatefulWidget {
   const SalesShell({super.key});
@@ -25,54 +29,14 @@ class _SalesShellState extends State<SalesShell> {
     final user = auth.user;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryTextColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-    final secondaryTextColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
-    final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     final pages = [
-      Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: surfaceColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: borderColor),
-                ),
-                child: const Icon(
-                  Icons.phone_in_talk_rounded,
-                  size: 48,
-                  color: AppColors.brandPrimary,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                "Sales Execution Ready",
-                style: AppTypography.headingMedium(color: primaryTextColor),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "Today's Calling Queue & AI Copilot ready for live API integration.",
-                textAlign: TextAlign.center,
-                style: AppTypography.subtitle(color: secondaryTextColor),
-              ),
-            ],
-          ),
-        ),
+      SalesDashboardView(
+        onNavigateTab: (index) => setState(() => _currentIndex = index),
       ),
-      Center(
-        child: Text("All Leads", style: AppTypography.headingMedium(color: primaryTextColor)),
-      ),
-      Center(
-        child: Text("Solar Calculator", style: AppTypography.headingMedium(color: primaryTextColor)),
-      ),
-      Center(
-        child: Text("AI Copilot", style: AppTypography.headingMedium(color: primaryTextColor)),
-      ),
+      const LeadsListView(),
+      const CustomersListView(),
+      const SolarCalculatorView(),
       const SettingsView(),
     ];
 
@@ -88,9 +52,11 @@ class _SalesShellState extends State<SalesShell> {
               Text(
                 user?.name ?? "Sales Workspace",
                 style: AppTypography.headingSmall(color: primaryTextColor),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               Text(
-                "SALES EXECUTIVE • ${auth.workspace?.toUpperCase()}",
+                "SALES • ${auth.workspace?.toUpperCase()}",
                 style: AppTypography.badge(color: AppColors.brandPrimary),
               ),
             ],
@@ -127,31 +93,33 @@ class _SalesShellState extends State<SalesShell> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
+        selectedItemColor: AppColors.brandPrimary,
+        unselectedItemColor: isDark ? AppColors.textMutedDark : AppColors.textMutedLight,
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.call_outlined),
-            activeIcon: Icon(Icons.call),
-            label: "Calling",
+            icon: Icon(Icons.dashboard_outlined),
+            activeIcon: Icon(Icons.dashboard_rounded),
+            label: "Overview",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.people_outline),
-            activeIcon: Icon(Icons.people),
-            label: "Leads",
+            icon: Icon(Icons.assignment_outlined),
+            activeIcon: Icon(Icons.assignment_rounded),
+            label: "My Leads",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people_outline_rounded),
+            activeIcon: Icon(Icons.people_rounded),
+            label: "Clients",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.calculate_outlined),
-            activeIcon: Icon(Icons.calculate),
+            activeIcon: Icon(Icons.calculate_rounded),
             label: "Calculator",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.auto_awesome_outlined),
-            activeIcon: Icon(Icons.auto_awesome),
-            label: "AI Copilot",
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
+            activeIcon: Icon(Icons.settings_rounded),
             label: "Settings",
           ),
         ],
