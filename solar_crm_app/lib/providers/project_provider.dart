@@ -1,7 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../models/inspection_model.dart';
+import '../models/installation_log_model.dart';
 import '../models/project_model.dart';
 
 class ProjectProvider extends ChangeNotifier {
@@ -29,6 +33,13 @@ class ProjectProvider extends ChangeNotifier {
   String? _inspectionError;
   bool _isSavingInspection = false;
 
+  List<InstallationLogModel> _installationLogs = [];
+  bool _isLoadingInstallationLogs = false;
+  String? _installationLogsError;
+  int _installationProgressPercent = 0;
+  List<String> _completedInstallationPhases = [];
+  bool _isSavingInstallationLog = false;
+
   ProjectProvider({required this.apiClient});
 
   // Getters
@@ -50,6 +61,13 @@ class ProjectProvider extends ChangeNotifier {
   bool get isLoadingInspection => _isLoadingInspection;
   String? get inspectionError => _inspectionError;
   bool get isSavingInspection => _isSavingInspection;
+
+  List<InstallationLogModel> get installationLogs => _installationLogs;
+  bool get isLoadingInstallationLogs => _isLoadingInstallationLogs;
+  String? get installationLogsError => _installationLogsError;
+  int get installationProgressPercent => _installationProgressPercent;
+  List<String> get completedInstallationPhases => _completedInstallationPhases;
+  bool get isSavingInstallationLog => _isSavingInstallationLog;
 
   // 1. Fetch Paginated Projects
   Future<void> fetchProjects({
@@ -326,6 +344,152 @@ class ProjectProvider extends ChangeNotifier {
     } finally {
       _isSavingInspection = false;
       notifyListeners();
+    }
+  }
+
+  // 12. Fetch Installation Logs
+  Future<void> fetchInstallationLogs(dynamic projectId) async {
+    _isLoadingInstallationLogs = true;
+    _installationLogsError = null;
+    notifyListeners();
+
+    try {
+      final response = await apiClient.dio.get(ApiConstants.projectInstallationLogs(projectId));
+      final raw = response.data;
+      final data = (raw is Map && raw['data'] != null) ? raw['data'] : raw;
+
+      List rawLogs = [];
+      if (data is Map && data['logs'] is List) {
+        rawLogs = data['logs'] as List;
+        _installationProgressPercent = data['currentProgress'] is int
+            ? data['currentProgress'] as int
+            : int.tryParse(data['currentProgress']?.toString() ?? '0') ?? 0;
+        if (data['completedPhases'] is List) {
+          _completedInstallationPhases = (data['completedPhases'] as List).map((e) => e.toString()).toList();
+        }
+      } else if (data is List) {
+        rawLogs = data;
+        _installationProgressPercent = rawLogs.isNotEmpty
+            ? rawLogs.map((e) => int.tryParse(e['progress_percent']?.toString() ?? '0') ?? 0).reduce((a, b) => a > b ? a : b)
+            : 0;
+      }
+
+      _installationLogs = rawLogs
+          .whereType<Map<String, dynamic>>()
+          .map((m) => InstallationLogModel.fromJson(m))
+          .toList();
+
+      if (_completedInstallationPhases.isEmpty) {
+        _completedInstallationPhases = _installationLogs
+            .where((l) => l.isPhaseCompleted && l.phase != null)
+            .map((l) => l.phase!)
+            .toSet()
+            .toList();
+      }
+    } catch (e) {
+      _installationLogsError = e.toString();
+      _installationLogs = [];
+    } finally {
+      _isLoadingInstallationLogs = false;
+      notifyListeners();
+    }
+  }
+
+  // 13. Save or Update Installation Log
+  Future<Map<String, dynamic>> saveInstallationLog(
+    dynamic projectId,
+    Map<String, dynamic> payload, {
+    int? logId,
+    List<File>? photos,
+    List<Map<String, String>>? photoCaptions,
+  }) async {
+    _isSavingInstallationLog = true;
+    notifyListeners();
+
+    try {
+      final isEdit = logId != null;
+      final url = isEdit
+          ? ApiConstants.projectInstallationLogDetail(projectId, logId)
+          : ApiConstants.projectInstallationLogs(projectId);
+
+      final response = isEdit
+          ? await apiClient.dio.put(url, data: payload)
+          : await apiClient.dio.post(url, data: payload);
+
+      int? targetLogId = logId;
+      if (!isEdit && response.data != null) {
+        targetLogId = response.data['id'] is int
+            ? response.data['id']
+            : int.tryParse(response.data['id']?.toString() ?? '');
+      }
+
+      // Sync expected completion date to project if provided
+      if (payload['expected_completion_date'] != null &&
+          payload['expected_completion_date'].toString().trim().isNotEmpty) {
+        try {
+          await apiClient.dio.put(
+            ApiConstants.projectDetails(projectId),
+            data: {'installation_end_date': payload['expected_completion_date']},
+          );
+        } catch (_) {}
+      }
+
+      // Upload photos if any
+      if (photos != null && photos.isNotEmpty && targetLogId != null) {
+        try {
+          final formData = FormData();
+          for (var i = 0; i < photos.length; i++) {
+            final f = photos[i];
+            formData.files.add(MapEntry(
+              'photos',
+              await MultipartFile.fromFile(f.path, filename: f.path.split(Platform.pathSeparator).last),
+            ));
+          }
+          if (photoCaptions != null && photoCaptions.isNotEmpty) {
+            formData.fields.add(MapEntry('captions', jsonEncode(photoCaptions)));
+          }
+
+          await apiClient.dio.post(
+            ApiConstants.projectInstallationLogPhotos(projectId, targetLogId),
+            data: formData,
+          );
+        } catch (photoErr) {
+          debugPrint('Error uploading installation photos: $photoErr');
+        }
+      }
+
+      await fetchInstallationLogs(projectId);
+      await fetchProjectDetails(projectId);
+
+      return {
+        'success': true,
+        'message': isEdit
+            ? 'Installation log updated successfully!'
+            : 'Daily installation progress log saved successfully!',
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    } finally {
+      _isSavingInstallationLog = false;
+      notifyListeners();
+    }
+  }
+
+  // 14. Quick Update Target Date
+  Future<Map<String, dynamic>> updateProjectTargetDate(dynamic projectId, String targetDate) async {
+    try {
+      final response = await apiClient.dio.put(
+        ApiConstants.projectDetails(projectId),
+        data: {'installation_end_date': targetDate},
+      );
+      await fetchProjectDetails(projectId);
+      await fetchInstallationLogs(projectId);
+      return {
+        'success': true,
+        'message': response.data?['message'] ?? 'Target completion date updated successfully!',
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
     }
   }
 }

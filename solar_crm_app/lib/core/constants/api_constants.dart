@@ -101,6 +101,11 @@ class ApiConstants {
   static const String subsidyReject = "/subsidy/reject";
   static String subsidyResolveFix(int id) => "/subsidy/resolve-fix/$id";
 
+  // Installation Progress & Daily Site Logs
+  static String projectInstallationLogs(dynamic id) => "/projects/$id/installation-logs";
+  static String projectInstallationLogDetail(dynamic id, dynamic logId) => "/projects/$id/installation-logs/$logId";
+  static String projectInstallationLogPhotos(dynamic id, dynamic logId) => "/projects/$id/installation-logs/$logId/photos";
+
   // Solar Loans & Financing Hub
   static const String loans = "/loans";
   static const String loanStats = "/loans/stats";
