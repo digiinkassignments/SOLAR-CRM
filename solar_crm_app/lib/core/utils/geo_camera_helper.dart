@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
@@ -25,11 +26,11 @@ class GeoCameraHelper {
         return await Geolocator.getLastKnownPosition();
       }
 
-      // Try quick last known position first (instant)
+      // Try quick last known position first if recent (<30 mins)
       Position? pos = await Geolocator.getLastKnownPosition();
       if (pos != null) {
         final age = DateTime.now().difference(pos.timestamp);
-        if (age.inMinutes < 60) {
+        if (age.inMinutes < 30) {
           return pos;
         }
       }
@@ -38,7 +39,7 @@ class GeoCameraHelper {
       return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 5),
+          timeLimit: Duration(seconds: 4),
         ),
       );
     } catch (e) {
@@ -51,7 +52,115 @@ class GeoCameraHelper {
     }
   }
 
-  /// Stamp GPS coordinates, timestamp, project info and "Powered by SolOps" watermark onto image
+  /// Reverse geocode coordinates to human-readable address (Street, Colony, City, State PIN)
+  static Future<String?> reverseGeocode(double lat, double lon) async {
+    try {
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(milliseconds: 2500),
+          receiveTimeout: const Duration(milliseconds: 2500),
+          headers: {
+            'User-Agent': 'SolOps-SolarCRM/1.0 (support@solops.cloud)',
+            'Accept': 'application/json',
+          },
+        ),
+      );
+
+      // 1. Try OpenStreetMap Nominatim
+      try {
+        final res = await dio.get(
+          'https://nominatim.openstreetmap.org/reverse',
+          queryParameters: {
+            'lat': lat,
+            'lon': lon,
+            'format': 'json',
+            'addressdetails': '1',
+          },
+        );
+
+        if (res.statusCode == 200 && res.data != null) {
+          final data = res.data;
+          if (data is Map) {
+            final addr = data['address'] as Map?;
+            if (addr != null) {
+              final parts = <String>[];
+              final road = addr['road'] ?? addr['street'] ?? addr['neighbourhood'];
+              final sub = addr['suburb'] ?? addr['quarter'] ?? addr['residential'] ?? addr['commercial'];
+              final city = addr['city'] ?? addr['town'] ?? addr['village'] ?? addr['county'] ?? addr['district'];
+              final state = addr['state'];
+              final postcode = addr['postcode'];
+
+              if (road != null && road.toString().trim().isNotEmpty) {
+                parts.add(road.toString().trim());
+              }
+              if (sub != null && sub.toString().trim().isNotEmpty && sub != road) {
+                parts.add(sub.toString().trim());
+              }
+              if (city != null && city.toString().trim().isNotEmpty) {
+                parts.add(city.toString().trim());
+              }
+              if (state != null && state.toString().trim().isNotEmpty) {
+                if (postcode != null && postcode.toString().trim().isNotEmpty) {
+                  parts.add("${state.toString().trim()} ${postcode.toString().trim()}");
+                } else {
+                  parts.add(state.toString().trim());
+                }
+              }
+
+              if (parts.isNotEmpty) {
+                return parts.join(', ');
+              }
+            }
+
+            if (data['display_name'] != null && data['display_name'].toString().isNotEmpty) {
+              return data['display_name'].toString();
+            }
+          }
+        }
+      } catch (_) {}
+
+      // 2. Fallback to BigDataCloud free client reverse geocoder
+      try {
+        final res2 = await dio.get(
+          'https://api.bigdatacloud.net/data/reverse-geocode-client',
+          queryParameters: {
+            'latitude': lat,
+            'longitude': lon,
+            'localityLanguage': 'en',
+          },
+        );
+
+        if (res2.statusCode == 200 && res2.data != null) {
+          final d = res2.data;
+          if (d is Map) {
+            final parts = <String>[];
+            final locality = d['locality']?.toString();
+            final city = d['city']?.toString();
+            final sub = d['principalSubdivision']?.toString();
+            final post = d['postcode']?.toString();
+
+            if (locality != null && locality.isNotEmpty) parts.add(locality);
+            if (city != null && city.isNotEmpty && city != locality) parts.add(city);
+            if (sub != null && sub.isNotEmpty) {
+              if (post != null && post.isNotEmpty) {
+                parts.add("$sub $post");
+              } else {
+                parts.add(sub);
+              }
+            }
+            if (parts.isNotEmpty) {
+              return parts.join(', ');
+            }
+          }
+        }
+      } catch (_) {}
+    } catch (e) {
+      debugPrint("GeoCameraHelper.reverseGeocode error: $e");
+    }
+    return null;
+  }
+
+  /// Stamp GPS coordinates, timestamp, exact address, and "Powered by SolOps" watermark onto image
   static Future<File> watermarkGeoPhoto({
     required File imageFile,
     required Position? position,
@@ -79,34 +188,40 @@ class GeoCameraHelper {
       canvas.drawImage(image, Offset.zero, Paint());
 
       // 2. Compute proportional scale based on resolution
-      // Ensures crisp text on 720p, 1080p, 4K camera photos
-      final double minDim = imgWidth < imgHeight ? imgWidth : imgHeight;
-      final double scale = (minDim / 480.0).clamp(1.0, 5.0);
+      // Calibrated so that text is bold, large and legible across 720p, 1080p, and 4K+ camera captures
+      final double scale = (imgWidth / 400.0).clamp(1.5, 9.0);
 
-      final double padX = 24.0 * scale;
-      final double padY = 20.0 * scale;
-      final double lineSpacing = 8.0 * scale;
+      final double padX = 20.0 * scale;
+      final double padY = 16.0 * scale;
+      final double lineSpacing = 6.0 * scale;
       final double maxTextWidth = imgWidth - (padX * 2);
 
       // Format data strings
       final dateStr = DateFormat("dd MMM yyyy, hh:mm:ss a").format(DateTime.now());
-      final gpsStr = position != null
-          ? "Lat: ${position.latitude.toStringAsFixed(6)}°, Long: ${position.longitude.toStringAsFixed(6)}° (±${position.accuracy.toStringAsFixed(1)}m)"
-          : (locationAddress != null && locationAddress.isNotEmpty
-              ? "GPS: Site Survey Verified ($locationAddress)"
-              : "GPS: Geotag Verified (Site Execution)");
 
-      final projectStr = "Project: $projectNumber | System: $systemCapacity kW${phase != null ? ' | $phase' : ''}";
+      // Primary Address: clean human readable site location
+      final cleanAddress = (locationAddress != null && locationAddress.trim().isNotEmpty)
+          ? locationAddress.trim()
+          : (position != null
+              ? "Site Location: ${position.latitude.toStringAsFixed(5)}°, ${position.longitude.toStringAsFixed(5)}°"
+              : "Project Site Execution Verified");
+
+      // GPS Coordinates (secondary line)
+      final coordsStr = position != null
+          ? "Lat ${position.latitude.toStringAsFixed(6)}°, Long ${position.longitude.toStringAsFixed(6)}° (±${position.accuracy.toStringAsFixed(1)}m)"
+          : "Verified Site Survey Geotag";
+
+      final projectStr = "Project: $projectNumber | $systemCapacity kW${phase != null ? ' | $phase' : ''}";
       const solopsStr = "⚡ Powered by SolOps • Enterprise Solar Platform";
 
       // 3. Build TextPainters to measure exact height
-      // Badge
+      // Header Badge
       final badgePainter = TextPainter(
         text: TextSpan(
-          text: " 📍 GPS GEO-TAGGED CAMERA ",
+          text: " 📍 GPS MAP CAMERA • SITE VERIFIED ",
           style: TextStyle(
             color: const Color(0xFF0F172A),
-            fontSize: 13.0 * scale,
+            fontSize: 12.0 * scale,
             fontWeight: FontWeight.w900,
             letterSpacing: 0.5 * scale,
             fontFamily: 'Roboto',
@@ -116,75 +231,44 @@ class GeoCameraHelper {
       );
       badgePainter.layout();
 
-      // GPS Coordinates
-      final gpsPainter = TextPainter(
+      // Line 1: Exact Address (Prominent, large yellow/white)
+      final addressPainter = TextPainter(
         text: TextSpan(
           children: [
             TextSpan(
-              text: "📍 Location: ",
+              text: "📍 ",
               style: TextStyle(
-                color: const Color(0xFF94A3B8),
-                fontSize: 15.0 * scale,
-                fontWeight: FontWeight.w600,
+                fontSize: 15.5 * scale,
+                fontWeight: FontWeight.w900,
                 fontFamily: 'Roboto',
               ),
             ),
             TextSpan(
-              text: gpsStr,
+              text: cleanAddress,
               style: TextStyle(
-                color: const Color(0xFFFACC15), // High-visibility Amber/Yellow
+                color: const Color(0xFFFACC15), // High-visibility bright yellow/gold
                 fontSize: 15.5 * scale,
                 fontWeight: FontWeight.w900,
+                height: 1.2,
                 fontFamily: 'Roboto',
               ),
             ),
           ],
         ),
         textDirection: ui.TextDirection.ltr,
+        maxLines: 3,
       );
-      gpsPainter.layout(maxWidth: maxTextWidth);
+      addressPainter.layout(maxWidth: maxTextWidth);
 
-      // Address (if provided)
-      TextPainter? addressPainter;
-      if (locationAddress != null && locationAddress.trim().isNotEmpty) {
-        addressPainter = TextPainter(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: "🏠 Address: ",
-                style: TextStyle(
-                  color: const Color(0xFF94A3B8),
-                  fontSize: 13.5 * scale,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'Roboto',
-                ),
-              ),
-              TextSpan(
-                text: locationAddress.trim(),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13.5 * scale,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Roboto',
-                ),
-              ),
-            ],
-          ),
-          textDirection: ui.TextDirection.ltr,
-        );
-        addressPainter.layout(maxWidth: maxTextWidth);
-      }
-
-      // Date & Time
+      // Line 2: Date & Time (High-visibility white)
       final timePainter = TextPainter(
         text: TextSpan(
           children: [
             TextSpan(
-              text: "🕒 Time: ",
+              text: "🕒 ",
               style: TextStyle(
-                color: const Color(0xFF94A3B8),
                 fontSize: 14.0 * scale,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w800,
                 fontFamily: 'Roboto',
               ),
             ),
@@ -203,43 +287,35 @@ class GeoCameraHelper {
       );
       timePainter.layout(maxWidth: maxTextWidth);
 
-      // Project & Capacity
-      final projPainter = TextPainter(
+      // Line 3: GPS Coordinates & Project info
+      final metaPainter = TextPainter(
         text: TextSpan(
           children: [
             TextSpan(
-              text: "⚡ Site: ",
+              text: "🌐 $coordsStr  •  $projectStr",
               style: TextStyle(
-                color: const Color(0xFF94A3B8),
-                fontSize: 13.5 * scale,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Roboto',
-              ),
-            ),
-            TextSpan(
-              text: projectStr,
-              style: TextStyle(
-                color: const Color(0xFF93C5FD), // Light blue
-                fontSize: 13.5 * scale,
-                fontWeight: FontWeight.w800,
+                color: const Color(0xFF93C5FD), // Soft cyan/blue
+                fontSize: 12.0 * scale,
+                fontWeight: FontWeight.w700,
                 fontFamily: 'Roboto',
               ),
             ),
           ],
         ),
         textDirection: ui.TextDirection.ltr,
+        maxLines: 2,
       );
-      projPainter.layout(maxWidth: maxTextWidth);
+      metaPainter.layout(maxWidth: maxTextWidth);
 
-      // Powered by SolOps
+      // Line 4: Powered by SolOps
       final solopsPainter = TextPainter(
         text: TextSpan(
           text: solopsStr,
           style: TextStyle(
             color: const Color(0xFFF59E0B), // SolOps Amber
-            fontSize: 13.0 * scale,
+            fontSize: 12.0 * scale,
             fontWeight: FontWeight.w900,
-            letterSpacing: 0.6 * scale,
+            letterSpacing: 0.5 * scale,
             fontFamily: 'Roboto',
           ),
         ),
@@ -249,22 +325,21 @@ class GeoCameraHelper {
 
       // 4. Calculate total banner height
       double contentHeight = padY * 2;
-      contentHeight += badgePainter.height + (8.0 * scale);
-      contentHeight += gpsPainter.height + lineSpacing;
-      if (addressPainter != null) contentHeight += addressPainter.height + lineSpacing;
+      contentHeight += badgePainter.height + (6.0 * scale);
+      contentHeight += addressPainter.height + lineSpacing;
       contentHeight += timePainter.height + lineSpacing;
-      contentHeight += projPainter.height + lineSpacing;
-      contentHeight += solopsPainter.height + (6.0 * scale);
+      contentHeight += metaPainter.height + lineSpacing;
+      contentHeight += solopsPainter.height + (4.0 * scale);
 
       final double bannerHeight = contentHeight;
       final double bannerTop = imgHeight - bannerHeight;
 
-      // 5. Draw dark backdrop banner (88% black)
+      // 5. Draw dark backdrop banner (92% black)
       final bannerRect = Rect.fromLTWH(0, bannerTop, imgWidth, bannerHeight);
-      final bannerPaint = Paint()..color = const Color(0xEB0A0E17);
+      final bannerPaint = Paint()..color = const Color(0xEE0A0E17);
       canvas.drawRect(bannerRect, bannerPaint);
 
-      // Top amber stripe
+      // Top amber stripe (prominent 4px scaled accent)
       final stripePaint = Paint()..color = const Color(0xFFF59E0B);
       canvas.drawRect(
         Rect.fromLTWH(0, bannerTop, imgWidth, 4.0 * scale),
@@ -276,32 +351,31 @@ class GeoCameraHelper {
 
       // Badge Background Pill
       final badgeBgRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(padX, currentY, badgePainter.width + (8.0 * scale), badgePainter.height + (4.0 * scale)),
+        Rect.fromLTWH(
+          padX,
+          currentY,
+          badgePainter.width + (8.0 * scale),
+          badgePainter.height + (4.0 * scale),
+        ),
         Radius.circular(4.0 * scale),
       );
       canvas.drawRRect(badgeBgRect, Paint()..color = const Color(0xFFF59E0B));
       badgePainter.paint(canvas, Offset(padX + (4.0 * scale), currentY + (2.0 * scale)));
-      currentY += badgePainter.height + (10.0 * scale);
+      currentY += badgePainter.height + (8.0 * scale);
 
-      // GPS Coordinates
-      gpsPainter.paint(canvas, Offset(padX, currentY));
-      currentY += gpsPainter.height + lineSpacing;
+      // Line 1: Exact Address
+      addressPainter.paint(canvas, Offset(padX, currentY));
+      currentY += addressPainter.height + lineSpacing;
 
-      // Address
-      if (addressPainter != null) {
-        addressPainter.paint(canvas, Offset(padX, currentY));
-        currentY += addressPainter.height + lineSpacing;
-      }
-
-      // Date & Time
+      // Line 2: Date & Time
       timePainter.paint(canvas, Offset(padX, currentY));
       currentY += timePainter.height + lineSpacing;
 
-      // Project & Capacity
-      projPainter.paint(canvas, Offset(padX, currentY));
-      currentY += projPainter.height + lineSpacing;
+      // Line 3: Coords & Project
+      metaPainter.paint(canvas, Offset(padX, currentY));
+      currentY += metaPainter.height + lineSpacing;
 
-      // SolOps Tagline (bottom right or left)
+      // Line 4: SolOps Tagline
       solopsPainter.paint(canvas, Offset(padX, currentY + (2.0 * scale)));
 
       // 7. Render and save to temp file
@@ -320,7 +394,7 @@ class GeoCameraHelper {
       await outFile.writeAsBytes(buffer);
       return outFile;
     } catch (e) {
-      debugPrint("watermarkGeoPhoto error: $e");
+      debugPrint("GeoCameraHelper.watermarkGeoPhoto error: $e");
       return imageFile;
     }
   }

@@ -291,35 +291,55 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
         if (photo != null) {
           final originalFile = File(photo.path);
 
-          // 3. Watermark with Geo-tags (GPS + Date/Time + Powered by SolOps)
-          final addressParts = [
-            widget.project.customerAddress,
-            widget.project.city,
-            widget.project.state,
-          ].where((s) => s != null && s.trim().isNotEmpty).join(', ');
+          // 3. Resolve exact human-readable address (e.g. 42-B Laxmi Nagar, Jaipur...)
+          String resolvedAddress = "";
+          if (position != null) {
+            final geoAddress = await GeoCameraHelper.reverseGeocode(position.latitude, position.longitude);
+            if (geoAddress != null && geoAddress.trim().isNotEmpty) {
+              if (widget.project.customerAddress != null && widget.project.customerAddress!.trim().isNotEmpty) {
+                resolvedAddress = "${widget.project.customerAddress!.trim()}, $geoAddress";
+              } else {
+                resolvedAddress = geoAddress;
+              }
+            }
+          }
 
+          if (resolvedAddress.isEmpty) {
+            final projParts = [
+              widget.project.customerAddress,
+              widget.project.city,
+              widget.project.state,
+              widget.project.pincode,
+            ].where((s) => s != null && s.toString().trim().isNotEmpty).join(', ');
+            resolvedAddress = projParts.isNotEmpty ? projParts : "Site Location Verified";
+          }
+
+          // 4. Watermark with Geo-tags (Exact Address + Date/Time + Powered by SolOps)
           final watermarkedFile = await GeoCameraHelper.watermarkGeoPhoto(
             imageFile: originalFile,
             position: position,
             projectNumber: widget.project.projectNumber,
             systemCapacity: widget.project.systemCapacityKw.toString(),
-            locationAddress: addressParts.isNotEmpty ? addressParts : null,
+            locationAddress: resolvedAddress,
             phase: _selectedPhase,
           );
 
-          final gpsText = position != null
-              ? "${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}"
-              : null;
+          final newEntry = _PhotoEntry(
+            file: watermarkedFile,
+            captionCtrl: TextEditingController(),
+            tag: 'During',
+            isGeoTagged: true,
+            gpsInfo: resolvedAddress,
+          );
 
           setState(() {
-            _photoEntries.add(_PhotoEntry(
-              file: watermarkedFile,
-              captionCtrl: TextEditingController(),
-              tag: 'During',
-              isGeoTagged: true,
-              gpsInfo: gpsText,
-            ));
+            _photoEntries.add(newEntry);
           });
+
+          // 5. Automatically open photo preview for instant verification
+          if (mounted) {
+            _showPhotoPreviewDialog(context, newEntry, _photoEntries.length - 1);
+          }
         }
       } else {
         // Gallery selection
@@ -1415,20 +1435,26 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                                           // Click to preview full photo
                                           InkWell(
                                             onTap: () => _showPhotoPreviewDialog(context, entry, idx),
-                                            borderRadius: BorderRadius.circular(4),
-                                            child: Padding(
-                                              padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                            borderRadius: BorderRadius.circular(6),
+                                            child: Container(
+                                              margin: const EdgeInsets.only(top: 4),
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                              decoration: BoxDecoration(
+                                                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.5)),
+                                              ),
                                               child: Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: const [
-                                                  Icon(Icons.visibility_rounded, size: 13, color: AppColors.brandPrimary),
-                                                  SizedBox(width: 4),
+                                                  Icon(Icons.zoom_in_rounded, size: 14, color: Color(0xFF38BDF8)),
+                                                  SizedBox(width: 5),
                                                   Text(
-                                                    "Preview Full Photo with Watermark",
+                                                    "Preview Watermarked Photo",
                                                     style: TextStyle(
-                                                      fontSize: 10.5,
+                                                      fontSize: 11,
                                                       fontWeight: FontWeight.w700,
-                                                      color: AppColors.brandPrimary,
+                                                      color: Color(0xFF38BDF8),
                                                     ),
                                                   ),
                                                 ],
@@ -1820,16 +1846,42 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                 ),
               ),
 
+              // Address chip
+              if (entry.isGeoTagged && entry.gpsInfo != null && entry.gpsInfo!.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(left: 14, right: 14, bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF334155)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 14, color: Color(0xFFFACC15)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          entry.gpsInfo!,
+                          style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               // Image preview with zoom/pan
               ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.55,
+                  maxHeight: MediaQuery.of(context).size.height * 0.58,
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: InteractiveViewer(
-                    minScale: 0.8,
-                    maxScale: 4.0,
+                    minScale: 0.5,
+                    maxScale: 5.0,
                     child: Image.file(
                       entry.file,
                       fit: BoxFit.contain,
@@ -1917,6 +1969,20 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                       onChanged: (val) {
                         setState(() {});
                       },
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF005BAC),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text("Confirm & Use Photo", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+                      ),
                     ),
                   ],
                 ),
