@@ -1180,15 +1180,15 @@ export default function CustomerHandover({ project, projectId }) {
                 <Stack sx={{ justifyContent: "space-between", alignItems: "center" }} direction="row"  >
                   <Box>
                     <Typography sx={{ fontSize: "0.85rem", fontWeight: 800, color: COLORS.textPrimary }}>
-                      Digital Signoff Status
+                      Customer acceptance record
                     </Typography>
                     <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary }}>
-                      Signatory: {formData.signature_signatory_name || "Customer"} ({formData.signature_phone})
+                      Signatory: {formData.signature_signatory_name || "Customer"}{formData.signature_phone ? ` (${formData.signature_phone})` : ""}
                     </Typography>
                   </Box>
                   <Chip
                     icon={formData.customer_signature ? <VerifiedIcon /> : <WarningAmberIcon />}
-                    label={formData.customer_signature ? "Signed & Confirmed" : "Signoff Pending"}
+                    label={formData.customer_signature ? "Acceptance recorded" : "Acceptance pending"}
                     size="small"
                     sx={{
                       fontWeight: 800,
@@ -1208,13 +1208,17 @@ export default function CustomerHandover({ project, projectId }) {
                     <Chip size="small" label="✓ Signature Verified" sx={{ height: 20, fontSize: "0.68rem", fontWeight: 800, color: "#16A34A", backgroundColor: "#DCFCE7", border: "1px solid #86EFAC" }} />
                   </Stack>
                   <Box sx={{ display: "flex", justifyContent: "center", backgroundColor: "#FFFFFF", borderRadius: "6px", p: 1, border: "1px dashed #CBD5E1" }}>
-                    <Box component="img" src={formData.signature_data} alt="Verified Handover Signature" sx={{ maxHeight: 70, maxWidth: "100%", objectFit: "contain" }} />
+                    <Box component="img" src={formData.signature_data} alt="Recorded customer handover signature" sx={{ maxHeight: 70, maxWidth: "100%", objectFit: "contain" }} />
                   </Box>
                 </Box>
               )}
 
+              <Typography sx={{ fontSize: "0.75rem", color: COLORS.textSecondary }}>
+                Overall handover: {activeStatus}. Customer acceptance alone does not complete handover; training, app onboarding and payment clearance must also be completed.
+              </Typography>
               <Grid container spacing={1.5}>
-                <Grid size={6}>
+                {formData.signed_docket_url?.trim() && (
+                <Grid size={{ xs: 12, sm: formData.handover_photo_url?.trim() ? 6 : 12 }}>
                   <Button
                     fullWidth
                     variant="outlined"
@@ -1235,8 +1239,9 @@ export default function CustomerHandover({ project, projectId }) {
                     View Signed Docket
                   </Button>
                 </Grid>
-
-                <Grid size={6}>
+                )}
+                {formData.handover_photo_url?.trim() && (
+                <Grid size={{ xs: 12, sm: formData.signed_docket_url?.trim() ? 6 : 12 }}>
                   <Button
                     fullWidth
                     variant="outlined"
@@ -1257,6 +1262,7 @@ export default function CustomerHandover({ project, projectId }) {
                     View Plant Photo
                   </Button>
                 </Grid>
+                )}
               </Grid>
             </Stack>
           </Grid>
