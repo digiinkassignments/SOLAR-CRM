@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/lead_provider.dart';
 import '../../../providers/user_provider.dart';
 
@@ -27,9 +29,14 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
   final _consumptionController = TextEditingController();
   final _quotationController = TextEditingController();
   final _remarkController = TextEditingController();
+  final _nextActionController = TextEditingController(text: "Initial call & requirement discussion");
+
+  DateTime? _nextFollowUpDate;
+  TimeOfDay? _nextFollowUpTime;
 
   String _solarRequirement = "Residential";
   String _interestStatus = "Interested";
+  String _status = "New Lead";
   String _priority = "Medium";
   String _leadSource = "Website";
   String _roofType = "RCC Flat Roof";
@@ -38,21 +45,176 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  static const List<String> _closedStatuses = ["Won", "Lost", "Invalid", "Not Interested"];
+
+  bool get _isClosedStatus =>
+      _closedStatuses.contains(_status) || _interestStatus == "Not Interested";
+
   @override
   void initState() {
     super.initState();
+    // Default follow-up date = tomorrow at 11:00 AM
+    _nextFollowUpDate = DateTime.now().add(const Duration(days: 1));
+    _nextFollowUpTime = const TimeOfDay(hour: 11, minute: 0);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      if (auth.user?.isSales == true) {
+        setState(() {
+          _assignedTo = auth.user!.id;
+          _status = "New Lead";
+        });
+      }
       Provider.of<UserProvider>(context, listen: false).fetchUsers();
     });
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _mobileController.dispose();
+    _altMobileController.dispose();
+    _emailController.dispose();
+    _addressController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _pincodeController.dispose();
+    _capacityController.dispose();
+    _consumptionController.dispose();
+    _quotationController.dispose();
+    _remarkController.dispose();
+    _nextActionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final initial = _nextFollowUpDate ?? now.add(const Duration(days: 1));
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial.isBefore(now) ? now : initial,
+      firstDate: now.subtract(const Duration(days: 1)),
+      lastDate: now.add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).brightness == Brightness.dark
+                ? const ColorScheme.dark(
+                    primary: AppColors.brandPrimary,
+                    onPrimary: Colors.black,
+                    surface: AppColors.darkSurfaceElevated,
+                    onSurface: AppColors.textPrimaryDark,
+                  )
+                : const ColorScheme.light(
+                    primary: AppColors.brandPrimary,
+                    onPrimary: Colors.white,
+                    surface: Colors.white,
+                    onSurface: AppColors.textPrimaryLight,
+                  ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() => _nextFollowUpDate = picked);
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _nextFollowUpTime ?? const TimeOfDay(hour: 11, minute: 0),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).brightness == Brightness.dark
+                ? const ColorScheme.dark(
+                    primary: AppColors.brandPrimary,
+                    onPrimary: Colors.black,
+                    surface: AppColors.darkSurfaceElevated,
+                    onSurface: AppColors.textPrimaryDark,
+                  )
+                : const ColorScheme.light(
+                    primary: AppColors.brandPrimary,
+                    onPrimary: Colors.white,
+                    surface: Colors.white,
+                    onSurface: AppColors.textPrimaryLight,
+                  ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() => _nextFollowUpTime = picked);
+    }
   }
 
   void _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final user = auth.user;
+
+    // Backend validation alignments
+    final cap = double.tryParse(_capacityController.text.trim()) ?? 0.0;
+    if (_interestStatus == "Interested" && cap <= 0) {
+      setState(() {
+        _errorMessage = "Required Solar Capacity in kW is mandatory when status is 'Interested'.";
+      });
+      return;
+    }
+
+    if (_interestStatus == "Not Interested" && _remarkController.text.trim().isEmpty) {
+      setState(() {
+        _errorMessage = "Remark is mandatory when status is 'Not Interested'.";
+      });
+      return;
+    }
+
+    // Manager must assign to their own team member
+    if (user?.isManager == true && _assignedTo == null) {
+      setState(() {
+        _errorMessage = "Assign this lead to a salesperson in your team.";
+      });
+      return;
+    }
+
+    // Active leads require Next Action, Follow-up Date and Exact Time
+    if (!_isClosedStatus) {
+      if (_nextActionController.text.trim().isEmpty) {
+        setState(() {
+          _errorMessage = "Active leads require a next action, follow-up date and exact time.";
+        });
+        return;
+      }
+      if (_nextFollowUpDate == null) {
+        setState(() {
+          _errorMessage = "Follow-up date is required for active leads.";
+        });
+        return;
+      }
+      if (_nextFollowUpTime == null) {
+        setState(() {
+          _errorMessage = "Exact follow-up time is required for active leads.";
+        });
+        return;
+      }
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
+
+    final formattedDate = _nextFollowUpDate != null
+        ? DateFormat('yyyy-MM-dd').format(_nextFollowUpDate!)
+        : null;
+
+    final formattedTime = _nextFollowUpTime != null
+        ? "${_nextFollowUpTime!.hour.toString().padLeft(2, '0')}:${_nextFollowUpTime!.minute.toString().padLeft(2, '0')}"
+        : null;
 
     final data = <String, dynamic>{
       'customer_name': _nameController.text.trim(),
@@ -65,15 +227,18 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
       'pincode': _pincodeController.text.trim().isNotEmpty ? _pincodeController.text.trim() : null,
       'solar_requirement': _solarRequirement,
       'interest_status': _interestStatus,
-      'required_kw': double.tryParse(_capacityController.text.trim()) ?? 3.0,
+      'required_kw': cap > 0 ? cap : 3.0,
       'priority': _priority,
       'lead_source': _leadSource,
       'roof_type': _roofType,
       'monthly_consumption_units': _consumptionController.text.trim().isNotEmpty ? int.tryParse(_consumptionController.text.trim()) : null,
       'quotation_amount': _quotationController.text.trim().isNotEmpty ? double.tryParse(_quotationController.text.trim()) : null,
       'remark': _remarkController.text.trim().isNotEmpty ? _remarkController.text.trim() : null,
-      'assigned_to': _assignedTo,
-      'status': "New Lead",
+      'status': user?.isSales == true ? "New Lead" : _status,
+      'assigned_to': user?.isSales == true ? user!.id : _assignedTo,
+      'next_action': _isClosedStatus ? null : _nextActionController.text.trim(),
+      'next_follow_up_date': _isClosedStatus ? null : formattedDate,
+      'next_follow_up_time': _isClosedStatus ? null : formattedTime,
     };
 
     final provider = Provider.of<LeadProvider>(context, listen: false);
@@ -99,8 +264,21 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context);
+    final currentUser = auth.user;
     final userProvider = Provider.of<UserProvider>(context);
-    final teamMembers = userProvider.users.where((u) => u.isActive).toList();
+
+    // Filter assignable team members based on authenticated role
+    List<dynamic> teamMembers;
+    if (currentUser?.isSales == true) {
+      teamMembers = [];
+    } else if (currentUser?.isManager == true) {
+      teamMembers = userProvider.users
+          .where((u) => u.isActive && u.managerId == currentUser!.id)
+          .toList();
+    } else {
+      teamMembers = userProvider.users.where((u) => u.isActive).toList();
+    }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
@@ -148,17 +326,12 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
                     style: AppTypography.heading(size: 20, color: textPrimary),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20),
+                    icon: Icon(Icons.close, color: textSecondary),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-              Text(
-                "Register prospect for feasibility assessment & follow-ups.",
-                style: AppTypography.caption(color: textSecondary),
-              ),
-
-              const SizedBox(height: 18),
+              const SizedBox(height: 12),
 
               if (_errorMessage != null) ...[
                 Container(
@@ -170,12 +343,12 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline_rounded, color: AppColors.errorRed, size: 18),
-                      const SizedBox(width: 8),
+                      const Icon(Icons.error_outline, color: AppColors.errorRed, size: 20),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: AppTypography.caption(color: AppColors.errorRed),
+                          style: const TextStyle(color: AppColors.errorRed, fontSize: 13),
                         ),
                       ),
                     ],
@@ -190,11 +363,11 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
               TextFormField(
                 controller: _nameController,
                 style: AppTypography.body(color: textPrimary),
-                decoration: InputDecoration(
-                  hintText: "e.g. Pooja Rathore",
-                  prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
+                decoration: const InputDecoration(
+                  hintText: "Enter full name",
+                  prefixIcon: Icon(Icons.person_outline, size: 20),
                 ),
-                validator: (val) => val == null || val.trim().isEmpty ? "Customer name is required" : null,
+                validator: (val) => val == null || val.trim().isEmpty ? "Name is required" : null,
               ),
 
               const SizedBox(height: 14),
@@ -212,9 +385,9 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
                           controller: _mobileController,
                           keyboardType: TextInputType.phone,
                           style: AppTypography.body(color: textPrimary),
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             hintText: "9876543210",
-                            prefixIcon: const Icon(Icons.phone_outlined, size: 20),
+                            prefixIcon: Icon(Icons.phone_outlined, size: 20),
                           ),
                           validator: (val) {
                             if (val == null || val.trim().isEmpty) return "Required";
@@ -236,9 +409,9 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
                           controller: _altMobileController,
                           keyboardType: TextInputType.phone,
                           style: AppTypography.body(color: textPrimary),
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             hintText: "Optional",
-                            prefixIcon: const Icon(Icons.phone_iphone_rounded, size: 20),
+                            prefixIcon: Icon(Icons.phone_iphone_rounded, size: 20),
                           ),
                         ),
                       ],
@@ -262,11 +435,17 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
                           controller: _capacityController,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           style: AppTypography.body(color: textPrimary),
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             hintText: "e.g. 4.36",
-                            prefixIcon: const Icon(Icons.solar_power_rounded, size: 20),
+                            prefixIcon: Icon(Icons.solar_power_rounded, size: 20),
                           ),
-                          validator: (val) => val == null || val.trim().isEmpty ? "Required" : null,
+                          validator: (val) {
+                            if (_interestStatus == "Interested") {
+                              final d = double.tryParse(val ?? '');
+                              if (d == null || d <= 0) return "Must be > 0";
+                            }
+                            return null;
+                          },
                         ),
                       ],
                     ),
@@ -282,9 +461,9 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
                           controller: _consumptionController,
                           keyboardType: TextInputType.number,
                           style: AppTypography.body(color: textPrimary),
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             hintText: "e.g. 350",
-                            prefixIcon: const Icon(Icons.electric_bolt_rounded, size: 20),
+                            prefixIcon: Icon(Icons.electric_bolt_rounded, size: 20),
                           ),
                         ),
                       ],
@@ -370,7 +549,97 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
 
               const SizedBox(height: 14),
 
-              // Roof Type & Initial Stage
+              // Interest Status & Pipeline Stage
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("INTEREST STATUS *", style: AppTypography.badge(color: textSecondary)),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: surfaceColor,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: borderColor),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _interestStatus,
+                              isExpanded: true,
+                              dropdownColor: cardBg,
+                              items: ["Interested", "Pending", "Not Interested"].map((p) {
+                                return DropdownMenuItem<String>(
+                                  value: p,
+                                  child: Text(p, style: AppTypography.body(color: textPrimary)),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) setState(() => _interestStatus = val);
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("PIPELINE STAGE", style: AppTypography.badge(color: textSecondary)),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: surfaceColor,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: borderColor),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: currentUser?.isSales == true ? "New Lead" : _status,
+                              isExpanded: true,
+                              dropdownColor: cardBg,
+                              items: (currentUser?.isSales == true
+                                      ? ["New Lead"]
+                                      : [
+                                          "New Lead",
+                                          "Contacted",
+                                          "Qualified",
+                                          "Site Survey Scheduled",
+                                          "Site Survey Done",
+                                          "Quotation Sent",
+                                          "Won",
+                                          "Lost",
+                                          "Invalid",
+                                        ])
+                                  .map((s) {
+                                return DropdownMenuItem<String>(
+                                  value: s,
+                                  child: Text(s, style: AppTypography.body(color: textPrimary)),
+                                );
+                              }).toList(),
+                              onChanged: currentUser?.isSales == true
+                                  ? null
+                                  : (val) {
+                                      if (val != null) setState(() => _status = val);
+                                    },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 14),
+
+              // Roof Type & Lead Source
               Row(
                 children: [
                   Expanded(
@@ -411,47 +680,6 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("INITIAL STAGE", style: AppTypography.badge(color: textSecondary)),
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: surfaceColor,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: borderColor),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _interestStatus,
-                              isExpanded: true,
-                              dropdownColor: cardBg,
-                              items: ["New Lead", "Contacted", "Interested"].map((p) {
-                                return DropdownMenuItem<String>(
-                                  value: p,
-                                  child: Text(p, style: AppTypography.body(color: textPrimary)),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) setState(() => _interestStatus = val);
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 14),
-
-              // Lead Source & Assign Rep
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
                         Text("LEAD SOURCE", style: AppTypography.badge(color: textSecondary)),
                         const SizedBox(height: 6),
                         Container(
@@ -481,45 +709,198 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("ASSIGN SALES REP", style: AppTypography.badge(color: AppColors.brandPrimary)),
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: surfaceColor,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: borderColor),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<int>(
-                              value: _assignedTo,
-                              hint: Text("Select Rep", style: AppTypography.caption(color: textSecondary)),
-                              isExpanded: true,
-                              dropdownColor: cardBg,
-                              items: teamMembers.map((m) {
-                                return DropdownMenuItem<int>(
-                                  value: m.id,
-                                  child: Text(m.fullName, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTypography.body(color: textPrimary)),
-                                );
-                              }).toList(),
-                              onChanged: (val) => setState(() => _assignedTo = val),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
 
               const SizedBox(height: 14),
 
-              // City, State, Address
+              // Assign Sales Rep
+              Text("ASSIGN SALES REP", style: AppTypography.badge(color: AppColors.brandPrimary)),
+              const SizedBox(height: 6),
+              if (currentUser?.isSales == true)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: surfaceColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person_pin_rounded, size: 20, color: AppColors.brandPrimary),
+                      const SizedBox(width: 10),
+                      Text(
+                        "${currentUser!.name} (Self-Assigned)",
+                        style: AppTypography.body(color: textPrimary),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: surfaceColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      value: _assignedTo,
+                      hint: Text(
+                        currentUser?.isManager == true ? "Select Team Member *" : "Select Rep (Optional)",
+                        style: AppTypography.caption(color: textSecondary),
+                      ),
+                      isExpanded: true,
+                      dropdownColor: cardBg,
+                      items: teamMembers.map((m) {
+                        return DropdownMenuItem<int>(
+                          value: m.id,
+                          child: Text(
+                            "${m.fullName} (${m.roleName})",
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.body(color: textPrimary),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (val) => setState(() => _assignedTo = val),
+                    ),
+                  ),
+                ),
+
+              const SizedBox(height: 16),
+
+              // FOLLOW-UP & NEXT ACTION SECTION (Mandatory for Active Leads)
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: surfaceColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: _isClosedStatus ? borderColor : AppColors.brandPrimary.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.schedule_rounded,
+                          size: 18,
+                          color: _isClosedStatus ? textSecondary : AppColors.brandPrimary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _isClosedStatus ? "FOLLOW-UP SCHEDULE (CLOSED)" : "FOLLOW-UP SCHEDULE & NEXT ACTION *",
+                          style: AppTypography.badge(
+                            color: _isClosedStatus ? textSecondary : AppColors.brandPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Next Action
+                    TextFormField(
+                      controller: _nextActionController,
+                      enabled: !_isClosedStatus,
+                      style: AppTypography.body(color: textPrimary),
+                      maxLength: 255,
+                      decoration: InputDecoration(
+                        labelText: _isClosedStatus ? "Next action (optional)" : "Next action *",
+                        hintText: "e.g. Share quotation over WhatsApp & follow up",
+                        prefixIcon: const Icon(Icons.task_alt_rounded, size: 20),
+                        counterText: "",
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    Row(
+                      children: [
+                        // Follow-up Date Picker
+                        Expanded(
+                          child: InkWell(
+                            onTap: _isClosedStatus ? null : _pickDate,
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: cardBg,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today_rounded,
+                                    size: 18,
+                                    color: _isClosedStatus ? textSecondary : AppColors.brandPrimary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _nextFollowUpDate != null
+                                          ? DateFormat('yyyy-MM-dd').format(_nextFollowUpDate!)
+                                          : "Follow-up date",
+                                      style: AppTypography.bodySmall(
+                                        color: _nextFollowUpDate != null ? textPrimary : textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+
+                        // Exact Time Picker
+                        Expanded(
+                          child: InkWell(
+                            onTap: _isClosedStatus ? null : _pickTime,
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: cardBg,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.access_time_rounded,
+                                    size: 18,
+                                    color: _isClosedStatus ? textSecondary : AppColors.brandPrimary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _nextFollowUpTime != null
+                                          ? "${_nextFollowUpTime!.hour.toString().padLeft(2, '0')}:${_nextFollowUpTime!.minute.toString().padLeft(2, '0')}"
+                                          : "Exact time",
+                                      style: AppTypography.bodySmall(
+                                        color: _nextFollowUpTime != null ? textPrimary : textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              // Site Location
               Text("SITE LOCATION", style: AppTypography.badge(color: textSecondary)),
               const SizedBox(height: 6),
               TextFormField(
@@ -597,4 +978,3 @@ class _AddLeadSheetState extends State<AddLeadSheet> {
     );
   }
 }
-

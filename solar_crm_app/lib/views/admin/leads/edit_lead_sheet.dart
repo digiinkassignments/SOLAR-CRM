@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../models/lead_model.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/lead_provider.dart';
 import '../../../providers/user_provider.dart';
 
@@ -39,8 +41,13 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
   late TextEditingController _consumptionController;
   late TextEditingController _quotationController;
   late TextEditingController _remarkController;
+  late TextEditingController _nextActionController;
+
+  DateTime? _nextFollowUpDate;
+  TimeOfDay? _nextFollowUpTime;
 
   late String _solarRequirement;
+  late String _interestStatus;
   late String _priority;
   late String _leadSource;
   late String _roofType;
@@ -74,6 +81,11 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
     "Other",
   ];
 
+  static const List<String> _closedStatuses = ["Won", "Lost", "Invalid", "Not Interested"];
+
+  bool get _isClosedStatus =>
+      _closedStatuses.contains(_status) || _interestStatus == "Not Interested";
+
   @override
   void initState() {
     super.initState();
@@ -94,15 +106,39 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
       text: l.quotationAmount > 0 ? l.quotationAmount.toString() : "",
     );
     _remarkController = TextEditingController(text: l.remark ?? "");
+    _nextActionController = TextEditingController(text: l.nextAction ?? "");
 
     _solarRequirement = ["Residential", "Commercial", "Industrial"].contains(l.solarRequirement)
         ? l.solarRequirement
         : "Residential";
+    _interestStatus = ["Interested", "Pending", "Not Interested"].contains(l.interestStatus)
+        ? l.interestStatus
+        : "Interested";
     _priority = ["High", "Medium", "Low"].contains(l.priority) ? l.priority : "Medium";
     _leadSource = _leadSources.contains(l.leadSource) ? l.leadSource : "Website";
     _roofType = l.roofType ?? "RCC Flat Roof";
     _status = _canonicalStages.contains(l.status) ? l.status : "New Lead";
     _assignedTo = l.assignedTo;
+
+    // Hydrate existing follow-up date
+    if (l.nextFollowUpDate != null && l.nextFollowUpDate!.trim().isNotEmpty) {
+      try {
+        final cleanDate = l.nextFollowUpDate!.split('T')[0];
+        _nextFollowUpDate = DateTime.tryParse(cleanDate);
+      } catch (_) {}
+    }
+
+    // Hydrate existing follow-up time
+    if (l.nextFollowUpTime != null && l.nextFollowUpTime!.trim().isNotEmpty) {
+      final parts = l.nextFollowUpTime!.trim().split(':');
+      if (parts.length >= 2) {
+        final h = int.tryParse(parts[0]);
+        final m = int.tryParse(parts[1]);
+        if (h != null && m != null) {
+          _nextFollowUpTime = TimeOfDay(hour: h, minute: m);
+        }
+      }
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<UserProvider>(context, listen: false).fetchUsers();
@@ -123,16 +159,156 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
     _consumptionController.dispose();
     _quotationController.dispose();
     _remarkController.dispose();
+    _nextActionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final initial = _nextFollowUpDate ?? now.add(const Duration(days: 1));
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial.isBefore(now) ? now : initial,
+      firstDate: now.subtract(const Duration(days: 30)),
+      lastDate: now.add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).brightness == Brightness.dark
+                ? const ColorScheme.dark(
+                    primary: AppColors.brandPrimary,
+                    onPrimary: Colors.black,
+                    surface: AppColors.darkSurfaceElevated,
+                    onSurface: AppColors.textPrimaryDark,
+                  )
+                : const ColorScheme.light(
+                    primary: AppColors.brandPrimary,
+                    onPrimary: Colors.white,
+                    surface: Colors.white,
+                    onSurface: AppColors.textPrimaryLight,
+                  ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() => _nextFollowUpDate = picked);
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _nextFollowUpTime ?? const TimeOfDay(hour: 11, minute: 0),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).brightness == Brightness.dark
+                ? const ColorScheme.dark(
+                    primary: AppColors.brandPrimary,
+                    onPrimary: Colors.black,
+                    surface: AppColors.darkSurfaceElevated,
+                    onSurface: AppColors.textPrimaryDark,
+                  )
+                : const ColorScheme.light(
+                    primary: AppColors.brandPrimary,
+                    onPrimary: Colors.white,
+                    surface: Colors.white,
+                    onSurface: AppColors.textPrimaryLight,
+                  ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() => _nextFollowUpTime = picked);
+    }
   }
 
   void _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final user = auth.user;
+
+    // Backend validations matching leadController.js
+    final cap = double.tryParse(_capacityController.text.trim()) ?? 0.0;
+    if (_interestStatus == "Interested" && cap <= 0) {
+      setState(() {
+        _errorMessage = "Required Solar Capacity in kW is mandatory when status is 'Interested'.";
+      });
+      return;
+    }
+
+    if (_interestStatus == "Not Interested" && _remarkController.text.trim().isEmpty) {
+      setState(() {
+        _errorMessage = "Remark is mandatory when status is 'Not Interested'.";
+      });
+      return;
+    }
+
+    // Manager own-team assignment restriction
+    if (user?.isManager == true && _assignedTo != null && _assignedTo != widget.lead.assignedTo) {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final inTeam = userProvider.users.any((u) => u.id == _assignedTo && u.managerId == user!.id);
+      if (!inTeam) {
+        setState(() {
+          _errorMessage = "You can only assign leads to your own team members.";
+        });
+        return;
+      }
+    }
+
+    // Active leads require Next Action, Follow-up Date and Exact Time
+    if (!_isClosedStatus) {
+      final nextActionVal = _nextActionController.text.trim().isNotEmpty
+          ? _nextActionController.text.trim()
+          : (widget.lead.nextAction ?? "");
+
+      if (nextActionVal.isEmpty) {
+        setState(() {
+          _errorMessage = "Active leads require a next action, follow-up date and exact time.";
+        });
+        return;
+      }
+
+      if (_nextFollowUpDate == null && (widget.lead.nextFollowUpDate == null || widget.lead.nextFollowUpDate!.isEmpty)) {
+        setState(() {
+          _errorMessage = "Follow-up date is required for active leads.";
+        });
+        return;
+      }
+
+      if (_nextFollowUpTime == null && (widget.lead.nextFollowUpTime == null || widget.lead.nextFollowUpTime!.isEmpty)) {
+        setState(() {
+          _errorMessage = "Exact follow-up time is required for active leads.";
+        });
+        return;
+      }
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
+
+    final formattedDate = _nextFollowUpDate != null
+        ? DateFormat('yyyy-MM-dd').format(_nextFollowUpDate!)
+        : (widget.lead.nextFollowUpDate != null && widget.lead.nextFollowUpDate!.isNotEmpty
+            ? widget.lead.nextFollowUpDate!.split('T')[0]
+            : null);
+
+    final formattedTime = _nextFollowUpTime != null
+        ? "${_nextFollowUpTime!.hour.toString().padLeft(2, '0')}:${_nextFollowUpTime!.minute.toString().padLeft(2, '0')}"
+        : (widget.lead.nextFollowUpTime != null && widget.lead.nextFollowUpTime!.isNotEmpty
+            ? widget.lead.nextFollowUpTime!.substring(0, 5)
+            : null);
+
+    final nextAction = _nextActionController.text.trim().isNotEmpty
+        ? _nextActionController.text.trim()
+        : widget.lead.nextAction;
 
     final data = <String, dynamic>{
       'customer_name': _nameController.text.trim(),
@@ -144,7 +320,8 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
       'state': _stateController.text.trim().isNotEmpty ? _stateController.text.trim() : null,
       'pincode': _pincodeController.text.trim().isNotEmpty ? _pincodeController.text.trim() : null,
       'solar_requirement': _solarRequirement,
-      'required_kw': double.tryParse(_capacityController.text.trim()) ?? widget.lead.requiredKw,
+      'interest_status': _interestStatus,
+      'required_kw': cap > 0 ? cap : widget.lead.requiredKw,
       'priority': _priority,
       'lead_source': _leadSource,
       'roof_type': _roofType,
@@ -152,7 +329,11 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
       'monthly_consumption_units': _consumptionController.text.trim().isNotEmpty ? int.tryParse(_consumptionController.text.trim()) : null,
       'quotation_amount': _quotationController.text.trim().isNotEmpty ? double.tryParse(_quotationController.text.trim()) : null,
       'remark': _remarkController.text.trim().isNotEmpty ? _remarkController.text.trim() : null,
-      'assigned_to': _assignedTo,
+      'assigned_to': user?.isSales == true ? widget.lead.assignedTo : _assignedTo,
+      // Retain schedule on unrelated edits or apply user updates
+      'next_action': _isClosedStatus ? null : nextAction,
+      'next_follow_up_date': _isClosedStatus ? null : formattedDate,
+      'next_follow_up_time': _isClosedStatus ? null : formattedTime,
     };
 
     final provider = Provider.of<LeadProvider>(context, listen: false);
@@ -184,7 +365,21 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
     final textPrimary = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
     final textSecondary = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
     final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final auth = Provider.of<AuthProvider>(context);
+    final currentUser = auth.user;
     final userProvider = Provider.of<UserProvider>(context);
+
+    // Filter assignable team members based on role
+    List<dynamic> teamMembers;
+    if (currentUser?.isSales == true) {
+      teamMembers = [];
+    } else if (currentUser?.isManager == true) {
+      teamMembers = userProvider.users
+          .where((u) => u.isActive && u.managerId == currentUser!.id)
+          .toList();
+    } else {
+      teamMembers = userProvider.users.where((u) => u.isActive).toList();
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -247,28 +442,75 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: AppColors.errorRed.withValues(alpha: 0.3)),
                   ),
-                  child: Text(_errorMessage!, style: const TextStyle(color: AppColors.errorRed, fontSize: 13)),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: AppColors.errorRed, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: AppColors.errorRed, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
               ],
 
-              // Pipeline Stage (Canonical Vocabulary)
-              Text("PIPELINE STAGE *", style: AppTypography.badge(color: textSecondary)),
-              const SizedBox(height: 6),
-              DropdownButtonFormField<String>(
-                initialValue: _status,
-                items: _canonicalStages.map((stage) {
-                  return DropdownMenuItem(
-                    value: stage,
-                    child: Text(stage, style: AppTypography.body(color: textPrimary)),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _status = val);
-                },
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.trending_up_rounded, size: 20),
-                ),
+              // Pipeline Stage & Interest Status
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("PIPELINE STAGE *", style: AppTypography.badge(color: textSecondary)),
+                        const SizedBox(height: 6),
+                        DropdownButtonFormField<String>(
+                          initialValue: _status,
+                          items: _canonicalStages.map((stage) {
+                            return DropdownMenuItem(
+                              value: stage,
+                              child: Text(stage, style: AppTypography.body(color: textPrimary)),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) setState(() => _status = val);
+                          },
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.trending_up_rounded, size: 20),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("INTEREST STATUS *", style: AppTypography.badge(color: textSecondary)),
+                        const SizedBox(height: 6),
+                        DropdownButtonFormField<String>(
+                          initialValue: _interestStatus,
+                          items: ["Interested", "Pending", "Not Interested"].map((status) {
+                            return DropdownMenuItem(
+                              value: status,
+                              child: Text(status, style: AppTypography.body(color: textPrimary)),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) setState(() => _interestStatus = val);
+                          },
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.thumb_up_alt_outlined, size: 20),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 14),
@@ -279,9 +521,11 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
               TextFormField(
                 controller: _nameController,
                 style: AppTypography.body(color: textPrimary),
-                decoration: const InputDecoration(
+                enabled: currentUser?.isSales != true,
+                decoration: InputDecoration(
                   hintText: "Enter full name",
-                  prefixIcon: Icon(Icons.person_outline, size: 20),
+                  prefixIcon: const Icon(Icons.person_outline, size: 20),
+                  helperText: currentUser?.isSales == true ? "Customer identity managed by admin" : null,
                 ),
                 validator: (val) => val == null || val.trim().isEmpty ? "Name is required" : null,
               ),
@@ -300,6 +544,7 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
                         TextFormField(
                           controller: _mobileController,
                           keyboardType: TextInputType.phone,
+                          enabled: currentUser?.isSales != true,
                           style: AppTypography.body(color: textPrimary),
                           decoration: const InputDecoration(
                             hintText: "10 digits",
@@ -324,6 +569,7 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
                         TextFormField(
                           controller: _altMobileController,
                           keyboardType: TextInputType.phone,
+                          enabled: currentUser?.isSales != true,
                           style: AppTypography.body(color: textPrimary),
                           decoration: const InputDecoration(
                             hintText: "Optional",
@@ -344,78 +590,12 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
+                enabled: currentUser?.isSales != true,
                 style: AppTypography.body(color: textPrimary),
                 decoration: const InputDecoration(
                   hintText: "email@example.com",
                   prefixIcon: Icon(Icons.mail_outline_rounded, size: 20),
                 ),
-              ),
-
-              const SizedBox(height: 14),
-
-              // Address
-              Text("INSTALLATION ADDRESS", style: AppTypography.badge(color: textSecondary)),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: _addressController,
-                style: AppTypography.body(color: textPrimary),
-                decoration: const InputDecoration(
-                  hintText: "Plot / House, Street / Area",
-                  prefixIcon: Icon(Icons.location_on_outlined, size: 20),
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              // City, State & Pincode
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("CITY", style: AppTypography.badge(color: textSecondary)),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _cityController,
-                          style: AppTypography.body(color: textPrimary),
-                          decoration: const InputDecoration(hintText: "e.g. Jaipur"),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("STATE", style: AppTypography.badge(color: textSecondary)),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _stateController,
-                          style: AppTypography.body(color: textPrimary),
-                          decoration: const InputDecoration(hintText: "e.g. Rajasthan"),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("PINCODE", style: AppTypography.badge(color: textSecondary)),
-                        const SizedBox(height: 6),
-                        TextFormField(
-                          controller: _pincodeController,
-                          keyboardType: TextInputType.number,
-                          style: AppTypography.body(color: textPrimary),
-                          decoration: const InputDecoration(hintText: "302020"),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
               ),
 
               const SizedBox(height: 14),
@@ -459,9 +639,11 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
                               child: Text(s, style: AppTypography.body(color: textPrimary)),
                             );
                           }).toList(),
-                          onChanged: (val) {
-                            if (val != null) setState(() => _leadSource = val);
-                          },
+                          onChanged: currentUser?.isSales == true
+                              ? null
+                              : (val) {
+                                  if (val != null) setState(() => _leadSource = val);
+                                },
                         ),
                       ],
                     ),
@@ -528,7 +710,13 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
                             hintText: "e.g. 5.0",
                             prefixIcon: Icon(Icons.bolt, size: 20),
                           ),
-                          validator: (val) => val == null || val.trim().isEmpty ? "Required" : null,
+                          validator: (val) {
+                            if (_interestStatus == "Interested") {
+                              final d = double.tryParse(val ?? '');
+                              if (d == null || d <= 0) return "Must be > 0";
+                            }
+                            return null;
+                          },
                         ),
                       ],
                     ),
@@ -557,28 +745,190 @@ class _EditLeadSheetState extends State<EditLeadSheet> {
 
               const SizedBox(height: 14),
 
+              // FOLLOW-UP & NEXT ACTION (Preserved on Unrelated Edit)
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: surfaceColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: _isClosedStatus ? borderColor : AppColors.brandPrimary.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.schedule_rounded,
+                          size: 18,
+                          color: _isClosedStatus ? textSecondary : AppColors.brandPrimary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _isClosedStatus ? "FOLLOW-UP SCHEDULE (CLOSED)" : "FOLLOW-UP SCHEDULE & NEXT ACTION *",
+                          style: AppTypography.badge(
+                            color: _isClosedStatus ? textSecondary : AppColors.brandPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Next Action
+                    TextFormField(
+                      controller: _nextActionController,
+                      enabled: !_isClosedStatus,
+                      style: AppTypography.body(color: textPrimary),
+                      maxLength: 255,
+                      decoration: InputDecoration(
+                        labelText: _isClosedStatus ? "Next action (optional)" : "Next action *",
+                        hintText: "e.g. Share quotation over WhatsApp & follow up",
+                        prefixIcon: const Icon(Icons.task_alt_rounded, size: 20),
+                        counterText: "",
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    Row(
+                      children: [
+                        // Follow-up Date Picker
+                        Expanded(
+                          child: InkWell(
+                            onTap: _isClosedStatus ? null : _pickDate,
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: cardBg,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today_rounded,
+                                    size: 18,
+                                    color: _isClosedStatus ? textSecondary : AppColors.brandPrimary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _nextFollowUpDate != null
+                                          ? DateFormat('yyyy-MM-dd').format(_nextFollowUpDate!)
+                                          : (widget.lead.nextFollowUpDate != null && widget.lead.nextFollowUpDate!.isNotEmpty
+                                              ? widget.lead.nextFollowUpDate!.split('T')[0]
+                                              : "Follow-up date"),
+                                      style: AppTypography.bodySmall(
+                                        color: (_nextFollowUpDate != null || widget.lead.nextFollowUpDate != null)
+                                            ? textPrimary
+                                            : textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+
+                        // Exact Time Picker
+                        Expanded(
+                          child: InkWell(
+                            onTap: _isClosedStatus ? null : _pickTime,
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: cardBg,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.access_time_rounded,
+                                    size: 18,
+                                    color: _isClosedStatus ? textSecondary : AppColors.brandPrimary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _nextFollowUpTime != null
+                                          ? "${_nextFollowUpTime!.hour.toString().padLeft(2, '0')}:${_nextFollowUpTime!.minute.toString().padLeft(2, '0')}"
+                                          : (widget.lead.nextFollowUpTime != null && widget.lead.nextFollowUpTime!.isNotEmpty
+                                              ? widget.lead.nextFollowUpTime!.substring(0, 5)
+                                              : "Exact time"),
+                                      style: AppTypography.bodySmall(
+                                        color: (_nextFollowUpTime != null || widget.lead.nextFollowUpTime != null)
+                                            ? textPrimary
+                                            : textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
               // Assign To Rep
               Text("ASSIGN TO SALES EXECUTIVE", style: AppTypography.badge(color: textSecondary)),
               const SizedBox(height: 6),
-              DropdownButtonFormField<int?>(
-                initialValue: _assignedTo,
-                items: [
-                  DropdownMenuItem<int?>(
-                    value: null,
-                    child: Text("Unassigned", style: AppTypography.body(color: textSecondary)),
+              if (currentUser?.isSales == true)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: surfaceColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: borderColor),
                   ),
-                  ...userProvider.users.map((u) {
-                    return DropdownMenuItem<int?>(
-                      value: u.id,
-                      child: Text("${u.fullName} (${u.roleName})", style: AppTypography.body(color: textPrimary)),
-                    );
-                  }),
-                ],
-                onChanged: (val) => setState(() => _assignedTo = val),
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.assignment_ind_outlined, size: 20),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person_pin_rounded, size: 20, color: AppColors.brandPrimary),
+                      const SizedBox(width: 10),
+                      Text(
+                        widget.lead.assignedToName?.isNotEmpty == true
+                            ? "${widget.lead.assignedToName} (Assigned)"
+                            : "${currentUser!.name} (Self-Assigned)",
+                        style: AppTypography.body(color: textPrimary),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                DropdownButtonFormField<int?>(
+                  initialValue: _assignedTo,
+                  items: [
+                    DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text(
+                        currentUser?.isManager == true ? "Select Team Member *" : "Unassigned",
+                        style: AppTypography.body(color: textSecondary),
+                      ),
+                    ),
+                    ...teamMembers.map((u) {
+                      return DropdownMenuItem<int?>(
+                        value: u.id,
+                        child: Text("${u.fullName} (${u.roleName})", style: AppTypography.body(color: textPrimary)),
+                      );
+                    }),
+                  ],
+                  onChanged: (val) => setState(() => _assignedTo = val),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.assignment_ind_outlined, size: 20),
+                  ),
                 ),
-              ),
 
               const SizedBox(height: 14),
 
