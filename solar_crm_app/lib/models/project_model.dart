@@ -185,7 +185,9 @@ class ProjectModel {
     DateTime? parseDate(dynamic d) {
       if (d == null) return null;
       try {
-        return DateTime.parse(d.toString());
+        final str = d.toString().trim();
+        final dt = DateTime.tryParse(str) ?? DateTime.tryParse(str.replaceAll(' ', 'T'));
+        return dt?.toLocal();
       } catch (_) {
         return null;
       }
@@ -268,7 +270,8 @@ class ProjectStageLogModel {
       if (d == null) return null;
       try {
         final str = d.toString().trim();
-        return DateTime.tryParse(str) ?? DateTime.tryParse(str.replaceAll(' ', 'T'));
+        final dt = DateTime.tryParse(str) ?? DateTime.tryParse(str.replaceAll(' ', 'T'));
+        return dt?.toLocal();
       } catch (_) {
         return null;
       }

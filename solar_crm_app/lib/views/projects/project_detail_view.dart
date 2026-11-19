@@ -814,7 +814,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                           Padding(
                             padding: const EdgeInsets.only(left: 26),
                             child: Text(
-                              "Completed on ${DateFormat('dd MMM yyyy, hh:mm a').format(matchingLog!.createdAt!)}",
+                              "Completed on ${DateFormat('dd MMM yyyy, h:mm a').format(matchingLog!.createdAt!.toLocal()).toLowerCase()}",
                               style: const TextStyle(fontSize: 10, color: AppColors.emeraldGreen, fontWeight: FontWeight.w600),
                             ),
                           ),
@@ -1096,10 +1096,12 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     Color textSecondary,
   ) {
     final progressClamped = project.progressPercent.clamp(0.0, 1.0);
-    final lastUpdateStr = project.stageUpdatedAt != null
-        ? DateFormat('dd MMM yyyy').format(project.stageUpdatedAt!)
-        : (project.createdAt != null
-            ? DateFormat('dd MMM yyyy').format(project.createdAt!)
+    final localStageUpdated = project.stageUpdatedAt?.toLocal();
+    final localCreated = project.createdAt?.toLocal();
+    final lastUpdateStr = localStageUpdated != null
+        ? DateFormat('dd MMM yyyy').format(localStageUpdated)
+        : (localCreated != null
+            ? DateFormat('dd MMM yyyy').format(localCreated)
             : '—');
 
     return Container(
@@ -1245,8 +1247,9 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
     String formatDateTime(DateTime? dt) {
       if (dt == null) return "—";
-      final datePart = DateFormat("d MMM yyyy").format(dt);
-      final timePart = DateFormat("h:mm a").format(dt).toLowerCase();
+      final local = dt.toLocal();
+      final datePart = DateFormat("d MMM yyyy").format(local);
+      final timePart = DateFormat("h:mm a").format(local).toLowerCase();
       return "$datePart, $timePart";
     }
 
