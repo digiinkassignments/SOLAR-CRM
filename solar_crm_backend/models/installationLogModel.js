@@ -167,6 +167,9 @@ const createLog = async (db, projectId, data, userId) => {
 
   const isSignoff = data.supervisor_signoff ? 1 : 0;
   const signoffTime = isSignoff ? toMysqlDatetime(data.supervisor_signoff_time || new Date()) : null;
+  const cleanLogDate = data.log_date
+    ? String(data.log_date).substring(0, 10)
+    : new Date().toISOString().substring(0, 10);
 
   const [result] = await db.query(
     `INSERT INTO installation_logs (
@@ -177,7 +180,7 @@ const createLog = async (db, projectId, data, userId) => {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       projectId,
-      data.log_date,
+      cleanLogDate,
       data.phase,
       data.is_phase_completed ? 1 : 0,
       data.work_done,
@@ -224,6 +227,9 @@ const updateLog = async (db, logId, projectId, data) => {
 
   const isSignoff = data.supervisor_signoff ? 1 : 0;
   const signoffTime = isSignoff ? toMysqlDatetime(data.supervisor_signoff_time || new Date()) : null;
+  const cleanLogDate = data.log_date
+    ? String(data.log_date).substring(0, 10)
+    : new Date().toISOString().substring(0, 10);
 
   await db.query(
     `UPDATE installation_logs SET
@@ -246,7 +252,7 @@ const updateLog = async (db, logId, projectId, data) => {
       signature_data = COALESCE(?, signature_data)
      WHERE id = ? AND project_id = ? AND is_deleted = 0`,
     [
-      data.log_date,
+      cleanLogDate,
       data.phase,
       data.is_phase_completed ? 1 : 0,
       data.work_done,

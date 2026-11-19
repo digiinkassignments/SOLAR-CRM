@@ -149,6 +149,7 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
   bool _isCapturingGeoPhoto = false;
 
   bool _isSubmitting = false;
+  String? _formErrorMessage;
 
   @override
   void initState() {
@@ -156,7 +157,15 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
     final log = widget.existingLog;
     final nowStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-    _logDateCtrl = TextEditingController(text: log?.logDate ?? nowStr);
+    String cleanDate(String? s) {
+      if (s == null || s.trim().isEmpty) return nowStr;
+      final t = s.trim();
+      if (t.contains('T')) return t.split('T')[0];
+      if (t.length >= 10) return t.substring(0, 10);
+      return t;
+    }
+
+    _logDateCtrl = TextEditingController(text: cleanDate(log?.logDate));
     _expectedDateCtrl = TextEditingController(
       text: widget.project.installationEndDate != null
           ? DateFormat('yyyy-MM-dd').format(widget.project.installationEndDate!)
@@ -364,15 +373,15 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
   }
 
   Future<void> _saveLog() async {
-    if (!_formKey.currentState!.validate()) return;
+    setState(() => _formErrorMessage = null);
+
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _formErrorMessage = "Please fill all required fields highlighted in red below.");
+      return;
+    }
 
     if (_workDoneCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please describe the work done today."),
-          backgroundColor: AppColors.errorRed,
-        ),
-      );
+      setState(() => _formErrorMessage = "Please describe the work done today.");
       return;
     }
 
@@ -389,9 +398,19 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
               })
           .toList();
 
+      final cleanLogDate = _logDateCtrl.text.trim().contains('T')
+          ? _logDateCtrl.text.trim().split('T')[0]
+          : (_logDateCtrl.text.trim().length >= 10 ? _logDateCtrl.text.trim().substring(0, 10) : _logDateCtrl.text.trim());
+
+      final cleanExpectedDate = _expectedDateCtrl.text.trim().isNotEmpty
+          ? (_expectedDateCtrl.text.trim().contains('T')
+              ? _expectedDateCtrl.text.trim().split('T')[0]
+              : (_expectedDateCtrl.text.trim().length >= 10 ? _expectedDateCtrl.text.trim().substring(0, 10) : _expectedDateCtrl.text.trim()))
+          : null;
+
       final payload = {
-        'log_date': _logDateCtrl.text.trim(),
-        'expected_completion_date': _expectedDateCtrl.text.trim(),
+        'log_date': cleanLogDate,
+        'expected_completion_date': cleanExpectedDate,
         'phase': _selectedPhase,
         'is_phase_completed': _isPhaseCompleted ? 1 : 0,
         'work_done': _workDoneCtrl.text.trim(),
@@ -438,22 +457,16 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
             ),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(res['message'] ?? "Failed to save daily log"),
-              backgroundColor: AppColors.errorRed,
-            ),
-          );
+          setState(() {
+            _formErrorMessage = res['message'] ?? "Failed to save daily log. Please verify details.";
+          });
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error: $e"),
-            backgroundColor: AppColors.errorRed,
-          ),
-        );
+        setState(() {
+          _formErrorMessage = "Error saving log: $e";
+        });
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -554,6 +567,40 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
+                    // Form Error Banner (Appears inside the form, not outside)
+                    if (_formErrorMessage != null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF7F1D1D).withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFEF4444)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _formErrorMessage!,
+                                style: const TextStyle(
+                                  color: Color(0xFFFCA5A5),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => setState(() => _formErrorMessage = null),
+                              icon: const Icon(Icons.close, size: 16, color: Color(0xFFFCA5A5)),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                      ),
+
                     // ==========================================
                     // 1. PHASE & TIMELINE CARD
                     // ==========================================
@@ -754,6 +801,12 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                             controller: _workDoneCtrl,
                             maxLines: 4,
                             style: TextStyle(fontSize: 13, color: textPrimary),
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return "Work description is required";
+                              }
+                              return null;
+                            },
                             decoration: InputDecoration(
                               hintText:
                                   "Describe exact rooftop tasks: number of structure legs grouted, torque tightness checked, panels bolted, DC stringing, conduit piping, earthing pit excavation...",
@@ -761,6 +814,7 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                               filled: true,
                               fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
                               contentPadding: const EdgeInsets.all(12),
+                              errorStyle: const TextStyle(fontSize: 11, color: AppColors.errorRed, fontWeight: FontWeight.w600),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                                 borderSide: BorderSide(color: borderColor),
@@ -768,6 +822,14 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                                 borderSide: BorderSide(color: borderColor),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: AppColors.errorRed),
+                              ),
+                              focusedErrorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: AppColors.errorRed, width: 1.5),
                               ),
                             ),
                           ),
