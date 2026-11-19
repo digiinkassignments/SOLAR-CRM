@@ -1158,12 +1158,16 @@ class _ReviewInspectionSheetState extends State<ReviewInspectionSheet> {
                     color: isSelected ? AppColors.brandPrimary : textPrimary.withValues(alpha: 0.6),
                   ),
                   const SizedBox(width: 5),
-                  Text(
-                    opt,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                      color: isSelected ? AppColors.brandPrimary : textPrimary,
+                  Flexible(
+                    child: Text(
+                      opt,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected ? AppColors.brandPrimary : textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],

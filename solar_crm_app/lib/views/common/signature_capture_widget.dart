@@ -215,13 +215,17 @@ class _SignatureCaptureWidgetState extends State<SignatureCaptureWidget> {
                           size: 14,
                           color: _selectedTab == 0 ? AppColors.brandPrimary : widget.textSecondary,
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          "Sign on Screen (Pad / Touch)",
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: _selectedTab == 0 ? FontWeight.w700 : FontWeight.w500,
-                            color: _selectedTab == 0 ? AppColors.brandPrimary : widget.textSecondary,
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            "Sign on Screen",
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: _selectedTab == 0 ? FontWeight.w700 : FontWeight.w500,
+                              color: _selectedTab == 0 ? AppColors.brandPrimary : widget.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -252,13 +256,17 @@ class _SignatureCaptureWidgetState extends State<SignatureCaptureWidget> {
                           size: 14,
                           color: _selectedTab == 1 ? AppColors.brandPrimary : widget.textSecondary,
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          "Upload Signature Image",
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: _selectedTab == 1 ? FontWeight.w700 : FontWeight.w500,
-                            color: _selectedTab == 1 ? AppColors.brandPrimary : widget.textSecondary,
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            "Upload Image",
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: _selectedTab == 1 ? FontWeight.w700 : FontWeight.w500,
+                              color: _selectedTab == 1 ? AppColors.brandPrimary : widget.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -496,36 +504,43 @@ class _SignatureCaptureWidgetState extends State<SignatureCaptureWidget> {
                 ),
                 const SizedBox(height: 14),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        side: BorderSide(color: widget.borderColor),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          side: BorderSide(color: widget.borderColor),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                        icon: const Icon(Icons.camera_alt_outlined, size: 14, color: AppColors.brandPrimary),
+                        label: Text(
+                          "Camera",
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: widget.textPrimary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onPressed: () => _pickSignatureImage(ImageSource.camera),
                       ),
-                      icon: const Icon(Icons.camera_alt_outlined, size: 14, color: AppColors.brandPrimary),
-                      label: Text(
-                        "Camera",
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: widget.textPrimary),
-                      ),
-                      onPressed: () => _pickSignatureImage(ImageSource.camera),
                     ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0F172A),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F172A),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                        icon: const Icon(Icons.photo_library_outlined, size: 14),
+                        label: const Text(
+                          "From Gallery",
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onPressed: () => _pickSignatureImage(ImageSource.gallery),
                       ),
-                      icon: const Icon(Icons.photo_library_outlined, size: 14),
-                      label: const Text(
-                        "Choose from Gallery",
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-                      ),
-                      onPressed: () => _pickSignatureImage(ImageSource.gallery),
                     ),
                   ],
                 ),
