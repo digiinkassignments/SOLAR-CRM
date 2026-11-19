@@ -119,3 +119,4 @@ class _ApplicationManagerShellState extends State<ApplicationManagerShell> {
     );
   }
 }
+
