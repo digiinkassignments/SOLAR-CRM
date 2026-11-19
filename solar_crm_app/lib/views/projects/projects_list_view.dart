@@ -5,7 +5,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/role_permissions.dart';
 import '../../models/project_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/project_provider.dart';
 import 'project_detail_view.dart';
 import 'sheets/new_project_sheet.dart';
@@ -55,6 +57,17 @@ class _ProjectsListViewState extends State<ProjectsListView> {
   }
 
   void _showDeleteDialog(ProjectModel project) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (!RolePermissions.canDeleteProject(user)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.errorRed,
+          content: Text("Permission denied: Deleting projects is restricted to Managers and Admins."),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -115,6 +128,11 @@ class _ProjectsListViewState extends State<ProjectsListView> {
     final provider = Provider.of<ProjectProvider>(context);
     final projects = provider.projects;
     final isLoading = provider.isLoading;
+    final auth = Provider.of<AuthProvider>(context);
+    final user = auth.user;
+
+    final canCreate = RolePermissions.canCreateProject(user);
+    final canDelete = RolePermissions.canDeleteProject(user);
 
     return Scaffold(
       appBar: AppBar(
@@ -131,21 +149,24 @@ class _ProjectsListViewState extends State<ProjectsListView> {
             onPressed: _loadData,
             tooltip: "Refresh Projects",
           ),
-          IconButton(
-            icon: const Icon(Icons.add_rounded),
-            onPressed: () => NewProjectSheet.show(context),
-            tooltip: "New Project",
-          ),
+          if (canCreate)
+            IconButton(
+              icon: const Icon(Icons.add_rounded),
+              onPressed: () => NewProjectSheet.show(context),
+              tooltip: "New Project",
+            ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: null,
-        backgroundColor: AppColors.brandPrimary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_rounded),
-        label: Text("New Project", style: AppTypography.button()),
-        onPressed: () => NewProjectSheet.show(context),
-      ),
+      floatingActionButton: canCreate
+          ? FloatingActionButton.extended(
+              heroTag: null,
+              backgroundColor: AppColors.brandPrimary,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add_rounded),
+              label: Text("New Project", style: AppTypography.button()),
+              onPressed: () => NewProjectSheet.show(context),
+            )
+          : null,
       body: RefreshIndicator(
         onRefresh: () async => _loadData(),
         child: Column(
@@ -226,16 +247,18 @@ class _ProjectsListViewState extends State<ProjectsListView> {
                               const Icon(Icons.solar_power_outlined, size: 48, color: Colors.grey),
                               const SizedBox(height: 12),
                               Text("No matching projects found", style: AppTypography.bodyMedium(color: textSecondary)),
-                              const SizedBox(height: 8),
-                              ElevatedButton.icon(
-                                onPressed: () => NewProjectSheet.show(context),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.brandPrimary,
-                                  foregroundColor: Colors.white,
+                              if (canCreate) ...[
+                                const SizedBox(height: 12),
+                                ElevatedButton.icon(
+                                  onPressed: () => NewProjectSheet.show(context),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.brandPrimary,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  icon: const Icon(Icons.add_rounded, size: 16),
+                                  label: const Text("Create Solar Project"),
                                 ),
-                                icon: const Icon(Icons.add_rounded, size: 16),
-                                label: const Text("Create Solar Project"),
-                              ),
+                              ],
                             ],
                           ),
                         )
@@ -244,7 +267,7 @@ class _ProjectsListViewState extends State<ProjectsListView> {
                           itemCount: projects.length,
                           itemBuilder: (ctx, idx) {
                             final item = projects[idx];
-                            return _buildProjectCard(item, isDark, cardBg, borderColor, textPrimary, textSecondary);
+                            return _buildProjectCard(item, isDark, cardBg, borderColor, textPrimary, textSecondary, canDelete: canDelete);
                           },
                         ),
             ),
@@ -284,8 +307,9 @@ class _ProjectsListViewState extends State<ProjectsListView> {
     Color cardBg,
     Color borderColor,
     Color textPrimary,
-    Color textSecondary,
-  ) {
+    Color textSecondary, {
+    required bool canDelete,
+  }) {
     final meta = project.stageMeta;
     final color = meta['color'] as Color;
     final percent = project.progressPercent;
@@ -521,15 +545,17 @@ class _ProjectsListViewState extends State<ProjectsListView> {
                   style: AppTypography.caption(color: textSecondary),
                 ),
               ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.errorRed, size: 18),
-                onPressed: () => _showDeleteDialog(project),
-                tooltip: "Delete Project",
-              ),
-              const SizedBox(width: 6),
+              if (canDelete) ...[
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  icon: const Icon(Icons.delete_outline_rounded, color: AppColors.errorRed, size: 18),
+                  onPressed: () => _showDeleteDialog(project),
+                  tooltip: "Delete Project",
+                ),
+                const SizedBox(width: 6),
+              ],
               OutlinedButton.icon(
                 onPressed: () {
                   Navigator.of(context).push(

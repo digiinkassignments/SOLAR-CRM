@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
+import '../../../core/utils/role_permissions.dart';
 import '../../../models/lead_model.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/dashboard_provider.dart';
@@ -143,6 +144,17 @@ class _LeadsListViewState extends State<LeadsListView> {
   }
 
   void _confirmDeleteLead(LeadModel lead) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (!RolePermissions.canDeleteLead(user)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.errorRed,
+          content: Text("Permission denied: Deleting leads is restricted to Managers and Admins."),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -187,6 +199,10 @@ class _LeadsListViewState extends State<LeadsListView> {
   @override
   Widget build(BuildContext context) {
     final leadProvider = Provider.of<LeadProvider>(context);
+    final auth = Provider.of<AuthProvider>(context);
+    final user = auth.user;
+    final canDeleteLead = RolePermissions.canDeleteLead(user);
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
@@ -587,7 +603,7 @@ class _LeadsListViewState extends State<LeadsListView> {
                           onOpenCopilot: _openAiCopilot,
                           onLogCall: _openLogCall,
                           onEdit: _openEditLead,
-                          onDelete: _confirmDeleteLead,
+                          onDelete: canDeleteLead ? _confirmDeleteLead : null,
                         ),
                       );
                     },

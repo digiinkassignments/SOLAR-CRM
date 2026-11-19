@@ -56,14 +56,12 @@ class UserModel {
       roleName.toLowerCase() == "technical engineer";
 
   bool get isFinance =>
-      roleName.toLowerCase() == "finance" ||
-      roleName.toLowerCase().contains("finance");
+      roleName.trim().toLowerCase() == "finance";
 
-  bool get isApplicationManager =>
-      roleName.toLowerCase() == "application manager" ||
-      roleName.toLowerCase() == "application-manager" ||
-      roleName.toLowerCase().contains("application") ||
-      roleName.toLowerCase().contains("subsidy");
+  bool get isApplicationManager {
+    final r = roleName.trim().toLowerCase();
+    return r == "application manager" || r == "application-manager";
+  }
 
   String? getFullImageUrl(String? workspace) {
     if (profileImage == null || profileImage!.trim().isEmpty || profileImage == 'null') {

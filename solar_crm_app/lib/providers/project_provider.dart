@@ -86,6 +86,8 @@ class ProjectProvider extends ChangeNotifier {
     _companyAmcPlans = [];
     _isLoadingWarrantyAmc = false;
     _isLoadingAmcPlans = false;
+    _isWarrantyForbidden = false;
+    _warrantyForbiddenMessage = null;
     notifyListeners();
   }
 
@@ -706,8 +708,14 @@ class ProjectProvider extends ChangeNotifier {
   List<CompanyAmcPlanModel> get companyAmcPlans => _companyAmcPlans;
   bool get isLoadingWarrantyAmc => _isLoadingWarrantyAmc;
   bool get isLoadingAmcPlans => _isLoadingAmcPlans;
+  bool _isWarrantyForbidden = false;
+  bool get isWarrantyForbidden => _isWarrantyForbidden;
+  String? _warrantyForbiddenMessage;
+  String? get warrantyForbiddenMessage => _warrantyForbiddenMessage;
 
   Future<void> fetchWarrantyAmc(dynamic projectId) async {
+    _isWarrantyForbidden = false;
+    _warrantyForbiddenMessage = null;
     _isLoadingWarrantyAmc = true;
     notifyListeners();
 
@@ -732,6 +740,12 @@ class ProjectProvider extends ChangeNotifier {
       debugPrint("fetchWarrantyAmc error: $e");
       _warrantyAmc = null;
       _serviceVisits = [];
+      if (e is DioException && (e.response?.statusCode == 403)) {
+        _isWarrantyForbidden = true;
+        _warrantyForbiddenMessage = e.response?.data is Map && e.response?.data['message'] != null
+            ? e.response?.data['message'].toString()
+            : "Permission denied: Commercial & warranty access is restricted to Managers and Admins.";
+      }
     } finally {
       _isLoadingWarrantyAmc = false;
       notifyListeners();

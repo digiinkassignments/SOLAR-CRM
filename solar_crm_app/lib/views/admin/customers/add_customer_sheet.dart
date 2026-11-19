@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/customer_provider.dart';
+import '../../../providers/user_provider.dart';
 
 class AddCustomerSheet extends StatefulWidget {
   const AddCustomerSheet({super.key});
@@ -35,12 +37,21 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
   final _paymentAmountController = TextEditingController();
   final _paymentRefController = TextEditingController();
 
+  int? _assignedTo;
   String _solarRequirement = "Residential";
   String _leadSource = "Direct";
   String _paymentMode = "Bank Transfer";
   bool _showOpeningSection = false;
   bool _isLoading = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<UserProvider>(context, listen: false).fetchUsers();
+    });
+  }
 
   static const List<String> _leadSources = [
     "Direct",
@@ -107,6 +118,15 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
       return;
     }
 
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final currentUser = auth.user;
+    if (currentUser?.isManager == true && _assignedTo == null) {
+      setState(() {
+        _errorMessage = "Assign this customer to a salesperson in your team.";
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -127,6 +147,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
       'customer_gstin': _gstinController.text.trim().isNotEmpty ? _gstinController.text.trim() : null,
       'solar_requirement': _solarRequirement,
       'lead_source': _leadSource,
+      if (_assignedTo != null) 'assigned_to': _assignedTo,
       'notes': _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
     };
 
@@ -176,6 +197,21 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
     final textPrimary = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
     final textSecondary = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
     final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+
+    final auth = Provider.of<AuthProvider>(context);
+    final userProvider = Provider.of<UserProvider>(context);
+    final currentUser = auth.user;
+
+    List<dynamic> teamMembers = [];
+    if (currentUser?.isManager == true) {
+      teamMembers = userProvider.users
+          .where((u) => u.isActive && (u.isSales || u.roleId == 3) && u.managerId == currentUser!.id)
+          .toList();
+    } else if (currentUser?.isAdmin == true) {
+      teamMembers = userProvider.users
+          .where((u) => u.isActive && (u.isSales || u.roleId == 3))
+          .toList();
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -675,6 +711,39 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                   ],
                 ),
               ),
+
+              if (currentUser?.isManager == true || currentUser?.isAdmin == true) ...[
+                const SizedBox(height: 14),
+                Text(
+                  currentUser?.isManager == true ? "ASSIGN SALESPERSON FROM YOUR TEAM *" : "ASSIGN SALESPERSON (OPTIONAL)",
+                  style: AppTypography.badge(color: AppColors.brandPrimary),
+                ),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<int?>(
+                  dropdownColor: cardBg,
+                  initialValue: _assignedTo,
+                  decoration: InputDecoration(
+                    hintText: currentUser?.isManager == true ? "Select salesperson *" : "Unassigned",
+                    prefixIcon: const Icon(Icons.person_pin_rounded, size: 20),
+                  ),
+                  items: [
+                    if (currentUser?.isAdmin == true)
+                      DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text("Unassigned", style: AppTypography.caption(color: textPrimary)),
+                      ),
+                    ...teamMembers.map((m) {
+                      return DropdownMenuItem<int?>(
+                        value: m.id as int,
+                        child: Text("${m.name} (${m.roleName})", style: AppTypography.caption(color: textPrimary)),
+                      );
+                    }),
+                  ],
+                  onChanged: (val) {
+                    setState(() => _assignedTo = val);
+                  },
+                ),
+              ],
 
               const SizedBox(height: 14),
 

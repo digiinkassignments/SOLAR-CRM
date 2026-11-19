@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/role_permissions.dart';
 import '../../../models/customer_model.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/customer_provider.dart';
 import 'widgets/customer_card.dart';
 import 'add_customer_sheet.dart';
@@ -44,6 +46,13 @@ class _CustomersListViewState extends State<CustomersListView> {
   }
 
   void _openAddCustomerSheet() async {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (!RolePermissions.canCreateCustomer(user)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Permission denied: Creating customers is restricted.")),
+      );
+      return;
+    }
     final res = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -58,6 +67,13 @@ class _CustomersListViewState extends State<CustomersListView> {
   }
 
   void _openEditCustomerSheet(CustomerModel customer) async {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (!RolePermissions.canEditCustomer(user)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Permission denied: Editing customers is restricted.")),
+      );
+      return;
+    }
     final res = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -81,6 +97,13 @@ class _CustomersListViewState extends State<CustomersListView> {
   }
 
   void _confirmDeleteCustomer(CustomerModel customer) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    if (!RolePermissions.canDeleteCustomer(user)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Permission denied: Deleting customers is restricted to Managers and Admins.")),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -126,6 +149,12 @@ class _CustomersListViewState extends State<CustomersListView> {
   Widget build(BuildContext context) {
     final customerProvider = Provider.of<CustomerProvider>(context);
     final stats = customerProvider.stats;
+    final auth = Provider.of<AuthProvider>(context);
+    final user = auth.user;
+
+    final canCreate = RolePermissions.canCreateCustomer(user);
+    final canEdit = RolePermissions.canEditCustomer(user);
+    final canDelete = RolePermissions.canDeleteCustomer(user);
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textPrimary = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
@@ -135,14 +164,16 @@ class _CustomersListViewState extends State<CustomersListView> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: null,
-        onPressed: _openAddCustomerSheet,
-        backgroundColor: AppColors.brandPrimary,
-        foregroundColor: Colors.black,
-        icon: const Icon(Icons.person_add_alt_rounded, size: 20),
-        label: Text("Add Customer", style: AppTypography.button(color: Colors.black)),
-      ),
+      floatingActionButton: canCreate
+          ? FloatingActionButton.extended(
+              heroTag: null,
+              onPressed: _openAddCustomerSheet,
+              backgroundColor: AppColors.brandPrimary,
+              foregroundColor: Colors.black,
+              icon: const Icon(Icons.person_add_alt_rounded, size: 20),
+              label: Text("Add Customer", style: AppTypography.button(color: Colors.black)),
+            )
+          : null,
       body: RefreshIndicator(
         color: AppColors.brandPrimary,
         onRefresh: () async {
@@ -342,8 +373,8 @@ class _CustomersListViewState extends State<CustomersListView> {
                       return CustomerCard(
                         customer: customer,
                         onView360: _openCustomer360Sheet,
-                        onEdit: _openEditCustomerSheet,
-                        onDelete: _confirmDeleteCustomer,
+                        onEdit: canEdit ? _openEditCustomerSheet : null,
+                        onDelete: canDelete ? _confirmDeleteCustomer : null,
                       );
                     },
                     childCount: customerProvider.customers.length,

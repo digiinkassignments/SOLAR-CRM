@@ -12,7 +12,7 @@ class LeadCard extends StatelessWidget {
   final Function(LeadModel) onOpenCopilot;
   final Function(LeadModel) onLogCall;
   final Function(LeadModel) onEdit;
-  final Function(LeadModel) onDelete;
+  final Function(LeadModel)? onDelete;
   final Function(LeadModel)? onAssign;
 
   const LeadCard({
@@ -22,7 +22,7 @@ class LeadCard extends StatelessWidget {
     required this.onOpenCopilot,
     required this.onLogCall,
     required this.onEdit,
-    required this.onDelete,
+    this.onDelete,
     this.onAssign,
   });
 
@@ -151,7 +151,7 @@ class LeadCard extends StatelessWidget {
                     if (val == 'log') onLogCall(lead);
                     if (val == 'edit') onEdit(lead);
                     if (val == 'assign' && onAssign != null) onAssign!(lead);
-                    if (val == 'delete') onDelete(lead);
+                    if (val == 'delete' && onDelete != null) onDelete!(lead);
                   },
                   itemBuilder: (ctx) => [
                     PopupMenuItem(
@@ -205,17 +205,19 @@ class LeadCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                    const PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.errorRed),
-                          const SizedBox(width: 10),
-                          Text("Delete Lead", style: AppTypography.body(color: AppColors.errorRed)),
-                        ],
+                    if (onDelete != null) ...[
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.errorRed),
+                            const SizedBox(width: 10),
+                            Text("Delete Lead", style: AppTypography.body(color: AppColors.errorRed)),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

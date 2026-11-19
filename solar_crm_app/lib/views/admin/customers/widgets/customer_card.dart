@@ -9,15 +9,15 @@ import '../../../../models/customer_model.dart';
 class CustomerCard extends StatelessWidget {
   final CustomerModel customer;
   final Function(CustomerModel) onView360;
-  final Function(CustomerModel) onEdit;
-  final Function(CustomerModel) onDelete;
+  final Function(CustomerModel)? onEdit;
+  final Function(CustomerModel)? onDelete;
 
   const CustomerCard({
     super.key,
     required this.customer,
     required this.onView360,
-    required this.onEdit,
-    required this.onDelete,
+    this.onEdit,
+    this.onDelete,
   });
 
   Color _getRequirementColor(String req) {
@@ -116,8 +116,8 @@ class CustomerCard extends StatelessWidget {
                   ),
                   onSelected: (val) {
                     if (val == 'view') onView360(customer);
-                    if (val == 'edit') onEdit(customer);
-                    if (val == 'delete') onDelete(customer);
+                    if (val == 'edit' && onEdit != null) onEdit!(customer);
+                    if (val == 'delete' && onDelete != null) onDelete!(customer);
                   },
                   itemBuilder: (ctx) => [
                     PopupMenuItem(
@@ -130,27 +130,30 @@ class CustomerCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.edit_outlined, size: 18),
-                          const SizedBox(width: 10),
-                          Text("Edit Customer", style: AppTypography.body(color: textPrimary)),
-                        ],
+                    if (onEdit != null)
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.edit_outlined, size: 18),
+                            const SizedBox(width: 10),
+                            Text("Edit Customer", style: AppTypography.body(color: textPrimary)),
+                          ],
+                        ),
                       ),
-                    ),
-                    const PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.errorRed),
-                          const SizedBox(width: 10),
-                          Text("Delete Customer", style: AppTypography.body(color: AppColors.errorRed)),
-                        ],
+                    if (onDelete != null) ...[
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.errorRed),
+                            const SizedBox(width: 10),
+                            Text("Delete Customer", style: AppTypography.body(color: AppColors.errorRed)),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ],

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/api_constants.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
+import '../../core/utils/role_permissions.dart';
 import '../../models/project_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/project_provider.dart';
@@ -53,13 +54,18 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
   void _loadDetails() {
     final provider = Provider.of<ProjectProvider>(context, listen: false);
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final canAccessWarranty = RolePermissions.canAccessWarrantyAmc(user);
+
     provider.fetchProjectDetails(widget.projectId);
     provider.fetchInspection(widget.projectId);
     provider.fetchInstallationLogs(widget.projectId);
     provider.fetchCommissioning(widget.projectId);
     provider.fetchFinalInspection(widget.projectId);
     provider.fetchCustomerHandover(widget.projectId);
-    provider.fetchWarrantyAmc(widget.projectId);
+    if (canAccessWarranty) {
+      provider.fetchWarrantyAmc(widget.projectId);
+    }
   }
 
   Future<void> _makeCall(String phoneNumber) async {
@@ -5016,6 +5022,8 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   ) {
     final handover = provider.customerHandover;
     final isLoading = provider.isLoadingCustomerHandover;
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final canManageCommercial = RolePermissions.canManageCommercial(auth.user);
 
     String formatCleanDate(String? dStr) {
       if (dStr == null || dStr.trim().isEmpty) return "—";
@@ -5142,7 +5150,6 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
       return found['checked'] == true || found['checked'] == 1;
     }
 
-    final auth = Provider.of<AuthProvider>(context, listen: false);
     final reviewTokenOrId = (handover?.reviewToken != null && handover!.reviewToken!.isNotEmpty)
         ? handover.reviewToken!
         : "${project.id}";
@@ -5396,27 +5403,28 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                             ),
                           ),
                         ),
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            RecordPaymentSheet.show(
-                              context,
-                              project: project,
-                              handover: handover,
-                            );
-                          },
-                          icon: const Icon(Icons.payment_rounded, size: 13, color: Color(0xFF16A34A)),
-                          label: const Text(
-                            "Record / Update Payment",
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF166534)),
+                        if (canManageCommercial)
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              RecordPaymentSheet.show(
+                                context,
+                                project: project,
+                                handover: handover,
+                              );
+                            },
+                            icon: const Icon(Icons.payment_rounded, size: 13, color: Color(0xFF16A34A)),
+                            label: const Text(
+                              "Record / Update Payment",
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF166534)),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFF86EFAC)),
+                              backgroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
                           ),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFF86EFAC)),
-                            backgroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            minimumSize: Size.zero,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                          ),
-                        ),
                       ],
                     ),
                   ],
@@ -6081,6 +6089,53 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     Color textPrimary,
     Color textSecondary,
   ) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final user = auth.user;
+    final canAccessWarranty = RolePermissions.canAccessWarrantyAmc(user);
+
+    if (!canAccessWarranty || provider.isWarrantyForbidden) {
+      final msg = provider.warrantyForbiddenMessage ??
+          "Commercial and warranty contract details are restricted to Managers and Admins. Please use your assigned technical field workspace.";
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.brandPrimary.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.shield_outlined, size: 40, color: AppColors.brandPrimary),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  "Warranty & AMC Access Restricted",
+                  style: AppTypography.heading(size: 16, color: textPrimary),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  msg,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.body(color: textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final warranty = provider.warrantyAmc;
     final visits = provider.serviceVisits;
     final isLoading = provider.isLoadingWarrantyAmc;
