@@ -1268,8 +1268,8 @@ export default function CustomerHandover({ project, projectId }) {
           </Grid>
 
           {/* CUSTOMER SATISFACTION & VERIFIED REVIEW (NON-EDITABLE) */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Stack direction="row"   sx={{alignItems: "center", justifyContent: "space-between",  mb: 1.5 }}>
+          <Grid size={{ xs: 12, md: 6 }} sx={{ minWidth: 0 }}>
+            <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1, mb: 1.5 }}>
               <Typography
                 sx={{
                   fontSize: "0.75rem",
@@ -1334,17 +1334,18 @@ export default function CustomerHandover({ project, projectId }) {
                 <Typography sx={{ fontSize: "0.72rem", fontWeight: 700, color: COLORS.textMuted, textTransform: "uppercase", mb: 0.6 }}>
                   Customer Feedback Link
                 </Typography>
-                <Stack sx={{ alignItems: "center" }} direction={{ xs: "column", sm: "row" }} spacing={1} >
+                <Stack sx={{ minWidth: 0, alignItems: "stretch" }} spacing={1}>
                   <TextField
                     fullWidth
                     size="small"
                     value={reviewUrl}
+                    sx={{ minWidth: 0 }}
                     InputProps={{
                       readOnly: true,
                       sx: { fontSize: "0.74rem", fontFamily: "monospace", bgcolor: "#F8FAFC", height: 34 },
                     }}
                   />
-                  <Stack direction="row" spacing={0.8} sx={{ width: { xs: "100%", sm: "auto" } }}>
+                  <Stack direction="row" sx={{ width: "100%", minWidth: 0, flexWrap: "wrap", gap: 0.8 }}>
                     <Tooltip title="Copy link for customer">
                       <Button
                         variant="outlined"
@@ -1392,7 +1393,7 @@ export default function CustomerHandover({ project, projectId }) {
                         href={reviewUrl}
                         target="_blank"
                         rel="noreferrer"
-                        sx={{ border: `1px solid ${COLORS.border}`, borderRadius: "6px", width: 34, height: 34 }}
+                        sx={{ border: `1px solid ${COLORS.border}`, borderRadius: "6px", width: 34, height: 34, flexShrink: 0 }}
                       >
                         <OpenInNewIcon sx={{ fontSize: 15 }} />
                       </IconButton>
@@ -2087,11 +2088,12 @@ export default function CustomerHandover({ project, projectId }) {
                 <Typography sx={{ fontSize: "0.7rem", color: COLORS.textSecondary, mb: 1 }}>
                   Customer opens this link on their phone, selects stars, and writes their review. It automatically syncs here.
                 </Typography>
-                <Stack sx={{ alignItems: "center" }} direction={{ xs: "column", sm: "row" }} spacing={1} >
+                <Stack sx={{ minWidth: 0, alignItems: "stretch" }} spacing={1}>
                   <TextField
                     fullWidth
                     size="small"
                     value={reviewUrl}
+                    sx={{ minWidth: 0 }}
                     InputProps={{
                       readOnly: true,
                       sx: { fontSize: "0.74rem", fontFamily: "monospace", bgcolor: "#FFFFFF", height: 36 },

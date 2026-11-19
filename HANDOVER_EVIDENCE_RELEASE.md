@@ -5,3 +5,7 @@ Hide signed docket and plant photo actions when their URLs are empty or whitespa
 Validation: production build passed. Isolated browser checks cover empty/whitespace and populated URLs, pending overall handover with recorded acceptance, and runtime errors. Tests use mock API records without production writes.
 
 Live backup: `/var/www/solar_crm/backups/handover-evidence-20261119-093020`. Publication uses source/hash guards, preserved assets and atomic index replacement.
+
+## Feedback layout follow-up
+
+Customer feedback URL uses its own full-width row. Copy, WhatsApp and preview controls wrap below it; the review heading and status also wrap. Production build and isolated browser bounds checks passed at 1440, 1100, 768 and 390 pixels. Existing workflow and sharing actions remain unchanged.
