@@ -11,7 +11,7 @@ Released: 19 November 2026.
 - `/privacy-policy`
 - `/terms-and-conditions`
 
-Source HTML files remain in `solar_landing_page`; Nginx resolves extensionless URLs. Previous `.html` URLs, `/privacy` and `/terms` redirect permanently to their canonical paths, retaining query parameters. Website navigation, canonical metadata and sitemap use the clean paths. Unknown public website paths return 404. CRM and master-admin SPA routing remains separate.
+Source HTML files remain in `solar_landing_page`; Nginx resolves extensionless URLs. Previous `.html` URLs, `/privacy` and `/terms` redirect permanently to their canonical paths, retaining query parameters. Website navigation, canonical metadata and sitemap use the clean paths. Unknown public website paths return 404. CRM and master-admin SPA routing remains separate. The website root has an explicit `try_files /index.html =404` location so Nginx internal index resolution cannot trigger the public `.html` redirect.
 
 ## Downloads
 
