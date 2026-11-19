@@ -8,9 +8,11 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../models/customer_handover_model.dart';
 import '../../../models/project_model.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/project_provider.dart';
 
 class CustomerHandoverFormSheet extends StatefulWidget {
@@ -371,7 +373,11 @@ class _CustomerHandoverFormSheetState extends State<CustomerHandoverFormSheet> {
     final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
     final textSecondary = isDark ? Colors.white70 : const Color(0xFF475569);
 
-    final reviewUrl = "https://digiinksolutions.solops.cloud/review/${_reviewToken ?? widget.project.id}";
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final reviewTokenOrId = (_reviewToken != null && _reviewToken!.isNotEmpty)
+        ? _reviewToken!
+        : "${widget.project.id}";
+    final reviewUrl = ApiConstants.getReviewUrl(auth.workspace, reviewTokenOrId);
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.92,

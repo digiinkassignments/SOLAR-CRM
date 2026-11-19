@@ -20,6 +20,8 @@ class CustomerModel {
   final int? assignedTo;
   final String? assignedToName;
   final String? leadCode;
+  final String? leadSource;
+  final double? plantSizeKw;
   final int totalProjects;
   final double totalSystemKw;
   final double totalBilledAmount;
@@ -49,6 +51,8 @@ class CustomerModel {
     this.assignedTo,
     this.assignedToName,
     this.leadCode,
+    this.leadSource,
+    this.plantSizeKw,
     this.totalProjects = 0,
     this.totalSystemKw = 0.0,
     this.totalBilledAmount = 0.0,
@@ -102,6 +106,8 @@ class CustomerModel {
       assignedTo: json['assigned_to'] != null ? parseInt(json['assigned_to']) : null,
       assignedToName: json['assigned_to_name']?.toString(),
       leadCode: json['lead_code']?.toString(),
+      leadSource: json['effective_lead_source']?.toString() ?? json['lead_source']?.toString(),
+      plantSizeKw: json['plant_size_kw'] != null ? parseDouble(json['plant_size_kw']) : null,
       totalProjects: parseInt(json['total_projects']),
       totalSystemKw: parseDouble(json['total_system_kw']),
       totalBilledAmount: parseDouble(json['total_billed_amount']),

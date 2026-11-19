@@ -8,6 +8,7 @@ import '../../core/constants/api_constants.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../models/project_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/project_provider.dart';
 import 'sheets/amc_plan_manager_sheet.dart';
 import 'sheets/change_stage_sheet.dart';
@@ -5141,7 +5142,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
       return found['checked'] == true || found['checked'] == 1;
     }
 
-    final reviewUrl = "https://digiinksolutions.solops.cloud/review/${handover?.reviewToken ?? project.id}";
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final reviewTokenOrId = (handover?.reviewToken != null && handover!.reviewToken!.isNotEmpty)
+        ? handover.reviewToken!
+        : "${project.id}";
+    final reviewUrl = ApiConstants.getReviewUrl(auth.workspace, reviewTokenOrId);
 
     final contractVal = handover?.contractValue ?? project.totalCost;
     final amtPaid = handover?.amountPaid ?? project.amountReceived;

@@ -10,6 +10,31 @@ class ApiConstants {
     return "https://$cleanWorkspace.$baseDomain/api";
   }
 
+  // Dynamic web origin (e.g. "https://digiinksolutions.solops.cloud")
+  static String getWebOrigin(String? workspace) {
+    final cleanWorkspace = (workspace ?? '').trim().toLowerCase();
+    if (cleanWorkspace.isEmpty) return "https://$baseDomain";
+    return "https://$cleanWorkspace.$baseDomain";
+  }
+
+  // Customer Review Link: https://<workspace>.solops.cloud/review/<tokenOrId>
+  static String getReviewUrl(String? workspace, String tokenOrId) {
+    final origin = getWebOrigin(workspace);
+    return "$origin/review/$tokenOrId";
+  }
+
+  // Public/Web Invoice Link: https://<workspace>.solops.cloud/invoices/<id>/pdf
+  static String getInvoicePdfUrl(String? workspace, int invoiceId) {
+    final origin = getWebOrigin(workspace);
+    return "$origin/invoices/$invoiceId/pdf";
+  }
+
+  // Public/Web Quotation Link: https://<workspace>.solops.cloud/quotations/<id>/pdf
+  static String getQuotationPdfUrl(String? workspace, int quotationId) {
+    final origin = getWebOrigin(workspace);
+    return "$origin/quotations/$quotationId/pdf";
+  }
+
   // Auth endpoints
   static const String login = "/auth/login";
   static const String profile = "/auth/profile";

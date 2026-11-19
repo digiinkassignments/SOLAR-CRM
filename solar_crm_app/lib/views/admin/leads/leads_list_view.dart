@@ -9,6 +9,7 @@ import 'add_lead_sheet.dart';
 import 'log_call_sheet.dart';
 import 'ai_copilot_sheet.dart';
 import 'lead_details_sheet.dart';
+import 'edit_lead_sheet.dart';
 
 class LeadsListView extends StatefulWidget {
   const LeadsListView({super.key});
@@ -25,12 +26,15 @@ class _LeadsListViewState extends State<LeadsListView> {
     "All",
     "New Lead",
     "Contacted",
-    "Interested",
-    "Site Survey",
+    "Qualified",
+    "Site Survey Scheduled",
+    "Site Survey Done",
     "Quotation Sent",
     "Negotiation",
-    "Order Won",
+    "Won",
+    "On Hold",
     "Lost",
+    "Invalid",
   ];
 
   final List<String> _priorities = [
@@ -96,6 +100,13 @@ class _LeadsListViewState extends State<LeadsListView> {
       backgroundColor: Colors.transparent,
       builder: (_) => LeadDetailsSheet(lead: lead),
     );
+  }
+
+  void _openEditLead(LeadModel lead) async {
+    final res = await EditLeadSheet.show(context, lead: lead);
+    if (res == true && mounted) {
+      Provider.of<LeadProvider>(context, listen: false).fetchLeads(isRefresh: true);
+    }
   }
 
   void _openAiCopilot(LeadModel lead) {
@@ -563,9 +574,7 @@ class _LeadsListViewState extends State<LeadsListView> {
                           onViewDetails: _openLeadDetails,
                           onOpenCopilot: _openAiCopilot,
                           onLogCall: _openLogCall,
-                          onEdit: (l) {
-                            _openLeadDetails(l);
-                          },
+                          onEdit: _openEditLead,
                           onDelete: _confirmDeleteLead,
                         ),
                       );

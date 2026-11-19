@@ -6,6 +6,8 @@ import '../../core/storage/storage_service.dart';
 import '../../providers/auth_provider.dart';
 import 'workspace_screen.dart';
 import 'forgot_password_sheet.dart';
+import 'access_denied_screen.dart';
+import 'force_change_password_view.dart';
 import '../sales/sales_shell.dart';
 import '../engineer/engineer_shell.dart';
 import '../manager/manager_shell.dart';
@@ -63,15 +65,26 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (success && auth.user != null) {
       final user = auth.user!;
+      if (user.isPasswordChanged == 0) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const ForceChangePasswordView()),
+          (route) => false,
+        );
+        return;
+      }
+
       Widget destination;
-      if (user.isEngineer) {
-        destination = const EngineerShell();
-      } else if (user.isSales) {
-        destination = const SalesShell();
+      if (user.isAdmin) {
+        destination = const AdminShell();
       } else if (user.isManager) {
         destination = const ManagerShell();
+      } else if (user.isSales) {
+        destination = const SalesShell();
+      } else if (user.isEngineer) {
+        destination = const EngineerShell();
       } else {
-        destination = const AdminShell();
+        destination = const AccessDeniedScreen();
       }
 
       Navigator.pushAndRemoveUntil(

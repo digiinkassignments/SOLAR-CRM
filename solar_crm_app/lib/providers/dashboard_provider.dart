@@ -3,11 +3,21 @@ import 'package:flutter/foundation.dart';
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../models/admin_dashboard_model.dart';
+import 'auth_provider.dart';
 
 class DashboardProvider extends ChangeNotifier {
   final ApiClient apiClient;
 
-  DashboardProvider({required this.apiClient});
+  DashboardProvider({required this.apiClient}) {
+    AuthProvider.registerResetCallback(reset);
+  }
+
+  void reset() {
+    _isLoading = false;
+    _errorMessage = null;
+    _adminStats = null;
+    notifyListeners();
+  }
 
   bool _isLoading = false;
   String? _errorMessage;

@@ -10,6 +10,24 @@ import '../models/tenant_model.dart';
 class AuthProvider extends ChangeNotifier {
   final ApiClient apiClient;
 
+  static final List<void Function()> _onResetCallbacks = [];
+
+  /// Register callback to reset in-memory caches on logout
+  static void registerResetCallback(void Function() callback) {
+    if (!_onResetCallbacks.contains(callback)) {
+      _onResetCallbacks.add(callback);
+    }
+  }
+
+  /// Trigger all registered provider reset callbacks
+  static void triggerResetAll() {
+    for (final cb in _onResetCallbacks) {
+      try {
+        cb();
+      } catch (_) {}
+    }
+  }
+
   String? _workspace;
   TenantModel? _tenant;
   UserModel? _user;
@@ -243,12 +261,35 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Mark password as changed for initial login requirement
+  Future<void> markPasswordChanged() async {
+    if (_user != null) {
+      _user = _user!.copyWith(isPasswordChanged: 1);
+      await StorageService.saveUserJson(jsonEncode(_user!.toJson()));
+      notifyListeners();
+    }
+  }
+
   /// Logout and clear sessions (preserves workspace subdomain)
   Future<void> logout() async {
     await StorageService.clearAuth();
     _token = null;
     _user = null;
     _errorMessage = null;
+    triggerResetAll();
+    notifyListeners();
+  }
+
+  /// Reset workspace and clear all auth & cached provider state
+  Future<void> resetWorkspace() async {
+    await StorageService.clearWorkspace();
+    await StorageService.clearAuth();
+    _workspace = null;
+    _tenant = null;
+    _token = null;
+    _user = null;
+    _errorMessage = null;
+    triggerResetAll();
     notifyListeners();
   }
 }

@@ -45,8 +45,8 @@ class _InvoiceDetailSheetState extends State<InvoiceDetailSheet> {
 
   String _getPublicUrl() {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final ws = auth.workspace?.trim().toLowerCase() ?? "digiinksolutions";
-    return "https://$ws.${ApiConstants.baseDomain}/invoice/${_invoice.publicToken}";
+    final origin = ApiConstants.getWebOrigin(auth.workspace);
+    return "$origin/invoice/${_invoice.publicToken}";
   }
 
   Future<void> _openPdf() async {

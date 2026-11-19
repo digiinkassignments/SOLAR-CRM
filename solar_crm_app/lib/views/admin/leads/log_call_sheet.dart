@@ -28,10 +28,14 @@ class _LogCallSheetState extends State<LogCallSheet> {
 
   final List<String> _callOutcomes = [
     "Contacted",
-    "Follow-up Scheduled",
+    "Qualified",
     "Site Survey Scheduled",
     "Quotation Sent",
-    "Not Interested",
+    "Negotiation",
+    "Won",
+    "On Hold",
+    "Lost",
+    "Invalid",
   ];
 
   Future<void> _pickDate() async {

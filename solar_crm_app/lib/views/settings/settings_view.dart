@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import '../../core/constants/api_constants.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/utils/formatters.dart';
@@ -1238,7 +1239,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
           ),
           const SizedBox(height: 4),
           Text(
-            "API Server: https://${auth.workspace ?? 'digiinksolutions'}.solops.cloud/api",
+            "API Server: ${ApiConstants.getBaseUrl(auth.workspace ?? '')}",
             style: AppTypography.caption(color: textSecondary),
           ),
           const SizedBox(height: 4),

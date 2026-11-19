@@ -3,11 +3,28 @@ import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../models/invoice_model.dart';
 import '../models/quotation_model.dart';
+import 'auth_provider.dart';
 
 class FinanceProvider extends ChangeNotifier {
   final ApiClient apiClient;
 
-  FinanceProvider({required this.apiClient});
+  FinanceProvider({required this.apiClient}) {
+    AuthProvider.registerResetCallback(reset);
+  }
+
+  void reset() {
+    _quotations = [];
+    _isLoadingQuotations = false;
+    _quotationsError = null;
+    _quotationStatusFilter = "All";
+    _quotationSearchQuery = "";
+    _invoices = [];
+    _isLoadingInvoices = false;
+    _invoicesError = null;
+    _invoiceStatusFilter = "All";
+    _invoiceSearchQuery = "";
+    notifyListeners();
+  }
 
   // Quotations State
   List<QuotationModel> _quotations = [];
@@ -282,7 +299,9 @@ class FinanceProvider extends ChangeNotifier {
         'installation_amount': quotation.structureInstallationCost,
         'discount_amount': quotation.discountAmount,
         'taxable_amount': quotation.basePrice + quotation.structureInstallationCost - quotation.discountAmount,
-        'gst_mode': "itemised",
+        'gst_mode': quotation.gstMode,
+        if (quotation.gstSummaryJson != null) 'gst_summary_json': quotation.gstSummaryJson,
+        if (quotation.revisionNumber != null) 'quotation_revision_number': quotation.revisionNumber,
         'gst_rate': quotation.gstRate,
         'gst_amount': quotation.gstAmount,
         'gross_total': quotation.totalAmount,

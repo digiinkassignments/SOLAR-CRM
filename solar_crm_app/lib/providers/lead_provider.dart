@@ -3,11 +3,35 @@ import 'package:flutter/foundation.dart';
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../models/lead_model.dart';
+import 'auth_provider.dart';
 
 class LeadProvider extends ChangeNotifier {
   final ApiClient apiClient;
 
-  LeadProvider({required this.apiClient});
+  LeadProvider({required this.apiClient}) {
+    AuthProvider.registerResetCallback(reset);
+  }
+
+  void reset() {
+    _leads = [];
+    _isLoading = false;
+    _errorMessage = null;
+    _currentPage = 1;
+    _totalPages = 1;
+    _totalRecords = 0;
+    _isTodayFollowupsOnly = false;
+    _todaysFollowupsCount = 0;
+    _searchQuery = "";
+    _selectedStatus = "All";
+    _selectedPriority = "All";
+    _selectedLead = null;
+    _aiCopilotData = null;
+    _isLoadingAi = false;
+    _aiError = null;
+    _leadFollowups = [];
+    _isLoadingFollowups = false;
+    notifyListeners();
+  }
 
   List<LeadModel> _leads = [];
   bool _isLoading = false;

@@ -14,7 +14,10 @@ import 'providers/stock_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/financing_provider.dart';
 import 'providers/project_provider.dart';
+import 'views/auth/login_screen.dart';
 import 'views/splash/splash_screen.dart';
+
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +33,18 @@ void main() async {
   final apiClient = ApiClient();
   final authProvider = AuthProvider(apiClient: apiClient);
   await authProvider.init();
+
+  // Handle 401 Unauthorized responses globally
+  ApiClient.onUnauthorized = () async {
+    await authProvider.logout();
+    final nav = rootNavigatorKey.currentState;
+    if (nav != null) {
+      nav.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+  };
 
   runApp(
     MultiProvider(
@@ -77,6 +92,7 @@ class SolarCrmApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       title: 'Solar CRM',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,       // Pure White Light Mode

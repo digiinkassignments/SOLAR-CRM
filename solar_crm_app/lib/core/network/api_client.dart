@@ -6,6 +6,9 @@ class ApiClient {
   late Dio dio;
   String? currentWorkspace;
 
+  /// Global callback invoked on HTTP 401 Unauthorized responses
+  static void Function()? onUnauthorized;
+
   ApiClient() {
     dio = Dio(
       BaseOptions(
@@ -35,7 +38,16 @@ class ApiClient {
           return handler.next(options);
         },
         onError: (DioException e, handler) {
-          // Custom error formatting if needed
+          if (e.response?.statusCode == 401) {
+            final path = e.requestOptions.path;
+            final isAuthCheck = path.contains(ApiConstants.login) ||
+                path.contains(ApiConstants.tenantInfo) ||
+                path.contains(ApiConstants.forgotPassword) ||
+                path.contains(ApiConstants.resetPassword);
+            if (!isAuthCheck) {
+              onUnauthorized?.call();
+            }
+          }
           return handler.next(e);
         },
       ),

@@ -3,11 +3,27 @@ import 'package:flutter/foundation.dart';
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../models/customer_model.dart';
+import 'auth_provider.dart';
 
 class CustomerProvider extends ChangeNotifier {
   final ApiClient apiClient;
 
-  CustomerProvider({required this.apiClient});
+  CustomerProvider({required this.apiClient}) {
+    AuthProvider.registerResetCallback(reset);
+  }
+
+  void reset() {
+    _customers = [];
+    _stats = null;
+    _isLoading = false;
+    _errorMessage = null;
+    _searchQuery = "";
+    _selectedRequirement = "All";
+    _selectedCity = "";
+    _selectedCustomerDetail = null;
+    _isLoadingDetail = false;
+    notifyListeners();
+  }
 
   List<CustomerModel> _customers = [];
   CustomerStats? _stats;

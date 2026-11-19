@@ -87,6 +87,9 @@ class QuotationModel {
 
   // Meta
   final String status; // "Draft" | "Sent" | "Accepted" | "Rejected"
+  final String gstMode; // "solar_composite" | "itemised"
+  final String? gstSummaryJson;
+  final int? revisionNumber;
   final String? validUntil;
   final String? termsAndConditions;
   final String? notes;
@@ -129,6 +132,9 @@ class QuotationModel {
     required this.paybackYears,
     required this.twentyFiveYearSavings,
     required this.status,
+    this.gstMode = "itemised",
+    this.gstSummaryJson,
+    this.revisionNumber,
     this.validUntil,
     this.termsAndConditions,
     this.notes,
@@ -197,6 +203,11 @@ class QuotationModel {
       paybackYears: (json['payback_years'] is num) ? (json['payback_years'] as num).toDouble() : double.tryParse(json['payback_years']?.toString() ?? '0') ?? 0.0,
       twentyFiveYearSavings: (json['twenty_five_year_savings'] is num) ? (json['twenty_five_year_savings'] as num).toInt() : int.tryParse(json['twenty_five_year_savings']?.toString() ?? '0') ?? 0,
       status: json['status']?.toString() ?? "Draft",
+      gstMode: json['gst_mode']?.toString() ?? "itemised",
+      gstSummaryJson: json['gst_summary_json']?.toString(),
+      revisionNumber: json['revision_number'] != null
+          ? int.tryParse(json['revision_number'].toString())
+          : (json['quotation_revision_number'] != null ? int.tryParse(json['quotation_revision_number'].toString()) : null),
       validUntil: json['valid_until']?.toString(),
       termsAndConditions: json['terms_and_conditions']?.toString(),
       notes: json['notes']?.toString(),

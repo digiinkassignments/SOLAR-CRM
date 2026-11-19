@@ -21,21 +21,59 @@ class UserModel {
     this.permissions = const [],
   });
 
+  bool get isSuperAdmin =>
+      roleId == 1 ||
+      roleName.toLowerCase() == "super admin" ||
+      roleName.toLowerCase() == "superadmin";
+
   bool get isAdmin =>
       roleId == 1 ||
-      roleName.toLowerCase().contains("admin") ||
-      roleName.toLowerCase().contains("super");
+      roleName.toLowerCase() == "super admin" ||
+      roleName.toLowerCase() == "superadmin" ||
+      roleName.toLowerCase() == "admin" ||
+      roleName.toLowerCase() == "administrator";
 
   bool get isManager =>
-      roleId == 2 || roleName.toLowerCase().contains("manager");
+      roleId == 2 ||
+      roleName.toLowerCase() == "manager" ||
+      roleName.toLowerCase() == "operations manager" ||
+      roleName.toLowerCase() == "project manager";
 
   bool get isSales =>
-      roleId == 3 || roleName.toLowerCase().contains("sales");
+      roleId == 3 ||
+      roleName.toLowerCase() == "sales" ||
+      roleName.toLowerCase() == "sales executive" ||
+      roleName.toLowerCase().startsWith("sales");
 
   bool get isEngineer =>
       roleId == 4 ||
-      roleName.toLowerCase().contains("engineer") ||
-      roleName.toLowerCase().contains("site");
+      roleName.toLowerCase() == "site engineer" ||
+      roleName.toLowerCase() == "engineer" ||
+      roleName.toLowerCase() == "technical engineer";
+
+  UserModel copyWith({
+    int? id,
+    String? name,
+    String? email,
+    String? phone,
+    int? roleId,
+    String? roleName,
+    String? status,
+    int? isPasswordChanged,
+    List<String>? permissions,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      roleId: roleId ?? this.roleId,
+      roleName: roleName ?? this.roleName,
+      status: status ?? this.status,
+      isPasswordChanged: isPasswordChanged ?? this.isPasswordChanged,
+      permissions: permissions ?? this.permissions,
+    );
+  }
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     List<String> perms = [];

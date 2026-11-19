@@ -39,6 +39,13 @@ class StorageService {
     return prefs.getString(_keyWorkspace);
   }
 
+  // Clear Workspace Subdomain
+  static Future<void> clearWorkspace() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyWorkspace);
+    await prefs.remove(_keyTenantJson);
+  }
+
   // Save User JSON
   static Future<void> saveUserJson(String jsonStr) async {
     final prefs = await SharedPreferences.getInstance();

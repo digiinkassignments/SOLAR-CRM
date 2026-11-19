@@ -8,11 +8,40 @@ import '../models/stock_item_model.dart';
 import '../models/stock_transaction_model.dart';
 import '../models/stock_alert_model.dart';
 import '../models/stock_report_model.dart';
+import 'auth_provider.dart';
 
 class StockProvider extends ChangeNotifier {
   final ApiClient apiClient;
 
-  StockProvider({required this.apiClient});
+  StockProvider({required this.apiClient}) {
+    AuthProvider.registerResetCallback(reset);
+  }
+
+  void reset() {
+    _items = [];
+    _page = 1;
+    _totalItems = 0;
+    _categories = [];
+    _transactions = [];
+    _txnPage = 1;
+    _totalTxns = 0;
+    _alerts = [];
+    _report = null;
+    _isLoadingItems = false;
+    _isLoadingCategories = false;
+    _isLoadingTransactions = false;
+    _isLoadingAlerts = false;
+    _isLoadingReport = false;
+    _isSubmitting = false;
+    _itemsError = null;
+    _transactionsError = null;
+    _alertsError = null;
+    _searchQuery = "";
+    _selectedCategoryId = null;
+    _selectedStatus = "all";
+    _sortBy = "updated_at";
+    notifyListeners();
+  }
 
   // Items State & Pagination
   List<StockItemModel> _items = [];

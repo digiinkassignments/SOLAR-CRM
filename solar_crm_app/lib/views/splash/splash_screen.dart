@@ -5,6 +5,8 @@ import '../../core/constants/app_typography.dart';
 import '../../providers/auth_provider.dart';
 import '../auth/workspace_screen.dart';
 import '../auth/login_screen.dart';
+import '../auth/access_denied_screen.dart';
+import '../auth/force_change_password_view.dart';
 import '../sales/sales_shell.dart';
 import '../engineer/engineer_shell.dart';
 import '../manager/manager_shell.dart';
@@ -46,17 +48,27 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    // Role-based routing
+    // Role-based deny-by-default routing & initial password change enforcement
     final user = auth.user!;
+    if (user.isPasswordChanged == 0) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ForceChangePasswordView()),
+      );
+      return;
+    }
+
     Widget destination;
-    if (user.isEngineer) {
-      destination = const EngineerShell();
-    } else if (user.isSales) {
-      destination = const SalesShell();
+    if (user.isAdmin) {
+      destination = const AdminShell();
     } else if (user.isManager) {
       destination = const ManagerShell();
+    } else if (user.isSales) {
+      destination = const SalesShell();
+    } else if (user.isEngineer) {
+      destination = const EngineerShell();
     } else {
-      destination = const AdminShell();
+      destination = const AccessDeniedScreen();
     }
 
     Navigator.pushReplacement(

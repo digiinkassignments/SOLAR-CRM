@@ -3,11 +3,28 @@ import 'package:flutter/foundation.dart';
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../models/team_user_model.dart';
+import 'auth_provider.dart';
 
 class UserProvider extends ChangeNotifier {
   final ApiClient apiClient;
 
-  UserProvider({required this.apiClient});
+  UserProvider({required this.apiClient}) {
+    AuthProvider.registerResetCallback(reset);
+  }
+
+  void reset() {
+    _users = [];
+    _roles = [];
+    _isLoading = false;
+    _errorMessage = null;
+    _currentPage = 1;
+    _totalPages = 1;
+    _totalRecords = 0;
+    _searchQuery = "";
+    _selectedRole = "";
+    _selectedStatus = "";
+    notifyListeners();
+  }
 
   List<TeamUserModel> _users = [];
   List<RoleItem> _roles = [];

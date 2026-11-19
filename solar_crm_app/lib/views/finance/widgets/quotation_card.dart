@@ -49,8 +49,8 @@ class QuotationCard extends StatelessWidget {
 
   Future<void> _openPdf(BuildContext context) async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final ws = auth.workspace?.trim().toLowerCase() ?? "digiinksolutions";
-    final url = "https://$ws.${ApiConstants.baseDomain}/quote/${quotation.publicToken}?download=true";
+    final origin = ApiConstants.getWebOrigin(auth.workspace);
+    final url = "$origin/quote/${quotation.publicToken}?download=true";
     final uri = Uri.parse(url);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -73,8 +73,8 @@ class QuotationCard extends StatelessWidget {
 
   Future<void> _shareWhatsApp(BuildContext context) async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final ws = auth.workspace?.trim().toLowerCase() ?? "digiinksolutions";
-    final publicUrl = "https://$ws.${ApiConstants.baseDomain}/quote/${quotation.publicToken}";
+    final origin = ApiConstants.getWebOrigin(auth.workspace);
+    final publicUrl = "$origin/quote/${quotation.publicToken}";
     final pitch = quotation.buildWhatsAppPitch(publicUrl);
     await WhatsAppHelper.launchWhatsApp(
       context: context,

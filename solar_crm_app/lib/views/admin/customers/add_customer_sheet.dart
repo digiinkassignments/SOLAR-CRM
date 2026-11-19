@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
@@ -28,12 +29,83 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
   final _gstinController = TextEditingController();
   final _notesController = TextEditingController();
 
+  // Opening project & financials
+  final _plantSizeController = TextEditingController();
+  final _finalAmountController = TextEditingController();
+  final _paymentAmountController = TextEditingController();
+  final _paymentRefController = TextEditingController();
+
   String _solarRequirement = "Residential";
+  String _leadSource = "Direct";
+  String _paymentMode = "Bank Transfer";
+  bool _showOpeningSection = false;
   bool _isLoading = false;
   String? _errorMessage;
 
+  static const List<String> _leadSources = [
+    "Direct",
+    "Referral",
+    "Website",
+    "Social Media",
+    "Cold Call",
+    "Campaign",
+    "Other",
+  ];
+
+  static const List<String> _paymentModes = [
+    "Bank Transfer",
+    "UPI",
+    "Cash",
+    "Cheque",
+    "Card",
+    "Other",
+  ];
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _mobileController.dispose();
+    _altMobileController.dispose();
+    _emailController.dispose();
+    _addressController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _pincodeController.dispose();
+    _consumerNumberController.dispose();
+    _discomController.dispose();
+    _sanctionedLoadController.dispose();
+    _gstinController.dispose();
+    _notesController.dispose();
+    _plantSizeController.dispose();
+    _finalAmountController.dispose();
+    _paymentAmountController.dispose();
+    _paymentRefController.dispose();
+    super.dispose();
+  }
+
   void _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final plantSizeText = _plantSizeController.text.trim();
+    final invoiceAmtText = _finalAmountController.text.trim();
+    final paymentAmtText = _paymentAmountController.text.trim();
+
+    final plantSize = double.tryParse(plantSizeText);
+    if (plantSizeText.isNotEmpty && (plantSize == null || plantSize <= 0)) {
+      setState(() {
+        _errorMessage = "Plant size must be a positive number in kW.";
+      });
+      return;
+    }
+    final invoiceAmt = double.tryParse(invoiceAmtText);
+    final paymentAmt = double.tryParse(paymentAmtText);
+
+    if (paymentAmt != null && invoiceAmt != null && paymentAmt > invoiceAmt) {
+      setState(() {
+        _errorMessage = "Payment received cannot exceed the final invoice amount.";
+      });
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -54,8 +126,26 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
       'sanctioned_load_kw': _sanctionedLoadController.text.trim().isNotEmpty ? double.tryParse(_sanctionedLoadController.text.trim()) : null,
       'customer_gstin': _gstinController.text.trim().isNotEmpty ? _gstinController.text.trim() : null,
       'solar_requirement': _solarRequirement,
+      'lead_source': _leadSource,
       'notes': _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
     };
+
+    // Include Opening Record if any opening values were provided
+    final hasOpeningRecord = plantSizeText.isNotEmpty || invoiceAmtText.isNotEmpty || paymentAmtText.isNotEmpty;
+    if (hasOpeningRecord) {
+      final key = "req-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(999999).toString().padLeft(6, '0')}";
+      data['request_key'] = key;
+      if (plantSizeText.isNotEmpty) data['plant_size_kw'] = plantSizeText;
+      if (invoiceAmtText.isNotEmpty) data['invoice_amount'] = invoiceAmtText;
+      if (paymentAmtText.isNotEmpty) {
+        data['payment_amount'] = paymentAmtText;
+        data['payment_mode'] = _paymentMode;
+        data['payment_date'] = DateTime.now().toIso8601String().split('T')[0];
+        if (_paymentRefController.text.trim().isNotEmpty) {
+          data['payment_reference'] = _paymentRefController.text.trim();
+        }
+      }
+    }
 
     final provider = Provider.of<CustomerProvider>(context, listen: false);
     final res = await provider.createCustomer(data);
@@ -283,6 +373,27 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
 
               const SizedBox(height: 14),
 
+              // Lead Source
+              Text("LEAD SOURCE", style: AppTypography.badge(color: textSecondary)),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                initialValue: _leadSource,
+                items: _leadSources.map((source) {
+                  return DropdownMenuItem(
+                    value: source,
+                    child: Text(source, style: AppTypography.body(color: textPrimary)),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _leadSource = val);
+                },
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.hub_outlined, size: 20),
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
               // Address, City, State, Pincode
               Text("INSTALLATION ADDRESS", style: AppTypography.badge(color: textSecondary)),
               const SizedBox(height: 6),
@@ -397,6 +508,172 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                     ),
                   ),
                 ],
+              ),
+
+              const SizedBox(height: 14),
+
+              // Opening Installation & Financials (Web Parity)
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF141414) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _showOpeningSection ? AppColors.brandPrimary.withValues(alpha: 0.4) : borderColor,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    InkWell(
+                      onTap: () => setState(() => _showOpeningSection = !_showOpeningSection),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.solar_power_outlined,
+                              size: 18,
+                              color: _showOpeningSection ? AppColors.brandPrimary : textSecondary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                "OPENING SOLAR SYSTEM & FINANCIALS",
+                                style: AppTypography.badge(
+                                  color: _showOpeningSection ? AppColors.brandPrimary : textPrimary,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              _showOpeningSection ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                              color: textSecondary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_showOpeningSection) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Divider(color: borderColor, height: 1),
+                            const SizedBox(height: 12),
+                            Text(
+                              "Record pre-existing system capacity or initial contract figures for this customer.",
+                              style: TextStyle(fontSize: 11, color: textSecondary),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Plant Size (kW)
+                            Text("SYSTEM CAPACITY (PLANT SIZE KW)", style: AppTypography.badge(color: textSecondary)),
+                            const SizedBox(height: 6),
+                            TextFormField(
+                              controller: _plantSizeController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              style: AppTypography.body(color: textPrimary),
+                              decoration: const InputDecoration(
+                                hintText: "e.g. 5.45",
+                                prefixIcon: Icon(Icons.bolt, size: 20),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Final Invoice Amount & Payment Received
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text("FINAL CONTRACT AMOUNT (₹)", style: AppTypography.badge(color: textSecondary)),
+                                      const SizedBox(height: 6),
+                                      TextFormField(
+                                        controller: _finalAmountController,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        style: AppTypography.body(color: textPrimary),
+                                        decoration: const InputDecoration(
+                                          hintText: "e.g. 250000",
+                                          prefixIcon: Icon(Icons.receipt_long_outlined, size: 20),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text("PAYMENT RECEIVED (₹)", style: AppTypography.badge(color: textSecondary)),
+                                      const SizedBox(height: 6),
+                                      TextFormField(
+                                        controller: _paymentAmountController,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        style: AppTypography.body(color: textPrimary),
+                                        decoration: const InputDecoration(
+                                          hintText: "e.g. 50000",
+                                          prefixIcon: Icon(Icons.currency_rupee, size: 20),
+                                        ),
+                                        onChanged: (_) => setState(() {}),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            if (_paymentAmountController.text.trim().isNotEmpty &&
+                                (double.tryParse(_paymentAmountController.text.trim()) ?? 0) > 0) ...[
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text("PAYMENT MODE", style: AppTypography.badge(color: textSecondary)),
+                                        const SizedBox(height: 6),
+                                        DropdownButtonFormField<String>(
+                                          initialValue: _paymentMode,
+                                          items: _paymentModes.map((m) {
+                                            return DropdownMenuItem(
+                                              value: m,
+                                              child: Text(m, style: AppTypography.caption(color: textPrimary)),
+                                            );
+                                          }).toList(),
+                                          onChanged: (val) {
+                                            if (val != null) setState(() => _paymentMode = val);
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text("PAYMENT REF / UTR", style: AppTypography.badge(color: textSecondary)),
+                                        const SizedBox(height: 6),
+                                        TextFormField(
+                                          controller: _paymentRefController,
+                                          style: AppTypography.body(color: textPrimary),
+                                          decoration: const InputDecoration(hintText: "Optional Ref"),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
 
               const SizedBox(height: 14),

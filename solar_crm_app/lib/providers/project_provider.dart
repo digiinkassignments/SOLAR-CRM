@@ -11,6 +11,7 @@ import '../models/inspection_model.dart';
 import '../models/installation_log_model.dart';
 import '../models/project_model.dart';
 import '../models/warranty_amc_model.dart';
+import 'auth_provider.dart';
 
 class ProjectProvider extends ChangeNotifier {
   final ApiClient apiClient;
@@ -44,7 +45,49 @@ class ProjectProvider extends ChangeNotifier {
   List<String> _completedInstallationPhases = [];
   bool _isSavingInstallationLog = false;
 
-  ProjectProvider({required this.apiClient});
+  ProjectProvider({required this.apiClient}) {
+    AuthProvider.registerResetCallback(reset);
+  }
+
+  /// Reset all project cached state on logout
+  void reset() {
+    _projects = [];
+    _totalCount = 0;
+    _currentPage = 1;
+    _totalPages = 1;
+    _isLoading = false;
+    _errorMessage = null;
+    _stats = ProjectStatsModel();
+    _engineers = [];
+    _completedSurveys = [];
+    _isLoadingSurveys = false;
+    _isSubmitting = false;
+    _selectedProject = null;
+    _isLoadingDetails = false;
+    _detailsError = null;
+    _currentInspection = null;
+    _isLoadingInspection = false;
+    _inspectionError = null;
+    _isSavingInspection = false;
+    _installationLogs = [];
+    _isLoadingInstallationLogs = false;
+    _installationLogsError = null;
+    _installationProgressPercent = 0;
+    _completedInstallationPhases = [];
+    _isSavingInstallationLog = false;
+    _commissioning = null;
+    _isLoadingCommissioning = false;
+    _finalInspection = null;
+    _isLoadingFinalInspection = false;
+    _customerHandover = null;
+    _isLoadingCustomerHandover = false;
+    _warrantyAmc = null;
+    _serviceVisits = [];
+    _companyAmcPlans = [];
+    _isLoadingWarrantyAmc = false;
+    _isLoadingAmcPlans = false;
+    notifyListeners();
+  }
 
   // Getters
   List<ProjectModel> get projects => _projects;

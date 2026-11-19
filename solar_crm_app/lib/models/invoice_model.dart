@@ -96,6 +96,9 @@ class InvoiceModel {
   final double grossTotal;
   final double subsidyAmount;
   final double netPayableAmount;
+  final String gstMode; // "solar_composite" | "itemised"
+  final String? gstSummaryJson;
+  final int? quotationRevisionNumber;
 
   // Payment Tracking
   final double amountPaid;
@@ -149,6 +152,9 @@ class InvoiceModel {
     required this.grossTotal,
     required this.subsidyAmount,
     required this.netPayableAmount,
+    this.gstMode = "itemised",
+    this.gstSummaryJson,
+    this.quotationRevisionNumber,
     required this.amountPaid,
     required this.balanceDue,
     required this.paymentStatus,
@@ -234,6 +240,11 @@ class InvoiceModel {
       grossTotal: (json['gross_total'] is num) ? (json['gross_total'] as num).toDouble() : double.tryParse(json['gross_total']?.toString() ?? '0') ?? 0.0,
       subsidyAmount: (json['subsidy_amount'] is num) ? (json['subsidy_amount'] as num).toDouble() : double.tryParse(json['subsidy_amount']?.toString() ?? '0') ?? 0.0,
       netPayableAmount: (json['net_payable_amount'] is num) ? (json['net_payable_amount'] as num).toDouble() : double.tryParse(json['net_payable_amount']?.toString() ?? '0') ?? 0.0,
+      gstMode: json['gst_mode']?.toString() ?? "itemised",
+      gstSummaryJson: json['gst_summary_json']?.toString(),
+      quotationRevisionNumber: json['quotation_revision_number'] != null
+          ? int.tryParse(json['quotation_revision_number'].toString())
+          : (json['revision_number'] != null ? int.tryParse(json['revision_number'].toString()) : null),
       amountPaid: (json['amount_paid'] is num) ? (json['amount_paid'] as num).toDouble() : double.tryParse(json['amount_paid']?.toString() ?? '0') ?? 0.0,
       balanceDue: (json['balance_due'] is num) ? (json['balance_due'] as num).toDouble() : double.tryParse(json['balance_due']?.toString() ?? '0') ?? 0.0,
       paymentStatus: json['payment_status']?.toString() ?? "Unpaid",

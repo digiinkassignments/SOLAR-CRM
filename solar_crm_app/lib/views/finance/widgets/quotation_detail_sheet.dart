@@ -45,8 +45,8 @@ class _QuotationDetailSheetState extends State<QuotationDetailSheet> {
 
   String _getPublicUrl() {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final ws = auth.workspace?.trim().toLowerCase() ?? "digiinksolutions";
-    return "https://$ws.${ApiConstants.baseDomain}/quote/${_quotation.publicToken}";
+    final origin = ApiConstants.getWebOrigin(auth.workspace);
+    return "$origin/quote/${_quotation.publicToken}";
   }
 
   Future<void> _openPdf() async {
