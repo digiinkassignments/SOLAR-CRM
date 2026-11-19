@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../models/commissioning_model.dart';
+import '../models/customer_handover_model.dart';
 import '../models/final_inspection_model.dart';
 import '../models/inspection_model.dart';
 import '../models/installation_log_model.dart';
@@ -588,6 +589,59 @@ class ProjectProvider extends ChangeNotifier {
       };
     } catch (e) {
       debugPrint("saveFinalInspection error: $e");
+      String errorMsg = e.toString();
+      if (e is DioException) {
+        errorMsg = e.response?.data?['message'] ?? e.message ?? errorMsg;
+      }
+      return {'success': false, 'message': errorMsg};
+    }
+  }
+
+  // 17. Customer Handover State & Methods
+  CustomerHandoverModel? _customerHandover;
+  bool _isLoadingCustomerHandover = false;
+  CustomerHandoverModel? get customerHandover => _customerHandover;
+  bool get isLoadingCustomerHandover => _isLoadingCustomerHandover;
+
+  Future<void> fetchCustomerHandover(dynamic projectId) async {
+    _isLoadingCustomerHandover = true;
+    notifyListeners();
+
+    try {
+      final res = await apiClient.dio.get(ApiConstants.projectHandover(projectId));
+      final raw = res.data;
+      final data = raw?['handover'] ?? raw?['data'] ?? raw;
+      if (data != null && data is Map && (data['id'] != null || data['project_id'] != null || data['handover_status'] != null)) {
+        _customerHandover = CustomerHandoverModel.fromJson(Map<String, dynamic>.from(data));
+      } else {
+        _customerHandover = null;
+      }
+    } catch (e) {
+      debugPrint("fetchCustomerHandover error: $e");
+      _customerHandover = null;
+    } finally {
+      _isLoadingCustomerHandover = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> saveCustomerHandover(dynamic projectId, Map<String, dynamic> data, {bool isUpdate = false}) async {
+    try {
+      final url = ApiConstants.projectHandover(projectId);
+      final res = isUpdate
+          ? await apiClient.dio.put(url, data: data)
+          : await apiClient.dio.post(url, data: data);
+
+      await fetchCustomerHandover(projectId);
+      await fetchProjectDetails(projectId);
+
+      return {
+        'success': true,
+        'message': res.data?['message'] ?? 'Customer Handover saved successfully!',
+        'handover': _customerHandover,
+      };
+    } catch (e) {
+      debugPrint("saveCustomerHandover error: $e");
       String errorMsg = e.toString();
       if (e is DioException) {
         errorMsg = e.response?.data?['message'] ?? e.message ?? errorMsg;

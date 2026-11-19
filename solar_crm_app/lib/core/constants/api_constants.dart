@@ -112,6 +112,9 @@ class ApiConstants {
   // Project Final QA & Pre-Handover Inspection
   static String projectFinalInspection(dynamic id) => "/projects/$id/final-inspection";
 
+  // Project Customer Handover & Warranty Activation
+  static String projectHandover(dynamic id) => "/projects/$id/handover";
+
   // Solar Loans & Financing Hub
   static const String loans = "/loans";
   static const String loanStats = "/loans/stats";

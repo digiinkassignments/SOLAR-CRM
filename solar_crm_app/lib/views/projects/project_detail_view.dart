@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,6 +11,7 @@ import '../../models/project_model.dart';
 import '../../providers/project_provider.dart';
 import 'sheets/change_stage_sheet.dart';
 import 'sheets/commissioning_form_sheet.dart';
+import 'sheets/customer_handover_form_sheet.dart';
 import 'sheets/edit_project_sheet.dart';
 import 'sheets/final_inspection_form_sheet.dart';
 import 'sheets/log_installation_progress_sheet.dart';
@@ -51,6 +53,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     provider.fetchInstallationLogs(widget.projectId);
     provider.fetchCommissioning(widget.projectId);
     provider.fetchFinalInspection(widget.projectId);
+    provider.fetchCustomerHandover(widget.projectId);
   }
 
   Future<void> _makeCall(String phoneNumber) async {
@@ -287,18 +290,15 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                           ),
 
                           // Tab 6: Customer Handover
-                          _buildStagePlaceholderTab(
-                            project: project,
-                            title: "Customer Handover & Dossier",
-                            description: "Handover pack, warranty certificates, OEM serial tags and customer sign-off OTP.",
-                            icon: Icons.handshake_outlined,
-                            accentColor: AppColors.emeraldGreen,
-                            isDark: isDark,
-                            cardBg: cardBg,
-                            surfaceBg: surfaceBg,
-                            borderColor: borderColor,
-                            textPrimary: textPrimary,
-                            textSecondary: textSecondary,
+                          _buildCustomerHandoverTab(
+                            project,
+                            provider,
+                            isDark,
+                            cardBg,
+                            surfaceBg,
+                            borderColor,
+                            textPrimary,
+                            textSecondary,
                           ),
 
                           // Tab 7: Warranty & AMC
@@ -4965,7 +4965,925 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ==========================================
-  // TABS 6-7: MODULE PLACEHOLDER WORKSPACES
+  // TAB 6: CUSTOMER HANDOVER & WARRANTY DOSSIER
+  // ==========================================
+  Widget _buildCustomerHandoverTab(
+    ProjectModel project,
+    ProjectProvider provider,
+    bool isDark,
+    Color cardBg,
+    Color surfaceBg,
+    Color borderColor,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    final handover = provider.customerHandover;
+    final isLoading = provider.isLoadingCustomerHandover;
+
+    String formatCleanDate(String? dStr) {
+      if (dStr == null || dStr.trim().isEmpty) return "—";
+      try {
+        final d = DateTime.parse(dStr);
+        return DateFormat("dd MMM yyyy").format(d.toLocal());
+      } catch (_) {
+        return dStr;
+      }
+    }
+
+    Widget buildStatusBadge(String? status) {
+      final s = status ?? 'Pending';
+      Color bg;
+      Color border;
+      Color text;
+      String label = s;
+
+      if (s.toLowerCase().contains('complete')) {
+        label = "Completed & Handed Over";
+        bg = isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5);
+        border = isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0);
+        text = isDark ? const Color(0xFF34D399) : const Color(0xFF059669);
+      } else if (s.toLowerCase().contains('progress')) {
+        label = "In Progress";
+        bg = isDark ? const Color(0xFF78350F) : const Color(0xFFFFFBEB);
+        border = isDark ? const Color(0xFFD97706) : const Color(0xFFFDE68A);
+        text = isDark ? const Color(0xFFFCD34D) : const Color(0xFFD97706);
+      } else {
+        label = "Pending";
+        bg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+        border = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
+        text = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+      }
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: text,
+          ),
+        ),
+      );
+    }
+
+    Widget buildPillBadge(String? val) {
+      final isDone = val != null && val.toLowerCase().contains('complete');
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: isDone
+              ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5))
+              : (isDark ? const Color(0xFF78350F) : const Color(0xFFFFFBEB)),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isDone
+                ? (isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0))
+                : (isDark ? const Color(0xFFD97706) : const Color(0xFFFDE68A)),
+          ),
+        ),
+        child: Text(
+          val != null && val.isNotEmpty ? val : "Pending",
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            color: isDone ? const Color(0xFF10B981) : const Color(0xFFD97706),
+          ),
+        ),
+      );
+    }
+
+    Widget renderDetailItem(String label, dynamic value) {
+      final valStr = (value != null && value.toString().trim().isNotEmpty) ? value.toString() : "—";
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: textSecondary,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            valStr,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: textPrimary,
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Default Statutory Dossier Checklist
+    const defaultDossierLabels = [
+      {"id": "comm_cert", "label": "Commissioning & Grid Synchronisation Certificate"},
+      {"id": "qc_report", "label": "Final Quality & Safety Inspection Report"},
+      {"id": "discom_metering", "label": "DISCOM Net-Metering Feasibility & Bi-directional Meter Test Report"},
+      {"id": "subsidy_doc", "label": "PM Surya Ghar National Portal Subsidy Claim Submission Receipt"},
+      {"id": "gst_invoice", "label": "Final GST Commercial Tax Invoice & Zero-Balance Payment Receipt"},
+      {"id": "oem_warranty", "label": "OEM Warranty Certificates (25-Yr PV Modules & Inverter)"},
+      {"id": "om_manual", "label": "Customer Operation & Emergency Shutdown Safety Manual"},
+    ];
+
+    bool isItemDelivered(String id) {
+      if (handover?.documentsPackChecklist == null) return false;
+      final found = handover!.documentsPackChecklist!.firstWhere(
+        (item) => item['id'] == id,
+        orElse: () => {'checked': false},
+      );
+      return found['checked'] == true || found['checked'] == 1;
+    }
+
+    final reviewUrl = "https://digiinksolutions.solops.cloud/review/${handover?.reviewToken ?? project.id}";
+
+    final contractVal = handover?.contractValue ?? project.totalCost;
+    final amtPaid = handover?.amountPaid ?? project.amountReceived;
+    final balDue = handover?.balanceDue ?? (contractVal - amtPaid > 0 ? contractVal - amtPaid : 0.0);
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await provider.fetchCustomerHandover(project.id);
+      },
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          if (isLoading && handover == null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Center(
+                child: Column(
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 12),
+                    Text(
+                      "Loading handover details...",
+                      style: TextStyle(color: textSecondary, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          // 1. Header Action Bar
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.handshake_rounded, color: Color(0xFFF59E0B), size: 26),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                "Customer Handover",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: textPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              buildStatusBadge(handover?.handoverStatus),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Operational training, cloud monitoring app onboarding, warranty activation & signed customer acceptance dossier.",
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: textSecondary,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Blue milestone notice
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0C1929) : const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: isDark ? const Color(0xFF1E3A8A) : const Color(0xFFBFDBFE)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, size: 14, color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          "Current project milestone: ${project.stage}. Check Stage History for saved changes and dates.",
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E40AF),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Update Handover Details Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      CustomerHandoverFormSheet.show(
+                        context,
+                        project: project,
+                        existingHandover: handover,
+                      );
+                    },
+                    icon: const Icon(Icons.edit_note_rounded, size: 16),
+                    label: const Text(
+                      "Update Handover Details",
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F172A),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 2. Company AMC Plans Bar
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borderColor),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.support_agent_rounded, size: 20, color: Color(0xFF3B82F6)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Company AMC plans",
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textPrimary),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "Define your own paid maintenance plans, fees and coverage. Select the agreed customer plan in the Warranty & AMC tab. No paid plan is assigned automatically.",
+                        style: TextStyle(fontSize: 10, color: textSecondary, height: 1.3),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 3. Payment Clearance Gate (Commercial Clearance)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.25) : const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF86EFAC)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.receipt_long_rounded, size: 18, color: Color(0xFF16A34A)),
+                        SizedBox(width: 6),
+                        Text(
+                          "PAYMENT CLEARANCE GATE",
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF166534)),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFF86EFAC)),
+                      ),
+                      child: const Text(
+                        "Cleared for Handover",
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF16A34A)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Contract Total", style: TextStyle(fontSize: 10, color: textSecondary)),
+                          const SizedBox(height: 2),
+                          Text("₹${contractVal.toStringAsFixed(0)}", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textPrimary)),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Amount Paid", style: TextStyle(fontSize: 10, color: textSecondary)),
+                          const SizedBox(height: 2),
+                          Text("₹${amtPaid.toStringAsFixed(0)}", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF16A34A))),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Balance Due", style: TextStyle(fontSize: 10, color: textSecondary)),
+                          const SizedBox(height: 2),
+                          Text("₹${balDue.toStringAsFixed(0)}", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textPrimary)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          "100% Commercial Clearance Approved: Full project cost has been received. Project is commercially eligible for official document handover and signoff.",
+                          style: TextStyle(fontSize: 10, color: Color(0xFF166534), fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 4. Multi-Tier Component Warranty Activation
+          Text(
+            "MULTI-TIER COMPONENT WARRANTY ACTIVATION (STARTS: ${formatCleanDate(handover?.warrantyStartDate).toUpperCase()})",
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textSecondary, letterSpacing: 0.3),
+          ),
+          const SizedBox(height: 8),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildWarrantyDisplayCard(
+                  icon: Icons.solar_power_rounded,
+                  iconColor: const Color(0xFF005BAC),
+                  title: "Solar PV Modules",
+                  years: "${handover?.moduleWarrantyYears ?? 25} Years",
+                  subtitle: "Linear Degradation Performance Warranty",
+                  validUntil: formatCleanDate(handover?.moduleWarrantyEnd ?? "2051-11-19"),
+                  cardBg: cardBg,
+                  borderColor: borderColor,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildWarrantyDisplayCard(
+                  icon: Icons.electric_bolt_rounded,
+                  iconColor: const Color(0xFFF59E0B),
+                  title: "Grid Inverter",
+                  years: "${handover?.inverterWarrantyYears ?? 5} Years",
+                  subtitle: "Manufacturer Replacement Warranty",
+                  validUntil: formatCleanDate(handover?.inverterWarrantyEnd ?? "2031-11-19"),
+                  cardBg: cardBg,
+                  borderColor: borderColor,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildWarrantyDisplayCard(
+                  icon: Icons.build_rounded,
+                  iconColor: const Color(0xFF10B981),
+                  title: "EPC Workmanship",
+                  years: "${handover?.workmanshipWarrantyYears ?? 5} Years",
+                  subtitle: "Structure, Fasteners & Waterproofing",
+                  validUntil: formatCleanDate(handover?.workmanshipWarrantyEnd ?? "2031-11-19"),
+                  cardBg: cardBg,
+                  borderColor: borderColor,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildWarrantyDisplayCard(
+                  icon: Icons.support_agent_rounded,
+                  iconColor: const Color(0xFF8B5CF6),
+                  title: "Free Scheduled AMC",
+                  years: "1 Year free service period",
+                  subtitle: "Confirm included visits and services in the agreed handover terms",
+                  validUntil: formatCleanDate(handover?.amcWarrantyEnd ?? "2027-11-19"),
+                  cardBg: cardBg,
+                  borderColor: borderColor,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // 5. Training & Statutory Dossier Section
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.school_rounded, color: Color(0xFF005BAC), size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Customer Training & Mobile App Onboarding",
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Divider(color: borderColor, height: 1),
+                const SizedBox(height: 10),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Plant Operations & Safety Briefing", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textPrimary)),
+                          Text("Inverter shutoff, trip sequence, generation meter check", style: TextStyle(fontSize: 9, color: textSecondary)),
+                        ],
+                      ),
+                    ),
+                    buildPillBadge(handover?.trainingCompleted),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Mobile Monitoring App Walkthrough", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textPrimary)),
+                          Text("Daily kWh graph, real-time kW output, carbon offset stats", style: TextStyle(fontSize: 9, color: textSecondary)),
+                        ],
+                      ),
+                    ),
+                    buildPillBadge(handover?.appDemoCompleted),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                Row(
+                  children: [
+                    Expanded(child: renderDetailItem("App Access Shared", handover?.monitoringAppAccessShared == true ? "Yes" : "No")),
+                    Expanded(child: renderDetailItem("Emergency Helpline", handover?.emergencyContactGiven == true ? "Yes" : "No")),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                Row(
+                  children: [
+                    Expanded(child: renderDetailItem("Handover Date", formatCleanDate(handover?.handoverDate))),
+                    Expanded(child: renderDetailItem("1st Scheduled Service Due", formatCleanDate(handover?.firstServiceDueDate))),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                renderDetailItem("Handover Manager", handover?.handoverManager),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 6. Statutory Document Dossier
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.receipt_long_rounded, color: Color(0xFFEF4444), size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Statutory Document Dossier (Delivered to Client)",
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Divider(color: borderColor, height: 1),
+                const SizedBox(height: 10),
+
+                ...defaultDossierLabels.map((item) {
+                  final delivered = isItemDelivered(item['id']!);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Icon(
+                          delivered ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+                          size: 14,
+                          color: delivered ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            item['label']!,
+                            style: TextStyle(fontSize: 11, color: textPrimary, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: delivered
+                                ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5))
+                                : (isDark ? const Color(0xFF78350F) : const Color(0xFFFFFBEB)),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            delivered ? "Delivered & Verified" : "Pending",
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: delivered ? const Color(0xFF10B981) : const Color(0xFFD97706),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 7. Customer Acceptance & Signed Docket Evidence
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "CUSTOMER ACCEPTANCE & SIGNED DOCKET EVIDENCE",
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textSecondary, letterSpacing: 0.3),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: handover?.signatureData != null
+                            ? const Color(0xFFDCFCE7)
+                            : (isDark ? const Color(0xFF78350F) : const Color(0xFFFFFBEB)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        handover?.signatureData != null ? "Signed On-Screen (Digital)" : "Signoff Pending",
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: handover?.signatureData != null ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                Text(
+                  "Signatory: ${handover?.signatureSignatoryName ?? project.customerName} (${handover?.signaturePhone ?? project.customerPhone})",
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textPrimary),
+                ),
+                const SizedBox(height: 10),
+
+                if (handover?.signatureData != null && handover!.signatureData!.isNotEmpty) ...[
+                  Container(
+                    height: 70,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    alignment: Alignment.center,
+                    child: _buildSignatureThumb(handover.signatureData!, height: 60),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+
+                Row(
+                  children: [
+                    if (handover?.signedDocketUrl != null && handover!.signedDocketUrl!.isNotEmpty)
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final uri = Uri.parse(handover.signedDocketUrl!);
+                            if (await canLaunchUrl(uri)) await launchUrl(uri);
+                          },
+                          icon: const Icon(Icons.picture_as_pdf_rounded, size: 14),
+                          label: const Text("View Signed Docket", style: TextStyle(fontSize: 11)),
+                        ),
+                      ),
+                    if (handover?.handoverPhotoUrl != null && handover!.handoverPhotoUrl!.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final uri = Uri.parse(handover.handoverPhotoUrl!);
+                            if (await canLaunchUrl(uri)) await launchUrl(uri);
+                          },
+                          icon: const Icon(Icons.photo_camera_rounded, size: 14),
+                          label: const Text("View Plant Photo", style: TextStyle(fontSize: 11)),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 8. Customer Satisfaction & Reviews
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "CUSTOMER SATISFACTION & REVIEWS",
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textSecondary, letterSpacing: 0.3),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: handover?.customerFeedback != null
+                            ? const Color(0xFFDCFCE7)
+                            : (isDark ? const Color(0xFF78350F) : const Color(0xFFFFFBEB)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        handover?.customerFeedback != null ? "REVIEW SUBMITTED" : "AWAITING CUSTOMER REVIEW",
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: handover?.customerFeedback != null ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Customer Review Link Box
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          reviewUrl,
+                          style: TextStyle(fontSize: 11, color: textPrimary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: reviewUrl));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Review link copied to clipboard!")),
+                          );
+                        },
+                        icon: const Icon(Icons.copy, size: 12),
+                        label: const Text("Copy", style: TextStyle(fontSize: 10)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: const Size(50, 26),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final phone = project.customerPhone.replaceAll(RegExp(r'\D'), '');
+                          final text = "Namaste ${project.customerName} ji, please share your valuable review & rating for your solar rooftop installation:\n$reviewUrl";
+                          final url = "https://wa.me/${phone.length == 10 ? '91$phone' : phone}?text=${Uri.encodeComponent(text)}";
+                          final uri = Uri.parse(url);
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        icon: const Icon(Icons.send, size: 12),
+                        label: const Text("WhatsApp", style: TextStyle(fontSize: 10)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF25D366),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: const Size(60, 26),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Star rating & review quote
+                Row(
+                  children: [
+                    Row(
+                      children: List.generate(5, (index) {
+                        final rating = handover?.customerRating ?? 0;
+                        return Icon(
+                          index < rating ? Icons.star : Icons.star_border,
+                          size: 16,
+                          color: const Color(0xFFF59E0B),
+                        );
+                      }),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      handover?.customerRating != null && handover!.customerRating > 0
+                          ? "${handover.customerRating} / 5"
+                          : "No rating submitted",
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textPrimary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Text(
+                    handover?.customerFeedback != null && handover!.customerFeedback!.trim().isNotEmpty
+                        ? "\"${handover.customerFeedback}\"\n— ${handover.customerReviewerName ?? project.customerName}"
+                        : "Review pending. Customer will enter their star rating and comments via the review link above.\nReviewer: ${project.customerName}",
+                    style: TextStyle(fontSize: 11, color: textSecondary, height: 1.35),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWarrantyDisplayCard({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String years,
+    required String subtitle,
+    required String validUntil,
+    required Color cardBg,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: iconColor),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textPrimary),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(years, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textPrimary)),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 9, color: textSecondary, height: 1.25),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+          Text("Valid Until: $validUntil", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: textSecondary)),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // TAB 7: WARRANTY & AMC MODULE WORKSPACE
   // ==========================================
   Widget _buildStagePlaceholderTab({
     required ProjectModel project,

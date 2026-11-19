@@ -158,6 +158,8 @@ const getHandover = async (db, projectId) => {
   };
 };
 
+const cleanDate = (d) => (d ? String(d).substring(0, 10) : null);
+
 const createHandover = async (db, projectId, data, userId) => {
   await ensureHandoverTable(db);
   const reviewToken = data.review_token || `rev-${projectId}-${Date.now().toString(36)}`;
@@ -166,6 +168,14 @@ const createHandover = async (db, projectId, data, userId) => {
   const aPaid = data.amount_paid !== undefined ? parseFloat(data.amount_paid) : null;
   const bDue = (cVal !== null && aPaid !== null) ? (cVal - aPaid) : (data.balance_due !== undefined ? parseFloat(data.balance_due) : null);
   const pStat = data.payment_status || (bDue !== null ? (bDue <= 0 ? "Paid" : aPaid > 0 ? "Partially Paid" : "Pending") : null);
+
+  const cleanHoDate = cleanDate(data.handover_date);
+  const cleanWStart = cleanDate(data.warranty_start_date);
+  const cleanModEnd = cleanDate(data.module_warranty_end);
+  const cleanInvEnd = cleanDate(data.inverter_warranty_end);
+  const cleanWorkEnd = cleanDate(data.workmanship_warranty_end);
+  const cleanAmcEnd = cleanDate(data.amc_warranty_end);
+  const cleanFirstService = cleanDate(data.first_service_due_date);
 
   const fields = [
     'project_id', 'training_completed', 'app_demo_completed', 'monitoring_app_access_shared',
@@ -192,18 +202,18 @@ const createHandover = async (db, projectId, data, userId) => {
     data.maintenance_schedule ? 1 : 0,
     data.inverter_manual ? 1 : 0,
     serializeJsonField(data.documents_pack_checklist),
-    data.handover_date || null,
+    cleanHoDate,
     data.handover_manager || null,
-    data.warranty_start_date || null,
+    cleanWStart,
     data.module_warranty_years || 25,
-    data.module_warranty_end || null,
+    cleanModEnd,
     data.inverter_warranty_years || 5,
-    data.inverter_warranty_end || null,
+    cleanInvEnd,
     data.workmanship_warranty_years || 5,
-    data.workmanship_warranty_end || null,
+    cleanWorkEnd,
     data.amc_warranty_years || 1,
-    data.amc_warranty_end || null,
-    data.first_service_due_date || null,
+    cleanAmcEnd,
+    cleanFirstService,
     data.customer_signature ? 1 : 0,
     data.signed_docket_url || null,
     data.signature_signatory_name || null,
@@ -231,9 +241,9 @@ const createHandover = async (db, projectId, data, userId) => {
   );
 
   // Sync project completion_date if handover is completed
-  if (data.handover_status === 'Completed' && data.handover_date) {
+  if (data.handover_status === 'Completed' && cleanHoDate) {
     try {
-      await db.query(`UPDATE projects SET completion_date = ? WHERE id = ?`, [data.handover_date, projectId]);
+      await db.query(`UPDATE projects SET completion_date = ? WHERE id = ?`, [cleanHoDate, projectId]);
     } catch {}
   }
 
@@ -246,6 +256,14 @@ const updateHandover = async (db, projectId, data) => {
   const aPaid = data.amount_paid !== undefined ? parseFloat(data.amount_paid) : null;
   const bDue = (cVal !== null && aPaid !== null) ? (cVal - aPaid) : (data.balance_due !== undefined ? parseFloat(data.balance_due) : null);
   const pStat = data.payment_status || (bDue !== null ? (bDue <= 0 ? "Paid" : aPaid > 0 ? "Partially Paid" : "Pending") : null);
+
+  const cleanHoDate = cleanDate(data.handover_date);
+  const cleanWStart = cleanDate(data.warranty_start_date);
+  const cleanModEnd = cleanDate(data.module_warranty_end);
+  const cleanInvEnd = cleanDate(data.inverter_warranty_end);
+  const cleanWorkEnd = cleanDate(data.workmanship_warranty_end);
+  const cleanAmcEnd = cleanDate(data.amc_warranty_end);
+  const cleanFirstService = cleanDate(data.first_service_due_date);
 
   await db.query(
     `UPDATE project_handover SET
@@ -295,18 +313,18 @@ const updateHandover = async (db, projectId, data) => {
       data.maintenance_schedule ? 1 : 0,
       data.inverter_manual ? 1 : 0,
       serializeJsonField(data.documents_pack_checklist),
-      data.handover_date || null,
+      cleanHoDate,
       data.handover_manager || null,
-      data.warranty_start_date || null,
+      cleanWStart,
       data.module_warranty_years || 25,
-      data.module_warranty_end || null,
+      cleanModEnd,
       data.inverter_warranty_years || 5,
-      data.inverter_warranty_end || null,
+      cleanInvEnd,
       data.workmanship_warranty_years || 5,
-      data.workmanship_warranty_end || null,
+      cleanWorkEnd,
       data.amc_warranty_years || 1,
-      data.amc_warranty_end || null,
-      data.first_service_due_date || null,
+      cleanAmcEnd,
+      cleanFirstService,
       data.customer_signature ? 1 : 0,
       data.signed_docket_url || null,
       data.signature_signatory_name || null,
