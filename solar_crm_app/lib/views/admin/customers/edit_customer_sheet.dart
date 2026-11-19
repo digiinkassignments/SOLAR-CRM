@@ -385,8 +385,9 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
                             ),
                           ),
                           validator: (val) {
-                            if (val == null || val.trim().isEmpty)
+                            if (val == null || val.trim().isEmpty) {
                               return "Required";
+                            }
                             if (val.trim().length < 10) return "10 digits";
                             return null;
                           },
@@ -611,12 +612,14 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
                     if (entry.$3 &&
                         v != null &&
                         v.isNotEmpty &&
-                        (double.tryParse(v) == null || double.parse(v) < 0))
+                        (double.tryParse(v) == null || double.parse(v) < 0)) {
                       return 'Enter a valid non-negative number';
+                    }
                     if (entry.$1 == _paidController &&
                         (double.tryParse(v ?? '') ?? 0) >
-                            (double.tryParse(_amountController.text) ?? 0))
+                            (double.tryParse(_amountController.text) ?? 0)) {
                       return 'Payment cannot exceed final amount';
+                    }
                     return null;
                   },
                 ),
