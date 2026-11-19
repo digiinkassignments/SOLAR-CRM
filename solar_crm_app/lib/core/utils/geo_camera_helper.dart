@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 
@@ -52,8 +53,73 @@ class GeoCameraHelper {
     }
   }
 
-  /// Reverse geocode coordinates to human-readable address (Street, Colony, City, State PIN)
+  /// Reverse geocode coordinates to clean, human-readable address like Swiggy / Google Maps
   static Future<String?> reverseGeocode(double lat, double lon) async {
+    // 1. Primary: Native Google Geocoder via Android/iOS Geocoder API (exact Swiggy / Maps format)
+    try {
+      final geocoding = Geocoding();
+      final placemarks = await geocoding.placemarkFromCoordinates(lat, lon);
+      if (placemarks.isNotEmpty) {
+        final p = placemarks.first;
+        final parts = <String>[];
+
+        // Specific street, building, house name or thoroughfare
+        final street = p.street?.trim();
+        final name = p.name?.trim();
+        final subThoroughfare = p.subThoroughfare?.trim();
+        final thoroughfare = p.thoroughfare?.trim();
+
+        if (street != null && street.isNotEmpty && street != p.locality && street != p.subLocality) {
+          parts.add(street);
+        } else if (name != null && name.isNotEmpty && name != p.locality && name != p.subLocality) {
+          parts.add(name);
+        }
+
+        if (thoroughfare != null && thoroughfare.isNotEmpty && !parts.contains(thoroughfare) && thoroughfare != p.locality) {
+          if (subThoroughfare != null && subThoroughfare.isNotEmpty && !parts.contains(subThoroughfare)) {
+            parts.add("$subThoroughfare $thoroughfare");
+          } else {
+            parts.add(thoroughfare);
+          }
+        }
+
+        // Sub-locality (Colony, Sector, Market)
+        final subLoc = p.subLocality?.trim();
+        if (subLoc != null && subLoc.isNotEmpty && !parts.contains(subLoc)) {
+          parts.add(subLoc);
+        }
+
+        // Locality (City) - clean up any administrative suffixes
+        final loc = p.locality?.trim();
+        if (loc != null && loc.isNotEmpty) {
+          final cleanCity = loc.replaceAll(RegExp(r'\s*(Municipal Corporation|Tehsil|District)\s*', caseSensitive: false), '').trim();
+          if (cleanCity.isNotEmpty && !parts.contains(cleanCity)) {
+            parts.add(cleanCity);
+          }
+        }
+
+        // State & PIN
+        final state = p.administrativeArea?.trim();
+        final pin = p.postalCode?.trim();
+        if (state != null && state.isNotEmpty) {
+          if (pin != null && pin.isNotEmpty) {
+            parts.add("$state $pin");
+          } else {
+            parts.add(state);
+          }
+        } else if (pin != null && pin.isNotEmpty) {
+          parts.add(pin);
+        }
+
+        if (parts.isNotEmpty) {
+          return parts.join(', ');
+        }
+      }
+    } catch (e) {
+      debugPrint("Native geocoding error: $e");
+    }
+
+    // 2. Fallback: OpenStreetMap Nominatim with clean formatting
     try {
       final dio = Dio(
         BaseOptions(
@@ -66,101 +132,105 @@ class GeoCameraHelper {
         ),
       );
 
-      // 1. Try OpenStreetMap Nominatim
-      try {
-        final res = await dio.get(
-          'https://nominatim.openstreetmap.org/reverse',
-          queryParameters: {
-            'lat': lat,
-            'lon': lon,
-            'format': 'json',
-            'addressdetails': '1',
-          },
-        );
+      final res = await dio.get(
+        'https://nominatim.openstreetmap.org/reverse',
+        queryParameters: {
+          'lat': lat,
+          'lon': lon,
+          'format': 'json',
+          'addressdetails': '1',
+        },
+      );
 
-        if (res.statusCode == 200 && res.data != null) {
-          final data = res.data;
-          if (data is Map) {
-            final addr = data['address'] as Map?;
-            if (addr != null) {
-              final parts = <String>[];
-              final road = addr['road'] ?? addr['street'] ?? addr['neighbourhood'];
-              final sub = addr['suburb'] ?? addr['quarter'] ?? addr['residential'] ?? addr['commercial'];
-              final city = addr['city'] ?? addr['town'] ?? addr['village'] ?? addr['county'] ?? addr['district'];
-              final state = addr['state'];
-              final postcode = addr['postcode'];
-
-              if (road != null && road.toString().trim().isNotEmpty) {
-                parts.add(road.toString().trim());
-              }
-              if (sub != null && sub.toString().trim().isNotEmpty && sub != road) {
-                parts.add(sub.toString().trim());
-              }
-              if (city != null && city.toString().trim().isNotEmpty) {
-                parts.add(city.toString().trim());
-              }
-              if (state != null && state.toString().trim().isNotEmpty) {
-                if (postcode != null && postcode.toString().trim().isNotEmpty) {
-                  parts.add("${state.toString().trim()} ${postcode.toString().trim()}");
-                } else {
-                  parts.add(state.toString().trim());
-                }
-              }
-
-              if (parts.isNotEmpty) {
-                return parts.join(', ');
-              }
-            }
-
-            if (data['display_name'] != null && data['display_name'].toString().isNotEmpty) {
-              return data['display_name'].toString();
-            }
-          }
-        }
-      } catch (_) {}
-
-      // 2. Fallback to BigDataCloud free client reverse geocoder
-      try {
-        final res2 = await dio.get(
-          'https://api.bigdatacloud.net/data/reverse-geocode-client',
-          queryParameters: {
-            'latitude': lat,
-            'longitude': lon,
-            'localityLanguage': 'en',
-          },
-        );
-
-        if (res2.statusCode == 200 && res2.data != null) {
-          final d = res2.data;
-          if (d is Map) {
+      if (res.statusCode == 200 && res.data != null) {
+        final data = res.data;
+        if (data is Map) {
+          final addr = data['address'] as Map?;
+          if (addr != null) {
             final parts = <String>[];
-            final locality = d['locality']?.toString();
-            final city = d['city']?.toString();
-            final sub = d['principalSubdivision']?.toString();
-            final post = d['postcode']?.toString();
+            final road = addr['road'] ?? addr['street'] ?? addr['house_number'];
+            final colony = addr['neighbourhood'] ?? addr['suburb'] ?? addr['quarter'] ?? addr['residential'];
+            final rawCity = addr['city'] ?? addr['town'] ?? addr['village'] ?? addr['county'];
+            final state = addr['state']?.toString().trim();
+            final postcode = addr['postcode']?.toString().trim();
 
-            if (locality != null && locality.isNotEmpty) parts.add(locality);
-            if (city != null && city.isNotEmpty && city != locality) parts.add(city);
-            if (sub != null && sub.isNotEmpty) {
-              if (post != null && post.isNotEmpty) {
-                parts.add("$sub $post");
-              } else {
-                parts.add(sub);
+            if (road != null && road.toString().trim().isNotEmpty) {
+              parts.add(road.toString().trim());
+            }
+            if (colony != null && colony.toString().trim().isNotEmpty && !parts.contains(colony.toString().trim())) {
+              parts.add(colony.toString().trim());
+            }
+            if (rawCity != null) {
+              final cleanCity = rawCity.toString().replaceAll(RegExp(r'\s*(Municipal Corporation|Tehsil|District)\s*', caseSensitive: false), '').trim();
+              if (cleanCity.isNotEmpty && !parts.contains(cleanCity)) {
+                parts.add(cleanCity);
               }
             }
+            if (state != null && state.isNotEmpty) {
+              if (postcode != null && postcode.isNotEmpty) {
+                parts.add("$state $postcode");
+              } else {
+                parts.add(state);
+              }
+            } else if (postcode != null && postcode.isNotEmpty) {
+              parts.add(postcode);
+            }
+
             if (parts.isNotEmpty) {
               return parts.join(', ');
             }
           }
         }
-      } catch (_) {}
-    } catch (e) {
-      debugPrint("GeoCameraHelper.reverseGeocode error: $e");
-    }
+      }
+    } catch (_) {}
+
+    // 3. Fallback: BigDataCloud client API
+    try {
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(milliseconds: 2500),
+          receiveTimeout: const Duration(milliseconds: 2500),
+        ),
+      );
+      final res2 = await dio.get(
+        'https://api.bigdatacloud.net/data/reverse-geocode-client',
+        queryParameters: {
+          'latitude': lat,
+          'longitude': lon,
+          'localityLanguage': 'en',
+        },
+      );
+
+      if (res2.statusCode == 200 && res2.data != null) {
+        final d = res2.data;
+        if (d is Map) {
+          final parts = <String>[];
+          final locality = d['locality']?.toString();
+          final city = d['city']?.toString();
+          final sub = d['principalSubdivision']?.toString();
+          final post = d['postcode']?.toString();
+
+          if (locality != null && locality.isNotEmpty) parts.add(locality);
+          if (city != null && city.isNotEmpty && city != locality) parts.add(city);
+          if (sub != null && sub.isNotEmpty) {
+            if (post != null && post.isNotEmpty) {
+              parts.add("$sub $post");
+            } else {
+              parts.add(sub);
+            }
+          }
+          if (parts.isNotEmpty) {
+            return parts.join(', ');
+          }
+        }
+      }
+    } catch (_) {}
+
     return null;
   }
 
   /// Stamp GPS coordinates, timestamp, exact address, and "Powered by SolOps" watermark onto image
+  /// (Strictly no emojis; clean, professional enterprise styling)
   static Future<File> watermarkGeoPhoto({
     required File imageFile,
     required Position? position,
@@ -188,7 +258,6 @@ class GeoCameraHelper {
       canvas.drawImage(image, Offset.zero, Paint());
 
       // 2. Compute proportional scale based on resolution
-      // Calibrated so that text is bold, large and legible across 720p, 1080p, and 4K+ camera captures
       final double scale = (imgWidth / 400.0).clamp(1.5, 9.0);
 
       final double padX = 20.0 * scale;
@@ -196,15 +265,15 @@ class GeoCameraHelper {
       final double lineSpacing = 6.0 * scale;
       final double maxTextWidth = imgWidth - (padX * 2);
 
-      // Format data strings
+      // Format data strings (strictly NO emojis)
       final dateStr = DateFormat("dd MMM yyyy, hh:mm:ss a").format(DateTime.now());
 
       // Primary Address: clean human readable site location
       final cleanAddress = (locationAddress != null && locationAddress.trim().isNotEmpty)
           ? locationAddress.trim()
           : (position != null
-              ? "Site Location: ${position.latitude.toStringAsFixed(5)}°, ${position.longitude.toStringAsFixed(5)}°"
-              : "Project Site Execution Verified");
+              ? "Lat ${position.latitude.toStringAsFixed(5)}, Long ${position.longitude.toStringAsFixed(5)}"
+              : "Site Location Verified");
 
       // GPS Coordinates (secondary line)
       final coordsStr = position != null
@@ -212,13 +281,13 @@ class GeoCameraHelper {
           : "Verified Site Survey Geotag";
 
       final projectStr = "Project: $projectNumber | $systemCapacity kW${phase != null ? ' | $phase' : ''}";
-      const solopsStr = "⚡ Powered by SolOps • Enterprise Solar Platform";
+      const solopsStr = "Powered by SolOps • Enterprise Solar Platform";
 
       // 3. Build TextPainters to measure exact height
-      // Header Badge
+      // Header Badge (strictly no emojis)
       final badgePainter = TextPainter(
         text: TextSpan(
-          text: " 📍 GPS MAP CAMERA • SITE VERIFIED ",
+          text: " GPS MAP CAMERA • SITE VERIFIED ",
           style: TextStyle(
             color: const Color(0xFF0F172A),
             fontSize: 12.0 * scale,
@@ -231,15 +300,16 @@ class GeoCameraHelper {
       );
       badgePainter.layout();
 
-      // Line 1: Exact Address (Prominent, large yellow/white)
+      // Line 1: Exact Address (strictly no emojis)
       final addressPainter = TextPainter(
         text: TextSpan(
           children: [
             TextSpan(
-              text: "📍 ",
+              text: "Location: ",
               style: TextStyle(
-                fontSize: 15.5 * scale,
-                fontWeight: FontWeight.w900,
+                color: const Color(0xFF94A3B8),
+                fontSize: 15.0 * scale,
+                fontWeight: FontWeight.w700,
                 fontFamily: 'Roboto',
               ),
             ),
@@ -249,7 +319,7 @@ class GeoCameraHelper {
                 color: const Color(0xFFFACC15), // High-visibility bright yellow/gold
                 fontSize: 15.5 * scale,
                 fontWeight: FontWeight.w900,
-                height: 1.2,
+                height: 1.25,
                 fontFamily: 'Roboto',
               ),
             ),
@@ -260,15 +330,16 @@ class GeoCameraHelper {
       );
       addressPainter.layout(maxWidth: maxTextWidth);
 
-      // Line 2: Date & Time (High-visibility white)
+      // Line 2: Date & Time (strictly no emojis)
       final timePainter = TextPainter(
         text: TextSpan(
           children: [
             TextSpan(
-              text: "🕒 ",
+              text: "Date & Time: ",
               style: TextStyle(
-                fontSize: 14.0 * scale,
-                fontWeight: FontWeight.w800,
+                color: const Color(0xFF94A3B8),
+                fontSize: 13.5 * scale,
+                fontWeight: FontWeight.w700,
                 fontFamily: 'Roboto',
               ),
             ),
@@ -287,27 +358,23 @@ class GeoCameraHelper {
       );
       timePainter.layout(maxWidth: maxTextWidth);
 
-      // Line 3: GPS Coordinates & Project info
+      // Line 3: GPS Coordinates & Project info (strictly no emojis)
       final metaPainter = TextPainter(
         text: TextSpan(
-          children: [
-            TextSpan(
-              text: "🌐 $coordsStr  •  $projectStr",
-              style: TextStyle(
-                color: const Color(0xFF93C5FD), // Soft cyan/blue
-                fontSize: 12.0 * scale,
-                fontWeight: FontWeight.w700,
-                fontFamily: 'Roboto',
-              ),
-            ),
-          ],
+          text: "$coordsStr  |  $projectStr",
+          style: TextStyle(
+            color: const Color(0xFF93C5FD), // Soft cyan/blue
+            fontSize: 12.0 * scale,
+            fontWeight: FontWeight.w700,
+            fontFamily: 'Roboto',
+          ),
         ),
         textDirection: ui.TextDirection.ltr,
         maxLines: 2,
       );
       metaPainter.layout(maxWidth: maxTextWidth);
 
-      // Line 4: Powered by SolOps
+      // Line 4: Powered by SolOps (strictly no emojis)
       final solopsPainter = TextPainter(
         text: TextSpan(
           text: solopsStr,

@@ -291,19 +291,16 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
         if (photo != null) {
           final originalFile = File(photo.path);
 
-          // 3. Resolve exact human-readable address (e.g. 42-B Laxmi Nagar, Jaipur...)
+          // 3. Resolve exact human-readable live address (Swiggy / Google Maps style)
           String resolvedAddress = "";
           if (position != null) {
             final geoAddress = await GeoCameraHelper.reverseGeocode(position.latitude, position.longitude);
             if (geoAddress != null && geoAddress.trim().isNotEmpty) {
-              if (widget.project.customerAddress != null && widget.project.customerAddress!.trim().isNotEmpty) {
-                resolvedAddress = "${widget.project.customerAddress!.trim()}, $geoAddress";
-              } else {
-                resolvedAddress = geoAddress;
-              }
+              resolvedAddress = geoAddress.trim();
             }
           }
 
+          // Fallback only if GPS reverse geocoding is unavailable
           if (resolvedAddress.isEmpty) {
             final projParts = [
               widget.project.customerAddress,
@@ -1798,196 +1795,204 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => Dialog(
           backgroundColor: const Color(0xFF0F172A),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: entry.isGeoTagged ? const Color(0xFF065F46) : const Color(0xFF1E3A8A),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            entry.isGeoTagged ? Icons.location_on : Icons.photo,
-                            size: 13,
-                            color: entry.isGeoTagged ? const Color(0xFF34D399) : const Color(0xFF93C5FD),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            entry.isGeoTagged ? "Geo-Tagged Camera Photo" : "Uploaded Photo",
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      icon: const Icon(Icons.close, color: Colors.white70, size: 20),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Address chip
-              if (entry.isGeoTagged && entry.gpsInfo != null && entry.gpsInfo!.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.only(left: 14, right: 14, bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFF334155)),
-                  ),
+          clipBehavior: Clip.antiAlias,
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Header (clean, no emojis)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   child: Row(
                     children: [
-                      const Icon(Icons.location_on, size: 14, color: Color(0xFFFACC15)),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          entry.gpsInfo!,
-                          style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: entry.isGeoTagged ? const Color(0xFF065F46) : const Color(0xFF1E3A8A),
+                          borderRadius: BorderRadius.circular(4),
                         ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              entry.isGeoTagged ? Icons.location_on : Icons.photo,
+                              size: 13,
+                              color: entry.isGeoTagged ? const Color(0xFF34D399) : const Color(0xFF93C5FD),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              entry.isGeoTagged ? "Geo-Tagged Camera Photo" : "Uploaded Photo",
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
                     ],
                   ),
                 ),
 
-              // Image preview with zoom/pan
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.58,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 5.0,
-                    child: Image.file(
-                      entry.file,
-                      fit: BoxFit.contain,
+                // Address chip (clean, no emojis)
+                if (entry.isGeoTagged && entry.gpsInfo != null && entry.gpsInfo!.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(left: 14, right: 14, bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFF334155)),
                     ),
-                  ),
-                ),
-              ),
-
-              // Details & Caption area
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "Tag: ",
-                          style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Icon(Icons.location_on, size: 14, color: Color(0xFFFACC15)),
                         ),
-                        Container(
-                          height: 28,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E293B),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFF334155)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            entry.gpsInfo!,
+                            style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600, height: 1.25),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: entry.tag,
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
-                              dropdownColor: const Color(0xFF1E293B),
-                              items: const [
-                                DropdownMenuItem(value: 'Before', child: Text('Before')),
-                                DropdownMenuItem(value: 'During', child: Text('During')),
-                                DropdownMenuItem(value: 'After', child: Text('After')),
-                                DropdownMenuItem(value: 'Structure', child: Text('Structure')),
-                                DropdownMenuItem(value: 'Inverter', child: Text('Inverter')),
-                                DropdownMenuItem(value: 'Earthing', child: Text('Earthing')),
-                              ],
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() => entry.tag = val);
-                                  setDialogState(() {});
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        TextButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              entry.dispose();
-                              _photoEntries.removeAt(index);
-                            });
-                            Navigator.of(ctx).pop();
-                          },
-                          icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.errorRed),
-                          label: const Text("Delete", style: TextStyle(color: AppColors.errorRed, fontSize: 12)),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: entry.captionCtrl,
-                      style: const TextStyle(fontSize: 12, color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: "Add photo caption...",
-                        hintStyle: const TextStyle(fontSize: 11, color: Colors.white38),
-                        filled: true,
-                        fillColor: const Color(0xFF1E293B),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        isDense: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          borderSide: const BorderSide(color: Color(0xFF334155)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          borderSide: const BorderSide(color: Color(0xFF334155)),
-                        ),
-                      ),
-                      onChanged: (val) {
-                        setState(() {});
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF005BAC),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: const Text("Confirm & Use Photo", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+                  ),
+
+                // Image preview with zoom/pan
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.44,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: InteractiveViewer(
+                      minScale: 0.5,
+                      maxScale: 5.0,
+                      child: Image.file(
+                        entry.file,
+                        fit: BoxFit.contain,
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+
+                // Details & Caption area
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            "Tag: ",
+                            style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          Container(
+                            height: 28,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFF334155)),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: entry.tag,
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+                                dropdownColor: const Color(0xFF1E293B),
+                                items: const [
+                                  DropdownMenuItem(value: 'Before', child: Text('Before')),
+                                  DropdownMenuItem(value: 'During', child: Text('During')),
+                                  DropdownMenuItem(value: 'After', child: Text('After')),
+                                  DropdownMenuItem(value: 'Structure', child: Text('Structure')),
+                                  DropdownMenuItem(value: 'Inverter', child: Text('Inverter')),
+                                  DropdownMenuItem(value: 'Earthing', child: Text('Earthing')),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() => entry.tag = val);
+                                    setDialogState(() {});
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          TextButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                entry.dispose();
+                                _photoEntries.removeAt(index);
+                              });
+                              Navigator.of(ctx).pop();
+                            },
+                            icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.errorRed),
+                            label: const Text("Delete", style: TextStyle(color: AppColors.errorRed, fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: entry.captionCtrl,
+                        style: const TextStyle(fontSize: 12, color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: "Add photo caption...",
+                          hintStyle: const TextStyle(fontSize: 11, color: Colors.white38),
+                          filled: true,
+                          fillColor: const Color(0xFF1E293B),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          isDense: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: const BorderSide(color: Color(0xFF334155)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: const BorderSide(color: Color(0xFF334155)),
+                          ),
+                        ),
+                        onChanged: (val) {
+                          setState(() {});
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF005BAC),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text("Confirm & Use Photo", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
