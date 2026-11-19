@@ -8,6 +8,7 @@ import '../../models/project_model.dart';
 import '../../providers/project_provider.dart';
 import 'sheets/change_stage_sheet.dart';
 import 'sheets/edit_project_sheet.dart';
+import 'sheets/review_inspection_sheet.dart';
 
 class ProjectDetailView extends StatefulWidget {
   final dynamic projectId;
@@ -41,6 +42,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   void _loadDetails() {
     final provider = Provider.of<ProjectProvider>(context, listen: false);
     provider.fetchProjectDetails(widget.projectId);
+    provider.fetchInspection(widget.projectId);
   }
 
   Future<void> _makeCall(String phoneNumber) async {
@@ -229,18 +231,15 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                           _buildStageHistoryTab(project, isDark, cardBg, surfaceBg, borderColor, textPrimary, textSecondary),
 
                           // Tab 2: Pre-Install Inspection
-                          _buildStagePlaceholderTab(
-                            project: project,
-                            title: "Pre-Install Site Inspection",
-                            description: "Drone & roof survey, shadow analysis, structure load-bearing and BOM checklist.",
-                            icon: Icons.checklist_rounded,
-                            accentColor: AppColors.skyBlue,
-                            isDark: isDark,
-                            cardBg: cardBg,
-                            surfaceBg: surfaceBg,
-                            borderColor: borderColor,
-                            textPrimary: textPrimary,
-                            textSecondary: textSecondary,
+                          _buildPreInstallInspectionTab(
+                            project,
+                            provider,
+                            isDark,
+                            cardBg,
+                            surfaceBg,
+                            borderColor,
+                            textPrimary,
+                            textSecondary,
                           ),
 
                           // Tab 3: Installation Progress
@@ -1483,7 +1482,500 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ==========================================
-  // TABS 2-7: MODULE PLACEHOLDER WORKSPACES
+  // TAB 2: PRE-INSTALL INSPECTION (FEASIBILITY)
+  // ==========================================
+  Widget _buildPreInstallInspectionTab(
+    ProjectModel project,
+    ProjectProvider provider,
+    bool isDark,
+    Color cardBg,
+    Color surfaceBg,
+    Color borderColor,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    final inspection = provider.currentInspection;
+    final isLoading = provider.isLoadingInspection;
+
+    String formatCleanDate(DateTime? d) {
+      if (d == null) return "—";
+      return DateFormat("dd MMM yyyy").format(d.toLocal());
+    }
+
+    Color getStatusColor(String status) {
+      final s = status.toLowerCase();
+      if (s.contains('approved') || s.contains('feasible (recommended)') || s == 'feasible') {
+        return AppColors.emeraldGreen;
+      }
+      if (s.contains('conditional')) {
+        return AppColors.brandPrimary;
+      }
+      if (s.contains('rejected') || s.contains('not feasible')) {
+        return AppColors.errorRed;
+      }
+      return const Color(0xFF64748B);
+    }
+
+    Widget renderDetailItem(String label, dynamic value) {
+      final valStr = (value != null && value.toString().trim().isNotEmpty) ? value.toString() : "—";
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: textSecondary,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            valStr,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: textPrimary,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async => _loadDetails(),
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          // 1. Top Metrics Banner
+          _buildTopMetricsBanner(
+            project,
+            isDark,
+            cardBg,
+            surfaceBg,
+            borderColor,
+            textPrimary,
+            textSecondary,
+          ),
+
+          if (isLoading)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Column(
+                children: [
+                  const CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.brandPrimary),
+                  const SizedBox(height: 12),
+                  Text(
+                    "Loading inspection feasibility data...",
+                    style: TextStyle(fontSize: 12, color: textSecondary),
+                  ),
+                ],
+              ),
+            )
+          else if (inspection == null)
+            // Empty State
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEFF6FF),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.checklist_rounded, size: 36, color: Color(0xFF2563EB)),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    "No Pre-Installation Inspection Yet",
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textPrimary),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Verify roof tilt & orientation, shadow-free area, DISCOM sanctioned load, and grid meter phase compatibility before purchasing materials.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: textSecondary, height: 1.4),
+                  ),
+                  const SizedBox(height: 18),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F172A),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.checklist_rounded, size: 16),
+                    label: const Text("Begin Pre-Installation Inspection", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                    onPressed: () => ReviewInspectionSheet.show(context, project: project),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            // Info Alert Banner if prefilled
+            if (inspection.isPrefilled || inspection.id == null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0C243B) : const Color(0xFFF0F9FF),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: isDark ? const Color(0xFF0369A1) : const Color(0xFFBAE6FD)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline_rounded, color: Color(0xFF0284C7), size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(fontSize: 11, height: 1.4, color: isDark ? Colors.white : const Color(0xFF0369A1)),
+                          children: const [
+                            TextSpan(text: "⚡ Pre-filled from Site Survey: ", style: TextStyle(fontWeight: FontWeight.w800)),
+                            TextSpan(text: "Technical measurements, roof details, consumer number, and grid phase have been automatically populated from the completed Site Survey so nothing needs to be re-entered. Click "),
+                            TextSpan(text: "Review & Save Inspection", style: TextStyle(fontWeight: FontWeight.w800)),
+                            TextSpan(text: " to confirm or adjust."),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Header Action Card
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.assignment_turned_in_rounded, size: 22, color: Color(0xFF2563EB)),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Pre-Installation Technical Feasibility Record",
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              "Inspected by ${inspection.inspectorName?.isNotEmpty == true ? inspection.inspectorName : 'N/A'} on ${formatCleanDate(inspection.inspectionDate)}${inspection.gpsCoordinates?.isNotEmpty == true ? ' • GPS: ${inspection.gpsCoordinates}' : ''}",
+                              style: TextStyle(fontSize: 10, color: textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: getStatusColor(inspection.overallStatus).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: getStatusColor(inspection.overallStatus).withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          inspection.overallStatus,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: getStatusColor(inspection.overallStatus),
+                          ),
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0284C7),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.edit_outlined, size: 14),
+                        label: Text(
+                          (inspection.isPrefilled && inspection.id == null) ? "Review & Save Inspection" : "Edit Inspection",
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                        ),
+                        onPressed: () => ReviewInspectionSheet.show(context, project: project, initialData: inspection),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Section 1: Roof & Solar Geometry
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.home_repair_service_rounded, size: 18, color: Color(0xFFF59E0B)),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Section 1: Roof & Solar Geometry",
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Divider(height: 1, color: borderColor),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: renderDetailItem("Roof Condition", inspection.roofCondition)),
+                      Expanded(child: renderDetailItem("Roof Type", inspection.roofType ?? "RCC Flat Roof")),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: renderDetailItem("Roof Orientation", inspection.roofOrientation)),
+                      Expanded(child: renderDetailItem("Tilt Angle", inspection.roofTiltAngle != null ? "${inspection.roofTiltAngle}°" : "—")),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: renderDetailItem("Total Roof Area", inspection.roofAreaSqft != null ? "${inspection.roofAreaSqft!.toStringAsFixed(0)} sqft" : "—")),
+                      Expanded(child: renderDetailItem("Shadow-Free Usable Area", inspection.shadowFreeAreaSqft != null ? "${inspection.shadowFreeAreaSqft!.toStringAsFixed(0)} sqft" : "—")),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: renderDetailItem("Roof Age", inspection.roofAgeYears != null ? "${inspection.roofAgeYears} years" : "—")),
+                      Expanded(child: renderDetailItem("Structural Concerns", inspection.structuralConcerns?.isNotEmpty == true ? inspection.structuralConcerns : "NIL")),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Section 2: Electrical & DISCOM Grid Connection
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.electric_bolt_rounded, size: 18, color: Color(0xFFF97316)),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Section 2: Electrical & DISCOM Grid Connection",
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Divider(height: 1, color: borderColor),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: renderDetailItem("Meter Type (Phase)", inspection.meterType ?? "Single Phase")),
+                      Expanded(child: renderDetailItem("Sanctioned Load", inspection.sanctionedLoadKw != null ? "${inspection.sanctionedLoadKw} kW" : "—")),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: renderDetailItem("DISCOM Consumer / CA No", inspection.consumerNumber?.isNotEmpty == true ? inspection.consumerNumber : "—")),
+                      Expanded(child: renderDetailItem("Existing Running Load", inspection.existingLoadKw != null ? "${inspection.existingLoadKw} kW" : "—")),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: renderDetailItem("Main Panel Capacity", inspection.mainPanelCapacity != null ? "${inspection.mainPanelCapacity} Amps" : "—")),
+                      Expanded(child: renderDetailItem("Earthing Available", inspection.earthingAvailable)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  renderDetailItem("Electrical Observations", inspection.electricalIssues?.isNotEmpty == true ? inspection.electricalIssues : "—"),
+                ],
+              ),
+            ),
+
+            // Section 3: Site Conditions & Geolocation
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.wb_sunny_rounded, size: 18, color: Color(0xFFEAB308)),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Section 3: Site Conditions & Geolocation",
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Divider(height: 1, color: borderColor),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: renderDetailItem("Shading Issues", inspection.shadingIssues)),
+                      Expanded(child: renderDetailItem("Shading Source", inspection.shadingSource?.isNotEmpty == true ? inspection.shadingSource : "NIL")),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: renderDetailItem("Water Availability", inspection.waterAvailability)),
+                      Expanded(child: renderDetailItem("Site Access", inspection.siteAccess)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  renderDetailItem("GPS Coordinates", inspection.gpsCoordinates?.isNotEmpty == true ? inspection.gpsCoordinates : "—"),
+                  const SizedBox(height: 12),
+                  renderDetailItem("Additional Challenges", inspection.additionalChallenges?.isNotEmpty == true ? inspection.additionalChallenges : "—"),
+                ],
+              ),
+            ),
+
+            // Section 4: Inspection Decision & Sign-Off
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.assignment_turned_in_rounded, size: 18, color: Color(0xFF10B981)),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Section 4: Inspection Decision & Sign-Off",
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: textPrimary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Divider(height: 1, color: borderColor),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "OVERALL FEASIBILITY STATUS",
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: textSecondary,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: getStatusColor(inspection.overallStatus).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: getStatusColor(inspection.overallStatus).withValues(alpha: 0.3)),
+                              ),
+                              child: Text(
+                                inspection.overallStatus,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: getStatusColor(inspection.overallStatus),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(child: renderDetailItem("Lead Inspector Name", inspection.inspectorName?.isNotEmpty == true ? inspection.inspectorName : "—")),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: renderDetailItem("Inspection Date", formatCleanDate(inspection.inspectionDate))),
+                      Expanded(child: renderDetailItem("Customer / Rep Sign-Off", inspection.customerSignatureName?.isNotEmpty == true ? inspection.customerSignatureName : "—")),
+                    ],
+                  ),
+                  if (inspection.signatureDate != null) ...[
+                    const SizedBox(height: 12),
+                    renderDetailItem("Sign-Off Date", formatCleanDate(inspection.signatureDate)),
+                  ],
+                  const SizedBox(height: 12),
+                  renderDetailItem("Technical Remarks & Conditions", inspection.remarks?.isNotEmpty == true ? inspection.remarks : "Auto-prefilled from Site Survey"),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // TABS 3-7: MODULE PLACEHOLDER WORKSPACES
   // ==========================================
   Widget _buildStagePlaceholderTab({
     required ProjectModel project,

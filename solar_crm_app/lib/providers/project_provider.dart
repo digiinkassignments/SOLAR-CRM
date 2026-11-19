@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
+import '../models/inspection_model.dart';
 import '../models/project_model.dart';
 
 class ProjectProvider extends ChangeNotifier {
@@ -23,6 +24,11 @@ class ProjectProvider extends ChangeNotifier {
   bool _isLoadingDetails = false;
   String? _detailsError;
 
+  PreInstallInspectionModel? _currentInspection;
+  bool _isLoadingInspection = false;
+  String? _inspectionError;
+  bool _isSavingInspection = false;
+
   ProjectProvider({required this.apiClient});
 
   // Getters
@@ -40,6 +46,10 @@ class ProjectProvider extends ChangeNotifier {
   ProjectModel? get selectedProject => _selectedProject;
   bool get isLoadingDetails => _isLoadingDetails;
   String? get detailsError => _detailsError;
+  PreInstallInspectionModel? get currentInspection => _currentInspection;
+  bool get isLoadingInspection => _isLoadingInspection;
+  String? get inspectionError => _inspectionError;
+  bool get isSavingInspection => _isSavingInspection;
 
   // 1. Fetch Paginated Projects
   Future<void> fetchProjects({
@@ -257,6 +267,64 @@ class ProjectProvider extends ChangeNotifier {
       return {'success': false, 'message': e.toString()};
     } finally {
       _isSubmitting = false;
+      notifyListeners();
+    }
+  }
+
+  // 10. Fetch Inspection Data
+  Future<void> fetchInspection(dynamic projectId) async {
+    _isLoadingInspection = true;
+    _inspectionError = null;
+    notifyListeners();
+
+    try {
+      final response = await apiClient.dio.get(ApiConstants.projectInspection(projectId));
+      final raw = response.data;
+      final data = (raw is Map && raw['inspection'] != null)
+          ? raw['inspection']
+          : ((raw is Map && raw['data'] != null) ? raw['data'] : raw);
+
+      if (data is Map<String, dynamic> && (data['id'] != null || data['project_id'] != null || data['is_prefilled'] == true)) {
+        _currentInspection = PreInstallInspectionModel.fromJson(data);
+      } else {
+        _currentInspection = null;
+      }
+    } catch (e) {
+      _currentInspection = null;
+      _inspectionError = e.toString();
+    } finally {
+      _isLoadingInspection = false;
+      notifyListeners();
+    }
+  }
+
+  // 11. Save or Update Inspection
+  Future<Map<String, dynamic>> saveInspection(dynamic projectId, Map<String, dynamic> payload) async {
+    _isSavingInspection = true;
+    notifyListeners();
+
+    try {
+      final endpoint = ApiConstants.projectInspection(projectId);
+      final response = (_currentInspection != null && _currentInspection!.id != null)
+          ? await apiClient.dio.put(endpoint, data: payload)
+          : await apiClient.dio.post(endpoint, data: payload);
+
+      if (response.data != null && (response.data['success'] == true || response.data['inspection'] != null || response.data['data'] != null)) {
+        await fetchInspection(projectId);
+        await fetchProjectDetails(projectId);
+        return {
+          'success': true,
+          'message': response.data['message'] ?? 'Pre-Installation Inspection saved successfully!'
+        };
+      }
+      return {
+        'success': false,
+        'message': response.data?['message'] ?? 'Failed to save pre-installation inspection.'
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    } finally {
+      _isSavingInspection = false;
       notifyListeners();
     }
   }

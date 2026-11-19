@@ -64,6 +64,7 @@ class ApiConstants {
   static const String projectStats = "/projects/stats";
   static String projectDetails(dynamic id) => "/projects/$id";
   static String projectUpdateStage(dynamic id) => "/projects/$id/stage";
+  static String projectInspection(dynamic id) => "/projects/$id/inspection";
   static const String projectCompletedSurveys = "/projects/completed-surveys";
 
   // Quotations & Invoices (Finance)
