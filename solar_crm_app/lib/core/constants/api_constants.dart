@@ -106,6 +106,9 @@ class ApiConstants {
   static String projectInstallationLogDetail(dynamic id, dynamic logId) => "/projects/$id/installation-logs/$logId";
   static String projectInstallationLogPhotos(dynamic id, dynamic logId) => "/projects/$id/installation-logs/$logId/photos";
 
+  // Project Commissioning & Functional Testing
+  static String projectCommissioning(dynamic id) => "/projects/$id/commissioning";
+
   // Solar Loans & Financing Hub
   static const String loans = "/loans";
   static const String loanStats = "/loans/stats";

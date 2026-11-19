@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
+import '../models/commissioning_model.dart';
 import '../models/inspection_model.dart';
 import '../models/installation_log_model.dart';
 import '../models/project_model.dart';
@@ -489,6 +490,54 @@ class ProjectProvider extends ChangeNotifier {
         'message': response.data?['message'] ?? 'Target completion date updated successfully!',
       };
     } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // 15. Commissioning State & API Methods
+  CommissioningModel? _commissioning;
+  bool _isLoadingCommissioning = false;
+  CommissioningModel? get commissioning => _commissioning;
+  bool get isLoadingCommissioning => _isLoadingCommissioning;
+
+  Future<void> fetchCommissioning(dynamic projectId) async {
+    _isLoadingCommissioning = true;
+    notifyListeners();
+    try {
+      final res = await apiClient.dio.get(ApiConstants.projectCommissioning(projectId));
+      final raw = res.data;
+      final data = raw?['commissioning'] ?? raw?['data'] ?? raw;
+      if (data != null && (data['id'] != null || data['project_id'] != null || data['overall_result'] != null)) {
+        _commissioning = CommissioningModel.fromJson(Map<String, dynamic>.from(data));
+      } else {
+        _commissioning = null;
+      }
+    } catch (e) {
+      debugPrint("fetchCommissioning error: $e");
+      _commissioning = null;
+    } finally {
+      _isLoadingCommissioning = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> saveCommissioning(dynamic projectId, Map<String, dynamic> data, {bool isUpdate = false}) async {
+    try {
+      final url = ApiConstants.projectCommissioning(projectId);
+      final res = isUpdate
+          ? await apiClient.dio.put(url, data: data)
+          : await apiClient.dio.post(url, data: data);
+
+      await fetchCommissioning(projectId);
+      await fetchProjectDetails(projectId);
+
+      return {
+        'success': true,
+        'message': res.data?['message'] ?? 'Commissioning report saved successfully!',
+        'commissioning': _commissioning,
+      };
+    } catch (e) {
+      debugPrint("saveCommissioning error: $e");
       return {'success': false, 'message': e.toString()};
     }
   }

@@ -1860,101 +1860,105 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
           insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           clipBehavior: Clip.antiAlias,
-          child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Header (clean, no emojis)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: entry.isGeoTagged ? const Color(0xFF065F46) : const Color(0xFF1E3A8A),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              entry.isGeoTagged ? Icons.location_on : Icons.photo,
-                              size: 13,
-                              color: entry.isGeoTagged ? const Color(0xFF34D399) : const Color(0xFF93C5FD),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              entry.isGeoTagged ? "Geo-Tagged Camera Photo" : "Uploaded Photo",
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(Icons.close, color: Colors.white70, size: 20),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Address chip (clean, no emojis)
-                if (entry.isGeoTagged && entry.gpsInfo != null && entry.gpsInfo!.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.only(left: 14, right: 14, bottom: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFF334155)),
-                    ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header (clean, no emojis)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Padding(
-                          padding: EdgeInsets.only(top: 2),
-                          child: Icon(Icons.location_on, size: 14, color: Color(0xFFFACC15)),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            entry.gpsInfo!,
-                            style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600, height: 1.25),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: entry.isGeoTagged ? const Color(0xFF065F46) : const Color(0xFF1E3A8A),
+                            borderRadius: BorderRadius.circular(4),
                           ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                entry.isGeoTagged ? Icons.location_on : Icons.photo,
+                                size: 13,
+                                color: entry.isGeoTagged ? const Color(0xFF34D399) : const Color(0xFF93C5FD),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                entry.isGeoTagged ? "Geo-Tagged Camera Photo" : "Uploaded Photo",
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
                       ],
                     ),
                   ),
 
-                // Image preview with zoom/pan
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.44,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: InteractiveViewer(
-                      minScale: 0.5,
-                      maxScale: 5.0,
-                      child: Image.file(
-                        entry.file,
-                        fit: BoxFit.contain,
+                  // Address chip (clean, no emojis)
+                  if (entry.isGeoTagged && entry.gpsInfo != null && entry.gpsInfo!.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(left: 14, right: 14, bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF334155)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 2),
+                            child: Icon(Icons.location_on, size: 14, color: Color(0xFFFACC15)),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              entry.gpsInfo!,
+                              style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600, height: 1.25),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Image preview with zoom/pan
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.36,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: InteractiveViewer(
+                        minScale: 0.5,
+                        maxScale: 5.0,
+                        child: Image.file(
+                          entry.file,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                   ),
-                ),
 
                 // Details & Caption area
                 Padding(
@@ -2058,7 +2062,8 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

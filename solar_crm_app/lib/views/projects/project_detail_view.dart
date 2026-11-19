@@ -9,6 +9,7 @@ import '../../core/constants/app_typography.dart';
 import '../../models/project_model.dart';
 import '../../providers/project_provider.dart';
 import 'sheets/change_stage_sheet.dart';
+import 'sheets/commissioning_form_sheet.dart';
 import 'sheets/edit_project_sheet.dart';
 import 'sheets/log_installation_progress_sheet.dart';
 import 'sheets/review_inspection_sheet.dart';
@@ -47,6 +48,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     provider.fetchProjectDetails(widget.projectId);
     provider.fetchInspection(widget.projectId);
     provider.fetchInstallationLogs(widget.projectId);
+    provider.fetchCommissioning(widget.projectId);
   }
 
   Future<void> _makeCall(String phoneNumber) async {
@@ -259,18 +261,15 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                           ),
 
                           // Tab 4: Commissioning
-                          _buildStagePlaceholderTab(
-                            project: project,
-                            title: "DISCOM Net-Meter & Commissioning",
-                            description: "Bi-directional smart meter sync, grid interconnection approvals & energization certs.",
-                            icon: Icons.electric_bolt_rounded,
-                            accentColor: AppColors.emeraldGreen,
-                            isDark: isDark,
-                            cardBg: cardBg,
-                            surfaceBg: surfaceBg,
-                            borderColor: borderColor,
-                            textPrimary: textPrimary,
-                            textSecondary: textSecondary,
+                          _buildCommissioningTab(
+                            project,
+                            provider,
+                            isDark,
+                            cardBg,
+                            surfaceBg,
+                            borderColor,
+                            textPrimary,
+                            textSecondary,
                           ),
 
                           // Tab 5: Final Inspection
@@ -3181,21 +3180,21 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     );
   }
 
-  Widget _buildSignatureThumb(String sigData) {
+  Widget _buildSignatureThumb(String sigData, {double height = 28}) {
     try {
       if (sigData.startsWith('data:image')) {
         final commaIdx = sigData.indexOf(',');
         final base64Str = commaIdx != -1 ? sigData.substring(commaIdx + 1) : sigData;
         return Image.memory(
           base64Decode(base64Str),
-          height: 28,
+          height: height,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => const Icon(Icons.draw, size: 16),
         );
       } else if (sigData.startsWith('http')) {
         return Image.network(
           sigData,
-          height: 28,
+          height: height,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => const Icon(Icons.draw, size: 16),
         );
@@ -3379,7 +3378,820 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ==========================================
-  // TABS 4-7: MODULE PLACEHOLDER WORKSPACES
+  // TAB 4: COMMISSIONING & FUNCTIONAL TESTING
+  // ==========================================
+  Widget _buildCommissioningTab(
+    ProjectModel project,
+    ProjectProvider provider,
+    bool isDark,
+    Color cardBg,
+    Color surfaceBg,
+    Color borderColor,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    final commissioning = provider.commissioning;
+    final isLoading = provider.isLoadingCommissioning;
+
+    String formatCleanDate(String? dStr) {
+      if (dStr == null || dStr.trim().isEmpty) return "—";
+      try {
+        final d = DateTime.parse(dStr);
+        return DateFormat("dd MMM yyyy").format(d.toLocal());
+      } catch (_) {
+        return dStr;
+      }
+    }
+
+    Widget renderDetailItem(String label, dynamic value, {Widget? customWidget}) {
+      final valStr = (value != null && value.toString().trim().isNotEmpty) ? value.toString() : "—";
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: textSecondary,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 4),
+          customWidget ??
+              Text(
+                valStr,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: textPrimary,
+                ),
+              ),
+        ],
+      );
+    }
+
+    Widget buildPassFailBadge(String? val) {
+      if (val == null || val.trim().isEmpty) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+          ),
+          child: Text(
+            "—",
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: textSecondary,
+            ),
+          ),
+        );
+      }
+      final isPass = val.trim().toLowerCase() == 'pass';
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: isPass
+              ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5))
+              : (isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFEF2F2)),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isPass
+                ? (isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0))
+                : (isDark ? const Color(0xFFDC2626) : const Color(0xFFFECACA)),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isPass ? Icons.check_circle_rounded : Icons.cancel_rounded,
+              size: 13,
+              color: isPass ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              val,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: isPass ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget buildResultBadge(String? res) {
+      final r = res ?? 'Pending';
+      Color bg;
+      Color border;
+      Color text;
+      String label = r;
+
+      if (r == 'Passed') {
+        label = "Passed & Synchronized";
+        bg = isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5);
+        border = isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0);
+        text = isDark ? const Color(0xFF34D399) : const Color(0xFF059669);
+      } else if (r == 'Failed') {
+        label = "Failed (Rectification Required)";
+        bg = isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFEF2F2);
+        border = isDark ? const Color(0xFFDC2626) : const Color(0xFFFECACA);
+        text = isDark ? const Color(0xFFFCA5A5) : const Color(0xFFDC2626);
+      } else if (r == 'Conditional Pass') {
+        label = "Conditional Pass";
+        bg = isDark ? const Color(0xFF78350F) : const Color(0xFFFFFBEB);
+        border = isDark ? const Color(0xFFD97706) : const Color(0xFFFDE68A);
+        text = isDark ? const Color(0xFFFCD34D) : const Color(0xFFD97706);
+      } else {
+        label = "Pending";
+        bg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+        border = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
+        text = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+      }
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: text,
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await provider.fetchCommissioning(project.id);
+      },
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          // 1. Stage Clarity Info Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0C1929) : const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: isDark ? const Color(0xFF1E3A8A) : const Color(0xFFBFDBFE)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 18,
+                  color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E40AF),
+                        height: 1.4,
+                      ),
+                      children: const [
+                        TextSpan(
+                          text: "Technical & Functional Commissioning: ",
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        TextSpan(
+                          text: "This stage confirms anti-islanding safety shutoff, inverter synchronisation, insulation Megger resistance, and net-meter readings before customer handover and DISCOM subsidy inspection.",
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          if (isLoading && commissioning == null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Center(
+                child: Column(
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 12),
+                    Text(
+                      "Loading commissioning records...",
+                      style: TextStyle(color: textSecondary, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (commissioning == null)
+            // Empty State Card
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.electric_bolt_rounded,
+                      size: 28,
+                      color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    "Commissioning Not Conducted Yet",
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Validate DC string voltage, anti-islanding protection cutoff, Megger insulation resistance, earth resistance, and net meter baseline readings.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      CommissioningFormSheet.show(
+                        context,
+                        project: project,
+                        existingCommissioning: null,
+                      );
+                    },
+                    icon: const Icon(Icons.electric_bolt_rounded, size: 16),
+                    label: const Text(
+                      "Begin Functional Commissioning",
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF005BAC),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            // Certificate Header Card
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 26),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Commissioning & Functional Testing Certificate",
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "Engineer: ${commissioning.commissioningEngineer ?? 'N/A'} • Date: ${formatCleanDate(commissioning.commissionDate)}${commissioning.certificateNumber != null ? ' • Cert #${commissioning.certificateNumber}' : ''}",
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: textSecondary,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      buildResultBadge(commissioning.overallResult),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          CommissioningFormSheet.show(
+                            context,
+                            project: project,
+                            existingCommissioning: commissioning,
+                          );
+                        },
+                        icon: const Icon(Icons.edit_outlined, size: 14),
+                        label: const Text(
+                          "Edit Commissioning",
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: textPrimary,
+                          side: BorderSide(color: borderColor),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Section 1: Electrical & Net Meter Readings
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.speed_rounded, color: Color(0xFFF59E0B), size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Section 1: Electrical & Net Meter Readings",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Divider(color: borderColor, height: 1),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "DC String Voltage",
+                          commissioning.panelOutputVoltage != null
+                              ? "${commissioning.panelOutputVoltage!.toStringAsFixed(2)} V"
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "DC String Current",
+                          commissioning.dcCurrentAmps != null
+                              ? "${commissioning.dcCurrentAmps!.toStringAsFixed(2)} A"
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "Inverter Output Power",
+                          commissioning.inverterOutputKw != null
+                              ? "${commissioning.inverterOutputKw!.toStringAsFixed(2)} kW"
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "Inverter Display Status",
+                          commissioning.inverterDisplayStatus,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "AC Grid Output Voltage",
+                          commissioning.acOutputVoltage != null
+                              ? "${commissioning.acOutputVoltage!.toStringAsFixed(2)} V"
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "Meter Serial Number",
+                          commissioning.meterSerialNumber,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "Net Meter Import",
+                          commissioning.netMeterImportKwh != null
+                              ? "${commissioning.netMeterImportKwh!.toStringAsFixed(2)} kWh"
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "Net Meter Export",
+                          commissioning.netMeterExportKwh != null
+                              ? "${commissioning.netMeterExportKwh!.toStringAsFixed(2)} kWh"
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  renderDetailItem(
+                    "Solar Generation Baseline",
+                    (commissioning.generationMeterKwh ?? commissioning.meterReadingKwh) != null
+                        ? "${(commissioning.generationMeterKwh ?? commissioning.meterReadingKwh)!.toStringAsFixed(2)} kWh"
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Section 2: Anti-Islanding & Insulation Protection
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.security_rounded, color: Color(0xFFF97316), size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Section 2: Anti-Islanding & Insulation Protection",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Divider(color: borderColor, height: 1),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "Anti-Islanding Test",
+                          null,
+                          customWidget: buildPassFailBadge(commissioning.antiIslandingTest),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "Emergency Shutdowns",
+                          null,
+                          customWidget: buildPassFailBadge(commissioning.safetyShutdowns),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "Grounding / Earthing Continuity",
+                          null,
+                          customWidget: buildPassFailBadge(commissioning.groundingCheck),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "Earth Resistance",
+                          commissioning.earthResistanceOhm != null
+                              ? "${commissioning.earthResistanceOhm!.toStringAsFixed(2)} Ω (Req: < 5 Ω)"
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "Wiring Insulation Integrity",
+                          null,
+                          customWidget: buildPassFailBadge(commissioning.wiringInsulation),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "Megger Insulation Resistance",
+                          commissioning.insulationResistanceMohm != null
+                              ? "${commissioning.insulationResistanceMohm!.toStringAsFixed(2)} MΩ (Req: > 1 MΩ)"
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  renderDetailItem(
+                    "Earth Leakage Current Test",
+                    null,
+                    customWidget: buildPassFailBadge(commissioning.earthLeakage),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Section 3: Commissioning Decision & Formal Sign-Off
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.assignment_turned_in_rounded, color: Color(0xFF10B981), size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Section 3: Commissioning Decision & Formal Sign-Off",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Divider(color: borderColor, height: 1),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "Overall Technical Result",
+                          null,
+                          customWidget: buildResultBadge(commissioning.overallResult),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "Commissioning Date",
+                          formatCleanDate(commissioning.commissionDate),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "Testing Engineer",
+                          commissioning.commissioningEngineer,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "Certificate Number",
+                          commissioning.certificateNumber,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "Customer / Rep Sign-Off",
+                          commissioning.customerSignatureName,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "VERIFICATION STATUS",
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: textSecondary,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                if (commissioning.customerAcknowledged)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF10B981)),
+                                        SizedBox(width: 3),
+                                        Text(
+                                          "Customer Acknowledged",
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF10B981)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                if (commissioning.engineerSignoff)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? const Color(0xFF1E3A8A) : const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: isDark ? const Color(0xFF3B82F6) : const Color(0xFFBFDBFE),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(Icons.verified_rounded, size: 12, color: Color(0xFF3B82F6)),
+                                        SizedBox(width: 3),
+                                        Text(
+                                          "Engineer Signed Off",
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF3B82F6)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                if (!commissioning.customerAcknowledged && !commissioning.engineerSignoff)
+                                  Text("—", style: TextStyle(color: textSecondary, fontSize: 12)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (commissioning.signatureData != null && commissioning.signatureData!.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.2) : const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF10B981)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                "Official Commissioning Digital Signature",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF16A34A),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDCFCE7),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: const Color(0xFF86EFAC)),
+                                ),
+                                child: const Text(
+                                  "✓ Signature Verified",
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF16A34A),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            height: 70,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFCBD5E1)),
+                            ),
+                            alignment: Alignment.center,
+                            child: _buildSignatureThumb(commissioning.signatureData!, height: 60),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  renderDetailItem(
+                    "Technical Remarks & Observations",
+                    commissioning.remarks,
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // TABS 5-7: MODULE PLACEHOLDER WORKSPACES
   // ==========================================
   Widget _buildStagePlaceholderTab({
     required ProjectModel project,

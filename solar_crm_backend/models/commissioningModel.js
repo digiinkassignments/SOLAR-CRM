@@ -104,6 +104,8 @@ const getCommissioning = async (db, projectId) => {
 };
 
 const createCommissioning = async (db, projectId, data, userId) => {
+  const cleanCommissionDate = data.commission_date ? String(data.commission_date).substring(0, 10) : null;
+
   const fields = [
     'project_id', 'panel_output_voltage', 'dc_current_amps', 'inverter_output_kw',
     'inverter_display_status', 'ac_output_voltage', 'meter_reading_kwh', 'meter_serial_number',
@@ -135,7 +137,7 @@ const createCommissioning = async (db, projectId, data, userId) => {
     data.insulation_resistance_mohm ?? null,
     data.earth_leakage || null,
     data.overall_result || 'Pending',
-    data.commission_date || null,
+    cleanCommissionDate,
     data.commissioning_engineer || null,
     data.certificate_number || null,
     data.remarks || null,
@@ -156,6 +158,8 @@ const createCommissioning = async (db, projectId, data, userId) => {
 };
 
 const updateCommissioning = async (db, projectId, data) => {
+  const cleanCommissionDate = data.commission_date ? String(data.commission_date).substring(0, 10) : null;
+
   await db.query(
     `UPDATE project_commissioning SET
       panel_output_voltage = ?,
@@ -206,7 +210,7 @@ const updateCommissioning = async (db, projectId, data) => {
       data.insulation_resistance_mohm ?? null,
       data.earth_leakage || null,
       data.overall_result || 'Pending',
-      data.commission_date || null,
+      cleanCommissionDate,
       data.commissioning_engineer || null,
       data.certificate_number || null,
       data.remarks || null,
