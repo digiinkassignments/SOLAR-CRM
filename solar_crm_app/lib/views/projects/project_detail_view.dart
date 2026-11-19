@@ -3716,8 +3716,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       buildResultBadge(commissioning.overallResult),
                       OutlinedButton.icon(
@@ -4144,16 +4147,20 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                "Official Commissioning Digital Signature",
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF16A34A),
+                              const Expanded(
+                                child: Text(
+                                  "Official Commissioning Digital Signature",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF16A34A),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
@@ -4164,7 +4171,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                                 child: const Text(
                                   "✓ Signature Verified",
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 9,
                                     fontWeight: FontWeight.w800,
                                     color: Color(0xFF16A34A),
                                   ),
@@ -4538,8 +4545,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       buildStatusBadge(inspection.inspectionStatus),
                       OutlinedButton.icon(
@@ -4930,16 +4940,20 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                "Final QA Customer & Inspector Digital Signature",
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF16A34A),
+                              const Expanded(
+                                child: Text(
+                                  "Final QA Customer & Inspector Digital Signature",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF16A34A),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
@@ -4950,7 +4964,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                                 child: const Text(
                                   "✓ Signature Verified",
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 9,
                                     fontWeight: FontWeight.w800,
                                     color: Color(0xFF16A34A),
                                   ),
@@ -5627,12 +5641,16 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      "CUSTOMER ACCEPTANCE & SIGNED DOCKET EVIDENCE",
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textSecondary, letterSpacing: 0.3),
+                    Expanded(
+                      child: Text(
+                        "CUSTOMER ACCEPTANCE & SIGNED DOCKET EVIDENCE",
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textSecondary, letterSpacing: 0.3),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
@@ -5719,12 +5737,16 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      "CUSTOMER SATISFACTION & REVIEWS",
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textSecondary, letterSpacing: 0.3),
+                    Expanded(
+                      child: Text(
+                        "CUSTOMER SATISFACTION & REVIEWS",
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textSecondary, letterSpacing: 0.3),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
@@ -6444,21 +6466,25 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "PAID ANNUAL MAINTENANCE CONTRACT",
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textPrimary),
-                        ),
-                        Text(
-                          "Starts after free-service period.",
-                          style: TextStyle(fontSize: 10, color: textSecondary),
-                        ),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "PAID ANNUAL MAINTENANCE CONTRACT",
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: textPrimary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            "Starts after free-service period.",
+                            style: TextStyle(fontSize: 10, color: textSecondary),
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     TextButton.icon(
                       onPressed: () {
                         WarrantyAmcFormSheet.show(
