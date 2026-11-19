@@ -109,6 +109,9 @@ class ApiConstants {
   // Project Commissioning & Functional Testing
   static String projectCommissioning(dynamic id) => "/projects/$id/commissioning";
 
+  // Project Final QA & Pre-Handover Inspection
+  static String projectFinalInspection(dynamic id) => "/projects/$id/final-inspection";
+
   // Solar Loans & Financing Hub
   static const String loans = "/loans";
   static const String loanStats = "/loans/stats";

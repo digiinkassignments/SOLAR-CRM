@@ -110,6 +110,9 @@ const serializeJsonField = (val) => {
 };
 
 const createFinalInspection = async (db, projectId, data, userId) => {
+  const cleanInspectionDate = data.inspection_date ? String(data.inspection_date).substring(0, 10) : null;
+  const cleanReinspectionDate = data.reinspection_date ? String(data.reinspection_date).substring(0, 10) : null;
+
   const fields = [
     'project_id', 'installation_quality', 'structure_checklist', 'safety_compliance',
     'electrical_checklist', 'inverter_earthing_checklist', 'document_verification',
@@ -131,11 +134,11 @@ const createFinalInspection = async (db, projectId, data, userId) => {
     data.performance_testing || null,
     data.inspector_name || null,
     data.inspector_type || 'Internal QA / QC',
-    data.inspection_date || null,
+    cleanInspectionDate,
     data.inspection_status || 'Pending',
     data.corrections_needed || null,
     data.rework_status || 'Not Applicable',
-    data.reinspection_date || null,
+    cleanReinspectionDate,
     data.certificate_number || null,
     data.remarks || null,
     data.inspection_photos || null,
@@ -154,6 +157,9 @@ const createFinalInspection = async (db, projectId, data, userId) => {
 };
 
 const updateFinalInspection = async (db, projectId, data) => {
+  const cleanInspectionDate = data.inspection_date ? String(data.inspection_date).substring(0, 10) : null;
+  const cleanReinspectionDate = data.reinspection_date ? String(data.reinspection_date).substring(0, 10) : null;
+
   await db.query(
     `UPDATE project_final_inspection SET
       installation_quality = ?,
@@ -190,11 +196,11 @@ const updateFinalInspection = async (db, projectId, data) => {
       data.performance_testing || null,
       data.inspector_name || null,
       data.inspector_type || 'Internal QA / QC',
-      data.inspection_date || null,
+      cleanInspectionDate,
       data.inspection_status || 'Pending',
       data.corrections_needed || null,
       data.rework_status || 'Not Applicable',
-      data.reinspection_date || null,
+      cleanReinspectionDate,
       data.certificate_number || null,
       data.remarks || null,
       data.inspection_photos || null,

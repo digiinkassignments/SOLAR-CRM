@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../core/constants/api_constants.dart';
 import '../core/network/api_client.dart';
 import '../models/commissioning_model.dart';
+import '../models/final_inspection_model.dart';
 import '../models/inspection_model.dart';
 import '../models/installation_log_model.dart';
 import '../models/project_model.dart';
@@ -539,6 +540,59 @@ class ProjectProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint("saveCommissioning error: $e");
       return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // 16. Final QA & Pre-Handover Inspection State & Methods
+  FinalInspectionModel? _finalInspection;
+  bool _isLoadingFinalInspection = false;
+  FinalInspectionModel? get finalInspection => _finalInspection;
+  bool get isLoadingFinalInspection => _isLoadingFinalInspection;
+
+  Future<void> fetchFinalInspection(dynamic projectId) async {
+    _isLoadingFinalInspection = true;
+    notifyListeners();
+
+    try {
+      final res = await apiClient.dio.get(ApiConstants.projectFinalInspection(projectId));
+      final raw = res.data;
+      final data = raw?['finalInspection'] ?? raw?['inspection'] ?? raw?['data'] ?? raw;
+      if (data != null && data is Map && (data['id'] != null || data['project_id'] != null || data['inspection_status'] != null)) {
+        _finalInspection = FinalInspectionModel.fromJson(Map<String, dynamic>.from(data));
+      } else {
+        _finalInspection = null;
+      }
+    } catch (e) {
+      debugPrint("fetchFinalInspection error: $e");
+      _finalInspection = null;
+    } finally {
+      _isLoadingFinalInspection = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> saveFinalInspection(dynamic projectId, Map<String, dynamic> data, {bool isUpdate = false}) async {
+    try {
+      final url = ApiConstants.projectFinalInspection(projectId);
+      final res = isUpdate
+          ? await apiClient.dio.put(url, data: data)
+          : await apiClient.dio.post(url, data: data);
+
+      await fetchFinalInspection(projectId);
+      await fetchProjectDetails(projectId);
+
+      return {
+        'success': true,
+        'message': res.data?['message'] ?? 'Final QA Inspection saved successfully!',
+        'finalInspection': _finalInspection,
+      };
+    } catch (e) {
+      debugPrint("saveFinalInspection error: $e");
+      String errorMsg = e.toString();
+      if (e is DioException) {
+        errorMsg = e.response?.data?['message'] ?? e.message ?? errorMsg;
+      }
+      return {'success': false, 'message': errorMsg};
     }
   }
 }

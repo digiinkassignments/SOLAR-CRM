@@ -11,6 +11,7 @@ import '../../providers/project_provider.dart';
 import 'sheets/change_stage_sheet.dart';
 import 'sheets/commissioning_form_sheet.dart';
 import 'sheets/edit_project_sheet.dart';
+import 'sheets/final_inspection_form_sheet.dart';
 import 'sheets/log_installation_progress_sheet.dart';
 import 'sheets/review_inspection_sheet.dart';
 
@@ -49,6 +50,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     provider.fetchInspection(widget.projectId);
     provider.fetchInstallationLogs(widget.projectId);
     provider.fetchCommissioning(widget.projectId);
+    provider.fetchFinalInspection(widget.projectId);
   }
 
   Future<void> _makeCall(String phoneNumber) async {
@@ -273,18 +275,15 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                           ),
 
                           // Tab 5: Final Inspection
-                          _buildStagePlaceholderTab(
-                            project: project,
-                            title: "Final QC & Technical Sign-off",
-                            description: "Safety audit, IV curve testing, inverter generation validation and safety clearances.",
-                            icon: Icons.fact_check_outlined,
-                            accentColor: const Color(0xFF0891B2),
-                            isDark: isDark,
-                            cardBg: cardBg,
-                            surfaceBg: surfaceBg,
-                            borderColor: borderColor,
-                            textPrimary: textPrimary,
-                            textSecondary: textSecondary,
+                          _buildFinalInspectionTab(
+                            project,
+                            provider,
+                            isDark,
+                            cardBg,
+                            surfaceBg,
+                            borderColor,
+                            textPrimary,
+                            textSecondary,
                           ),
 
                           // Tab 6: Customer Handover
@@ -4191,7 +4190,782 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ==========================================
-  // TABS 5-7: MODULE PLACEHOLDER WORKSPACES
+  // TAB 5: FINAL INSPECTION & QUALITY CLEARANCE
+  // ==========================================
+  Widget _buildFinalInspectionTab(
+    ProjectModel project,
+    ProjectProvider provider,
+    bool isDark,
+    Color cardBg,
+    Color surfaceBg,
+    Color borderColor,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    final inspection = provider.finalInspection;
+    final commissioningData = provider.commissioning;
+    final isLoading = provider.isLoadingFinalInspection;
+
+    String formatCleanDate(String? dStr) {
+      if (dStr == null || dStr.trim().isEmpty) return "—";
+      try {
+        final d = DateTime.parse(dStr);
+        return DateFormat("dd MMM yyyy").format(d.toLocal());
+      } catch (_) {
+        return dStr;
+      }
+    }
+
+    Widget renderDetailItem(String label, dynamic value, {Widget? customWidget}) {
+      final valStr = (value != null && value.toString().trim().isNotEmpty) ? value.toString() : "—";
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: textSecondary,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 4),
+          customWidget ??
+              Text(
+                valStr,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: textPrimary,
+                ),
+              ),
+        ],
+      );
+    }
+
+    Widget buildPassFailBadge(String? val) {
+      if (val == null || val.trim().isEmpty) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+          ),
+          child: Text(
+            "—",
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: textSecondary,
+            ),
+          ),
+        );
+      }
+      final isPass = val.trim().toLowerCase() == 'pass';
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: isPass
+              ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5))
+              : (isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFEF2F2)),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isPass
+                ? (isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0))
+                : (isDark ? const Color(0xFFDC2626) : const Color(0xFFFECACA)),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isPass ? Icons.check_circle_rounded : Icons.cancel_rounded,
+              size: 13,
+              color: isPass ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              val,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: isPass ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget buildStatusBadge(String? status) {
+      final s = status ?? 'Pending';
+      Color bg;
+      Color border;
+      Color text;
+      String label = s;
+
+      if (s == 'Approved') {
+        label = "Approved & Quality Cleared";
+        bg = isDark ? const Color(0xFF064E3B) : const Color(0xFFECFDF5);
+        border = isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0);
+        text = isDark ? const Color(0xFF34D399) : const Color(0xFF059669);
+      } else if (s.contains('Conditional') || s.contains('Corrections')) {
+        label = "Conditional Approval (Rework Needed)";
+        bg = isDark ? const Color(0xFF78350F) : const Color(0xFFFFFBEB);
+        border = isDark ? const Color(0xFFD97706) : const Color(0xFFFDE68A);
+        text = isDark ? const Color(0xFFFCD34D) : const Color(0xFFD97706);
+      } else if (s.contains('Rejected')) {
+        label = "Rejected / Re-inspection Required";
+        bg = isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFEF2F2);
+        border = isDark ? const Color(0xFFDC2626) : const Color(0xFFFECACA);
+        text = isDark ? const Color(0xFFFCA5A5) : const Color(0xFFDC2626);
+      } else {
+        label = "Pending";
+        bg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+        border = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
+        text = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+      }
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: text,
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await provider.fetchFinalInspection(project.id);
+        await provider.fetchCommissioning(project.id);
+      },
+      child: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          // 1. Stage Clarity Info Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0C1929) : const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: isDark ? const Color(0xFF1E3A8A) : const Color(0xFFBFDBFE)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 18,
+                  color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E40AF),
+                        height: 1.4,
+                      ),
+                      children: const [
+                        TextSpan(
+                          text: "Company Quality Assurance & Pre-Handover Clearance: ",
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        TextSpan(
+                          text: "Commissioning verified electrical synchronization; this independent Final Inspection certifies EPC structural integrity, statutory DISCOM document packs, and warranty compliance before client handover.",
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          if (isLoading && inspection == null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Center(
+                child: Column(
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 12),
+                    Text(
+                      "Loading QA/QC inspection records...",
+                      style: TextStyle(color: textSecondary, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (inspection == null)
+            // Empty State Card
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.fact_check_rounded,
+                      size: 28,
+                      color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    "Final QA/QC Inspection Not Conducted Yet",
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Conduct comprehensive structural torque audits, DISCOM statutory documentation verification, and pre-handover defect tracking.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      FinalInspectionFormSheet.show(
+                        context,
+                        project: project,
+                        existingInspection: null,
+                        commissioningData: commissioningData,
+                      );
+                    },
+                    icon: const Icon(Icons.fact_check_rounded, size: 16),
+                    label: const Text(
+                      "Begin Quality Inspection",
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF005BAC),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            // Quality Clearance Header Record Card
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.fact_check_rounded, color: Color(0xFF2563EB), size: 26),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Quality Clearance & Final Inspection Record",
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "Auditor: ${inspection.inspectorName ?? 'N/A'} (${inspection.inspectorType ?? 'Internal QA / QC'}) • Date: ${formatCleanDate(inspection.inspectionDate)}${inspection.certificateNumber != null ? ' • Certificate: #${inspection.certificateNumber}' : ''}",
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: textSecondary,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      buildStatusBadge(inspection.inspectionStatus),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          FinalInspectionFormSheet.show(
+                            context,
+                            project: project,
+                            existingInspection: inspection,
+                            commissioningData: commissioningData,
+                          );
+                        },
+                        icon: const Icon(Icons.edit_outlined, size: 14),
+                        label: const Text(
+                          "Edit QA Record",
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: textPrimary,
+                          side: BorderSide(color: borderColor),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Section 1: Quality & Compliance Clearances
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.assignment_turned_in_rounded, color: Color(0xFF10B981), size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Section 1: Quality & Compliance Clearances",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Divider(color: borderColor, height: 1),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "Mounting & Structural Quality",
+                          null,
+                          customWidget: buildPassFailBadge(inspection.installationQuality),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "Electrical Safety Compliance",
+                          null,
+                          customWidget: buildPassFailBadge(inspection.safetyCompliance),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "Statutory Document Pack",
+                          null,
+                          customWidget: buildPassFailBadge(inspection.documentVerification),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "Performance Verification",
+                          null,
+                          customWidget: buildPassFailBadge(inspection.performanceTesting),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Audited Engineering Evidence Box
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "AUDITED ENGINEERING EVIDENCE",
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: textSecondary,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "✓ Structure: Torque checked, hot-dip galvanized & grouted",
+                          style: TextStyle(fontSize: 11, color: textSecondary, height: 1.35),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          "✓ Electrical: UV-rated conduit saddles, DC warning stickers & ferrule labels",
+                          style: TextStyle(fontSize: 11, color: textSecondary, height: 1.35),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          "✓ Inverter & Earthing: Dual body earthing & separate LA pit confirmed",
+                          style: TextStyle(fontSize: 11, color: textSecondary, height: 1.35),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Section 2: Commissioning Benchmark Verification
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.speed_rounded, color: Color(0xFFF59E0B), size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Section 2: Commissioning Benchmark Verification",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Divider(color: borderColor, height: 1),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "DC String Voc",
+                          commissioningData?.panelOutputVoltage != null
+                              ? "${commissioningData!.panelOutputVoltage!.toStringAsFixed(2)} V"
+                              : "Verified (>350V)",
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "Inverter Output Power",
+                          commissioningData?.inverterOutputKw != null
+                              ? "${commissioningData!.inverterOutputKw!.toStringAsFixed(2)} kW"
+                              : "Active / Synchronized",
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "Megger Insulation",
+                          commissioningData?.insulationResistanceMohm != null
+                              ? "${commissioningData!.insulationResistanceMohm!.toStringAsFixed(2)} MΩ"
+                              : "Compliant (>1 MΩ)",
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "Anti-Islanding Test",
+                          commissioningData?.antiIslandingTest ?? "Pass (<2s Cutoff)",
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Synchronized Green Banner
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.3) : const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFA7F3D0)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF059669)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            "Synchronized with Commissioning Certificate #${commissioningData?.certificateNumber ?? 'COMM-VERIFIED'}",
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF065F46),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Section 3: Defect Tracking, Rework Status & Formal Approval
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.build_circle_outlined, color: Color(0xFFF97316), size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Section 3: Defect Tracking, Rework Status & Formal Approval",
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Divider(color: borderColor, height: 1),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "Final QA Status",
+                          null,
+                          customWidget: buildStatusBadge(inspection.inspectionStatus),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "Auditor Name",
+                          inspection.inspectorName,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: renderDetailItem(
+                          "Audit Class",
+                          inspection.inspectorType,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: renderDetailItem(
+                          "QA Approval Cert No.",
+                          inspection.certificateNumber,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Rework Follow-up Status (if any)
+                  if (inspection.correctionsNeeded != null && inspection.correctionsNeeded!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.3) : const Color(0xFFFFFBEB),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "REWORK & RECTIFICATION STATUS",
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF92400E),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            "Status: ${inspection.reworkStatus ?? 'Open'}${inspection.reinspectionDate != null ? ' • Re-inspection: ${formatCleanDate(inspection.reinspectionDate)}' : ''}",
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF78350F),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            "\"${inspection.correctionsNeeded}\"",
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF92400E),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 12),
+                  renderDetailItem(
+                    "Audit Remarks",
+                    inspection.remarks,
+                  ),
+
+                  if (inspection.inspectionPhotos != null && inspection.inspectionPhotos!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    renderDetailItem(
+                      "Audit Photos / Documentation",
+                      inspection.inspectionPhotos,
+                    ),
+                  ],
+
+                  if (inspection.signatureData != null && inspection.signatureData!.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.2) : const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF10B981)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                "Final QA Customer & Inspector Digital Signature",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF16A34A),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDCFCE7),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: const Color(0xFF86EFAC)),
+                                ),
+                                child: const Text(
+                                  "✓ Signature Verified",
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF16A34A),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            height: 70,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFCBD5E1)),
+                            ),
+                            alignment: Alignment.center,
+                            child: _buildSignatureThumb(inspection.signatureData!, height: 60),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // TABS 6-7: MODULE PLACEHOLDER WORKSPACES
   // ==========================================
   Widget _buildStagePlaceholderTab({
     required ProjectModel project,
