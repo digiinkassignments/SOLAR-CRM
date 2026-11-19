@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://solops.cloud/</loc><lastmod>2026-11-19</lastmod><changefreq>monthly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://solops.cloud/how-it-works</loc><lastmod>2026-11-19</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://solops.cloud/downloads</loc><lastmod>2026-11-19</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://solops.cloud/start-trial</loc><lastmod>2026-11-19</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://solops.cloud/privacy-policy</loc><lastmod>2026-11-19</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://solops.cloud/terms-and-conditions</loc><lastmod>2026-11-19</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://solops.cloud/</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://solops.cloud/solar-crm-software</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://solops.cloud/solar-sales-crm</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://solops.cloud/solar-project-management</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://solops.cloud/how-it-works</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://solops.cloud/downloads</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://solops.cloud/start-trial</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://solops.cloud/privacy-policy</loc><lastmod>2026-11-19</lastmod></url>
+  <url><loc>https://solops.cloud/terms-and-conditions</loc><lastmod>2026-11-19</lastmod></url>
 </urlset>
