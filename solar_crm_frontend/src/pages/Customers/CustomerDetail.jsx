@@ -2,7 +2,7 @@ import {portalRole,workspacePrefix} from "../../utils/portalRoles";
 import CustomerPaymentPlans from "./CustomerPaymentPlans";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Box, Paper, Typography, Button, Chip, Stack, Tabs, Tab, Skeleton, Avatar, Alert, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem, LinearProgress } from "@mui/material";
+import { Box, Paper, Typography, Button, Chip, Stack, Tabs, Tab, Skeleton, Avatar, Alert, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, MenuItem, LinearProgress } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
@@ -13,24 +13,22 @@ import EngineeringOutlinedIcon from "@mui/icons-material/EngineeringOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
-import toast from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
-import { getCustomerById, updateCustomer } from "../../services/customerService";
+import { getCustomerById } from "../../services/customerService";
+import AddCustomerModal from "./AddCustomerModal";
 import CustomerWorkspace from "./CustomerWorkspace";
 import { money, dateLabel, initials, copyValue } from "./customerHelpers";
 import { ContactActions, Metric, Field, ViewToggle } from "./customerUi";
 
-const editFields=[['lead_source','Lead source'],['customer_name','Customer name'],['mobile_number','Mobile number'],['alternate_number','Alternate phone'],['email','Email','email'],['electricity_consumer_number','CA / consumer number'],['discom_name','DISCOM provider'],['sanctioned_load_kw','Sanctioned load (kW)','number'],['customer_gstin','GSTIN'],['address','Site address'],['city','City'],['state','State'],['pincode','PIN code']];
 const number=value=>Number(value)||0;
 
 export default function CustomerDetail() {
   const {id}=useParams(); const navigate=useNavigate(); const {user}=useAuth();
-  const manager=Number(user?.role_id)===2 || String(user?.role_name || user?.role || "").toLowerCase().includes("manager");
   const canEdit=[1,2].includes(Number(user?.role_id)) || portalRole(user)==='finance';
   const base=workspacePrefix(user);
   const [customer,setCustomer]=useState(null); const [loading,setLoading]=useState(true); const [error,setError]=useState("");
   const [activeTab,setActiveTab]=useState(new URLSearchParams(window.location.search).get("tab")==="payments"?5:0); const [view,setView]=useState("cards"); const [invoiceFilter,setInvoiceFilter]=useState("all");
-  const [editing,setEditing]=useState(false); const [editData,setEditData]=useState({}); const [saving,setSaving]=useState(false); const [saveError,setSaveError]=useState("");
+  const [editing,setEditing]=useState(false);
   const sequence=useRef(0);
   const fetchProfile=useCallback(async()=>{
     const request=++sequence.current;setLoading(true);setError("");
@@ -39,18 +37,7 @@ export default function CustomerDetail() {
     finally{if(request===sequence.current)setLoading(false);}
   },[id]);
   useEffect(()=>{const requests=sequence;const timer=setTimeout(fetchProfile,0);return()=>{clearTimeout(timer);requests.current++;};},[fetchProfile]);
-  const openEdit=()=>{setEditData({...customer});setSaveError("");setEditing(true);};
-  const handleSave=async e=>{
-    e.preventDefault(); if(saving)return;
-    if(!editData.customer_name?.trim() || !editData.mobile_number?.trim()){setSaveError("Customer name and mobile number are required.");return;}
-    setSaving(true);setSaveError("");
-    try {
-      const payload=Object.fromEntries([...editFields.map(([field])=>field),'solar_requirement','status','notes','assigned_to'].map(field=>[field,editData[field] ?? null]));
-      const res=await updateCustomer(id,payload); if(!res?.success)throw new Error(res?.message || "Could not save the customer.");
-      toast.success("Customer profile updated");setEditing(false);fetchProfile();
-    } catch(err){setSaveError(err.response?.data?.message || err.message || "Could not save changes.");}
-    finally{setSaving(false);}
-  };
+  const openEdit=()=>setEditing(true);
   const projects=customer?.projects || [];const quotations=customer?.quotations || [];const invoices=customer?.invoices || [];const leads=customer?.leads || [];
   const opening=customer?.opening_record;
   const billed=number(opening?.invoice_amount)+invoices.reduce((sum,row)=>sum+number(row.gross_total),0); const paid=number(opening?.amount_paid)+invoices.reduce((sum,row)=>sum+number(row.amount_paid),0); const due=number(opening?.invoice_amount)-number(opening?.amount_paid)+invoices.reduce((sum,row)=>sum+number(row.balance_due),0);
@@ -95,8 +82,7 @@ export default function CustomerDetail() {
       </Box>
     </Paper>
     </>}
-    <Dialog open={editing} onClose={()=>!saving&&setEditing(false)} fullWidth maxWidth="md"><DialogTitle>Edit customer profile</DialogTitle><form onSubmit={handleSave}><DialogContent dividers>
-      {saveError&&<Alert severity="error" sx={{mb:2}}>{saveError}</Alert>}<Box sx={{display:'grid',gridTemplateColumns:{xs:'1fr',sm:'repeat(2,minmax(0,1fr))'},gap:2.5}}>{editFields.map(([field,label,type])=><TextField key={field} fullWidth size="small" label={label} type={type || 'text'} required={['customer_name','mobile_number'].includes(field)} value={editData[field] ?? ''} onChange={e=>setEditData(prev=>({...prev,[field]:e.target.value}))} inputProps={type==='number'?{min:0,step:'any'}:undefined} sx={field==='address'?{gridColumn:'1 / -1'}:{}}/>)}<TextField select label="Customer type" size="small" value={editData.solar_requirement || 'Residential'} onChange={e=>setEditData(prev=>({...prev,solar_requirement:e.target.value}))}>{['Residential','Commercial','Industrial'].map(type=><MenuItem key={type} value={type}>{type}</MenuItem>)}</TextField><TextField select label="Status" size="small" value={editData.status || 'Active'} onChange={e=>setEditData(prev=>({...prev,status:e.target.value}))}>{['Active','Inactive'].map(status=><MenuItem key={status} value={status}>{status}</MenuItem>)}</TextField><TextField label="Customer notes" multiline minRows={3} value={editData.notes || ''} onChange={e=>setEditData(prev=>({...prev,notes:e.target.value}))} sx={{gridColumn:'1 / -1'}}/></Box>
-    </DialogContent><DialogActions sx={{p:2}}><Button disabled={saving} onClick={()=>setEditing(false)}>Cancel</Button><Button variant="contained" type="submit" disabled={saving}>{saving?'Saving...':'Save changes'}</Button></DialogActions></form></Dialog>
+    <AddCustomerModal open={editing} customer={customer} onClose={()=>setEditing(false)} onCustomerCreated={fetchProfile}/>
+
   </Box></CustomerWorkspace>;
 }

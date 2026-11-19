@@ -31,6 +31,16 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
   late final TextEditingController _gstinController;
   late final TextEditingController _notesController;
 
+  final _sourceController = TextEditingController();
+  final _plantController = TextEditingController();
+  final _amountController = TextEditingController();
+  final _paidController = TextEditingController();
+  final _invoiceRefController = TextEditingController();
+  final _paymentDateController = TextEditingController();
+  final _paymentRefController = TextEditingController();
+  String _paymentMode = 'Bank Transfer';
+  bool _loadingOpening = true;
+  bool _loadFailed = false;
   late String _solarRequirement;
   late String _status;
   bool _isLoading = false;
@@ -40,23 +50,112 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.customer.customerName);
-    _mobileController = TextEditingController(text: widget.customer.mobileNumber);
-    _altMobileController = TextEditingController(text: widget.customer.alternateNumber ?? "");
+    _mobileController = TextEditingController(
+      text: widget.customer.mobileNumber,
+    );
+    _altMobileController = TextEditingController(
+      text: widget.customer.alternateNumber ?? "",
+    );
     _emailController = TextEditingController(text: widget.customer.email ?? "");
-    _addressController = TextEditingController(text: widget.customer.address ?? "");
+    _addressController = TextEditingController(
+      text: widget.customer.address ?? "",
+    );
     _cityController = TextEditingController(text: widget.customer.city ?? "");
     _stateController = TextEditingController(text: widget.customer.state ?? "");
-    _pincodeController = TextEditingController(text: widget.customer.pincode ?? "");
-    _consumerNumberController = TextEditingController(text: widget.customer.electricityConsumerNumber ?? "");
-    _discomController = TextEditingController(text: widget.customer.discomName ?? "");
-    _sanctionedLoadController = TextEditingController(
-      text: widget.customer.sanctionedLoadKw != null ? widget.customer.sanctionedLoadKw.toString() : "",
+    _pincodeController = TextEditingController(
+      text: widget.customer.pincode ?? "",
     );
-    _gstinController = TextEditingController(text: widget.customer.customerGstin ?? "");
+    _consumerNumberController = TextEditingController(
+      text: widget.customer.electricityConsumerNumber ?? "",
+    );
+    _discomController = TextEditingController(
+      text: widget.customer.discomName ?? "",
+    );
+    _sanctionedLoadController = TextEditingController(
+      text: widget.customer.sanctionedLoadKw != null
+          ? widget.customer.sanctionedLoadKw.toString()
+          : "",
+    );
+    _gstinController = TextEditingController(
+      text: widget.customer.customerGstin ?? "",
+    );
     _notesController = TextEditingController(text: widget.customer.notes ?? "");
 
     _solarRequirement = widget.customer.solarRequirement;
     _status = widget.customer.status;
+    _sourceController.text = widget.customer.leadSource ?? '';
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadOpening());
+  }
+
+  Future<void> _loadOpening() async {
+    final detail = await context.read<CustomerProvider>().fetchCustomerById(
+      widget.customer.id,
+    );
+    if (!mounted) return;
+    final o = detail?.openingRecord;
+    setState(() {
+      if (detail != null) {
+        final c = detail.customer;
+        _nameController.text = c.customerName;
+        _mobileController.text = c.mobileNumber;
+        _altMobileController.text = c.alternateNumber ?? '';
+        _emailController.text = c.email ?? '';
+        _addressController.text = c.address ?? '';
+        _cityController.text = c.city ?? '';
+        _stateController.text = c.state ?? '';
+        _pincodeController.text = c.pincode ?? '';
+        _consumerNumberController.text = c.electricityConsumerNumber ?? '';
+        _discomController.text = c.discomName ?? '';
+        _sanctionedLoadController.text = c.sanctionedLoadKw?.toString() ?? '';
+        _gstinController.text = c.customerGstin ?? '';
+        _notesController.text = c.notes ?? '';
+        _sourceController.text = c.leadSource ?? '';
+        _status = c.status;
+        _solarRequirement = c.solarRequirement;
+      }
+      _loadingOpening = false;
+      _loadFailed = detail == null;
+      _errorMessage = detail == null
+          ? 'Could not load latest customer. Close and retry before editing.'
+          : null;
+      _plantController.text =
+          (o?.plantSizeKw ?? detail?.customer.plantSizeKw)?.toString() ?? '';
+      _amountController.text = o?.invoiceAmount.toString() ?? '';
+      _paidController.text = o?.amountPaid.toString() ?? '';
+      _invoiceRefController.text = o?.invoiceReference ?? '';
+      _paymentDateController.text = (o?.paymentDate ?? '').split('T').first;
+      _paymentMode = o?.paymentMode ?? 'Bank Transfer';
+      _paymentRefController.text = o?.paymentReference ?? '';
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final c in [
+      _nameController,
+      _mobileController,
+      _altMobileController,
+      _emailController,
+      _addressController,
+      _cityController,
+      _stateController,
+      _pincodeController,
+      _consumerNumberController,
+      _discomController,
+      _sanctionedLoadController,
+      _gstinController,
+      _notesController,
+      _sourceController,
+      _plantController,
+      _amountController,
+      _paidController,
+      _invoiceRefController,
+      _paymentDateController,
+      _paymentRefController,
+    ]) {
+      c.dispose();
+    }
+    super.dispose();
   }
 
   void _handleUpdate() async {
@@ -68,21 +167,52 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
     });
 
     final data = <String, dynamic>{
+      'lead_source': _sourceController.text.trim(),
+      'plant_size_kw': _plantController.text.trim(),
+      'invoice_amount': _amountController.text.trim(),
+      'payment_amount': _paidController.text.trim(),
+      'invoice_reference': _invoiceRefController.text.trim(),
+      'payment_date': _paymentDateController.text.trim(),
+      'payment_mode': _paymentMode,
+      'payment_reference': _paymentRefController.text.trim(),
       'customer_name': _nameController.text.trim(),
       'mobile_number': _mobileController.text.trim(),
-      'alternate_number': _altMobileController.text.trim().isNotEmpty ? _altMobileController.text.trim() : null,
-      'email': _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
-      'address': _addressController.text.trim().isNotEmpty ? _addressController.text.trim() : null,
-      'city': _cityController.text.trim().isNotEmpty ? _cityController.text.trim() : null,
-      'state': _stateController.text.trim().isNotEmpty ? _stateController.text.trim() : null,
-      'pincode': _pincodeController.text.trim().isNotEmpty ? _pincodeController.text.trim() : null,
-      'electricity_consumer_number': _consumerNumberController.text.trim().isNotEmpty ? _consumerNumberController.text.trim() : null,
-      'discom_name': _discomController.text.trim().isNotEmpty ? _discomController.text.trim() : null,
-      'sanctioned_load_kw': _sanctionedLoadController.text.trim().isNotEmpty ? double.tryParse(_sanctionedLoadController.text.trim()) : null,
-      'customer_gstin': _gstinController.text.trim().isNotEmpty ? _gstinController.text.trim() : null,
+      'alternate_number': _altMobileController.text.trim().isNotEmpty
+          ? _altMobileController.text.trim()
+          : null,
+      'email': _emailController.text.trim().isNotEmpty
+          ? _emailController.text.trim()
+          : null,
+      'address': _addressController.text.trim().isNotEmpty
+          ? _addressController.text.trim()
+          : null,
+      'city': _cityController.text.trim().isNotEmpty
+          ? _cityController.text.trim()
+          : null,
+      'state': _stateController.text.trim().isNotEmpty
+          ? _stateController.text.trim()
+          : null,
+      'pincode': _pincodeController.text.trim().isNotEmpty
+          ? _pincodeController.text.trim()
+          : null,
+      'electricity_consumer_number':
+          _consumerNumberController.text.trim().isNotEmpty
+          ? _consumerNumberController.text.trim()
+          : null,
+      'discom_name': _discomController.text.trim().isNotEmpty
+          ? _discomController.text.trim()
+          : null,
+      'sanctioned_load_kw': _sanctionedLoadController.text.trim().isNotEmpty
+          ? double.tryParse(_sanctionedLoadController.text.trim())
+          : null,
+      'customer_gstin': _gstinController.text.trim().isNotEmpty
+          ? _gstinController.text.trim()
+          : null,
       'solar_requirement': _solarRequirement,
       'status': _status,
-      'notes': _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+      'notes': _notesController.text.trim().isNotEmpty
+          ? _notesController.text.trim()
+          : null,
       'assigned_to': widget.customer.assignedTo,
     };
 
@@ -112,9 +242,15 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
-    final textPrimary = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
-    final textSecondary = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
-    final surfaceColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final textPrimary = isDark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimaryLight;
+    final textSecondary = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
+    final surfaceColor = isDark
+        ? AppColors.darkSurface
+        : AppColors.lightSurface;
 
     return Container(
       decoration: BoxDecoration(
@@ -150,9 +286,14 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    "Edit Customer Details",
-                    style: AppTypography.heading(size: 20, color: textPrimary),
+                  Expanded(
+                    child: Text(
+                      "Edit Customer Details",
+                      style: AppTypography.heading(
+                        size: 20,
+                        color: textPrimary,
+                      ),
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close_rounded, size: 20),
@@ -173,16 +314,24 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
                   decoration: BoxDecoration(
                     color: AppColors.errorRed.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.errorRed.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: AppColors.errorRed.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline_rounded, color: AppColors.errorRed, size: 18),
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: AppColors.errorRed,
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: AppTypography.caption(color: AppColors.errorRed),
+                          style: AppTypography.caption(
+                            color: AppColors.errorRed,
+                          ),
                         ),
                       ),
                     ],
@@ -192,15 +341,23 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
               ],
 
               // Customer Name
-              Text("CUSTOMER NAME *", style: AppTypography.badge(color: textSecondary)),
+              Text(
+                "CUSTOMER NAME *",
+                style: AppTypography.badge(color: textSecondary),
+              ),
               const SizedBox(height: 6),
               TextFormField(
                 controller: _nameController,
                 style: AppTypography.body(color: textPrimary),
                 decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
+                  prefixIcon: const Icon(
+                    Icons.person_outline_rounded,
+                    size: 20,
+                  ),
                 ),
-                validator: (val) => val == null || val.trim().isEmpty ? "Customer name is required" : null,
+                validator: (val) => val == null || val.trim().isEmpty
+                    ? "Customer name is required"
+                    : null,
               ),
 
               const SizedBox(height: 14),
@@ -212,17 +369,24 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("MOBILE NUMBER *", style: AppTypography.badge(color: textSecondary)),
+                        Text(
+                          "MOBILE NUMBER *",
+                          style: AppTypography.badge(color: textSecondary),
+                        ),
                         const SizedBox(height: 6),
                         TextFormField(
                           controller: _mobileController,
                           keyboardType: TextInputType.phone,
                           style: AppTypography.body(color: textPrimary),
                           decoration: InputDecoration(
-                            prefixIcon: const Icon(Icons.phone_outlined, size: 20),
+                            prefixIcon: const Icon(
+                              Icons.phone_outlined,
+                              size: 20,
+                            ),
                           ),
                           validator: (val) {
-                            if (val == null || val.trim().isEmpty) return "Required";
+                            if (val == null || val.trim().isEmpty)
+                              return "Required";
                             if (val.trim().length < 10) return "10 digits";
                             return null;
                           },
@@ -235,14 +399,20 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("ALTERNATE PHONE", style: AppTypography.badge(color: textSecondary)),
+                        Text(
+                          "ALTERNATE PHONE",
+                          style: AppTypography.badge(color: textSecondary),
+                        ),
                         const SizedBox(height: 6),
                         TextFormField(
                           controller: _altMobileController,
                           keyboardType: TextInputType.phone,
                           style: AppTypography.body(color: textPrimary),
                           decoration: InputDecoration(
-                            prefixIcon: const Icon(Icons.phone_iphone_rounded, size: 20),
+                            prefixIcon: const Icon(
+                              Icons.phone_iphone_rounded,
+                              size: 20,
+                            ),
                           ),
                         ),
                       ],
@@ -254,7 +424,10 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
               const SizedBox(height: 14),
 
               // Email
-              Text("EMAIL ADDRESS", style: AppTypography.badge(color: textSecondary)),
+              Text(
+                "EMAIL ADDRESS",
+                style: AppTypography.badge(color: textSecondary),
+              ),
               const SizedBox(height: 6),
               TextFormField(
                 controller: _emailController,
@@ -268,10 +441,15 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
               const SizedBox(height: 14),
 
               // Solar Requirement
-              Text("SOLAR REQUIREMENT *", style: AppTypography.badge(color: textSecondary)),
+              Text(
+                "SOLAR REQUIREMENT *",
+                style: AppTypography.badge(color: textSecondary),
+              ),
               const SizedBox(height: 6),
               Row(
-                children: ["Residential", "Commercial", "Industrial"].map((req) {
+                children: ["Residential", "Commercial", "Industrial"].map((
+                  req,
+                ) {
                   final isSel = _solarRequirement == req;
                   return Expanded(
                     child: Padding(
@@ -287,15 +465,21 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
                                 : surfaceColor,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: isSel ? AppColors.brandPrimary : borderColor,
+                              color: isSel
+                                  ? AppColors.brandPrimary
+                                  : borderColor,
                             ),
                           ),
                           child: Text(
                             req,
                             textAlign: TextAlign.center,
                             style: AppTypography.caption(
-                              color: isSel ? AppColors.brandPrimary : textPrimary,
-                              fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                              color: isSel
+                                  ? AppColors.brandPrimary
+                                  : textPrimary,
+                              fontWeight: isSel
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
                             ),
                           ),
                         ),
@@ -308,12 +492,17 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
               const SizedBox(height: 14),
 
               // Address, City, State, Pincode
-              Text("INSTALLATION ADDRESS", style: AppTypography.badge(color: textSecondary)),
+              Text(
+                "INSTALLATION ADDRESS",
+                style: AppTypography.badge(color: textSecondary),
+              ),
               const SizedBox(height: 6),
               TextFormField(
                 controller: _addressController,
                 style: AppTypography.body(color: textPrimary),
-                decoration: const InputDecoration(hintText: "Street / Plot address"),
+                decoration: const InputDecoration(
+                  hintText: "Street / Plot address",
+                ),
               ),
               const SizedBox(height: 8),
               Row(
@@ -354,7 +543,10 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("ELECTRICITY CONSUMER #", style: AppTypography.badge(color: textSecondary)),
+                        Text(
+                          "ELECTRICITY CONSUMER #",
+                          style: AppTypography.badge(color: textSecondary),
+                        ),
                         const SizedBox(height: 6),
                         TextFormField(
                           controller: _consumerNumberController,
@@ -368,7 +560,10 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("DISCOM NAME", style: AppTypography.badge(color: textSecondary)),
+                        Text(
+                          "DISCOM NAME",
+                          style: AppTypography.badge(color: textSecondary),
+                        ),
                         const SizedBox(height: 6),
                         TextFormField(
                           controller: _discomController,
@@ -382,8 +577,69 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
 
               const SizedBox(height: 14),
 
+              Text(
+                'PLANT & OPENING PAYMENT RECORD',
+                style: AppTypography.badge(color: textSecondary),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Edit the existing opening record. Linked tax invoices are managed separately.',
+                style: AppTypography.caption(color: textSecondary),
+              ),
+              if (_loadingOpening) const LinearProgressIndicator(),
+              for (final entry in <(TextEditingController, String, bool)>[
+                (_sourceController, 'Lead source', false),
+                (_sanctionedLoadController, 'Sanctioned load (kW)', true),
+                (_gstinController, 'GSTIN', false),
+                (_notesController, 'Customer notes', false),
+                (_plantController, 'Plant size (kW)', true),
+                (_amountController, 'Final amount (Rs.)', true),
+                (_paidController, 'Payment received (Rs.)', true),
+                (_invoiceRefController, 'Invoice reference', false),
+                (_paymentDateController, 'Payment date (YYYY-MM-DD)', false),
+                (_paymentRefController, 'Payment reference', false),
+              ]) ...[
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: entry.$1,
+                  enabled: !_loadingOpening && !_loadFailed && !_isLoading,
+                  decoration: InputDecoration(labelText: entry.$2),
+                  keyboardType: entry.$3
+                      ? const TextInputType.numberWithOptions(decimal: true)
+                      : TextInputType.text,
+                  validator: (v) {
+                    if (entry.$3 &&
+                        v != null &&
+                        v.isNotEmpty &&
+                        (double.tryParse(v) == null || double.parse(v) < 0))
+                      return 'Enter a valid non-negative number';
+                    if (entry.$1 == _paidController &&
+                        (double.tryParse(v ?? '') ?? 0) >
+                            (double.tryParse(_amountController.text) ?? 0))
+                      return 'Payment cannot exceed final amount';
+                    return null;
+                  },
+                ),
+              ],
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: _paymentMode,
+                key: ValueKey('payment-$_paymentMode-$_loadingOpening'),
+                decoration: const InputDecoration(labelText: 'Payment mode'),
+                items:
+                    ['Bank Transfer', 'UPI', 'Cash', 'Cheque', 'Card', 'Other']
+                        .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                        .toList(),
+                onChanged: _loadingOpening || _isLoading
+                    ? null
+                    : (v) => setState(() => _paymentMode = v!),
+              ),
+              const SizedBox(height: 20),
               // Status Dropdown
-              Text("ACCOUNT STATUS", style: AppTypography.badge(color: textSecondary)),
+              Text(
+                "ACCOUNT STATUS",
+                style: AppTypography.badge(color: textSecondary),
+              ),
               const SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -400,7 +656,10 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
                     items: ["Active", "Inactive"].map((s) {
                       return DropdownMenuItem<String>(
                         value: s,
-                        child: Text(s, style: AppTypography.body(color: textPrimary)),
+                        child: Text(
+                          s,
+                          style: AppTypography.body(color: textPrimary),
+                        ),
                       );
                     }).toList(),
                     onChanged: (val) {
@@ -413,18 +672,25 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
               const SizedBox(height: 24),
 
               ElevatedButton(
-                onPressed: _isLoading ? null : _handleUpdate,
+                onPressed: _isLoading || _loadingOpening || _loadFailed
+                    ? null
+                    : _handleUpdate,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.brandPrimary,
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: _isLoading
                     ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
                       )
                     : Text(
                         "Save Customer Changes",
@@ -438,4 +704,3 @@ class _EditCustomerSheetState extends State<EditCustomerSheet> {
     );
   }
 }
-

@@ -106,6 +106,7 @@ const updateCustomer = async (req, res) => {
     const { id } = req.params;
 
     if(req.body.lead_source != null && (typeof req.body.lead_source !== 'string' || req.body.lead_source.length>150))return res.status(400).json({success:false,message:'Lead source must be text up to 150 characters.'});
+    await require('../services/customerWorkspace').accessibleCustomer(db,id,req.user);
     await customerModel.updateCustomer(id, req.body, db);
     return res.json({
       success: true,
@@ -115,7 +116,7 @@ const updateCustomer = async (req, res) => {
     console.error("updateCustomer error:", error);
     return res.status(error.status || 500).json({
       success: false,
-      message: "Failed to update customer.",
+      message: error.status ? error.message : "Failed to update customer.",
       error: error.message,
     });
   }

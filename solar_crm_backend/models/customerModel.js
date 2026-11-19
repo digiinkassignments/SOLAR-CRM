@@ -486,7 +486,8 @@ const getCustomerById = async (id, db = defaultDb) => {
 // Update Customer Profile
 const updateCustomer = async (id, data, db = defaultDb) => {
   await ensureCustomerTables(db);
-  const [result] = await db.query(
+  return require('../services/customerOpening').update(db,id,data,async connection=>{
+  const [result] = await connection.query(
     `UPDATE customers SET
       customer_name = ?,
       mobile_number = ?,
@@ -529,6 +530,7 @@ const updateCustomer = async (id, data, db = defaultDb) => {
     ]
   );
   return result;
+  });
 };
 
 // Delete Customer (Super Admin only)

@@ -37,5 +37,22 @@ async function create(db,data,userId,insert){
  await c.commit();return customer;
  }catch(e){await c.rollback();throw e;}finally{c.release();}
 }
-async function records(db,ids){await ensure(db);if(!ids.length)return [];const [rows]=await db.query('SELECT customer_id,plant_size_kw,invoice_amount,amount_paid,invoice_reference,payment_date,payment_mode,payment_reference,created_at FROM customer_opening_records WHERE customer_id IN (?)',[ids]);return rows;}
-module.exports={ensure,validate,create,records};
+async function records(db,ids){await ensure(db);if(!ids.length)return [];const [rows]=await db.query("SELECT customer_id,plant_size_kw,invoice_amount,amount_paid,invoice_reference,DATE_FORMAT(payment_date,'%Y-%m-%d') AS payment_date,payment_mode,payment_reference,created_at FROM customer_opening_records WHERE customer_id IN (?)",[ids]);return rows;}
+const editFields=['plant_size_kw','invoice_amount','payment_amount','invoice_reference','payment_date','payment_mode','payment_reference'];
+async function update(db,id,data,save){
+ if(!editFields.some(k=>Object.hasOwn(data,k)))return save(db);
+ await ensure(db);const c=await db.getConnection();
+ try{await c.beginTransaction();
+ const [[customer]]=await c.query('SELECT id FROM customers WHERE id=? FOR UPDATE',[id]);
+ if(!customer)throw Object.assign(new Error('Customer not found.'),{status:404});
+ const [[old]]=await c.query("SELECT *,DATE_FORMAT(payment_date,'%Y-%m-%d') AS payment_date FROM customer_opening_records WHERE customer_id=? FOR UPDATE",[id]);
+ const merged={...old,payment_amount:old?.amount_paid??0,...Object.fromEntries(editFields.filter(k=>Object.hasOwn(data,k)).map(k=>[k,data[k]])),request_key:'customer-edit-validation'};
+ const values=validate(merged);
+ const result=await save(c);
+ await c.query(`INSERT INTO customer_opening_records(customer_id,request_key,payload_hash,invoice_amount,amount_paid,invoice_reference,payment_date,payment_mode,payment_reference,plant_size_kw)
+ VALUES (?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE invoice_amount=VALUES(invoice_amount),amount_paid=VALUES(amount_paid),invoice_reference=VALUES(invoice_reference),payment_date=VALUES(payment_date),payment_mode=VALUES(payment_mode),payment_reference=VALUES(payment_reference),plant_size_kw=VALUES(plant_size_kw)`,
+ [id,old?.request_key||crypto.randomUUID(),old?.payload_hash||crypto.createHash('sha256').update(JSON.stringify(merged)).digest('hex'),values.amount,values.paid,merged.invoice_reference||null,values.paid?merged.payment_date:null,values.paid?merged.payment_mode:null,values.paid?merged.payment_reference||null:null,merged.plant_size_kw||null]);
+ await c.commit();return result;
+ }catch(e){await c.rollback();throw e;}finally{c.release();}
+}
+module.exports={ensure,validate,create,records,update};
