@@ -90,7 +90,6 @@ import {
   History as HistoryIcon,
   Send as SendIcon,
   AutoAwesome as AutoAwesomeIcon,
-  Engineering as EngineeringIcon,
 } from "@mui/icons-material";
 
 import { State, City } from "country-state-city";
@@ -116,7 +115,6 @@ import { useAuth } from "../../context/AuthContext";
 import WhatsAppDrawer from "../../components/WhatsAppDrawer";
 import AICopilotModal from "../../components/AICopilotModal";
 import ScheduleSurveyModal from "../../components/ScheduleSurveyModal";
-import ApproveSurveyModal from "../../components/ApproveSurveyModal";
 import { getSurveyByLead } from "../../services/surveyService";
 import {
   getLeadSources,
@@ -708,15 +706,6 @@ export default function Leads() {
 
   const [scheduleSurveyOpen, setScheduleSurveyOpen] = useState(false);
   const [surveyLead, setSurveyLead] = useState(null);
-  const [approveSurveyModalOpen, setApproveSurveyModalOpen] = useState(false);
-  const [approveSurveyLead, setApproveSurveyLead] = useState(null);
-
-  const handleOpenApproveSurveyModal = useCallback((lead) => {
-    setApproveSurveyLead(lead);
-    setApproveSurveyModalOpen(true);
-    setAnchorEl(null);
-  }, []);
-
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(12);
 
@@ -1915,30 +1904,7 @@ export default function Leads() {
                           Lead Status:
                         </Typography>
                         <StatusChip status={row.status} />
-                        {row.status === "Site Survey Done" && !isSales && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="success"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenApproveSurveyModal(row);
-                            }}
-                            sx={{
-                              fontSize: "0.68rem",
-                              py: 0.2,
-                              px: 0.8,
-                              height: 22,
-                              minHeight: 22,
-                              textTransform: "none",
-                              fontWeight: 800,
-                              backgroundColor: "#16A34A",
-                              "&:hover": { backgroundColor: "#15803D" },
-                            }}
-                          >
-                            ✓ Approve &amp; Create Project
-                          </Button>
-                        )}
+
                       </Box>
 
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
@@ -2560,18 +2526,7 @@ export default function Leads() {
             <SiteVisitIcon sx={{ fontSize: 16, mr: 1.2, color: "#D97706" }} /> Schedule Site Survey
           </MenuItem>
         )}
-        {!isSales && (
-          <MenuItem
-            onClick={() => {
-              const target = activeLead;
-              handleMenuClose();
-              handleOpenApproveSurveyModal(target);
-            }}
-            sx={{ fontSize: "0.8rem", py: 0.9, fontWeight: 700, color: "#16A34A" }}
-          >
-            <EngineeringIcon sx={{ fontSize: 16, mr: 1.2, color: "#16A34A" }} /> Approve Survey & Create Project
-          </MenuItem>
-        )}
+
         <MenuItem
           onClick={() => {
             const target = activeLead;
@@ -2890,29 +2845,7 @@ export default function Leads() {
                   Generate Quotation
                 </Button>
 
-                {viewLead.status === "Site Survey Done" && !isSales && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    startIcon={<EngineeringIcon sx={{ fontSize: 16 }} />}
-                    onClick={() => {
-                      setViewModalOpen(false);
-                      handleOpenApproveSurveyModal(viewLead);
-                    }}
-                    sx={{
-                      borderRadius: "6px",
-                      bgcolor: "#16A34A",
-                      color: "#FFFFFF",
-                      fontSize: "0.75rem",
-                      fontWeight: 700,
-                      textTransform: "none",
-                      height: 32,
-                      "&:hover": { bgcolor: "#15803D" },
-                    }}
-                  >
-                    Approve Survey & Create Project
-                  </Button>
-                )}
+
               </>
             )}
           </Stack>
@@ -3595,20 +3528,6 @@ export default function Leads() {
       {/* SURVEY & WHATSAPP MODALS */}
       {surveyLead && (
         <ScheduleSurveyModal open={scheduleSurveyOpen} onClose={() => setScheduleSurveyOpen(false)} lead={surveyLead} onSurveyScheduled={fetchLeadsList} />
-      )}
-      {approveSurveyLead && (
-        <ApproveSurveyModal
-          open={approveSurveyModalOpen}
-          onClose={() => {
-            setApproveSurveyModalOpen(false);
-            setApproveSurveyLead(null);
-          }}
-          lead={approveSurveyLead}
-          onApproved={(proj) => {
-            showSnackbar(`Survey approved! Project ${proj.project_number} created and assigned to Site Engineer.`, "success");
-            fetchLeadsList();
-          }}
-        />
       )}
       {whatsappLead && (
         <WhatsAppDrawer open={whatsappDrawerOpen} onClose={() => setWhatsappDrawerOpen(false)} lead={whatsappLead} />
