@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import '../widgets/logout_dialog.dart';
 import '../settings/settings_view.dart';
+import '../widgets/navbar_location_pill.dart';
 
 class ManagerShell extends StatefulWidget {
   const ManagerShell({super.key});
@@ -95,6 +96,8 @@ class _ManagerShellState extends State<ManagerShell> {
           ),
         ),
         actions: [
+          const NavbarLocationPill(),
+          const SizedBox(width: 4),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: InkWell(

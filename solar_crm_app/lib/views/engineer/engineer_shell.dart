@@ -7,6 +7,7 @@ import '../auth/login_screen.dart';
 import '../widgets/logout_dialog.dart';
 import '../settings/settings_view.dart';
 import '../projects/projects_list_view.dart';
+import '../widgets/navbar_location_pill.dart';
 
 class EngineerShell extends StatefulWidget {
   const EngineerShell({super.key});
@@ -91,6 +92,8 @@ class _EngineerShellState extends State<EngineerShell> {
           ),
         ),
         actions: [
+          const NavbarLocationPill(),
+          const SizedBox(width: 4),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: InkWell(

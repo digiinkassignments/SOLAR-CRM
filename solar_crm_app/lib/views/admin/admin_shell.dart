@@ -11,6 +11,7 @@ import 'customers/customers_list_view.dart';
 import 'leads/leads_list_view.dart';
 import '../settings/settings_view.dart';
 import '../projects/projects_list_view.dart';
+import '../widgets/navbar_location_pill.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -96,6 +97,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
         ),
         actions: [
+          const NavbarLocationPill(),
+          const SizedBox(width: 4),
           // Header Profile Avatar (Opens Settings)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
