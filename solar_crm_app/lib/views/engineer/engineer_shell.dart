@@ -7,11 +7,11 @@ import '../auth/login_screen.dart';
 import '../widgets/logout_dialog.dart';
 import '../settings/settings_view.dart';
 import '../projects/projects_list_view.dart';
-import '../admin/leads/leads_list_view.dart';
 import '../calculator/solar_calculator_view.dart';
 import '../widgets/navbar_location_pill.dart';
 import '../widgets/user_profile_avatar.dart';
 import 'engineer_dashboard_view.dart';
+import 'engineer_surveys_view.dart';
 
 class EngineerShell extends StatefulWidget {
   const EngineerShell({super.key});
@@ -35,7 +35,7 @@ class _EngineerShellState extends State<EngineerShell> {
         onNavigateTab: (index) => setState(() => _currentIndex = index),
       ),
       const ProjectsListView(),
-      const LeadsListView(),
+      const EngineerSurveysView(),
       const SolarCalculatorView(),
       const SettingsView(),
     ];

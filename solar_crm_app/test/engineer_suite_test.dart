@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:solar_crm_app/models/engineer_dashboard_model.dart';
+import 'package:solar_crm_app/models/survey_model.dart';
 import 'package:solar_crm_app/providers/dashboard_provider.dart';
+import 'package:solar_crm_app/providers/survey_provider.dart';
 import 'package:solar_crm_app/core/network/api_client.dart';
 
 void main() {
@@ -81,6 +83,66 @@ void main() {
       expect(model.recentSurveys.first.status, equals('completed'));
     });
 
+    test('SurveyModel deserializes full feasibility survey data correctly', () {
+      final json = {
+        'id': 501,
+        'lead_id': 77,
+        'lead_code': 'LEAD-2026-501',
+        'customer_name': 'Rajesh Singhal',
+        'mobile_number': '9829123456',
+        'address': 'C-10, Vaishali Nagar',
+        'city': 'Jaipur',
+        'state': 'Rajasthan',
+        'required_kw': '10.0',
+        'engineer_name': 'Dev Engineer',
+        'assigned_engineer_id': 4,
+        'scheduled_date': '2026-11-20',
+        'scheduled_time': '11:00 AM',
+        'status': 'completed',
+        'feasibility_verdict': 'Feasible',
+        'roof_type': 'RCC',
+        'roof_area_sqft': 1200,
+        'shadow_conditions': 'Shadow-free',
+        'electrical_phase': '3 Phase',
+        'sanctioned_load_kw': 15.0,
+        'proposed_capacity_kw': 10.0,
+        'consumer_number': 'JVVNL-998822',
+        'roof_orientation': 'South',
+        'feasibility_notes': 'Clear rooftop, sturdy RCC structure ready for solar mounting.',
+        'site_latitude': 26.9124,
+        'site_longitude': 75.7873,
+        'photos': ['https://example.com/roof1.jpg'],
+        'project_id': 12,
+        'project_number': 'PRJ-2026-012',
+        'project_stage': 'Site Survey Done',
+      };
+
+      final survey = SurveyModel.fromJson(json);
+
+      expect(survey.id, equals(501));
+      expect(survey.customerName, equals('Rajesh Singhal'));
+      expect(survey.isFeasible, isTrue);
+      expect(survey.isCompleted, isTrue);
+      expect(survey.hasGps, isTrue);
+      expect(survey.mapsUrl, contains('26.9124,75.7873'));
+      expect(survey.sanctionedLoadKw, equals(15.0));
+      expect(survey.consumerNumber, equals('JVVNL-998822'));
+      expect(survey.photos.length, equals(1));
+      expect(survey.projectNumber, equals('PRJ-2026-012'));
+    });
+
+    test('SurveyProvider reset cleans state correctly', () {
+      final client = ApiClient();
+      final provider = SurveyProvider(apiClient: client);
+
+      provider.reset();
+      expect(provider.surveys, isEmpty);
+      expect(provider.scheduledSurveys, isEmpty);
+      expect(provider.completedSurveys, isEmpty);
+      expect(provider.isLoading, isFalse);
+      expect(provider.errorMessage, isNull);
+    });
+
     test('DashboardProvider handles engineer stats reset cleanly', () {
       final client = ApiClient();
       final provider = DashboardProvider(apiClient: client);
@@ -95,3 +157,4 @@ void main() {
     });
   });
 }
+

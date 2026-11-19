@@ -14,6 +14,7 @@ import 'providers/stock_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/financing_provider.dart';
 import 'providers/project_provider.dart';
+import 'providers/survey_provider.dart';
 import 'views/auth/login_screen.dart';
 import 'views/splash/splash_screen.dart';
 
@@ -79,6 +80,9 @@ void main() async {
         ),
         ChangeNotifierProvider<ProjectProvider>(
           create: (_) => ProjectProvider(apiClient: apiClient),
+        ),
+        ChangeNotifierProvider<SurveyProvider>(
+          create: (_) => SurveyProvider(apiClient: apiClient),
         ),
       ],
       child: const SolarCrmApp(),

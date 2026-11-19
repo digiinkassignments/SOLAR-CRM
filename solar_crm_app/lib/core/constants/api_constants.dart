@@ -54,6 +54,7 @@ class ApiConstants {
   static const String managerDashboard = "/dashboard/manager";
   static const String salesDashboard = "/dashboard/sales";
   static const String engineerDashboard = "/dashboard/engineer";
+  static const String portalDashboard = "/portals/dashboard";
 
   // Users & Roles
   static const String users = "/users";

@@ -11,6 +11,8 @@ import '../sales/sales_shell.dart';
 import '../engineer/engineer_shell.dart';
 import '../manager/manager_shell.dart';
 import '../admin/admin_shell.dart';
+import '../finance/finance_shell.dart';
+import '../applications/application_manager_shell.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -92,6 +94,10 @@ class _SplashScreenState extends State<SplashScreen> {
       destination = const SalesShell();
     } else if (user.isEngineer) {
       destination = const EngineerShell();
+    } else if (user.isFinance) {
+      destination = const FinanceShell();
+    } else if (user.isApplicationManager) {
+      destination = const ApplicationManagerShell();
     } else {
       destination = const AccessDeniedScreen();
     }
