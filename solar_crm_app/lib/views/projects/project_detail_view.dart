@@ -5980,46 +5980,85 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     required Color textSecondary,
   }) {
     final effectiveColor = iconColor ?? topColor ?? textPrimary;
+    final accentBarColor = topColor ?? iconColor;
+
     return Container(
-      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border(
-          top: BorderSide(color: topColor ?? borderColor, width: topColor != null ? 3.0 : 1.0),
-          left: BorderSide(color: borderColor),
-          right: BorderSide(color: borderColor),
-          bottom: BorderSide(color: borderColor),
-        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 14, color: effectiveColor),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textPrimary),
-                  overflow: TextOverflow.ellipsis,
-                ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (accentBarColor != null)
+              Container(
+                height: 4,
+                width: double.infinity,
+                color: accentBarColor,
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(years, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textPrimary)),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: TextStyle(fontSize: 9, color: textSecondary, height: 1.25),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 6),
-          Text("Valid Until: $validUntil", style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: textSecondary)),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(icon, size: 15, color: effectiveColor),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: textPrimary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    years,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      color: textSecondary,
+                      height: 1.25,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Divider(color: borderColor, height: 1),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Valid Until: $validUntil",
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: textSecondary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -6488,10 +6527,10 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
           // 4. 4-TIER INDEPENDENT COMPONENT WARRANTY CARDS
           Text(
             "INDEPENDENT COMPONENT WARRANTIES (START: ${formatCleanDate(warranty?.warrantyStartDate).toUpperCase()})",
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF0F172A),
+              color: textSecondary,
               letterSpacing: 0.5,
             ),
           ),
