@@ -230,6 +230,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
                           // Tab 2: Pre-Install Inspection
                           _buildStagePlaceholderTab(
+                            project: project,
                             title: "Pre-Install Site Inspection",
                             description: "Drone & roof survey, shadow analysis, structure load-bearing and BOM checklist.",
                             icon: Icons.checklist_rounded,
@@ -244,6 +245,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
                           // Tab 3: Installation Progress
                           _buildStagePlaceholderTab(
+                            project: project,
                             title: "Installation & Execution Progress",
                             description: "Civil structure erection, solar module clamping, inverter wiring & grounding earthing.",
                             icon: Icons.construction_rounded,
@@ -258,6 +260,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
                           // Tab 4: Commissioning
                           _buildStagePlaceholderTab(
+                            project: project,
                             title: "DISCOM Net-Meter & Commissioning",
                             description: "Bi-directional smart meter sync, grid interconnection approvals & energization certs.",
                             icon: Icons.electric_bolt_rounded,
@@ -272,6 +275,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
                           // Tab 5: Final Inspection
                           _buildStagePlaceholderTab(
+                            project: project,
                             title: "Final QC & Technical Sign-off",
                             description: "Safety audit, IV curve testing, inverter generation validation and safety clearances.",
                             icon: Icons.fact_check_outlined,
@@ -286,6 +290,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
                           // Tab 6: Customer Handover
                           _buildStagePlaceholderTab(
+                            project: project,
                             title: "Customer Handover & Dossier",
                             description: "Handover pack, warranty certificates, OEM serial tags and customer sign-off OTP.",
                             icon: Icons.handshake_outlined,
@@ -300,6 +305,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
                           // Tab 7: Warranty & AMC
                           _buildStagePlaceholderTab(
+                            project: project,
                             title: "Warranty & AMC Maintenance",
                             description: "25-year solar generation performance guarantee, inverter warranty and routine AMC visits.",
                             icon: Icons.verified_outlined,
@@ -1078,6 +1084,152 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ==========================================
+  // TOP METRICS BANNER (Shared across tabs)
+  // ==========================================
+  Widget _buildTopMetricsBanner(
+    ProjectModel project,
+    bool isDark,
+    Color cardBg,
+    Color surfaceBg,
+    Color borderColor,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    final progressClamped = project.progressPercent.clamp(0.0, 1.0);
+    final lastUpdateStr = project.stageUpdatedAt != null
+        ? DateFormat('dd MMM yyyy').format(project.stageUpdatedAt!)
+        : (project.createdAt != null
+            ? DateFormat('dd MMM yyyy').format(project.createdAt!)
+            : '—');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Current milestone",
+                      style: TextStyle(fontSize: 10, color: textSecondary),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      project.stage,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 5),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: progressClamped,
+                        minHeight: 4,
+                        backgroundColor: surfaceBg,
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          AppColors.brandPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "System size",
+                      style: TextStyle(fontSize: 10, color: textSecondary),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "${project.systemCapacityKw.toStringAsFixed(2)} kW",
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Project owner",
+                      style: TextStyle(fontSize: 10, color: textSecondary),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      project.assignedToName?.isNotEmpty == true
+                          ? project.assignedToName!
+                          : "Unassigned",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Last stage update",
+                      style: TextStyle(fontSize: 10, color: textSecondary),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      lastUpdateStr,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
   // TAB 1: STAGE HISTORY (AUDIT TRAIL)
   // ==========================================
   Widget _buildStageHistoryTab(
@@ -1091,99 +1243,198 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   ) {
     final logs = project.stageLogs;
 
+    String formatDateTime(DateTime? dt) {
+      if (dt == null) return "—";
+      final datePart = DateFormat("d MMM yyyy").format(dt);
+      final timePart = DateFormat("h:mm a").format(dt).toLowerCase();
+      return "$datePart, $timePart";
+    }
+
     return RefreshIndicator(
       onRefresh: () async => _loadDetails(),
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         children: [
+          // 1. Top Metrics Banner (Current milestone, System size, Project owner, Last stage update)
+          _buildTopMetricsBanner(
+            project,
+            isDark,
+            cardBg,
+            surfaceBg,
+            borderColor,
+            textPrimary,
+            textSecondary,
+          ),
+
+          // 2. Stage Transition Audit Trail Card
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: cardBg,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: borderColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  "Stage Transition Audit Trail",
-                  style: AppTypography.heading(size: 16, color: textPrimary),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Stage Transition Audit Trail",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: textPrimary,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    if (logs.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Text(
+                          "${logs.length} ${logs.length == 1 ? 'event' : 'events'}",
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF2563EB),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  "Logged milestones and status adjustments with user signatures.",
-                  style: TextStyle(fontSize: 11, color: textSecondary),
-                ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
                 if (logs.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Text(
-                        "No stage transitions recorded yet.",
-                        style: TextStyle(fontSize: 12, color: textSecondary),
-                      ),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF161616) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.history_toggle_off_rounded,
+                          size: 32,
+                          color: textSecondary.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          "No stage changes logged yet.",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   )
                 else
                   ...logs.map((log) {
+                    final itemBg = isDark ? const Color(0xFF161616) : const Color(0xFFF8FAFC);
+                    final formattedDate = formatDateTime(log.createdAt);
+                    final userName = (log.changedByName != null && log.changedByName!.trim().isNotEmpty)
+                        ? log.changedByName!.trim()
+                        : "System";
+
                     return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: surfaceBg,
+                        color: itemBg,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: borderColor),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Top row: Stage Name (blue #2563EB) & Timestamp
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  if (log.fromStage != null && log.fromStage!.isNotEmpty) ...[
-                                    Text(
-                                      log.fromStage!,
-                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textSecondary),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Icon(Icons.arrow_forward_rounded, size: 12, color: AppColors.brandPrimary),
-                                    const SizedBox(width: 4),
-                                  ],
-                                  Text(
-                                    log.toStage,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.brandPrimary,
-                                    ),
+                              Expanded(
+                                child: RichText(
+                                  text: TextSpan(
+                                    children: [
+                                      if (log.fromStage != null && log.fromStage!.trim().isNotEmpty) ...[
+                                        TextSpan(
+                                          text: "${log.fromStage!.trim()} → ",
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: textPrimary,
+                                          ),
+                                        ),
+                                      ],
+                                      TextSpan(
+                                        text: log.toStage.isNotEmpty ? log.toStage : project.stage,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF2563EB),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              if (log.createdAt != null)
-                                Text(
-                                  DateFormat('dd MMM yyyy, hh:mm a').format(log.createdAt!),
-                                  style: TextStyle(fontSize: 10, color: textSecondary),
                                 ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                formattedDate,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: textSecondary,
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            "Changed by: ${log.changedByName ?? "System"}",
-                            style: TextStyle(fontSize: 11, color: textSecondary),
+
+                          // Changed by: Name
+                          RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: "Changed by: ",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: textSecondary,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: userName,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          if (log.notes != null && log.notes!.isNotEmpty) ...[
-                            const SizedBox(height: 4),
+
+                          // Notes
+                          if (log.notes != null && log.notes!.trim().isNotEmpty) ...[
+                            const SizedBox(height: 6),
                             Text(
-                              "\"${log.notes}\"",
+                              "“${log.notes!.trim()}”",
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontStyle: FontStyle.italic,
                                 color: textPrimary,
+                                height: 1.35,
                               ),
                             ),
                           ],
@@ -1191,6 +1442,35 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                       ),
                     );
                   }),
+
+                const SizedBox(height: 6),
+                // Action to update stage directly
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      side: BorderSide(color: borderColor),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    icon: const Icon(
+                      Icons.swap_horiz_rounded,
+                      size: 16,
+                      color: AppColors.brandPrimary,
+                    ),
+                    label: Text(
+                      "Update Project Stage",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: textPrimary,
+                      ),
+                    ),
+                    onPressed: () => ChangeStageSheet.show(context, project),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1203,6 +1483,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   // TABS 2-7: MODULE PLACEHOLDER WORKSPACES
   // ==========================================
   Widget _buildStagePlaceholderTab({
+    required ProjectModel project,
     required String title,
     required String description,
     required IconData icon,
@@ -1214,10 +1495,19 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     required Color textPrimary,
     required Color textSecondary,
   }) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Container(
+    return ListView(
+      padding: const EdgeInsets.all(12),
+      children: [
+        _buildTopMetricsBanner(
+          project,
+          isDark,
+          cardBg,
+          surfaceBg,
+          borderColor,
+          textPrimary,
+          textSecondary,
+        ),
+        Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: cardBg,
@@ -1262,7 +1552,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 

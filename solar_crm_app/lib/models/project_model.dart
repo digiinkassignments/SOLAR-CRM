@@ -231,8 +231,8 @@ class ProjectModel {
       installationEndDate: parseDate(json['installation_end_date']),
       completionDate: parseDate(json['completion_date']),
       notes: json['notes']?.toString(),
-      stageLogs: (json['stage_logs'] is List)
-          ? (json['stage_logs'] as List)
+      stageLogs: ((json['stage_logs'] ?? json['stageLogs']) is List)
+          ? ((json['stage_logs'] ?? json['stageLogs']) as List)
               .map((l) => ProjectStageLogModel.fromJson(l as Map<String, dynamic>))
               .toList()
           : [],
@@ -267,7 +267,8 @@ class ProjectStageLogModel {
     DateTime? parseDate(dynamic d) {
       if (d == null) return null;
       try {
-        return DateTime.parse(d.toString());
+        final str = d.toString().trim();
+        return DateTime.tryParse(str) ?? DateTime.tryParse(str.replaceAll(' ', 'T'));
       } catch (_) {
         return null;
       }
@@ -280,14 +281,14 @@ class ProjectStageLogModel {
       projectId: json['project_id'] is int
           ? json['project_id'] as int
           : int.tryParse(json['project_id']?.toString() ?? '0') ?? 0,
-      fromStage: json['from_stage']?.toString(),
-      toStage: json['to_stage']?.toString() ?? '',
+      fromStage: (json['from_stage'] ?? json['previous_stage'])?.toString(),
+      toStage: (json['to_stage'] ?? json['new_stage'] ?? json['stage'])?.toString() ?? '',
       changedBy: json['changed_by'] != null
           ? (json['changed_by'] is int
               ? json['changed_by'] as int
               : int.tryParse(json['changed_by']?.toString() ?? '0'))
           : null,
-      changedByName: json['changed_by_name']?.toString(),
+      changedByName: (json['changed_by_name'] ?? json['user_name'] ?? json['name'])?.toString(),
       notes: json['notes']?.toString(),
       createdAt: parseDate(json['created_at']),
     );
