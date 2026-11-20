@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -288,68 +289,101 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
       if (source == ImageSource.camera) {
         setState(() => _isCapturingGeoPhoto = true);
 
-        // 1. Get GPS coordinates for Geo-tagging
-        final position = await GeoCameraHelper.getCurrentPosition();
+        // 1. Acquire fresh, verified location for site geotagging
+        LocationResult locResult = await GeoCameraHelper.getVerifiedLocation();
 
-        // 2. Open camera
+        if (!locResult.isFreshAndAccurate) {
+          final resolvedResult = await _showGpsIssueDialog(locResult);
+          if (resolvedResult == null) {
+            // User cancelled capture
+            return;
+          }
+          locResult = resolvedResult;
+        }
+
+        // 2. Open camera with normalized orientation & balanced resolution
         final photo = await _picker.pickImage(
           source: ImageSource.camera,
+          maxWidth: 1920,
+          maxHeight: 1920,
           imageQuality: 85,
         );
 
+        // Preserve exact camera-return time as capture timestamp
+        final cameraReturnTime = DateTime.now();
+
         if (photo != null) {
           final originalFile = File(photo.path);
+          final isVerified = locResult.isFreshAndAccurate && locResult.position != null;
 
-          // 3. Resolve exact human-readable live address (Swiggy / Google Maps style)
+          // 3. Resolve human-readable address if location is verified
           String resolvedAddress = "";
-          if (position != null) {
-            final geoAddress = await GeoCameraHelper.reverseGeocode(position.latitude, position.longitude);
+          if (isVerified) {
+            final geoAddress = await GeoCameraHelper.reverseGeocode(
+              locResult.position!.latitude,
+              locResult.position!.longitude,
+            );
             if (geoAddress != null && geoAddress.trim().isNotEmpty) {
               resolvedAddress = geoAddress.trim();
             }
           }
 
-          // Fallback only if GPS reverse geocoding is unavailable
-          if (resolvedAddress.isEmpty) {
-            final projParts = [
-              widget.project.customerAddress,
-              widget.project.city,
-              widget.project.state,
-              widget.project.pincode,
-            ].where((s) => s != null && s.toString().trim().isNotEmpty).join(', ');
-            resolvedAddress = projParts.isNotEmpty ? projParts : "Site Location Verified";
-          }
-
-          // 4. Watermark with Geo-tags (Exact Address + Date/Time + Powered by SolOps)
-          final watermarkedFile = await GeoCameraHelper.watermarkGeoPhoto(
+          // 4. Apply watermark with structured error communication
+          final watermarkResult = await GeoCameraHelper.watermarkGeoPhoto(
             imageFile: originalFile,
-            position: position,
+            position: isVerified ? locResult.position : null,
             projectNumber: widget.project.projectNumber,
             systemCapacity: widget.project.systemCapacityKw.toString(),
-            locationAddress: resolvedAddress,
+            locationAddress: resolvedAddress.isNotEmpty ? resolvedAddress : null,
             phase: _selectedPhase,
+            capturedAt: cameraReturnTime,
+            isLocationVerified: isVerified,
           );
 
+          if (!watermarkResult.success && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  "Watermark notice: ${watermarkResult.errorMessage ?? 'Saved unwatermarked photo.'}",
+                ),
+                backgroundColor: AppColors.solarGold,
+              ),
+            );
+          }
+
           final newEntry = _PhotoEntry(
-            file: watermarkedFile,
+            file: watermarkResult.file,
             captionCtrl: TextEditingController(),
             tag: 'During',
-            isGeoTagged: true,
-            gpsInfo: resolvedAddress,
+            isGeoTagged: watermarkResult.isGeoTagged,
+            gpsInfo: isVerified ? resolvedAddress : "Unverified Location (No GPS)",
+            latitude: isVerified ? locResult.position!.latitude : null,
+            longitude: isVerified ? locResult.position!.longitude : null,
+            accuracyMeters: isVerified ? locResult.position!.accuracy : null,
+            capturedAt: cameraReturnTime,
+            isVerified: isVerified,
+            verificationNote: isVerified
+                ? "Verified GPS lock (±${locResult.position!.accuracy.toInt()}m)"
+                : (locResult.errorMessage ?? "Captured without verified GPS"),
+            isGallery: false,
           );
 
           setState(() {
             _photoEntries.add(newEntry);
           });
 
-          // 5. Automatically open photo preview for instant verification
+          // 5. Open photo preview for instant verification
           if (mounted) {
             _showPhotoPreviewDialog(context, newEntry, _photoEntries.length - 1);
           }
         }
       } else {
-        // Gallery selection
-        final photos = await _picker.pickMultiImage(imageQuality: 85);
+        // Gallery selection: NEVER stamp current GPS or current time
+        final photos = await _picker.pickMultiImage(
+          maxWidth: 1920,
+          maxHeight: 1920,
+          imageQuality: 85,
+        );
         if (photos.isNotEmpty) {
           setState(() {
             final remaining = 10 - _photoEntries.length;
@@ -359,6 +393,10 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                 captionCtrl: TextEditingController(),
                 tag: 'During',
                 isGeoTagged: false,
+                isVerified: false,
+                gpsInfo: "Gallery Upload (Unverified Site & Time)",
+                verificationNote: "Imported from gallery. Original location & capture time unverified.",
+                isGallery: true,
               );
             }).toList();
             _photoEntries.addAll(toAdd);
@@ -370,6 +408,195 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
     } finally {
       if (mounted) setState(() => _isCapturingGeoPhoto = false);
     }
+  }
+
+  Future<LocationResult?> _showGpsIssueDialog(LocationResult locResult) async {
+    return showDialog<LocationResult?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        final isDark = Theme.of(dialogCtx).brightness == Brightness.dark;
+        final cardBg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+        final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+        final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+
+        String title = "GPS Location Notice";
+        String description;
+        bool canOpenLocationSettings = false;
+        bool canOpenAppSettings = false;
+
+        switch (locResult.status) {
+          case LocationStatus.serviceDisabled:
+            title = "GPS Is Switched Off";
+            description =
+                "Location services (GPS) are disabled on your device. Please turn on GPS for verified site geotagging.";
+            canOpenLocationSettings = true;
+            break;
+          case LocationStatus.permissionDenied:
+            title = "Location Permission Denied";
+            description =
+                "The app needs location permission to stamp verified GPS coordinates on site installation photos.";
+            break;
+          case LocationStatus.permissionDeniedForever:
+            title = "Location Permission Denied";
+            description =
+                "Location permission is permanently denied in settings. Please enable it in App Settings to verify site photos.";
+            canOpenAppSettings = true;
+            break;
+          case LocationStatus.timeout:
+            title = "GPS Satellite Timeout";
+            description =
+                "Could not get an accurate satellite lock within 8 seconds. Satellite signal may be obstructed indoors.";
+            break;
+          case LocationStatus.inaccurate:
+            title = "Weak GPS Accuracy";
+            description =
+                "Current GPS accuracy is weak (±${locResult.position?.accuracy.toInt() ?? '>100'}m). Verified site geotagging requires accuracy within ±100m.";
+            break;
+          case LocationStatus.stale:
+            title = "Stale GPS Coordinates";
+            description =
+                "The available GPS position is ${locResult.ageSeconds ?? 90}+ seconds old. A fresh site lock is required.";
+            break;
+          default:
+            title = "GPS Unavailable";
+            description = locResult.errorMessage ?? "Unable to acquire accurate GPS coordinates.";
+            break;
+        }
+
+        bool isRetrying = false;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+
+            return AlertDialog(
+              backgroundColor: cardBg,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.solarGold.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.location_off_rounded, color: AppColors.solarGold, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: textPrimary),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    description,
+                    style: TextStyle(fontSize: 13, color: textSecondary, height: 1.4),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF262626) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.skyBlue),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            "You can retry GPS lock or choose 'Take Normal Photo' (will be marked as Unverified Location).",
+                            style: TextStyle(fontSize: 11, color: textSecondary, height: 1.3),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(null),
+                  child: Text("Cancel", style: TextStyle(color: textSecondary, fontWeight: FontWeight.w600)),
+                ),
+                if (canOpenLocationSettings)
+                  TextButton(
+                    onPressed: () async {
+                      await Geolocator.openLocationSettings();
+                    },
+                    child: const Text("Open Location Settings",
+                        style: TextStyle(color: AppColors.skyBlue, fontWeight: FontWeight.w700)),
+                  ),
+                if (canOpenAppSettings)
+                  TextButton(
+                    onPressed: () async {
+                      await Geolocator.openAppSettings();
+                    },
+                    child: const Text("Open App Settings",
+                        style: TextStyle(color: AppColors.skyBlue, fontWeight: FontWeight.w700)),
+                  ),
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(dialogCtx).pop(
+                      const LocationResult(
+                        status: LocationStatus.error,
+                        isFreshAndAccurate: false,
+                        errorMessage: "Captured as standard photo without verified GPS",
+                      ),
+                    );
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: textPrimary,
+                    side: BorderSide(color: textSecondary.withValues(alpha: 0.3)),
+                  ),
+                  child: const Text("Take Normal Photo", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                ),
+                ElevatedButton.icon(
+                  onPressed: isRetrying
+                      ? null
+                      : () async {
+                          setDialogState(() => isRetrying = true);
+                          final retryResult = await GeoCameraHelper.getVerifiedLocation();
+                          if (dialogCtx.mounted) {
+                            if (retryResult.isFreshAndAccurate) {
+                              Navigator.of(dialogCtx).pop(retryResult);
+                            } else {
+                              setDialogState(() {
+                                isRetrying = false;
+                                locResult = retryResult;
+                              });
+                            }
+                          }
+                        },
+                  icon: isRetrying
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.refresh_rounded, size: 16),
+                  label: Text(isRetrying ? "Checking..." : "Retry GPS",
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.emeraldGreen,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _saveLog() async {
@@ -1381,35 +1608,52 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                                               fit: BoxFit.cover,
                                             ),
                                           ),
-                                          if (entry.isGeoTagged)
-                                            Positioned(
-                                              bottom: 2,
-                                              left: 2,
-                                              right: 2,
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.black.withValues(alpha: 0.75),
-                                                  borderRadius: BorderRadius.circular(4),
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: const [
-                                                    Icon(Icons.location_on, size: 9, color: Color(0xFFFACC15)),
-                                                    SizedBox(width: 2),
-                                                    Flexible(
-                                                      child: Text(
-                                                        "Geo Tag",
-                                                        style: TextStyle(fontSize: 8.5, color: Colors.white, fontWeight: FontWeight.bold),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
+                                          Positioned(
+                                            bottom: 2,
+                                            left: 2,
+                                            right: 2,
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: entry.isVerified
+                                                    ? const Color(0xFF065F46)
+                                                    : (entry.isGallery
+                                                        ? const Color(0xFF334155)
+                                                        : const Color(0xFF78350F)),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    entry.isVerified
+                                                        ? Icons.verified_rounded
+                                                        : (entry.isGallery
+                                                            ? Icons.photo_library_outlined
+                                                            : Icons.location_off_rounded),
+                                                    size: 9,
+                                                    color: Colors.white,
+                                                  ),
+                                                  const SizedBox(width: 2),
+                                                  Flexible(
+                                                    child: Text(
+                                                      entry.isVerified
+                                                          ? "Verified"
+                                                          : (entry.isGallery ? "Gallery" : "Unverified"),
+                                                      style: const TextStyle(
+                                                        fontSize: 8.5,
+                                                        color: Colors.white,
+                                                        fontWeight: FontWeight.bold,
                                                       ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
                                                     ),
-                                                  ],
-                                                ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -1878,20 +2122,30 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: entry.isGeoTagged ? const Color(0xFF065F46) : const Color(0xFF1E3A8A),
+                            color: entry.isVerified
+                                ? const Color(0xFF065F46)
+                                : (entry.isGallery ? const Color(0xFF334155) : const Color(0xFF78350F)),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                entry.isGeoTagged ? Icons.location_on : Icons.photo,
+                                entry.isVerified
+                                    ? Icons.verified_rounded
+                                    : (entry.isGallery ? Icons.photo_library_outlined : Icons.location_off_rounded),
                                 size: 13,
-                                color: entry.isGeoTagged ? const Color(0xFF34D399) : const Color(0xFF93C5FD),
+                                color: entry.isVerified
+                                    ? const Color(0xFF34D399)
+                                    : (entry.isGallery ? const Color(0xFF94A3B8) : const Color(0xFFFCD34D)),
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                entry.isGeoTagged ? "Geo-Tagged Camera Photo" : "Uploaded Photo",
+                                entry.isVerified
+                                    ? "Verified Geotagged Photo"
+                                    : (entry.isGallery
+                                        ? "Gallery Photo (Unverified Location & Time)"
+                                        : "Standard Photo (Unverified Location)"),
                                 style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -1912,51 +2166,115 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                     ),
                   ),
 
-                  // Address chip (clean, no emojis)
-                  if (entry.isGeoTagged && entry.gpsInfo != null && entry.gpsInfo!.isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(left: 14, right: 14, bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFF334155)),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.only(top: 2),
-                            child: Icon(Icons.location_on, size: 14, color: Color(0xFFFACC15)),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              entry.gpsInfo!,
-                              style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600, height: 1.25),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                  // Image preview with zoom/pan
+                  // Image preview with zoom/pan & orientation-safe contain
                   ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.36,
+                      maxHeight: MediaQuery.of(context).size.height * 0.44,
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: InteractiveViewer(
-                        minScale: 0.5,
+                        minScale: 1.0,
                         maxScale: 5.0,
                         child: Image.file(
                           entry.file,
                           fit: BoxFit.contain,
                         ),
                       ),
+                    ),
+                  ),
+
+                  // Metadata inspection card
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF334155)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Location row
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              entry.isVerified ? Icons.location_on : Icons.location_off_rounded,
+                              size: 14,
+                              color: entry.isVerified ? const Color(0xFFFACC15) : const Color(0xFF94A3B8),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    entry.gpsInfo ??
+                                        (entry.isVerified ? "Verified Site Location" : "Location Unverified"),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.25,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (entry.latitude != null && entry.longitude != null) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      "Lat: ${entry.latitude!.toStringAsFixed(6)}°, Long: ${entry.longitude!.toStringAsFixed(6)}°${entry.accuracyMeters != null ? ' (±${entry.accuracyMeters!.toInt()}m)' : ''}",
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFFFACC15),
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        const Divider(color: Color(0xFF334155), height: 1),
+                        const SizedBox(height: 6),
+
+                        // Timestamp & Verification Note
+                        Row(
+                          children: [
+                            const Icon(Icons.access_time_rounded, size: 13, color: Color(0xFF94A3B8)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                entry.capturedAt != null
+                                    ? "Captured: ${GeoCameraHelper.formatCaptureTime(entry.capturedAt!)}"
+                                    : (entry.isGallery
+                                        ? "Imported from device gallery"
+                                        : "Timestamp not recorded"),
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  color: Color(0xFFE2E8F0),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (entry.verificationNote != null && entry.verificationNote!.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            "Status: ${entry.verificationNote!}",
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontStyle: FontStyle.italic,
+                              color: entry.isVerified ? const Color(0xFF34D399) : const Color(0xFFFCD34D),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
 
@@ -2090,6 +2408,13 @@ class _PhotoEntry {
   String tag;
   final bool isGeoTagged;
   final String? gpsInfo;
+  final double? latitude;
+  final double? longitude;
+  final double? accuracyMeters;
+  final DateTime? capturedAt;
+  final bool isVerified;
+  final String? verificationNote;
+  final bool isGallery;
 
   _PhotoEntry({
     required this.file,
@@ -2097,6 +2422,13 @@ class _PhotoEntry {
     this.tag = 'During',
     this.isGeoTagged = false,
     this.gpsInfo,
+    this.latitude,
+    this.longitude,
+    this.accuracyMeters,
+    this.capturedAt,
+    this.isVerified = false,
+    this.verificationNote,
+    this.isGallery = false,
   });
 
   void dispose() {
