@@ -1,8 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:solar_crm_app/core/network/api_client.dart';
+import 'package:solar_crm_app/core/utils/role_permissions.dart';
 import 'package:solar_crm_app/models/portal_dashboard_model.dart';
 import 'package:solar_crm_app/models/user_model.dart';
 import 'package:solar_crm_app/providers/dashboard_provider.dart';
-import 'package:solar_crm_app/core/network/api_client.dart';
 
 void main() {
   group('Dedicated Portals Suite (Finance & Application Manager)', () {
@@ -162,6 +163,23 @@ void main() {
       expect(provider.portalStats, isNull);
       expect(provider.isLoading, isFalse);
       expect(provider.errorMessage, isNull);
+    });
+
+    test('Finance portal user has Customers workspace permissions and KPI access', () {
+      final financeUser = UserModel(
+        id: 10,
+        name: 'Finance Officer',
+        email: 'finance@solops.cloud',
+        roleId: 5,
+        roleName: 'Finance',
+      );
+
+      // Verify Finance role permissions for Customers workspace
+      expect(financeUser.isFinance, isTrue);
+      expect(RolePermissions.canViewCustomers(financeUser), isTrue);
+      expect(RolePermissions.canCreateCustomer(financeUser), isTrue);
+      expect(RolePermissions.canEditCustomer(financeUser), isTrue);
+      expect(RolePermissions.canDeleteCustomer(financeUser), isFalse); // Deleting customers is blocked for Finance
     });
   });
 }

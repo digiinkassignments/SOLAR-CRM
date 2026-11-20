@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../providers/auth_provider.dart';
+import '../admin/customers/customers_list_view.dart';
 import '../auth/login_screen.dart';
 import '../widgets/logout_dialog.dart';
 import '../settings/settings_view.dart';
@@ -35,6 +36,7 @@ class _FinanceShellState extends State<FinanceShell> {
         onNavigateTab: (index) => setState(() => _currentIndex = index),
       ),
       const FinanceView(initialTabIndex: 1), // Invoices & Quotations
+      const CustomersListView(),             // Customer Accounts & 360 Profiles
       const StockListView(),                 // Inventory & Warehouses
       const SolarCalculatorView(),           // Cost & Capacity Estimator
       const SettingsView(),                  // User Settings & Profile
@@ -44,7 +46,7 @@ class _FinanceShellState extends State<FinanceShell> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: InkWell(
-          onTap: () => setState(() => _currentIndex = 4),
+          onTap: () => setState(() => _currentIndex = 5),
           borderRadius: BorderRadius.circular(8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,8 +69,8 @@ class _FinanceShellState extends State<FinanceShell> {
           const SizedBox(width: 4),
           UserProfileAvatar(
             radius: 14,
-            isSelected: _currentIndex == 4,
-            onTap: () => setState(() => _currentIndex = 4),
+            isSelected: _currentIndex == 5,
+            onTap: () => setState(() => _currentIndex = 5),
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: AppColors.errorRed),
@@ -106,6 +108,11 @@ class _FinanceShellState extends State<FinanceShell> {
             icon: Icon(Icons.receipt_long_outlined),
             activeIcon: Icon(Icons.receipt_long_rounded),
             label: "Billing",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people_alt_outlined),
+            activeIcon: Icon(Icons.people_alt_rounded),
+            label: "Customers",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.inventory_2_outlined),

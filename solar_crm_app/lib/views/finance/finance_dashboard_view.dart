@@ -5,6 +5,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/dashboard_provider.dart';
+import '../admin/customers/customers_list_view.dart';
 
 class FinanceDashboardView extends StatefulWidget {
   final Function(int)? onNavigateTab;
@@ -27,6 +28,22 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
   void _loadDashboard({bool isRefresh = false}) {
     final dashboard = Provider.of<DashboardProvider>(context, listen: false);
     dashboard.fetchPortalDashboard(isRefresh: isRefresh);
+  }
+
+  void _navigateToTab(int index) {
+    if (widget.onNavigateTab != null) {
+      widget.onNavigateTab!(index);
+    } else if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text("Customers")),
+            body: const CustomersListView(),
+          ),
+        ),
+      );
+    }
   }
 
   String _formatCurrency(num value) {
@@ -197,6 +214,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                             borderColor: borderColor,
                             textPrimary: textPrimary,
                             textSecondary: textSecondary,
+                            onTap: () => _navigateToTab(1),
                           ),
                           _buildMetricCard(
                             title: "Payments Received",
@@ -208,6 +226,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                             borderColor: borderColor,
                             textPrimary: textPrimary,
                             textSecondary: textSecondary,
+                            onTap: () => _navigateToTab(1),
                           ),
                           _buildMetricCard(
                             title: "Outstanding Balance",
@@ -219,6 +238,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                             borderColor: borderColor,
                             textPrimary: textPrimary,
                             textSecondary: textSecondary,
+                            onTap: () => _navigateToTab(1),
                           ),
                           _buildMetricCard(
                             title: "Stock Valuation",
@@ -230,6 +250,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                             borderColor: borderColor,
                             textPrimary: textPrimary,
                             textSecondary: textSecondary,
+                            onTap: () => _navigateToTab(3),
                           ),
                           _buildMetricCard(
                             title: "Quotations",
@@ -241,6 +262,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                             borderColor: borderColor,
                             textPrimary: textPrimary,
                             textSecondary: textSecondary,
+                            onTap: () => _navigateToTab(1),
                           ),
                           _buildMetricCard(
                             title: "Customers",
@@ -252,6 +274,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                             borderColor: borderColor,
                             textPrimary: textPrimary,
                             textSecondary: textSecondary,
+                            onTap: () => _navigateToTab(2),
                           ),
                         ],
                       ),
@@ -272,7 +295,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                               title: "Invoices",
                               icon: Icons.receipt_long_rounded,
                               color: AppColors.emeraldGreen,
-                              onTap: () => widget.onNavigateTab?.call(1),
+                              onTap: () => _navigateToTab(1),
                               cardBg: cardBg,
                               borderColor: borderColor,
                               textPrimary: textPrimary,
@@ -281,10 +304,26 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: _buildQuickActionButton(
+                              title: "Customers",
+                              icon: Icons.people_alt_rounded,
+                              color: Colors.tealAccent,
+                              onTap: () => _navigateToTab(2),
+                              cardBg: cardBg,
+                              borderColor: borderColor,
+                              textPrimary: textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildQuickActionButton(
                               title: "Stock",
                               icon: Icons.inventory_2_rounded,
                               color: AppColors.solarGold,
-                              onTap: () => widget.onNavigateTab?.call(2),
+                              onTap: () => _navigateToTab(3),
                               cardBg: cardBg,
                               borderColor: borderColor,
                               textPrimary: textPrimary,
@@ -296,7 +335,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                               title: "Calculator",
                               icon: Icons.calculate_rounded,
                               color: AppColors.infoBlue,
-                              onTap: () => widget.onNavigateTab?.call(3),
+                              onTap: () => _navigateToTab(4),
                               cardBg: cardBg,
                               borderColor: borderColor,
                               textPrimary: textPrimary,
@@ -317,7 +356,7 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
                           ),
                           if (stats != null && stats.attention.isNotEmpty)
                             TextButton(
-                              onPressed: () => widget.onNavigateTab?.call(1),
+                              onPressed: () => _navigateToTab(1),
                               style: TextButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 visualDensity: VisualDensity.compact,
@@ -494,8 +533,9 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
     required Color borderColor,
     required Color textPrimary,
     required Color textSecondary,
+    VoidCallback? onTap,
   }) {
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: cardBg,
@@ -541,6 +581,15 @@ class _FinanceDashboardViewState extends State<FinanceDashboardView> {
         ],
       ),
     );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: card,
+      );
+    }
+    return card;
   }
 
   Widget _buildQuickActionButton({

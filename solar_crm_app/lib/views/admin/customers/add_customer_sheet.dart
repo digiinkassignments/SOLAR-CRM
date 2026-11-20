@@ -207,7 +207,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
       teamMembers = userProvider.users
           .where((u) => u.isActive && (u.isSales || u.roleId == 3) && u.managerId == currentUser!.id)
           .toList();
-    } else if (currentUser?.isAdmin == true) {
+    } else if (currentUser?.isAdmin == true || currentUser?.isFinance == true) {
       teamMembers = userProvider.users
           .where((u) => u.isActive && (u.isSales || u.roleId == 3))
           .toList();
@@ -712,7 +712,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                 ),
               ),
 
-              if (currentUser?.isManager == true || currentUser?.isAdmin == true) ...[
+              if (currentUser?.isManager == true || currentUser?.isAdmin == true || currentUser?.isFinance == true) ...[
                 const SizedBox(height: 14),
                 Text(
                   currentUser?.isManager == true ? "ASSIGN SALESPERSON FROM YOUR TEAM *" : "ASSIGN SALESPERSON (OPTIONAL)",
@@ -727,7 +727,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                     prefixIcon: const Icon(Icons.person_pin_rounded, size: 20),
                   ),
                   items: [
-                    if (currentUser?.isAdmin == true)
+                    if (currentUser?.isAdmin == true || currentUser?.isFinance == true)
                       DropdownMenuItem<int?>(
                         value: null,
                         child: Text("Unassigned", style: AppTypography.caption(color: textPrimary)),
