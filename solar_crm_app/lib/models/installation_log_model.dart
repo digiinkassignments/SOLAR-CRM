@@ -42,6 +42,12 @@ class InstallationLogPhotoModel {
   final String photoUrl;
   final String? caption;
   final String? photoTag;
+  final double? latitude;
+  final double? longitude;
+  final double? accuracyMeters;
+  final String? gpsAddress;
+  final String? capturedAt;
+  final bool isGeoTagged;
 
   InstallationLogPhotoModel({
     this.id,
@@ -49,6 +55,12 @@ class InstallationLogPhotoModel {
     required this.photoUrl,
     this.caption,
     this.photoTag,
+    this.latitude,
+    this.longitude,
+    this.accuracyMeters,
+    this.gpsAddress,
+    this.capturedAt,
+    this.isGeoTagged = false,
   });
 
   factory InstallationLogPhotoModel.fromJson(Map<String, dynamic> json) {
@@ -58,6 +70,18 @@ class InstallationLogPhotoModel {
       photoUrl: json['photo_url']?.toString() ?? '',
       caption: json['caption']?.toString(),
       photoTag: json['photo_tag']?.toString(),
+      latitude: json['latitude'] is num
+          ? (json['latitude'] as num).toDouble()
+          : double.tryParse(json['latitude']?.toString() ?? ''),
+      longitude: json['longitude'] is num
+          ? (json['longitude'] as num).toDouble()
+          : double.tryParse(json['longitude']?.toString() ?? ''),
+      accuracyMeters: json['accuracy_meters'] is num
+          ? (json['accuracy_meters'] as num).toDouble()
+          : double.tryParse(json['accuracy_meters']?.toString() ?? ''),
+      gpsAddress: json['gps_address']?.toString(),
+      capturedAt: json['captured_at']?.toString(),
+      isGeoTagged: json['is_geo_tagged'] == 1 || json['is_geo_tagged'] == true,
     );
   }
 
@@ -68,6 +92,12 @@ class InstallationLogPhotoModel {
       'photo_url': photoUrl,
       if (caption != null) 'caption': caption,
       if (photoTag != null) 'photo_tag': photoTag,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (accuracyMeters != null) 'accuracy_meters': accuracyMeters,
+      if (gpsAddress != null) 'gps_address': gpsAddress,
+      if (capturedAt != null) 'captured_at': capturedAt,
+      'is_geo_tagged': isGeoTagged ? 1 : 0,
     };
   }
 }

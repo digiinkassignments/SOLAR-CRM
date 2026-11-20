@@ -444,13 +444,135 @@ class ProjectProvider extends ChangeNotifier {
     }
   }
 
+  // 13a. Dedicated Photo Upload for Installation Log (Standalone & Retry Safe)
+  Future<Map<String, dynamic>> uploadInstallationLogPhotos(
+    dynamic projectId,
+    int logId, {
+    required List<File> photos,
+    List<Map<String, dynamic>>? photoCaptions,
+    bool skipReload = false,
+  }) async {
+    if (photos.isEmpty) {
+      return {
+        'success': true,
+        'message': 'No photos to upload.',
+        'uploadedCount': 0,
+        'failedPhotos': <File>[],
+      };
+    }
+
+    // 1. Client-side validation: Max 10 photos, Max 10MB per photo, allowed types
+    const maxFiles = 10;
+    const maxSizeBytes = 10 * 1024 * 1024; // 10MB
+    final allowedExts = {'.jpg', '.jpeg', '.png', '.webp'};
+
+    if (photos.length > maxFiles) {
+      return {
+        'success': false,
+        'message': 'Cannot upload more than $maxFiles photos at once.',
+        'uploadedCount': 0,
+        'failedPhotos': photos,
+      };
+    }
+
+    for (var i = 0; i < photos.length; i++) {
+      final f = photos[i];
+      if (!f.existsSync()) {
+        return {
+          'success': false,
+          'message': 'Photo file #${i + 1} does not exist on device.',
+          'uploadedCount': 0,
+          'failedPhotos': photos,
+        };
+      }
+      final size = f.lengthSync();
+      if (size > maxSizeBytes) {
+        final sizeMb = (size / (1024 * 1024)).toStringAsFixed(1);
+        return {
+          'success': false,
+          'message': 'Photo #${i + 1} is $sizeMb MB (exceeds server limit of 10MB).',
+          'uploadedCount': 0,
+          'failedPhotos': photos,
+        };
+      }
+      final ext = f.path.split('.').last.toLowerCase();
+      if (!allowedExts.contains('.$ext')) {
+        return {
+          'success': false,
+          'message': 'Photo #${i + 1} has unsupported format .$ext (only JPG, PNG, WEBP allowed).',
+          'uploadedCount': 0,
+          'failedPhotos': photos,
+        };
+      }
+    }
+
+    try {
+      final formData = FormData();
+      for (var i = 0; i < photos.length; i++) {
+        final f = photos[i];
+        final fileName = f.path.split(Platform.pathSeparator).last;
+        formData.files.add(MapEntry(
+          'photos',
+          await MultipartFile.fromFile(f.path, filename: fileName),
+        ));
+      }
+      if (photoCaptions != null && photoCaptions.isNotEmpty) {
+        formData.fields.add(MapEntry('captions', jsonEncode(photoCaptions)));
+      }
+
+      final response = await apiClient.dio.post(
+        ApiConstants.projectInstallationLogPhotos(projectId, logId),
+        data: formData,
+      );
+
+      final resData = response.data;
+      final bool isSuccess = response.statusCode == 200 || response.statusCode == 201;
+
+      if (!skipReload) {
+        await fetchInstallationLogs(projectId);
+      }
+
+      final log = _installationLogs.firstWhere(
+        (l) => l.id == logId,
+        orElse: () => InstallationLogModel(),
+      );
+      final verifiedPhotos = log.photos;
+
+      if (isSuccess && (resData == null || resData['success'] != false)) {
+        return {
+          'success': true,
+          'message': resData?['message'] ?? 'Photos uploaded successfully!',
+          'uploadedCount': photos.length,
+          'failedPhotos': <File>[],
+          'verifiedPhotos': verifiedPhotos,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': resData?['message'] ?? 'Server failed to save photos.',
+          'uploadedCount': 0,
+          'failedPhotos': photos,
+          'verifiedPhotos': verifiedPhotos,
+        };
+      }
+    } catch (e) {
+      debugPrint('Error uploading installation photos: $e');
+      return {
+        'success': false,
+        'message': e.toString(),
+        'uploadedCount': 0,
+        'failedPhotos': photos,
+      };
+    }
+  }
+
   // 13. Save or Update Installation Log
   Future<Map<String, dynamic>> saveInstallationLog(
     dynamic projectId,
     Map<String, dynamic> payload, {
     int? logId,
     List<File>? photos,
-    List<Map<String, String>>? photoCaptions,
+    List<Map<String, dynamic>>? photoCaptions,
   }) async {
     _isSavingInstallationLog = true;
     notifyListeners();
@@ -472,6 +594,15 @@ class ProjectProvider extends ChangeNotifier {
             : int.tryParse(response.data['id']?.toString() ?? '');
       }
 
+      if (targetLogId == null) {
+        return {
+          'success': false,
+          'logSaved': false,
+          'photosUploaded': false,
+          'message': 'Log saved but server did not return a valid log ID.',
+        };
+      }
+
       // Sync expected completion date to project if provided
       if (payload['expected_completion_date'] != null &&
           payload['expected_completion_date'].toString().trim().isNotEmpty) {
@@ -483,41 +614,67 @@ class ProjectProvider extends ChangeNotifier {
         } catch (_) {}
       }
 
-      // Upload photos if any
-      if (photos != null && photos.isNotEmpty && targetLogId != null) {
-        try {
-          final formData = FormData();
-          for (var i = 0; i < photos.length; i++) {
-            final f = photos[i];
-            formData.files.add(MapEntry(
-              'photos',
-              await MultipartFile.fromFile(f.path, filename: f.path.split(Platform.pathSeparator).last),
-            ));
-          }
-          if (photoCaptions != null && photoCaptions.isNotEmpty) {
-            formData.fields.add(MapEntry('captions', jsonEncode(photoCaptions)));
-          }
+      // Upload photos separately if any
+      bool photosUploaded = true;
+      String? photoError;
+      List<File> failedPhotos = [];
 
-          await apiClient.dio.post(
-            ApiConstants.projectInstallationLogPhotos(projectId, targetLogId),
-            data: formData,
-          );
-        } catch (photoErr) {
-          debugPrint('Error uploading installation photos: $photoErr');
+      if (photos != null && photos.isNotEmpty) {
+        final uploadRes = await uploadInstallationLogPhotos(
+          projectId,
+          targetLogId,
+          photos: photos,
+          photoCaptions: photoCaptions,
+          skipReload: true,
+        );
+
+        photosUploaded = uploadRes['success'] == true;
+        if (!photosUploaded) {
+          photoError = uploadRes['message'];
+          failedPhotos = (uploadRes['failedPhotos'] as List<File>?) ?? photos;
         }
       }
 
+      // Reload logs and verify photos directly from backend
       await fetchInstallationLogs(projectId);
       await fetchProjectDetails(projectId);
 
+      final reloadedLog = _installationLogs.firstWhere(
+        (l) => l.id == targetLogId,
+        orElse: () => InstallationLogModel(),
+      );
+      final verifiedPhotos = reloadedLog.photos;
+
+      if (!photosUploaded) {
+        return {
+          'success': false, // Partial failure: Log was saved, photos upload failed!
+          'logSaved': true,
+          'photosUploaded': false,
+          'logId': targetLogId,
+          'message': 'Log saved, photos upload failed.',
+          'photoError': photoError ?? 'Failed to upload site photos.',
+          'failedPhotos': failedPhotos,
+          'verifiedPhotos': verifiedPhotos,
+        };
+      }
+
       return {
         'success': true,
+        'logSaved': true,
+        'photosUploaded': true,
+        'logId': targetLogId,
         'message': isEdit
             ? 'Installation log updated successfully!'
             : 'Daily installation progress log saved successfully!',
+        'verifiedPhotos': verifiedPhotos,
       };
     } catch (e) {
-      return {'success': false, 'message': e.toString()};
+      return {
+        'success': false,
+        'logSaved': false,
+        'photosUploaded': false,
+        'message': e.toString(),
+      };
     } finally {
       _isSavingInstallationLog = false;
       notifyListeners();

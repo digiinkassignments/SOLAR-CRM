@@ -85,6 +85,24 @@ const ensureInstallationLogsTable = async (db) => {
     if (!existingPCols.has('photo_tag')) {
       await db.query(`ALTER TABLE installation_log_photos ADD COLUMN photo_tag VARCHAR(50) DEFAULT 'Work Progress'`);
     }
+    if (!existingPCols.has('latitude')) {
+      await db.query(`ALTER TABLE installation_log_photos ADD COLUMN latitude DECIMAL(10,8) DEFAULT NULL`);
+    }
+    if (!existingPCols.has('longitude')) {
+      await db.query(`ALTER TABLE installation_log_photos ADD COLUMN longitude DECIMAL(11,8) DEFAULT NULL`);
+    }
+    if (!existingPCols.has('accuracy_meters')) {
+      await db.query(`ALTER TABLE installation_log_photos ADD COLUMN accuracy_meters DECIMAL(6,2) DEFAULT NULL`);
+    }
+    if (!existingPCols.has('gps_address')) {
+      await db.query(`ALTER TABLE installation_log_photos ADD COLUMN gps_address TEXT DEFAULT NULL`);
+    }
+    if (!existingPCols.has('captured_at')) {
+      await db.query(`ALTER TABLE installation_log_photos ADD COLUMN captured_at DATETIME DEFAULT NULL`);
+    }
+    if (!existingPCols.has('is_geo_tagged')) {
+      await db.query(`ALTER TABLE installation_log_photos ADD COLUMN is_geo_tagged TINYINT(1) DEFAULT 0`);
+    }
   } catch (err) {
     // Non-fatal schema migration
   }
@@ -283,11 +301,22 @@ const saveLogPhotos = async (db, logId, photos = []) => {
     const tag = typeof p === 'object' ? (p?.photo_tag || p?.tag || 'During') : 'During';
     const fileName = typeof p === 'object' ? (p?.file_name || null) : null;
     const fileSize = typeof p === 'object' ? (p?.file_size || null) : null;
+    const latitude = typeof p === 'object' && p?.latitude !== undefined && p?.latitude !== null ? Number(p.latitude) : null;
+    const longitude = typeof p === 'object' && p?.longitude !== undefined && p?.longitude !== null ? Number(p.longitude) : null;
+    const accuracyMeters = typeof p === 'object' && (p?.accuracy_meters !== undefined || p?.accuracy !== undefined)
+      ? Number(p.accuracy_meters ?? p.accuracy)
+      : null;
+    const gpsAddress = typeof p === 'object' ? (p?.gps_address || p?.gps_info || p?.gpsInfo || null) : null;
+    const capturedAt = typeof p === 'object' && p?.captured_at ? toMysqlDatetime(p.captured_at) : null;
+    const isGeoTagged = typeof p === 'object' && (p?.is_geo_tagged || p?.isGeoTagged) ? 1 : 0;
 
     if (url) {
       await db.query(
-        `INSERT INTO installation_log_photos (log_id, photo_url, caption, photo_tag, file_name, file_size) VALUES (?, ?, ?, ?, ?, ?)`,
-        [logId, url, caption, tag, fileName, fileSize]
+        `INSERT INTO installation_log_photos (
+          log_id, photo_url, caption, photo_tag, file_name, file_size,
+          latitude, longitude, accuracy_meters, gps_address, captured_at, is_geo_tagged
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [logId, url, caption, tag, fileName, fileSize, latitude, longitude, accuracyMeters, gpsAddress, capturedAt, isGeoTagged]
       );
     }
   }

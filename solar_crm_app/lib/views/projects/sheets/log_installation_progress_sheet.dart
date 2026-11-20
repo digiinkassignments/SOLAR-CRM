@@ -151,11 +151,15 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
 
   bool _isSubmitting = false;
   String? _formErrorMessage;
+  int? _savedLogId;
+  bool _isRetryingPhotos = false;
+  String? _photoUploadErrorMessage;
 
   @override
   void initState() {
     super.initState();
     final log = widget.existingLog;
+    _savedLogId = widget.existingLog?.id;
     final nowStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     String cleanDate(String? s) {
@@ -600,7 +604,10 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
   }
 
   Future<void> _saveLog() async {
-    setState(() => _formErrorMessage = null);
+    setState(() {
+      _formErrorMessage = null;
+      _photoUploadErrorMessage = null;
+    });
 
     if (!_formKey.currentState!.validate()) {
       setState(() => _formErrorMessage = "Please fill all required fields highlighted in red below.");
@@ -610,6 +617,26 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
     if (_workDoneCtrl.text.trim().isEmpty) {
       setState(() => _formErrorMessage = "Please describe the work done today.");
       return;
+    }
+
+    // If log was already saved in a previous attempt and only photos remain, route to retry directly
+    if (_savedLogId != null && _photoEntries.any((p) => !p.isUploaded)) {
+      await _retryFailedPhotos();
+      return;
+    }
+
+    // Client-side photo validation
+    final unuploadedPhotos = _photoEntries.where((p) => !p.isUploaded).toList();
+    for (var i = 0; i < unuploadedPhotos.length; i++) {
+      final f = unuploadedPhotos[i].file;
+      if (!f.existsSync()) {
+        setState(() => _formErrorMessage = "Photo #${i + 1} does not exist on device.");
+        return;
+      }
+      if (f.lengthSync() > 10 * 1024 * 1024) {
+        setState(() => _formErrorMessage = "Photo #${i + 1} exceeds server limit of 10MB.");
+        return;
+      }
     }
 
     setState(() => _isSubmitting = true);
@@ -660,9 +687,15 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
         'signature_data': _signatureData,
       };
 
-      final photoCaptions = _photoEntries.map((p) => {
+      final photoCaptions = unuploadedPhotos.map((p) => {
         'caption': p.captionCtrl.text.trim(),
         'tag': p.tag,
+        'latitude': p.latitude,
+        'longitude': p.longitude,
+        'accuracy_meters': p.accuracyMeters,
+        'gps_address': p.gpsInfo,
+        'captured_at': p.capturedAt?.toIso8601String(),
+        'is_geo_tagged': p.isGeoTagged ? 1 : 0,
       }).toList();
 
       final provider = Provider.of<ProjectProvider>(context, listen: false);
@@ -670,19 +703,38 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
         widget.project.id,
         payload,
         logId: widget.existingLog?.id,
-        photos: _photoEntries.map((p) => p.file).toList(),
+        photos: unuploadedPhotos.map((p) => p.file).toList(),
         photoCaptions: photoCaptions,
       );
 
       if (mounted) {
-        if (res['success'] == true) {
-          Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(res['message'] ?? "Log saved successfully!"),
-              backgroundColor: AppColors.emeraldGreen,
-            ),
-          );
+        if (res['logSaved'] == true) {
+          _savedLogId = res['logId'] as int?;
+
+          if (res['photosUploaded'] == true) {
+            for (final p in unuploadedPhotos) {
+              p.isUploaded = true;
+            }
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(res['message'] ?? "Log saved successfully!"),
+                backgroundColor: AppColors.emeraldGreen,
+              ),
+            );
+            Navigator.of(context).pop();
+          } else {
+            // Partial failure: Log was saved, photos upload failed!
+            setState(() {
+              _photoUploadErrorMessage = res['photoError'] ?? "Photos upload failed.";
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Log saved, photos upload failed. Tap 'Retry Photo Upload' below."),
+                backgroundColor: AppColors.solarGold,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
         } else {
           setState(() {
             _formErrorMessage = res['message'] ?? "Failed to save daily log. Please verify details.";
@@ -697,6 +749,81 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _retryFailedPhotos() async {
+    if (_savedLogId == null) return;
+    final failed = _photoEntries.where((p) => !p.isUploaded).toList();
+    if (failed.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("All photos are already uploaded!"),
+            backgroundColor: AppColors.emeraldGreen,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _isRetryingPhotos = true;
+      _photoUploadErrorMessage = null;
+    });
+
+    try {
+      final photoCaptions = failed.map((p) => {
+        'caption': p.captionCtrl.text.trim(),
+        'tag': p.tag,
+        'latitude': p.latitude,
+        'longitude': p.longitude,
+        'accuracy_meters': p.accuracyMeters,
+        'gps_address': p.gpsInfo,
+        'captured_at': p.capturedAt?.toIso8601String(),
+        'is_geo_tagged': p.isGeoTagged ? 1 : 0,
+      }).toList();
+
+      final provider = Provider.of<ProjectProvider>(context, listen: false);
+      final uploadRes = await provider.uploadInstallationLogPhotos(
+        widget.project.id,
+        _savedLogId!,
+        photos: failed.map((p) => p.file).toList(),
+        photoCaptions: photoCaptions,
+      );
+
+      if (mounted) {
+        if (uploadRes['success'] == true) {
+          for (final p in failed) {
+            p.isUploaded = true;
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(uploadRes['message'] ?? "Photos uploaded successfully!"),
+              backgroundColor: AppColors.emeraldGreen,
+            ),
+          );
+          Navigator.of(context).pop();
+        } else {
+          setState(() {
+            _photoUploadErrorMessage = uploadRes['message'] ?? "Failed to upload photos.";
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Photo upload failed: ${_photoUploadErrorMessage!}"),
+              backgroundColor: AppColors.errorRed,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _photoUploadErrorMessage = "Error uploading photos: $e";
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isRetryingPhotos = false);
     }
   }
 
@@ -1533,6 +1660,69 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (_photoUploadErrorMessage != null) ...[
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.solarGold.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppColors.solarGold.withValues(alpha: 0.5)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.warning_amber_rounded, color: AppColors.solarGold, size: 20),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          "Log Saved, Photos Upload Failed",
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w800,
+                                            color: textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    "Daily log text was saved (Log #$_savedLogId), but photo upload failed: $_photoUploadErrorMessage. Photos are retained below.",
+                                    style: TextStyle(fontSize: 11.5, color: textSecondary, height: 1.3),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      onPressed: _isRetryingPhotos ? null : _retryFailedPhotos,
+                                      icon: _isRetryingPhotos
+                                          ? const SizedBox(
+                                              width: 14,
+                                              height: 14,
+                                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                                            )
+                                          : const Icon(Icons.refresh_rounded, size: 16),
+                                      label: Text(
+                                        _isRetryingPhotos
+                                            ? "Retrying Upload..."
+                                            : "Retry Photo Upload (${_photoEntries.where((p) => !p.isUploaded).length} Remaining)",
+                                        style: const TextStyle(fontWeight: FontWeight.w800),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.solarGold,
+                                        foregroundColor: Colors.black,
+                                        padding: const EdgeInsets.symmetric(vertical: 10),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                             decoration: BoxDecoration(
@@ -1792,36 +1982,50 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+                      onPressed: (_isSubmitting || _isRetryingPhotos) ? null : () => Navigator.of(context).pop(),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: textSecondary,
                         side: BorderSide(color: borderColor),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-                      child: const Text("Cancel", style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        _savedLogId != null && _photoEntries.any((p) => !p.isUploaded) ? "Finish Later" : "Cancel",
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _saveLog,
+                      onPressed: (_isSubmitting || _isRetryingPhotos) ? null : _saveLog,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF005BAC),
-                        foregroundColor: Colors.white,
+                        backgroundColor: _savedLogId != null && _photoEntries.any((p) => !p.isUploaded)
+                            ? AppColors.solarGold
+                            : const Color(0xFF005BAC),
+                        foregroundColor: _savedLogId != null && _photoEntries.any((p) => !p.isUploaded)
+                            ? Colors.black
+                            : Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         elevation: 1,
                       ),
-                      child: _isSubmitting
-                          ? const SizedBox(
+                      child: _isSubmitting || _isRetryingPhotos
+                          ? SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: _savedLogId != null && _photoEntries.any((p) => !p.isUploaded)
+                                    ? Colors.black
+                                    : Colors.white,
+                              ),
                             )
                           : Text(
-                              widget.existingLog != null ? "Update Daily Log" : "Save Daily Log",
+                              _savedLogId != null && _photoEntries.any((p) => !p.isUploaded)
+                                  ? "Retry Photo Upload (${_photoEntries.where((p) => !p.isUploaded).length})"
+                                  : (widget.existingLog != null ? "Update Daily Log" : "Save Daily Log"),
                               style: const TextStyle(fontWeight: FontWeight.w800),
                             ),
                     ),
@@ -2415,6 +2619,7 @@ class _PhotoEntry {
   final bool isVerified;
   final String? verificationNote;
   final bool isGallery;
+  bool isUploaded;
 
   _PhotoEntry({
     required this.file,
@@ -2429,7 +2634,7 @@ class _PhotoEntry {
     this.isVerified = false,
     this.verificationNote,
     this.isGallery = false,
-  });
+  }) : isUploaded = false;
 
   void dispose() {
     captionCtrl.dispose();

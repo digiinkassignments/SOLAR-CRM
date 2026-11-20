@@ -83,12 +83,25 @@ exports.uploadPhotos = async (req, res) => {
         photo_tag: meta.tag || 'During',
         file_name: f.originalname,
         file_size: f.size,
+        latitude: meta.latitude !== undefined && meta.latitude !== null ? Number(meta.latitude) : null,
+        longitude: meta.longitude !== undefined && meta.longitude !== null ? Number(meta.longitude) : null,
+        accuracy_meters: meta.accuracy_meters !== undefined && meta.accuracy_meters !== null
+          ? Number(meta.accuracy_meters)
+          : (meta.accuracy !== undefined && meta.accuracy !== null ? Number(meta.accuracy) : null),
+        gps_address: meta.gps_address || meta.gpsInfo || null,
+        captured_at: meta.captured_at || meta.capturedAt || null,
+        is_geo_tagged: meta.is_geo_tagged || meta.isGeoTagged ? 1 : 0,
       };
     });
 
     await saveLogPhotos(req.db, req.params.logId, photoObjects);
     const data = await getAllLogs(req.db, pid);
-    res.status(201).json({ message: 'Photos uploaded successfully', photos: photoObjects, ...data });
+    res.status(201).json({
+      success: true,
+      message: 'Photos uploaded successfully',
+      photos: photoObjects,
+      ...data,
+    });
   } catch (err) {
     console.error('uploadPhotos error:', err);
     res.status(500).json({ message: 'Server error' });
