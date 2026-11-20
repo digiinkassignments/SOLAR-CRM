@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
+import '../../../core/utils/platform_permission_helper.dart';
 import '../../../models/survey_model.dart';
 import '../../../providers/survey_provider.dart';
 
@@ -129,7 +130,16 @@ class _SurveyDocumentsSectionState extends State<SurveyDocumentsSection> {
         if (picked != null) filePaths = [picked.path];
       }
     } catch (e) {
-      if (mounted) {
+      if (PlatformPermissionHelper.isPermissionDeniedError(e)) {
+        if (mounted) {
+          PlatformPermissionHelper.showPermissionDialog(
+            context,
+            type: source == 'camera'
+                ? PlatformPermissionType.camera
+                : PlatformPermissionType.photos,
+          );
+        }
+      } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Could not open media: $e"), backgroundColor: AppColors.errorRed),
         );

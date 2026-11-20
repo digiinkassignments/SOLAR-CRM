@@ -5,6 +5,7 @@ import '../../core/constants/api_constants.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/platform_permission_helper.dart';
 import '../../models/profile_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -99,12 +100,21 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.errorRed,
-          content: Text("Failed to pick image: $e"),
-        ),
-      );
+      if (PlatformPermissionHelper.isPermissionDeniedError(e)) {
+        PlatformPermissionHelper.showPermissionDialog(
+          context,
+          type: source == ImageSource.camera
+              ? PlatformPermissionType.camera
+              : PlatformPermissionType.photos,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.errorRed,
+            content: Text("Failed to pick image: $e"),
+          ),
+        );
+      }
     }
   }
 

@@ -3,6 +3,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
+import '../../../core/utils/platform_permission_helper.dart';
 import '../../../models/stock_item_model.dart';
 import '../../../providers/stock_provider.dart';
 import '../sheets/stock_out_sheet.dart';
@@ -229,6 +230,75 @@ class _BarcodeScannerSheetState extends State<BarcodeScannerSheet> with SingleTi
                               break;
                             }
                           }
+                        },
+                        errorBuilder: (context, error) {
+                          final isPermission = error.errorCode == MobileScannerErrorCode.permissionDenied;
+                          return Container(
+                            color: Colors.black87,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isPermission ? Icons.no_photography_outlined : Icons.videocam_off_outlined,
+                                    color: AppColors.solarGold,
+                                    size: 44,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    isPermission ? "Camera Permission Denied" : "Camera Initialisation Failed",
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    isPermission
+                                        ? "Camera permission is required to scan barcodes. Please enable it in device settings or switch to manual entry."
+                                        : (error.errorDetails?.message ?? "Unable to initialize the camera feed."),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    alignment: WrapAlignment.center,
+                                    children: [
+                                      if (isPermission)
+                                        ElevatedButton.icon(
+                                          onPressed: () => PlatformPermissionHelper.openAppSettings(),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppColors.solarGold,
+                                            foregroundColor: Colors.black,
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          icon: const Icon(Icons.settings, size: 16),
+                                          label: const Text("Open Settings", style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                                        ),
+                                      OutlinedButton.icon(
+                                        onPressed: () {
+                                          _tabController.animateTo(1);
+                                        },
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.white,
+                                          side: const BorderSide(color: Colors.white38),
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                        icon: const Icon(Icons.keyboard_outlined, size: 16),
+                                        label: const Text("Manual Entry", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
                         },
                       ),
 

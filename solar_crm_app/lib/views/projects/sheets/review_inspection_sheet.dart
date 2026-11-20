@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
+import '../../../core/utils/platform_permission_helper.dart';
 import '../../../models/inspection_model.dart';
 import '../../../models/project_model.dart';
 import '../../../providers/project_provider.dart';
@@ -228,11 +229,10 @@ class _ReviewInspectionSheetState extends State<ReviewInspectionSheet> {
 
       if (permission == LocationPermission.deniedForever) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Location permissions are permanently denied. Please enable in Settings.'),
-              backgroundColor: AppColors.errorRed,
-            ),
+          PlatformPermissionHelper.showPermissionDialog(
+            context,
+            type: PlatformPermissionType.location,
+            customMessage: 'Location permission is permanently denied in settings. Please enable it to capture site GPS coordinates.',
           );
         }
         return;

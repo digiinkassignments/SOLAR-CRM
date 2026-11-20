@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/geo_camera_helper.dart';
+import '../../../core/utils/platform_permission_helper.dart';
 import '../../../models/installation_log_model.dart';
 import '../../../models/project_model.dart';
 import '../../../providers/project_provider.dart';
@@ -409,6 +410,21 @@ class _LogInstallationProgressSheetState extends State<LogInstallationProgressSh
       }
     } catch (e) {
       debugPrint("Error picking photo: $e");
+      if (PlatformPermissionHelper.isPermissionDeniedError(e) && mounted) {
+        PlatformPermissionHelper.showPermissionDialog(
+          context,
+          type: source == ImageSource.camera
+              ? PlatformPermissionType.camera
+              : PlatformPermissionType.photos,
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Unable to open media: $e"),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isCapturingGeoPhoto = false);
     }

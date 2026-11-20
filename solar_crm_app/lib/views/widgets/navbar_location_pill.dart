@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/utils/geo_camera_helper.dart';
+import '../../core/utils/platform_permission_helper.dart';
 
 class NavbarLocationPill extends StatefulWidget {
   const NavbarLocationPill({super.key});
@@ -50,12 +51,21 @@ class _NavbarLocationPillState extends State<NavbarLocationPill> {
           _displayLocation = _cachedShortLocation ?? "GPS Off";
         });
         if (userInitiated && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Unable to acquire GPS location. Please check location permissions."),
-              duration: Duration(seconds: 2),
-            ),
-          );
+          final perm = await Geolocator.checkPermission();
+          if (!mounted) return;
+          if (perm == LocationPermission.deniedForever) {
+            PlatformPermissionHelper.showPermissionSnackBar(
+              context,
+              message: "Location permission permanently denied. Enable in Settings.",
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Unable to acquire GPS location. Please check location permissions or GPS signal."),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
         }
         return;
       }

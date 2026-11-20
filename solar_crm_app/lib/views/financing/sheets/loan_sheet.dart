@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
+import '../../../core/utils/platform_permission_helper.dart';
 import '../../../models/loan_model.dart';
 import '../../../providers/financing_provider.dart';
 
@@ -291,9 +292,18 @@ class _LoanSheetState extends State<LoanSheet> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: AppColors.errorRed, content: Text("Upload error: $e")),
-      );
+      if (PlatformPermissionHelper.isPermissionDeniedError(e)) {
+        PlatformPermissionHelper.showPermissionDialog(
+          context,
+          type: source == ImageSource.camera
+              ? PlatformPermissionType.camera
+              : PlatformPermissionType.photos,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(backgroundColor: AppColors.errorRed, content: Text("Upload error: $e")),
+        );
+      }
     }
   }
 

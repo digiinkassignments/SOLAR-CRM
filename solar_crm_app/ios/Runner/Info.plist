@@ -45,5 +45,25 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+	<!-- Platform Permission Descriptions -->
+	<key>NSCameraUsageDescription</key>
+	<string>Solar CRM requires camera access to capture site survey photos, log daily installation progress with watermarks, and scan equipment barcodes.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Solar CRM requires access to your photo library to select and upload site survey documents, customer electricity bills, and project media.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Solar CRM requires your location while using the app to accurately geotag site inspection photos, verify installation coordinates, and assist field engineers with navigation.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Solar CRM requires your location to accurately geotag site inspection photos and verify installation coordinates.</string>
+
+	<!-- URL Schemes for External Navigation & Dialing -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>https</string>
+		<string>http</string>
+		<string>tel</string>
+		<string>mailto</string>
+		<string>whatsapp</string>
+	</array>
 </dict>
 </plist>

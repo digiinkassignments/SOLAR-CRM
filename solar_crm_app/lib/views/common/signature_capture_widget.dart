@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/platform_permission_helper.dart';
 
 class SignatureCaptureWidget extends StatefulWidget {
   final String? initialDataUrl;
@@ -156,7 +157,16 @@ class _SignatureCaptureWidgetState extends State<SignatureCaptureWidget> {
         }
       }
     } catch (e) {
-      if (mounted) {
+      if (PlatformPermissionHelper.isPermissionDeniedError(e)) {
+        if (mounted) {
+          PlatformPermissionHelper.showPermissionDialog(
+            context,
+            type: source == ImageSource.camera
+                ? PlatformPermissionType.camera
+                : PlatformPermissionType.photos,
+          );
+        }
+      } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Failed to pick image: $e"),
