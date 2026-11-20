@@ -262,6 +262,59 @@ void main() {
       expect(provider.documentErrorMessage, isNull);
       expect(provider.uploadingCategory, isNull);
     });
+
+    test('SurveyModel correctly differentiates Feasible, Feasible with conditions, and Not feasible', () {
+      final feasibleSurvey = SurveyModel(
+        id: 1,
+        leadId: 10,
+        customerName: 'Test Customer',
+        mobileNumber: '9829011111',
+        leadCode: 'LEAD-001',
+        status: 'completed',
+        feasibilityVerdict: 'Feasible',
+        projectId: 99,
+        projectNumber: 'PROJ-2026-A1B2',
+        projectStage: 'Pre-Install Inspection',
+      );
+
+      expect(feasibleSurvey.isFeasible, isTrue);
+      expect(feasibleSurvey.isFeasibleWithConditions, isFalse);
+      expect(feasibleSurvey.isNotFeasible, isFalse);
+      expect(feasibleSurvey.hasProject, isTrue);
+      expect(feasibleSurvey.projectNumber, equals('PROJ-2026-A1B2'));
+
+      final conditionalSurvey = SurveyModel(
+        id: 2,
+        leadId: 11,
+        customerName: 'Test Customer 2',
+        mobileNumber: '9829022222',
+        leadCode: 'LEAD-002',
+        status: 'completed',
+        feasibilityVerdict: 'Feasible with conditions',
+        projectId: null,
+      );
+
+      expect(conditionalSurvey.isFeasible, isFalse);
+      expect(conditionalSurvey.isFeasibleWithConditions, isTrue);
+      expect(conditionalSurvey.isNotFeasible, isFalse);
+      expect(conditionalSurvey.hasProject, isFalse);
+
+      final notFeasibleSurvey = SurveyModel(
+        id: 3,
+        leadId: 12,
+        customerName: 'Test Customer 3',
+        mobileNumber: '9829033333',
+        leadCode: 'LEAD-003',
+        status: 'completed',
+        feasibilityVerdict: 'Not feasible',
+        projectId: 0,
+      );
+
+      expect(notFeasibleSurvey.isFeasible, isFalse);
+      expect(notFeasibleSurvey.isFeasibleWithConditions, isFalse);
+      expect(notFeasibleSurvey.isNotFeasible, isTrue);
+      expect(notFeasibleSurvey.hasProject, isFalse);
+    });
   });
 }
 

@@ -466,22 +466,29 @@ class _EngineerSurveysViewState extends State<EngineerSurveysView> {
               ),
               if (survey.feasibilityVerdict != null) ...[
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: survey.isFeasible
-                        ? AppColors.emeraldGreen.withValues(alpha: 0.15)
-                        : AppColors.errorRed.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    survey.feasibilityVerdict!,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      color: survey.isFeasible ? AppColors.emeraldGreen : AppColors.errorRed,
-                    ),
-                  ),
+                Builder(
+                  builder: (context) {
+                    final Color verdictColor = survey.isFeasible
+                        ? AppColors.emeraldGreen
+                        : (survey.isFeasibleWithConditions
+                            ? AppColors.solarGold
+                            : (survey.isNotFeasible ? AppColors.errorRed : textSecondary));
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: verdictColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        survey.feasibilityVerdict!,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: verdictColor,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             ],
@@ -536,6 +543,35 @@ class _EngineerSurveysViewState extends State<EngineerSurveysView> {
                   "Site GPS: ${survey.siteLatitude!.toStringAsFixed(5)}, ${survey.siteLongitude!.toStringAsFixed(5)}",
                   style: const TextStyle(fontSize: 10, color: AppColors.emeraldGreen, fontWeight: FontWeight.w600),
                 ),
+              ],
+            ),
+          ],
+
+          // Linked project indicator
+          if (survey.hasProject || survey.projectNumber != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.solar_power_outlined, size: 12, color: AppColors.skyBlue),
+                const SizedBox(width: 4),
+                Text(
+                  "Project: ${survey.projectNumber ?? 'PRJ-${survey.projectId}'}",
+                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.skyBlue),
+                ),
+                if (survey.projectStage != null && survey.projectStage!.trim().isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: AppColors.skyBlue.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      survey.projectStage!,
+                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.skyBlue),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],

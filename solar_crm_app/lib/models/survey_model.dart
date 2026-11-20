@@ -73,7 +73,10 @@ class SurveyModel {
 
   bool get isCompleted => status.toLowerCase() == 'completed';
   bool get isScheduled => status.toLowerCase() == 'scheduled';
-  bool get isFeasible => feasibilityVerdict == 'Feasible' || feasibilityVerdict == 'Feasible with conditions';
+  bool get isFeasible => feasibilityVerdict == 'Feasible';
+  bool get isFeasibleWithConditions => feasibilityVerdict == 'Feasible with conditions';
+  bool get isNotFeasible => feasibilityVerdict == 'Not feasible';
+  bool get hasProject => projectId != null && projectId! > 0;
 
   bool get hasGps => siteLatitude != null && siteLongitude != null && siteLatitude != 0 && siteLongitude != 0;
 

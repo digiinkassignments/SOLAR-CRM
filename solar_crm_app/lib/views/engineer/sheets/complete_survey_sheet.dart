@@ -118,10 +118,35 @@ class _CompleteSurveySheetState extends State<CompleteSurveySheet> {
     if (!mounted) return;
 
     if (result['success'] == true) {
+      final resData = result['data'] is Map ? result['data'] as Map : null;
+      final linkedProjectId = resData?['project_id'] ?? (widget.survey.hasProject ? widget.survey.projectId : null);
+      final linkedProjectNumber = resData?['project_number'] ?? widget.survey.projectNumber;
+
+      String displayMessage;
+      Color snackColor;
+
+      if (_feasibilityVerdict == 'Feasible') {
+        if (linkedProjectId != null) {
+          final pNum = linkedProjectNumber ?? "PRJ-$linkedProjectId";
+          displayMessage = widget.survey.hasProject
+              ? "Survey Feasible: Linked to existing project $pNum"
+              : "Survey Feasible: Customer & project ($pNum) created automatically!";
+        } else {
+          displayMessage = result['message'] ?? "Site survey feasibility report saved!";
+        }
+        snackColor = AppColors.emeraldGreen;
+      } else if (_feasibilityVerdict == 'Feasible with conditions') {
+        displayMessage = "Feasibility with conditions saved. No project created; caveats logged for review.";
+        snackColor = AppColors.solarGold;
+      } else {
+        displayMessage = "Survey marked Not Feasible. Non-feasibility constraints recorded.";
+        snackColor = AppColors.errorRed;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result['message'] ?? "Site survey feasibility report saved!"),
-          backgroundColor: AppColors.emeraldGreen,
+          content: Text(displayMessage),
+          backgroundColor: snackColor,
         ),
       );
       Navigator.of(context).pop(true);
@@ -212,6 +237,44 @@ class _CompleteSurveySheetState extends State<CompleteSurveySheet> {
                     controller: scrollController,
                     padding: const EdgeInsets.all(16),
                     children: [
+                      if (widget.survey.hasProject) ...[
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 14),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.skyBlue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.skyBlue.withValues(alpha: 0.35)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_outline_rounded, color: AppColors.skyBlue, size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Linked Project: ${widget.survey.projectNumber ?? 'PRJ-${widget.survey.projectId}'}",
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      "This survey is already connected to an active project. Saving will record technical specs without creating a duplicate customer or project.",
+                                      style: TextStyle(fontSize: 11, color: textSecondary, height: 1.3),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
                       // 1. Feasibility Verdict Pill Selector
                       Text(
                         "TECHNICAL FEASIBILITY VERDICT *",
@@ -252,6 +315,64 @@ class _CompleteSurveySheetState extends State<CompleteSurveySheet> {
                             ),
                           );
                         }).toList(),
+                      ),
+
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: (_feasibilityVerdict == 'Feasible'
+                                  ? AppColors.emeraldGreen
+                                  : (_feasibilityVerdict == 'Feasible with conditions'
+                                      ? AppColors.solarGold
+                                      : AppColors.errorRed))
+                              .withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: (_feasibilityVerdict == 'Feasible'
+                                    ? AppColors.emeraldGreen
+                                    : (_feasibilityVerdict == 'Feasible with conditions'
+                                        ? AppColors.solarGold
+                                        : AppColors.errorRed))
+                                .withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              _feasibilityVerdict == 'Feasible'
+                                  ? Icons.check_circle_outline_rounded
+                                  : (_feasibilityVerdict == 'Feasible with conditions'
+                                      ? Icons.warning_amber_rounded
+                                      : Icons.cancel_outlined),
+                              size: 16,
+                              color: _feasibilityVerdict == 'Feasible'
+                                  ? AppColors.emeraldGreen
+                                  : (_feasibilityVerdict == 'Feasible with conditions'
+                                      ? AppColors.solarGold
+                                      : AppColors.errorRed),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _feasibilityVerdict == 'Feasible'
+                                    ? (widget.survey.hasProject
+                                        ? "Feasible verdict links technical specs directly to existing project."
+                                        : "Feasible verdict triggers automatic Customer & Project creation in the system.")
+                                    : (_feasibilityVerdict == 'Feasible with conditions'
+                                        ? "Feasible with Conditions logs technical caveats for review. No customer or project is created automatically."
+                                        : "Not Feasible documents refusal constraints. No project or customer will be generated."),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
 
                       if (_feasibilityVerdict == "Not feasible") ...[
