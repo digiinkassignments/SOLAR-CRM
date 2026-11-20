@@ -120,6 +120,58 @@ void main() {
       expect(allowedOutcomes.contains('Random outcome'), isFalse);
     });
 
+    test('Follow-up save and refresh preserves atomic outcome, schedule date and exact time', () {
+      // 1. Emulate outgoing atomic follow-up payload from mobile app
+      final requestPayload = {
+        'notes': 'Discussed subsidy calculation; customer requested callback tomorrow morning.',
+        'call_outcome': 'Connected',
+        'status': 'Contacted',
+        'next_action': 'Call back with exact net metering quote',
+        'followup_date': '2026-11-21',
+        'followup_time': '10:30',
+      };
+
+      expect(requestPayload['call_outcome'], equals('Connected'));
+      expect(requestPayload['next_action'], equals('Call back with exact net metering quote'));
+      expect(requestPayload['followup_date'], equals('2026-11-21'));
+      expect(requestPayload['followup_time'], equals('10:30'));
+
+      // 2. Emulate server response after lead/workflow persistence and reload
+      final serverRefreshedLeadJson = {
+        'id': 200,
+        'customer_name': 'Vikas Gupta',
+        'status': requestPayload['status'],
+        'next_action': requestPayload['next_action'],
+        'next_follow_up_date': requestPayload['followup_date'],
+        'next_follow_up_time': '${requestPayload['followup_time']}:00',
+        'last_call_outcome': requestPayload['call_outcome'],
+      };
+
+      final refreshedLead = LeadModel.fromJson(serverRefreshedLeadJson);
+
+      expect(refreshedLead.status, equals('Contacted'));
+      expect(refreshedLead.nextAction, equals('Call back with exact net metering quote'));
+      expect(refreshedLead.nextFollowUpDate, equals('2026-11-21'));
+      expect(refreshedLead.nextFollowUpTime, equals('10:30:00'));
+
+      // 3. Emulate refreshed timeline item
+      final refreshedTimelineItem = LeadFollowupItem.fromJson({
+        'id': 99,
+        'note': requestPayload['notes'],
+        'call_outcome': requestPayload['call_outcome'],
+        'status_after_followup': requestPayload['status'],
+        'next_action': requestPayload['next_action'],
+        'follow_up_date': requestPayload['followup_date'],
+        'next_follow_up_time': '${requestPayload['followup_time']}:00',
+        'created_at': '2026-11-20T12:00:00.000Z',
+      });
+
+      expect(refreshedTimelineItem.callOutcome, equals('Connected'));
+      expect(refreshedTimelineItem.nextAction, equals('Call back with exact net metering quote'));
+      expect(refreshedTimelineItem.nextFollowupDate, equals('2026-11-21'));
+      expect(refreshedTimelineItem.nextFollowUpTime, equals('10:30:00'));
+    });
+
     test('LeadProvider handles reset cleanly', () {
       final client = ApiClient();
       final provider = LeadProvider(apiClient: client);

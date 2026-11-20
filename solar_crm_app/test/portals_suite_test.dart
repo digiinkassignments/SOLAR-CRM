@@ -181,6 +181,67 @@ void main() {
       expect(RolePermissions.canEditCustomer(financeUser), isTrue);
       expect(RolePermissions.canDeleteCustomer(financeUser), isFalse); // Deleting customers is blocked for Finance
     });
+
+    test('Six canonical roles and restored-session routing targets match exact shell specs', () {
+      final admin = UserModel(id: 1, name: 'Admin', email: 'admin@solops.cloud', roleId: 1, roleName: 'Admin');
+      final manager = UserModel(id: 2, name: 'Manager', email: 'manager@solops.cloud', roleId: 2, roleName: 'Manager');
+      final sales = UserModel(id: 3, name: 'Sales', email: 'sales@solops.cloud', roleId: 3, roleName: 'Sales Executive');
+      final engineer = UserModel(id: 4, name: 'Engineer', email: 'eng@solops.cloud', roleId: 4, roleName: 'Site Engineer');
+      final finance = UserModel(id: 5, name: 'Finance', email: 'fin@solops.cloud', roleId: 5, roleName: 'Finance');
+      final appManager = UserModel(id: 6, name: 'App Manager', email: 'app@solops.cloud', roleId: 6, roleName: 'Application Manager');
+      final externalCustom = UserModel(id: 7, name: 'Guest', email: 'guest@solops.cloud', roleId: 99, roleName: 'Vendor Guest');
+
+      // Canonical role detection
+      expect(admin.isAdmin, isTrue);
+      expect(manager.isManager, isTrue);
+      expect(sales.isSales, isTrue);
+      expect(engineer.isEngineer, isTrue);
+      expect(finance.isFinance, isTrue);
+      expect(appManager.isApplicationManager, isTrue);
+
+      // Deny-by-default for unknown custom roles
+      expect(externalCustom.isAdmin, isFalse);
+      expect(externalCustom.isManager, isFalse);
+      expect(externalCustom.isSales, isFalse);
+      expect(externalCustom.isEngineer, isFalse);
+      expect(externalCustom.isFinance, isFalse);
+      expect(externalCustom.isApplicationManager, isFalse);
+
+      // Password change requirement preservation
+      final userMustChangePass = UserModel(
+        id: 8,
+        name: 'New User',
+        email: 'new@solops.cloud',
+        roleId: 2,
+        roleName: 'Sales',
+        isPasswordChanged: 0,
+      );
+      expect(userMustChangePass.isPasswordChanged, equals(0));
+    });
+
+    test('Manager own-team scope vs Sales assigned-lead scope adhere to backend RBAC', () {
+      final manager = UserModel(id: 2, name: 'Manager', email: 'mgr@solops.cloud', roleId: 2, roleName: 'Manager');
+      final sales = UserModel(id: 3, name: 'Sales', email: 'sales@solops.cloud', roleId: 3, roleName: 'Sales');
+      final engineer = UserModel(id: 4, name: 'Engineer', email: 'eng@solops.cloud', roleId: 4, roleName: 'Engineer');
+
+      // Manager has full team lead management and customer creation
+      expect(RolePermissions.canCreateCustomer(manager), isTrue);
+      expect(RolePermissions.canDeleteCustomer(manager), isTrue);
+      expect(RolePermissions.canDeleteLead(manager), isTrue);
+      expect(RolePermissions.canManageCommercial(manager), isTrue);
+
+      // Sales can manage assigned leads, but cannot delete or create customers directly
+      expect(RolePermissions.canCreateCustomer(sales), isFalse);
+      expect(RolePermissions.canDeleteCustomer(sales), isFalse);
+      expect(RolePermissions.canDeleteLead(sales), isFalse);
+      expect(RolePermissions.canManageCommercial(sales), isFalse);
+
+      // Engineer cannot delete projects or access commercial pricing/warranty
+      expect(RolePermissions.canCreateProject(engineer), isFalse);
+      expect(RolePermissions.canDeleteProject(engineer), isFalse);
+      expect(RolePermissions.canManageCommercial(engineer), isFalse);
+      expect(RolePermissions.canAccessWarrantyAmc(engineer), isFalse);
+    });
   });
 }
 

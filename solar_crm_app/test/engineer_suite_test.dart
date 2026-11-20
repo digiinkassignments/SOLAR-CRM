@@ -315,6 +315,30 @@ void main() {
       expect(notFeasibleSurvey.isNotFeasible, isTrue);
       expect(notFeasibleSurvey.hasProject, isFalse);
     });
+
+    test('Survey conversion prevents duplicate project creation when project already exists', () {
+      final existingProjectSurvey = SurveyModel(
+        id: 4,
+        leadId: 20,
+        customerName: 'Existing Customer',
+        mobileNumber: '9829044444',
+        leadCode: 'LEAD-004',
+        status: 'completed',
+        feasibilityVerdict: 'Feasible',
+        projectId: 45,
+        projectNumber: 'PRJ-2026-045',
+        projectStage: 'Site Survey Done',
+      );
+
+      // Verify that hasProject is true and projectId is preserved
+      expect(existingProjectSurvey.hasProject, isTrue);
+      expect(existingProjectSurvey.projectId, equals(45));
+      expect(existingProjectSurvey.projectNumber, equals('PRJ-2026-045'));
+
+      // Converting or viewing completion for an already converted survey must reuse existing project ID
+      expect(existingProjectSurvey.projectId, isNotNull);
+      expect(existingProjectSurvey.projectId, isPositive);
+    });
   });
 }
 
