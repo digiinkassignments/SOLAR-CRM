@@ -5,6 +5,7 @@ class SurveyModel {
   final String customerName;
   final String mobileNumber;
   final String? address;
+  final String? landmark;
   final String? city;
   final String? state;
   final double requiredKw;
@@ -40,6 +41,7 @@ class SurveyModel {
     required this.customerName,
     required this.mobileNumber,
     this.address,
+    this.landmark,
     this.city,
     this.state,
     this.requiredKw = 0.0,
@@ -74,10 +76,37 @@ class SurveyModel {
   bool get isFeasible => feasibilityVerdict == 'Feasible' || feasibilityVerdict == 'Feasible with conditions';
 
   bool get hasGps => siteLatitude != null && siteLongitude != null && siteLatitude != 0 && siteLongitude != 0;
-  String? get mapsUrl => hasGps ? 'https://www.google.com/maps/dir/?api=1&destination=$siteLatitude,$siteLongitude' : null;
+
+  String? get mapsUrl {
+    if (hasGps) {
+      return 'https://www.google.com/maps/dir/?api=1&destination=$siteLatitude,$siteLongitude';
+    }
+    final effectiveAddr = fullAddress.trim();
+    if (effectiveAddr.isNotEmpty && effectiveAddr != 'Address not recorded') {
+      return 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(effectiveAddr)}';
+    }
+    return null;
+  }
 
   String get fullAddress {
-    final parts = [address, city, state].where((s) => s != null && s.trim().isNotEmpty).toList();
+    final effectiveAddr = address?.trim();
+    final effectiveLandmark = landmark?.trim();
+    final effectiveCity = city?.trim();
+    final effectiveState = state?.trim();
+
+    final parts = <String>[];
+    if (effectiveAddr != null && effectiveAddr.isNotEmpty) {
+      parts.add(effectiveAddr);
+    }
+    if (effectiveLandmark != null && effectiveLandmark.isNotEmpty) {
+      parts.add("Landmark: $effectiveLandmark");
+    }
+    if (effectiveCity != null && effectiveCity.isNotEmpty) {
+      parts.add(effectiveCity);
+    }
+    if (effectiveState != null && effectiveState.isNotEmpty) {
+      parts.add(effectiveState);
+    }
     return parts.isNotEmpty ? parts.join(', ') : 'Address not recorded';
   }
 
@@ -108,7 +137,8 @@ class SurveyModel {
       leadCode: json['lead_code']?.toString() ?? 'LEAD-000',
       customerName: json['customer_name']?.toString() ?? 'Customer',
       mobileNumber: json['mobile_number']?.toString() ?? json['customer_phone']?.toString() ?? '',
-      address: json['customer_address']?.toString() ?? json['address']?.toString() ?? json['site_address']?.toString(),
+      address: json['site_address']?.toString() ?? json['customer_address']?.toString() ?? json['address']?.toString(),
+      landmark: json['landmark']?.toString() ?? json['site_landmark']?.toString(),
       city: json['city']?.toString(),
       state: json['state']?.toString(),
       requiredKw: parseDouble(json['required_kw']) ?? 0.0,
@@ -138,4 +168,69 @@ class SurveyModel {
       projectStage: json['project_stage']?.toString(),
     );
   }
+}
+
+class SurveyDocumentModel {
+  final int id;
+  final int surveyId;
+  final String category; // 'aadhaar', 'electricity_bill', 'site_photo', 'bank_passbook'
+  final String originalName;
+  final String mime;
+  final int sizeBytes;
+  final String? createdAt;
+
+  const SurveyDocumentModel({
+    required this.id,
+    required this.surveyId,
+    required this.category,
+    required this.originalName,
+    required this.mime,
+    required this.sizeBytes,
+    this.createdAt,
+  });
+
+  bool get isPdf =>
+      mime.toLowerCase().contains('pdf') ||
+      originalName.toLowerCase().endsWith('.pdf');
+
+  bool get isImage =>
+      mime.toLowerCase().startsWith('image/') ||
+      originalName.toLowerCase().endsWith('.jpg') ||
+      originalName.toLowerCase().endsWith('.jpeg') ||
+      originalName.toLowerCase().endsWith('.png') ||
+      originalName.toLowerCase().endsWith('.webp');
+
+  String get formattedSize {
+    if (sizeBytes < 1024) return '$sizeBytes B';
+    if (sizeBytes < 1024 * 1024) return '${(sizeBytes / 1024).toStringAsFixed(1)} KB';
+    return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(2)} MB';
+  }
+
+  factory SurveyDocumentModel.fromJson(Map<String, dynamic> json, {int? fallbackSurveyId}) {
+    int parseInt(dynamic val) {
+      if (val == null) return 0;
+      if (val is int) return val;
+      return int.tryParse(val.toString()) ?? 0;
+    }
+
+    return SurveyDocumentModel(
+      id: parseInt(json['id']),
+      surveyId: parseInt(json['survey_id'] ?? fallbackSurveyId),
+      category: json['category']?.toString() ?? 'site_photo',
+      originalName: json['original_name']?.toString() ?? 'document',
+      mime: json['mime']?.toString() ?? 'application/octet-stream',
+      sizeBytes: parseInt(json['size_bytes']),
+      createdAt: json['created_at']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'survey_id': surveyId,
+    'category': category,
+    'original_name': originalName,
+    'mime': mime,
+    'size_bytes': sizeBytes,
+    'created_at': createdAt,
+  };
 }

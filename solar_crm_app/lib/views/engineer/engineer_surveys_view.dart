@@ -6,6 +6,7 @@ import '../../core/constants/app_typography.dart';
 import '../../models/survey_model.dart';
 import '../../providers/survey_provider.dart';
 import 'sheets/complete_survey_sheet.dart';
+import 'sheets/survey_documents_sheet.dart';
 
 class EngineerSurveysView extends StatefulWidget {
   const EngineerSurveysView({super.key});
@@ -50,26 +51,28 @@ class _EngineerSurveysViewState extends State<EngineerSurveysView> {
   }
 
   Future<void> _navigateToSite(SurveyModel s) async {
-    String destination;
-    if (s.siteLatitude != null && s.siteLongitude != null) {
-      destination = '${s.siteLatitude},${s.siteLongitude}';
-    } else {
-      final parts = [s.address, s.city, s.state].where((v) => v != null && v.trim().isNotEmpty);
-      destination = parts.join(', ');
-    }
-
-    if (destination.isEmpty) {
+    final url = s.mapsUrl;
+    if (url == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("No site coordinates or address recorded.")),
       );
       return;
     }
 
-    final url = 'https://www.google.com/maps/dir/?api=1&destination=${Uri.encodeComponent(destination)}';
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Could not launch Google Maps navigation.")),
+        );
+      }
     }
+  }
+
+  void _openDocumentsSheet(SurveyModel survey) {
+    SurveyDocumentsSheet.show(context, survey: survey);
   }
 
   void _openCompleteSurveySheet(SurveyModel survey) async {
@@ -503,6 +506,40 @@ class _EngineerSurveysViewState extends State<EngineerSurveysView> {
             ],
           ),
 
+          // Landmark if recorded
+          if (survey.landmark != null && survey.landmark!.trim().isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.near_me_outlined, size: 12, color: AppColors.skyBlue),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    "Landmark: ${survey.landmark}",
+                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppColors.skyBlue),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          // GPS coordinates indicator
+          if (survey.hasGps) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.gps_fixed_rounded, size: 11, color: AppColors.emeraldGreen),
+                const SizedBox(width: 4),
+                Text(
+                  "Site GPS: ${survey.siteLatitude!.toStringAsFixed(5)}, ${survey.siteLongitude!.toStringAsFixed(5)}",
+                  style: const TextStyle(fontSize: 10, color: AppColors.emeraldGreen, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ],
+
           // Feasibility specs if recorded
           if (survey.isCompleted && survey.roofType != null) ...[
             const SizedBox(height: 8),
@@ -524,7 +561,7 @@ class _EngineerSurveysViewState extends State<EngineerSurveysView> {
           const Divider(height: 1),
           const SizedBox(height: 10),
 
-          // Action Buttons: Call, Navigate, Report
+          // Action Buttons: Call, Navigate, Documents, Report
           Row(
             children: [
               if (survey.mobileNumber.isNotEmpty) ...[
@@ -545,6 +582,16 @@ class _EngineerSurveysViewState extends State<EngineerSurveysView> {
                 tooltip: "Navigate to Site (Google Maps)",
                 style: IconButton.styleFrom(
                   backgroundColor: AppColors.skyBlue.withValues(alpha: 0.1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                onPressed: () => _openDocumentsSheet(survey),
+                icon: const Icon(Icons.folder_shared_outlined, size: 18, color: Colors.deepPurpleAccent),
+                tooltip: "Survey Documents & Photos",
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.deepPurpleAccent.withValues(alpha: 0.1),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),

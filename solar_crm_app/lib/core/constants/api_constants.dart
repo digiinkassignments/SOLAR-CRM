@@ -81,6 +81,8 @@ class ApiConstants {
   // Field Surveys & Work
   static const String surveys = "/surveys";
   static const String scheduleSurvey = "/surveys/schedule";
+  static String surveyDocuments(dynamic surveyId) => "/surveys/$surveyId/documents";
+  static String surveyDocument(dynamic surveyId, dynamic docId) => "/surveys/$surveyId/documents/$docId";
   static const String fieldWorkSurveyEntries = "/field-work/resources/survey";
   static const String fieldWorkFiles = "/field-work/entries";
   static const String fieldWorkSubmit = "/field-work/entries";

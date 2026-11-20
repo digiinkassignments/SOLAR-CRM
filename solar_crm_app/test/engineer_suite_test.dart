@@ -155,6 +155,113 @@ void main() {
       expect(provider.isLoading, isFalse);
       expect(provider.errorMessage, isNull);
     });
+
+    test('SurveyModel accurately parses address, landmark and prefers GPS for navigation', () {
+      final surveyWithGps = SurveyModel.fromJson({
+        'id': 101,
+        'lead_id': 1,
+        'customer_name': 'Ramesh Kumar',
+        'site_address': '42 Green Valley',
+        'landmark': 'Near City Hospital',
+        'city': 'Jaipur',
+        'state': 'Rajasthan',
+        'site_latitude': 26.9124,
+        'site_longitude': 75.7873,
+      });
+
+      expect(surveyWithGps.fullAddress, contains('42 Green Valley'));
+      expect(surveyWithGps.fullAddress, contains('Landmark: Near City Hospital'));
+      expect(surveyWithGps.landmark, equals('Near City Hospital'));
+      expect(surveyWithGps.hasGps, isTrue);
+      // Navigation prefers exact GPS coordinates
+      expect(surveyWithGps.mapsUrl, equals('https://www.google.com/maps/dir/?api=1&destination=26.9124,75.7873'));
+
+      final surveyWithoutGps = SurveyModel.fromJson({
+        'id': 102,
+        'lead_id': 2,
+        'customer_name': 'Suresh Verma',
+        'site_address': 'Flat 204, Surya Enclave',
+        'landmark': 'Opposite Metro Pillar 44',
+        'city': 'Jaipur',
+        'state': 'Rajasthan',
+      });
+
+      expect(surveyWithoutGps.hasGps, isFalse);
+      expect(surveyWithoutGps.fullAddress, contains('Opposite Metro Pillar 44'));
+      // Fallback search navigation includes address and landmark
+      expect(surveyWithoutGps.mapsUrl, contains('https://www.google.com/maps/search/?api=1&query='));
+      expect(surveyWithoutGps.mapsUrl, contains('Opposite'));
+    });
+
+    test('SurveyDocumentModel parses categories, sizes, and formats correctly', () {
+      final docsJson = [
+        {
+          'id': 1,
+          'survey_id': 101,
+          'category': 'aadhaar',
+          'original_name': 'aadhaar_front.jpg',
+          'mime': 'image/jpeg',
+          'size_bytes': 1500000,
+          'created_at': '2026-11-20T10:00:00Z',
+        },
+        {
+          'id': 2,
+          'survey_id': 101,
+          'category': 'electricity_bill',
+          'original_name': 'jvvnl_bill_nov.pdf',
+          'mime': 'application/pdf',
+          'size_bytes': 524288,
+          'created_at': '2026-11-20T10:02:00Z',
+        },
+        {
+          'id': 3,
+          'survey_id': 101,
+          'category': 'site_photo',
+          'original_name': 'roof_top_view.png',
+          'mime': 'image/png',
+          'size_bytes': 3500000,
+          'created_at': '2026-11-20T10:05:00Z',
+        },
+        {
+          'id': 4,
+          'survey_id': 101,
+          'category': 'bank_passbook',
+          'original_name': 'sbi_passbook.webp',
+          'mime': 'image/webp',
+          'size_bytes': 850000,
+          'created_at': '2026-11-20T10:08:00Z',
+        },
+      ];
+
+      final docs = docsJson.map((j) => SurveyDocumentModel.fromJson(j)).toList();
+
+      expect(docs[0].category, equals('aadhaar'));
+      expect(docs[0].isImage, isTrue);
+      expect(docs[0].isPdf, isFalse);
+      expect(docs[0].formattedSize, equals('1.43 MB'));
+
+      expect(docs[1].category, equals('electricity_bill'));
+      expect(docs[1].isPdf, isTrue);
+      expect(docs[1].isImage, isFalse);
+      expect(docs[1].formattedSize, equals('512.0 KB'));
+
+      expect(docs[2].category, equals('site_photo'));
+      expect(docs[2].isImage, isTrue);
+
+      expect(docs[3].category, equals('bank_passbook'));
+      expect(docs[3].isImage, isTrue);
+    });
+
+    test('SurveyProvider document state and reset cleans state', () {
+      final client = ApiClient();
+      final provider = SurveyProvider(apiClient: client);
+
+      provider.reset();
+      expect(provider.activeDocuments, isEmpty);
+      expect(provider.isLoadingDocuments, isFalse);
+      expect(provider.documentErrorMessage, isNull);
+      expect(provider.uploadingCategory, isNull);
+    });
   });
 }
 

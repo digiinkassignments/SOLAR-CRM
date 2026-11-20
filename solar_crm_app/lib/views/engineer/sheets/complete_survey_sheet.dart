@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../models/survey_model.dart';
 import '../../../providers/survey_provider.dart';
+import '../widgets/survey_documents_section.dart';
 
 class CompleteSurveySheet extends StatefulWidget {
   final SurveyModel survey;
@@ -81,6 +82,17 @@ class _CompleteSurveySheetState extends State<CompleteSurveySheet> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final proposedKw = double.tryParse(_proposedCapacityController.text.trim());
+    if (_feasibilityVerdict == 'Feasible' && (proposedKw == null || proposedKw <= 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Enter a positive proposed system capacity before marking the survey Feasible."),
+          backgroundColor: AppColors.errorRed,
+        ),
+      );
+      return;
+    }
 
     final provider = Provider.of<SurveyProvider>(context, listen: false);
 
@@ -174,6 +186,13 @@ class _CompleteSurveySheetState extends State<CompleteSurveySheet> {
                             "${widget.survey.customerName} • ${widget.survey.leadCode}",
                             style: AppTypography.caption(color: textSecondary),
                           ),
+                          if (widget.survey.fullAddress.isNotEmpty && widget.survey.fullAddress != 'Address not recorded')
+                            Text(
+                              widget.survey.fullAddress,
+                              style: TextStyle(fontSize: 10, color: textSecondary.withValues(alpha: 0.8)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                         ],
                       ),
                     ),
@@ -469,6 +488,16 @@ class _CompleteSurveySheetState extends State<CompleteSurveySheet> {
                           hintText: "Enter cable length to meter, earthing pit location, roof accessibility, inverter placement...",
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         ),
+                      ),
+
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      const SizedBox(height: 12),
+
+                      // Survey Documents & Photos
+                      SurveyDocumentsSection(
+                        survey: widget.survey,
+                        isEmbedded: true,
                       ),
 
                       const SizedBox(height: 24),
