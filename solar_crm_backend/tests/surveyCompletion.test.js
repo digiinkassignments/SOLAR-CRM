@@ -5,11 +5,14 @@ const data={roof_type:'RCC Flat Roof',roof_area_sqft:500,roof_condition:'Good',r
 test('survey completion requires technical details but no checklist or private evidence',()=>{
  assert.equal(definitions.definitions.survey.evidence,false);assert.equal(definitions.definitions.survey.checks.length,0);
  assert.equal(definitions.validate('survey',data,true),null);
+ assert.equal(definitions.definitions.survey.fields.find(f=>f.key==='roof_area_sqft').required,false);
+ for(const roof_area_sqft of [undefined,null,'',500]) assert.equal(definitions.validate('survey',{...data,roof_area_sqft},true),null);
+ for(const roof_area_sqft of [0,-1,'invalid']) assert(definitions.validate('survey',{...data,roof_area_sqft},true));
  assert.match(definitions.validate('survey',{...data,consumer_number:''},true),/Consumer number/);
  assert.match(definitions.validate('survey',{...data,feasibility_verdict:'Not feasible'},true),/Reason/);
 });
 for(const verdict of ['Feasible','Feasible with conditions','Not feasible'])test(`survey submit without files completes ${verdict} record`,async()=>{
- const d={...data,feasibility_verdict:verdict,not_feasible_reason:'Other technical / electrical constraints'};const writes=[];let committed=false,converted=false;
+ const d={...data,roof_area_sqft:'',feasibility_verdict:verdict,not_feasible_reason:'Other technical / electrical constraints'};const writes=[];let committed=false,converted=false;
  const e={id:2,resource_type:'survey',resource_id:7,created_by:4,status:'Draft',version:1,kind:'survey',data_json:JSON.stringify(d)};
  const c={beginTransaction:async()=>{},commit:async()=>{committed=true},rollback:async()=>{},release:()=>{},query:async(sql,args)=>{
   if(sql.startsWith('SELECT * FROM crm_field_entries'))return [[e]];

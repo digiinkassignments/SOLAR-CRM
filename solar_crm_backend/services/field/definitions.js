@@ -20,7 +20,7 @@ const definitions = {
         'Ground Mount',
         'Elevated Super Structure'
       ]),
-      field('roof_area_sqft', 'Usable roof area (sq ft)', 'number', true),
+      field('roof_area_sqft', 'Usable roof area (sq ft)', 'number'),
       field('roof_condition', 'Roof condition / structural observations', 'multiline', true),
       field('roof_orientation', 'Roof orientation', 'select', true, [
         'South (Optimal Solar Yield)',
@@ -97,7 +97,8 @@ function validate(kind, data, submit = false) {
     }
   }
   if (submit && kind === 'survey') {
-    if (!Number(data.roof_area_sqft) || !Number(data.proposed_capacity_kw)) return 'Roof area and proposed capacity must be positive.';
+    if (!Number(data.proposed_capacity_kw)) return 'Proposed capacity must be positive.';
+    if (data.roof_area_sqft !== undefined && data.roof_area_sqft !== null && String(data.roof_area_sqft).trim() !== '' && Number(data.roof_area_sqft) <= 0) return 'Usable roof area must be positive when provided.';
     if (data.consumer_number) {
       const cStr = String(data.consumer_number).trim();
       if (cStr.length < 8 || cStr.length > 16) return 'Consumer number must be between 8 and 16 characters for DISCOM feasibility.';
