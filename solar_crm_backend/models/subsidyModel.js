@@ -363,7 +363,9 @@ const getAllSubsidies = async (params = {}, db = defaultDb) => {
   const page = Math.max(1, parseInt(params.page, 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(params.limit, 10) || 20));
   const readerId = Number(params.readerId);
-  const where = ["((p.id IS NOT NULL AND p.is_deleted=0) OR (s.project_id IS NULL AND l.is_deleted=0))", "COALESCE(p.subsidy_applicable,1)=1"];
+  // Subsidy applications are project trackers. Lead-only rows must never be
+  // counted here; the old fallback made the dashboard report total leads.
+  const where = ["p.id IS NOT NULL", "p.is_deleted=0", "COALESCE(p.subsidy_applicable,1)=1"];
   const args = [];
   if (Number(params.readerRole) === 3) { where.push('l.assigned_to=?'); args.push(readerId); }
   if (Number(params.readerRole) === 2) {
@@ -381,7 +383,7 @@ const getAllSubsidies = async (params = {}, db = defaultDb) => {
   if (params.status && params.status !== 'All') { where.push('s.portal_status=?'); args.push(params.status); }
   const from = `FROM subsidy_applications s LEFT JOIN leads l ON l.id=s.lead_id
     LEFT JOIN projects p ON p.id=s.project_id WHERE ${where.join(' AND ')}`;
-  const [[count]] = await db.query(`SELECT COUNT(*) AS total ${from}`, args);
+  const [[count]] = await db.query(`SELECT COUNT(DISTINCT p.id) AS total ${from}`, args);
   const [rows] = await db.query(`SELECT s.*,s.id AS subsidy_id,
     COALESCE(CAST(s.lead_id AS CHAR),CONCAT('project-',p.id)) AS lead_id,
     COALESCE(p.customer_name,l.customer_name) AS customer_name,
@@ -396,7 +398,7 @@ const getAllSubsidies = async (params = {}, db = defaultDb) => {
   const credited = `s.portal_status='subsidy_credited' AND s.amount_received>0 AND NULLIF(TRIM(s.utr_number),'') IS NOT NULL
     AND s.credit_date IS NOT NULL AND s.credit_date<='${localDate}'
     AND EXISTS(SELECT 1 FROM project_commissioning pc WHERE pc.project_id=s.project_id AND pc.is_deleted=0 AND pc.commission_date<s.credit_date)`;
-  const [[stats]] = await db.query(`SELECT COUNT(*) AS total_projects,
+  const [[stats]] = await db.query(`SELECT COUNT(DISTINCT p.id) AS total_projects,
     SUM(s.portal_status='registered') AS count_registered,
     SUM(s.portal_status='feasibility_approved') AS count_feasibility,
     SUM(s.portal_status IN ('agreement_uploaded','installed_docs_uploaded')) AS count_in_installation,

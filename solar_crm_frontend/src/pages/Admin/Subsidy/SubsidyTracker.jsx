@@ -208,7 +208,7 @@ export default function SubsidyTracker() {
         const bStats = res.data.stats || {};
         setStats({
           stuckByStage: res.data.stuck_by_stage || [],
-          totalProjects: Number(bStats.total_projects ?? list.length),
+          totalProjects: Number(bStats.total_projects ?? 0),
           registered: Number(bStats.count_registered || 0),
           feasibility: Number(bStats.count_feasibility || 0),
           installation: Number(bStats.count_in_installation || 0),
