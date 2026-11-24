@@ -103,7 +103,6 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
     { title: "Solar Calculator", icon: <CalculateOutlinedIcon />, path: "/calculator", featureKey: null, requiredPermission: "calculator:view" },
 
     { isSection: true, title: "FINANCE" },
-    { title: "Invoices & Billing", icon: <ReceiptLongOutlinedIcon />, path: "/invoices", featureKey: null, requiredPermission: null },
     { title: "Subsidy & Finance", icon: <AccountBalanceIcon />, path: "/subsidies", featureKey: null, requiredPermission: null },
 
     { isSection: true, title: "PROJECT EXECUTION" },
