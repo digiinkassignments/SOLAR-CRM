@@ -17,13 +17,17 @@ const getAllProjects = async (req, res) => {
     };
 
     const data = await projectModel.getAllProjects(db, filters);
+    const [[actor]] = await db.query('SELECT u.role_id,r.role_name FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?',[req.user.id]);
+    if (Number(actor?.role_id) !== 1 && actor?.role_name !== 'Application Manager')
+      for (const project of data.projects)
+        for (const key of Object.keys(project)) if (key.startsWith('subsidy_')) delete project[key];
     return res.json({
       success: true,
       data,
     });
   } catch (error) {
     console.error("getAllProjects error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: error.message,
     });
@@ -44,13 +48,29 @@ const getProjectById = async (req, res) => {
       });
     }
 
+    await require('../services/subsidySync').prepare(db);
+    const [[tracker]] = await db.query(`SELECT s.id,s.portal_status,s.expected_subsidy,s.amount_received,
+      s.credit_date,s.utr_number,s.credited_by,s.credited_at,s.reopened,s.shortfall_remark,
+      s.rejection_category,TIMESTAMPDIFF(DAY,s.stage_started_at,NOW()) AS days_in_stage
+      FROM subsidy_applications s WHERE s.project_id=? LIMIT 1`, [project.id]);
+    const [[actor]] = await db.query('SELECT u.role_id,r.role_name FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?', [req.user.id]);
+    const canEditTracker = Number(actor?.role_id) === 1 || actor?.role_name === 'Application Manager';
+    const canReadTracker = await require('../middleware/subsidyAccess').canReadKey(db,project.lead_id || `project-${project.id}`,
+      {can_view_all:canEditTracker || actor?.role_name === 'Finance',role_id:Number(actor?.role_id),user_id:req.user.id});
+    project.subsidy_tracker = tracker ? { ...tracker, utr_number: canEditTracker ? tracker.utr_number : null,
+      shortfall_remark: canEditTracker ? tracker.shortfall_remark : null } : null;
+    project.subsidy_tracker_can_edit = canEditTracker;
+    if (!canEditTracker) project.subsidy_utr_number = null;
+    if (!canReadTracker)
+      for (const key of Object.keys(project)) if (key.startsWith('subsidy_')) delete project[key];
+
     return res.json({
       success: true,
       data: project,
     });
   } catch (error) {
     console.error("getProjectById error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: error.message,
     });
@@ -79,7 +99,7 @@ const createProject = async (req, res) => {
     });
   } catch (error) {
     console.error("createProject error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: error.message,
     });
@@ -109,7 +129,7 @@ const updateProjectStage = async (req, res) => {
     });
   } catch (error) {
     console.error("updateProjectStage error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: error.message,
     });
@@ -122,12 +142,22 @@ const updateProject = async (req, res) => {
     const db = req.db || defaultDb;
     const { id } = req.params;
 
+    if (req.body.subsidy_applicable !== undefined) {
+      const [[actor]] = await db.query("SELECT role_id,status,is_deleted FROM users WHERE id=?", [req.user.id]);
+      if (Number(actor?.role_id) !== 1 || actor.status !== 'Active' || actor.is_deleted)
+        return res.status(403).json({ success:false,message:'Only Super Admin can change subsidy applicability.' });
+      if (![0,1,'0','1',true,false].includes(req.body.subsidy_applicable))
+        return res.status(422).json({ success:false,message:'Subsidy applicability must be Yes or No.' });
+    }
     const updated = await projectModel.updateProject(db, id, req.body);
     if (!updated) {
       return res.status(400).json({
         success: false,
         message: "No valid fields provided to update or project not found.",
       });
+    }
+    if (req.body.subsidy_applicable !== undefined) {
+      await require('../services/subsidySync').syncProject(db, await projectModel.resolveNumericProjectId(db,id),req.user.id);
     }
 
     return res.json({
@@ -137,7 +167,7 @@ const updateProject = async (req, res) => {
     });
   } catch (error) {
     console.error("updateProject error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: error.message,
     });
@@ -181,7 +211,7 @@ const deleteProject = async (req, res) => {
     });
   } catch (error) {
     console.error("deleteProject error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: error.message,
     });
@@ -192,6 +222,7 @@ const deleteProject = async (req, res) => {
 const getProjectStats = async (req, res) => {
   try {
     const db = req.db || defaultDb;
+    await require('../services/subsidySync').prepare(db);
     const stats = await projectModel.getProjectStats(db);
     return res.json({
       success: true,
@@ -199,7 +230,7 @@ const getProjectStats = async (req, res) => {
     });
   } catch (error) {
     console.error("getProjectStats error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: error.message,
     });
@@ -230,7 +261,7 @@ const getCompletedSurveysHandler = async (req, res) => {
     });
   } catch (error) {
     console.error("getCompletedSurveysHandler error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: error.message,
     });

@@ -1,6 +1,8 @@
 // models/handoverModel.js
 
+const preparedConnections = new WeakSet();
 const ensureHandoverTable = async (db) => {
+  if (preparedConnections.has(db)) return;
   await db.query(`
     CREATE TABLE IF NOT EXISTS project_handover (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -50,6 +52,14 @@ const ensureHandoverTable = async (db) => {
   try {
     const [cols] = await db.query(`SHOW COLUMNS FROM project_handover`);
     const existingCols = new Set(cols.map((c) => c.Field));
+    for (const [name, definition] of Object.entries({
+      contract_value: 'DECIMAL(12,2) DEFAULT NULL',
+      amount_paid: 'DECIMAL(12,2) DEFAULT NULL',
+      balance_due: 'DECIMAL(12,2) DEFAULT NULL',
+      payment_status: "VARCHAR(30) DEFAULT 'Pending'",
+    })) {
+      if (!existingCols.has(name)) await db.query(`ALTER TABLE project_handover ADD COLUMN ${name} ${definition}`);
+    }
 
     if (!existingCols.has('monitoring_app_access_shared')) {
       await db.query(`ALTER TABLE project_handover ADD COLUMN monitoring_app_access_shared TINYINT(1) DEFAULT 0`);
@@ -158,7 +168,7 @@ const getHandover = async (db, projectId) => {
   };
 };
 
-const cleanDate = (d) => (d ? String(d).substring(0, 10) : null);
+const cleanDate = (d) => require('../services/subsidyRules').dateOnly(d);
 
 const createHandover = async (db, projectId, data, userId) => {
   await ensureHandoverTable(db);
@@ -347,7 +357,7 @@ const updateHandover = async (db, projectId, data) => {
   try {
     if (cVal !== null || aPaid !== null) {
       await db.query(
-        `UPDATE projects SET 
+        `UPDATE projects SET
           total_cost = COALESCE(?, total_cost),
           amount_received = COALESCE(?, amount_received),
           payment_status = COALESCE(?, payment_status)
@@ -476,6 +486,7 @@ const submitPublicHandoverReview = async (db, tokenOrId, data) => {
 };
 
 module.exports = {
+  markPrepared: db => preparedConnections.add(db),
   ensureHandoverTable,
   getHandover,
   createHandover,

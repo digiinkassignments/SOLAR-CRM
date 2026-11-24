@@ -103,7 +103,7 @@ export default function WarrantyAMC({ project, projectId }) {
   const targetProjectId = project?.id || projectId;
 
   // Use the project's actual handover date when recorded; leave dates blank otherwise.
-  const defaultWarrantyStart = project?.completion_date?.split("T")[0] || "";
+  const defaultWarrantyStart = project?.warranty_anchor_date?.split("T")[0] || project?.completion_date?.split("T")[0] || "";
   const defaultFreeServiceEnd = addDaysToDate(defaultWarrantyStart, 365);
 
   const [companyPlans, setCompanyPlans] = useState([]);
@@ -197,7 +197,7 @@ export default function WarrantyAMC({ project, projectId }) {
 
       if (w) {
         setWarrantyData(w);
-        const wStart = w.warranty_start_date ? w.warranty_start_date.split("T")[0] : defaultWarrantyStart;
+        const wStart = defaultWarrantyStart || (w.warranty_start_date ? w.warranty_start_date.split("T")[0] : "");
         const amcStart = w.amc_start_date ? w.amc_start_date.split("T")[0] : "";
 
         setWarrantyForm({
@@ -1006,7 +1006,8 @@ export default function WarrantyAMC({ project, projectId }) {
                     type="date"
                     required
                     value={warrantyForm.warranty_start_date}
-                    helperText="Set the actual warranty commencement date"
+                    disabled
+                    helperText="Warranty starts on the completed handover date, independent of subsidy credit."
                     onChange={(e) => handleWarrantyStartDateChange(e.target.value)}
                   />
                 </Grid>

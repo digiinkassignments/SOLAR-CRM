@@ -63,6 +63,9 @@ const getDatabaseErrorMessage = (error, defaultMsg = "Failed to save user.") => 
 // ======================================
 const createUserController = async (req, res) => {
     try {
+        const [[actor]] = await req.db.query("SELECT role_id,status,is_deleted FROM users WHERE id=?", [req.user.id]);
+        if (Number(actor?.role_id) !== 1 || actor.status !== 'Active' || actor.is_deleted)
+            return res.status(403).json({ success: false, message: 'Only an active Super Admin can assign roles.' });
         let { role_id, manager_id, full_name, username, email, phone, password } = req.body;
 
         // Clean & sanitize input values
@@ -135,7 +138,7 @@ const createUserController = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        await createUser({
+        const created = await createUser({
             role_id: Number(role_id),
             manager_id: manager_id ? Number(manager_id) : null,
             full_name,
@@ -145,6 +148,10 @@ const createUserController = async (req, res) => {
             password: hashedPassword,
             created_by: req.user?.id || null
         }, db);
+
+        await require('../services/subsidySyncSchema').ensure(db);
+        await db.query('INSERT INTO subsidy_access_audit(actor_id,action,resource_id) VALUES (?,?,?)',
+            [req.user.id, `role_assigned_${Number(role_id)}`, created.insertId]);
 
         // Dispatch welcome email with credentials
         try {
@@ -302,6 +309,9 @@ const getTeamMembersController = async (req, res) => {
 // ======================================
 const updateUserController = async (req, res) => {
     try {
+        const [[actor]] = await req.db.query("SELECT role_id,status,is_deleted FROM users WHERE id=?", [req.user.id]);
+        if (Number(actor?.role_id) !== 1 || actor.status !== 'Active' || actor.is_deleted)
+            return res.status(403).json({ success: false, message: 'Only an active Super Admin can assign roles.' });
         const { id } = req.params;
         const { role_id, manager_id, full_name, username, email, phone } = req.body;
 
@@ -342,6 +352,7 @@ const updateUserController = async (req, res) => {
             });
         }
 
+        const [[previousRole]] = await db.query('SELECT role_id FROM users WHERE id=?', [id]);
         const result = await updateUser({
             id,
             role_id: Number(role_id),
@@ -352,6 +363,11 @@ const updateUserController = async (req, res) => {
             phone: String(phone).trim()
         }, db);
 
+        if (result.affectedRows > 0 && Number(previousRole?.role_id) !== Number(role_id)) {
+            await require('../services/subsidySyncSchema').ensure(db);
+            await db.query('INSERT INTO subsidy_access_audit(actor_id,action,resource_id) VALUES (?,?,?)',
+                [req.user.id, `role_changed_${Number(previousRole?.role_id)}_to_${Number(role_id)}`, Number(id)]);
+        }
         if (result.affectedRows === 0) {
             return res.status(404).json({
                 success: false,

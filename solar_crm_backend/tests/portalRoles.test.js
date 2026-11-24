@@ -5,7 +5,8 @@ test('each portal permits its own modules and denies unrelated administration',(
  for(const path of ['/api/stock/items','/api/quotations','/api/invoices/2/payments','/api/customers/3/payment-plans/2','/api/calculator/save'])assert.equal(policy.allowed('finance','POST',path),true,path);
  for(const path of ['/api/subsidy/apply','/api/loans/2/upload-doc'])assert.equal(policy.allowed('application-manager','POST',path),true,path);
  for(const role of ['finance','application-manager'])for(const path of ['/api/users','/api/roles','/api/settings','/api/projects','/api/leads/1/assign','/api/integrations','/api/sales-workflow/settings','/api/quotation-governance/1/approval'])assert.equal(policy.allowed(role,'POST',path),false,role+path);
- assert.equal(policy.allowed('finance','GET','/api/subsidy/list'),false);
+ assert.equal(policy.allowed('finance','GET','/api/subsidy/list'),true);
+ assert.equal(policy.allowed('finance','POST','/api/subsidy/apply'),false);
  assert.equal(policy.allowed('application-manager','GET','/api/invoices'),false);
  assert.equal(policy.allowed('application-manager','GET','/api/stock/items'),false);
  assert.equal(policy.allowed('finance','PUT','/api/leads/2'),false);
@@ -29,7 +30,7 @@ async function request({role='Finance',path='/api/invoices',method='GET',client=
 test('finance privilege is resolved from current tenant role, not arbitrary JWT permissions',async()=>{
  const r=await request();assert.equal(r.next,true);assert.equal(r.req.portalRole,'finance');
  assert.equal((await request({path:'/api/users'})).code,403);
- assert.equal((await request({path:'/api/subsidy/list'})).code,403);
+ assert.equal((await request({path:'/api/subsidy/list'})).next,true); // Dedicated tracker guard provides masked read-only data.
 });
 test('application manager only reaches subsidy and loan operations',async()=>{
  assert.equal((await request({role:'Application Manager',path:'/api/subsidy/apply',method:'POST'})).next,true);

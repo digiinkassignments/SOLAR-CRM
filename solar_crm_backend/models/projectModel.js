@@ -8,7 +8,7 @@ const ensuredDbs = new Set();
 
 const ensureProjectTables = async (db = defaultDb) => {
   try {
-    const dbKey = db?.config?.database || db?.pool?.config?.connectionConfig?.database || "default";
+    const dbKey = db?.config?.database || db?.connection?.config?.database || db?.pool?.config?.connectionConfig?.database || db;
     if (ensuredDbs.has(dbKey)) return;
 
     await db.query(`
@@ -50,6 +50,9 @@ const ensureProjectTables = async (db = defaultDb) => {
     try {
       await db.query(`ALTER TABLE projects MODIFY COLUMN stage VARCHAR(60) NOT NULL DEFAULT 'Order Closed'`);
     } catch (e) {}
+    try {
+      await db.query(`ALTER TABLE projects ADD COLUMN customer_id INT(11) DEFAULT NULL, ADD KEY idx_project_customer (customer_id)`);
+    } catch (e) {}
 
     await db.query(`
       CREATE TABLE IF NOT EXISTS project_stage_logs (
@@ -72,7 +75,7 @@ const ensureProjectTables = async (db = defaultDb) => {
 };
 
 // Auto-run on module load
-ensureProjectTables().catch(() => {});
+// Schema setup occurs at migration/request boundaries, never on import.
 
 /**
  * Resolve project ID whether given numeric ID, project_uuid (e.g. 'PRJ-72FC2623E455DF9B'), or project_number
@@ -130,7 +133,7 @@ const getAllProjects = async (db = defaultDb, { stage, assigned_to, engineer_id,
 
   // Fetch paginated projects with JOIN on users for assigned_to_name
   const selectSql = `
-    SELECT 
+    SELECT
       p.*,
       u.full_name AS assigned_to_name,
       ab.full_name AS assigned_by_name,
@@ -171,7 +174,7 @@ const getProjectById = async (db = defaultDb, id) => {
   }
 
   const sql = `
-    SELECT 
+    SELECT
       p.*,
       u.full_name AS assigned_to_name,
       ab.full_name AS assigned_by_name,
@@ -190,13 +193,13 @@ const getProjectById = async (db = defaultDb, id) => {
 
   // Fetch stage logs with user name
   const logsSql = `
-    SELECT 
-      psl.*, 
+    SELECT
+      psl.*,
       COALESCE(u.full_name, u.username) AS changed_by_name,
       COALESCE(u.full_name, u.username) AS name
-    FROM project_stage_logs psl 
-    LEFT JOIN users u ON psl.changed_by = u.id 
-    WHERE psl.project_id = ? 
+    FROM project_stage_logs psl
+    LEFT JOIN users u ON psl.changed_by = u.id
+    WHERE psl.project_id = ?
     ORDER BY psl.created_at DESC
   `;
   const [stage_logs] = await db.query(logsSql, [project.id]);
@@ -210,6 +213,7 @@ const getProjectById = async (db = defaultDb, id) => {
  */
 const createProject = async (db = defaultDb, data, created_by = null) => {
   await ensureProjectTables(db);
+  if (typeof db.getConnection === 'function') await require('../services/subsidySync').prepare(db);
 
   const projectNumber =
     data.project_number ||
@@ -218,6 +222,9 @@ const createProject = async (db = defaultDb, data, created_by = null) => {
   const projectUuid = data.project_uuid || `PRJ-${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
 
   const initialStage = data.stage || "Order Closed";
+  require('../services/subsidyRules').assertManualStage(initialStage);
+  if (['Handover Done', 'Warranty Period'].includes(initialStage))
+    throw require('../services/subsidyRules').invalid('Create the project before completing handover.');
 
   const totalCost = data.total_cost !== undefined && data.total_cost !== "" ? parseFloat(data.total_cost) : 0;
   const amountReceived = data.amount_received !== undefined && data.amount_received !== "" ? parseFloat(data.amount_received) : 0;
@@ -291,6 +298,7 @@ const createProject = async (db = defaultDb, data, created_by = null) => {
 
   const [result] = await db.query(sql, values);
   const insertId = result.insertId;
+  if (data.customer_id) await db.query('UPDATE projects SET customer_id=? WHERE id=?', [data.customer_id, insertId]);
 
   // Insert initial stage log
   try {
@@ -303,6 +311,7 @@ const createProject = async (db = defaultDb, data, created_by = null) => {
     console.warn("Could not record initial project stage log:", logErr.message);
   }
 
+  await require('../services/subsidySync').initializeProject(db, insertId);
   return insertId;
 };
 
@@ -310,6 +319,7 @@ const createProject = async (db = defaultDb, data, created_by = null) => {
  * 4. Update Project Stage and record log
  */
 const updateProjectStage = async (db = defaultDb, projectId, newStage, changedBy = null, notes = null) => {
+  require('../services/subsidyRules').assertManualStage(newStage);
   await ensureProjectTables(db);
 
   const numericId = await resolveNumericProjectId(db, projectId);
@@ -328,6 +338,13 @@ const updateProjectStage = async (db = defaultDb, projectId, newStage, changedBy
   }
 
   const fromStage = rows[0].stage;
+  if (['Handover Done', 'Warranty Period'].includes(newStage))
+    await require('../services/subsidySync').assertHandover(db, numericId);
+  if (newStage === 'Warranty Period') {
+    const [[eligibility]] = await db.query(`SELECT subsidy_applicable FROM projects WHERE id=?`, [numericId]);
+    if (Number(eligibility?.subsidy_applicable) !== 0)
+      throw require('../services/subsidyRules').invalid('Warranty stage is advanced automatically after subsidy credit. Warranty coverage starts at handover.', 409);
+  }
 
   // Update projects table
   await db.query(
@@ -341,6 +358,7 @@ const updateProjectStage = async (db = defaultDb, projectId, newStage, changedBy
      VALUES (?, ?, ?, ?, ?)`,
     [numericId, fromStage, newStage, changedBy, notes || null]
   );
+  if (newStage === 'Handover Done') await require('../services/subsidySync').syncProject(db,numericId,changedBy);
 
   return {
     success: true,
@@ -361,6 +379,15 @@ const updateProject = async (db = defaultDb, id, data) => {
   const numericId = await resolveNumericProjectId(db, id);
   if (!numericId) {
     return false;
+  }
+  if (data.stage !== undefined) {
+    const [[current]] = await db.query('SELECT stage FROM projects WHERE id=? AND is_deleted=0',[numericId]);
+    if (!current || current.stage !== data.stage) {
+      require('../services/subsidyRules').assertManualStage(data.stage);
+      throw require('../services/subsidyRules').invalid('Use Change stage to update the project lifecycle.',409);
+    }
+    data = { ...data };
+    delete data.stage;
   }
 
   const allowedFields = [
@@ -385,6 +412,7 @@ const updateProject = async (db = defaultDb, id, data) => {
     "installation_end_date",
     "completion_date",
     "notes",
+    "subsidy_applicable",
   ];
 
   const updates = [];
@@ -433,9 +461,11 @@ const softDeleteProject = async (db = defaultDb, id) => {
 const getProjectStats = async (db = defaultDb) => {
   await ensureProjectTables(db);
   const [rows] = await db.query(
-    `SELECT stage, COUNT(*) AS count 
-     FROM projects 
-     WHERE is_deleted = 0${managerScope.linked(db,"projects.lead_id")} 
+    `SELECT stage, COUNT(*) AS count,
+      SUM(EXISTS(SELECT 1 FROM project_handover h WHERE h.project_id=projects.id AND h.is_deleted=0 AND h.handover_status='Completed')) AS handover_count,
+      SUM(EXISTS(SELECT 1 FROM subsidy_applications s WHERE s.project_id=projects.id AND s.portal_status='subsidy_credited')) AS tracker_credited_count
+     FROM projects
+     WHERE is_deleted = 0${managerScope.linked(db,"projects.lead_id")}
      GROUP BY stage`
   );
   return rows;

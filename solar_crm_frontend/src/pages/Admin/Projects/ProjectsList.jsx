@@ -201,18 +201,8 @@ export default function ProjectsList() {
           ) {
             inProgress += count;
           }
-          if (
-            item.stage === "Subsidy Applied" ||
-            item.stage === "Subsidy Received"
-          ) {
-            subsidy += count;
-          }
-          if (
-            item.stage === "Handover Done" ||
-            item.stage === "Warranty Period"
-          ) {
-            completed += count;
-          }
+          subsidy += Number(item.tracker_credited_count || 0);
+          completed += Number(item.handover_count || 0);
         });
 
         setStats({ total, inProgress, subsidy, completed });
@@ -402,7 +392,7 @@ export default function ProjectsList() {
           {[
             ["Total projects", stats.total, "All project records", <FolderSpecialOutlinedIcon />],
             ["In execution", stats.inProgress, "Approvals through commissioning", <EngineeringOutlinedIcon />],
-            ["Subsidy pipeline", stats.subsidy, "Applied and received", <AccountBalanceOutlinedIcon />],
+            ["Subsidy credited", stats.subsidy, "Verified in Subsidy Tracker", <AccountBalanceOutlinedIcon />],
             ["Handover & care", stats.completed, "Handover and warranty", <CheckCircleOutlinedIcon />],
           ].map(([label, count, caption, icon]) => <Paper key={label} variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, boxShadow: "none" }}>
             <Stack sx={{ alignItems: "center", justifyContent: "space-between", gap: 1 }} direction="row"   >
@@ -811,7 +801,7 @@ export default function ProjectsList() {
                       }
                     >
                       {STAGES.map((stg, i) => (
-                        <MenuItem key={stg} value={stg}>
+                        <MenuItem key={stg} value={stg} disabled={i >= 6}>
                           {i + 1}. {stg}
                         </MenuItem>
                       ))}

@@ -42,6 +42,7 @@ const startServer = async () => {
   // 6. NEW — Subscription cron jobs
   startSubscriptionCrons();
   require('./services/customerRecycleCron').start();
+  require('./services/subsidyReconciliation').start();
 };
 
 startServer();

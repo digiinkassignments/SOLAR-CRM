@@ -170,7 +170,9 @@ export default function ProjectDetail() {
   const handleOpenStageDialog = () => {
     const nextIdx = currentStageIndex + 1;
     const defaultNext = nextIdx < STAGES.length ? STAGES[nextIdx] : project.stage;
-    setNextStage(defaultNext);
+    setNextStage(['Subsidy Applied','Subsidy Received','Warranty Period'].includes(defaultNext)
+      ? (['Subsidy Applied','Subsidy Received','Warranty Period'].includes(project.stage) ? '' : project.stage)
+      : defaultNext);
     setStageNotes("");
     setStageDialogOpen(true);
   };
@@ -249,6 +251,7 @@ export default function ProjectDetail() {
       total_cost: project.total_cost != null ? String(project.total_cost) : "",
       amount_received: project.amount_received != null ? String(project.amount_received) : "",
       payment_status: project.payment_status || "Pending",
+      subsidy_applicable: Number(project.subsidy_applicable ?? 1),
     });
     setEditDialogOpen(true);
   };
@@ -266,7 +269,7 @@ export default function ProjectDetail() {
     setUpdatingProject(true);
     try {
       const res = await api.put(`/projects/${project?.id || id}`, {
-        ...editFormData,
+        ...Object.fromEntries(Object.entries(editFormData).filter(([key]) => key !== "subsidy_applicable" || Number(user?.role_id) === 1)),
         installation_start_date: editFormData.installation_start_date || null,
         installation_end_date: editFormData.installation_end_date || null,
         completion_date: editFormData.completion_date || null,
@@ -504,6 +507,21 @@ export default function ProjectDetail() {
           </Box>
           {Number(project.total_cost) > 0 && <Box sx={{ mt: 2.5, p: 2, bgcolor: "#F8FAFC", borderRadius: 2, display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" }, gap: 2 }}>
             {[["Contract value", Number(project.total_cost)], ["Amount received", Number(project.amount_received || 0)], ["Balance due", Math.max(0, Number(project.total_cost) - Number(project.amount_received || 0))]].map(([label, amount]) => <Box key={label}><Typography variant="caption">{label}</Typography><Typography sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", mt: 0.25 }}>{"\u20B9"}{amount.toLocaleString("en-IN")}</Typography></Box>)}
+          </Box>}
+          {Number(project.subsidy_applicable) === 0 && <Alert severity="info" sx={{ mt: 2 }}>Subsidy: Not applicable. After handover, this project enters Warranty Period directly.</Alert>}
+          {Boolean(project.subsidy_legacy_manual) && <Alert severity="warning" sx={{ mt: 2 }}>Received (legacy, manual): this historical subsidy entry needs review in the Subsidy Tracker.</Alert>}
+          {Number(project.subsidy_applicable) !== 0 && project.subsidy_tracker && <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+            <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+              <Typography sx={{ fontWeight: 700 }}>Subsidy Tracker <Chip size="small" label="Automatic · Read-only here" /></Typography>
+              <Button size="small" onClick={() => navigate(`${isEngineer ? '/engineer' : isManager ? '/manager' : ''}/subsidies/${project.lead_id || `project-${project.id}`}`)}>Open tracker</Button>
+            </Stack>
+            <Typography variant="body2" sx={{ mt: 1 }}>Stage: {project.subsidy_tracker.portal_status.replaceAll('_', ' ')} · {project.subsidy_tracker.days_in_stage || 0} days</Typography>
+            <Typography variant="body2" sx={{ mt: 0.5 }}>Expected: ₹{Number(project.subsidy_tracker.expected_subsidy || 0).toLocaleString('en-IN')} · Received: ₹{Number(project.subsidy_tracker.portal_status === 'subsidy_credited' ? project.subsidy_tracker.amount_received : 0).toLocaleString('en-IN')}</Typography>
+            {project.subsidy_tracker.portal_status === 'subsidy_credited' && <Typography variant="body2">Credit date: {formatDate(project.subsidy_tracker.credit_date)}{project.subsidy_tracker.utr_number ? ` · UTR: ${project.subsidy_tracker.utr_number}` : ''} · Recorded by user #{project.subsidy_tracker.credited_by || 'legacy'} · {formatDate(project.subsidy_tracker.credited_at)}</Typography>}
+            {Boolean(project.subsidy_claim_pending_handover) && <Alert severity="info" sx={{ mt: 1 }}>Claim submitted, handover pending.</Alert>}
+            {Boolean(project.subsidy_pending_handover) && <Alert severity="info" sx={{ mt: 1 }}>Subsidy credited ₹{Number(project.subsidy_tracker.amount_received || 0).toLocaleString('en-IN')}, awaiting handover.</Alert>}
+            {project.subsidy_tracker.rejection_category && <Alert severity="warning" sx={{ mt: 1 }}>Subsidy query/rejection: {project.subsidy_tracker.rejection_category}. Application Manager follow-up required.</Alert>}
+            {Boolean(project.subsidy_reopened) && <Alert severity="warning" sx={{ mt: 1 }}>Subsidy application reopened. Handover and warranty dates remain unchanged.</Alert>}
           </Box>}
         </Paper>
 
@@ -843,7 +861,8 @@ export default function ProjectDetail() {
                 {/* 10 Vertical Milestones */}
                 <Stack spacing={1.5}>
                   {STAGES.map((stageName, index) => {
-                    const isCompleted = index < currentStageIndex;
+                    const isSkipped = Number(project.subsidy_applicable) === 0 && ['Subsidy Applied','Subsidy Received'].includes(stageName);
+                    const isCompleted = !isSkipped && index < currentStageIndex;
                     const isCurrent = index === currentStageIndex;
                     const itemConfig = getStageConfig(stageName);
                     const nextStageCandidate = index + 1 < STAGES.length ? STAGES[index + 1] : null;
@@ -911,6 +930,8 @@ export default function ProjectDetail() {
                                 }}
                               >
                                 {index + 1}. {stageName}
+                                {isSkipped && <Chip size="small" label="Not applicable · Skipped" sx={{ ml: 1 }} />}
+                                {['Subsidy Applied','Subsidy Received'].includes(stageName) && <Chip size="small" sx={{ ml: 1 }} label="Auto-synced from Subsidy Tracker" />}
                               </Typography>
 
                               {isCurrent && (
@@ -931,6 +952,8 @@ export default function ProjectDetail() {
                               )}
                             </Box>
 
+                            {stageName === 'Subsidy Received' && !isCompleted && !isSkipped && <Typography variant="body2" sx={{ mt: 0.75 }}>Waiting: {project.subsidy_tracker ? `tracker at ${project.subsidy_tracker.portal_status.replaceAll('_', ' ')}, day ${project.subsidy_tracker.days_in_stage || 0}` : 'Tracker not created'}</Typography>}
+
                             <Typography sx={{ fontSize: "0.72rem", color: COLORS.textSecondary, mt: 0.3 }}>
                               {itemConfig.description}
                             </Typography>
@@ -942,7 +965,7 @@ export default function ProjectDetail() {
                               </Typography>
                             )}
 
-                            {isCurrent && nextStageCandidate && canEdit && (
+                            {isCurrent && nextStageCandidate && canEdit && !['Subsidy Applied', 'Subsidy Received', 'Warranty Period'].includes(nextStageCandidate) && (
                               <Box sx={{ mt: 1.2 }}>
                                 <Button
                                   size="small"
@@ -1138,8 +1161,8 @@ export default function ProjectDetail() {
                   onChange={(e) => setNextStage(e.target.value)}
                   sx={{ borderRadius: "8px" }}
                 >
-                  {STAGES.map((stg, i) => (
-                    <MenuItem key={stg} value={stg} sx={{ fontSize: "0.82rem" }}>
+                  {STAGES.filter(stg => !['Subsidy Applied', 'Subsidy Received', 'Warranty Period'].includes(stg)).map((stg) => (
+                    <MenuItem key={stg} value={stg} disabled={["Subsidy Applied", "Subsidy Received", "Warranty Period"].includes(stg)} sx={{ fontSize: "0.82rem" }}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                         <Box
                           sx={{
@@ -1150,7 +1173,7 @@ export default function ProjectDetail() {
                           }}
                         />
                         <span>
-                          {i + 1}. {stg}
+                          {STAGES.indexOf(stg) + 1}. {stg}
                         </span>
                       </Box>
                     </MenuItem>
@@ -1505,6 +1528,12 @@ export default function ProjectDetail() {
               </Box>
 
               <Divider />
+
+              {Number(user?.role_id) === 1 && <TextField select label="Subsidy applicability" value={editFormData.subsidy_applicable ?? 1}
+                onChange={e => setEditFormData(p => ({ ...p, subsidy_applicable: Number(e.target.value) }))}>
+                <MenuItem value={1}>Applicable ? residential subsidy claim</MenuItem>
+                <MenuItem value={0}>Not applicable ? commercial / customer opted out</MenuItem>
+              </TextField>}
 
               {/* Group 5: Commercial Contract & Handover Payment Sync */}
               <Box>

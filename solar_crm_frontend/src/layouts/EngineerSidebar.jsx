@@ -36,6 +36,7 @@ const navigationSections = [
       { title: "My Tasks & Blockers", icon: <AssignmentTurnedInOutlinedIcon />, path: "/engineer/tasks" },
       { title: "Service & AMC", icon: <EngineeringOutlinedIcon />, path: "/engineer/service" },
       { title: "Assigned Projects", icon: <EngineeringOutlinedIcon />, path: "/engineer/projects" },
+      { title:'Subsidy Tracker',icon:<AssignmentTurnedInOutlinedIcon />,path:'/engineer/subsidies' },
       { title: "Solar Calculator", icon: <CalculateOutlinedIcon />, path: "/engineer/calculator" },
     ],
   },

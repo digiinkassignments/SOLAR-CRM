@@ -22,6 +22,7 @@ import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import AccountCircleOutlinedIcon from "@mui/icons-material/AccountCircleOutlined";
 
 const getEngineerPageMetadata = (pathname) => {
+  if (pathname.includes('/engineer/subsidies')) return { title:'Subsidy Tracker',breadcrumb:'Subsidy Tracker' };
   if (pathname.includes("/engineer/tasks")) return { title: "My Tasks & Blockers", breadcrumb: "Tasks" };
   if (pathname.includes("/engineer/service")) return { title: "Service & AMC", breadcrumb: "Service" };
   if (pathname.includes("/engineer/surveys"))

@@ -24,6 +24,7 @@ const refs = {
   quote_id: 'quotations',
   survey_id: 'site_surveys',
   loan_id: 'solar_loans',
+  tracker_id: 'subsidy_applications',
   entry_id: 'crm_field_entries',
   log_id: 'installation_logs',
   installation_log_id: 'installation_logs',

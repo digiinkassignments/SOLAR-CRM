@@ -6,6 +6,11 @@ function database({ verdict = 'Feasible', capacity = 5, status = 'completed', ex
   const state = { customer: existingCustomer, project: existingProject, calls: [], inserts: 0 };
   const db = { query: async (sql, params) => {
     state.calls.push({ sql, params });
+    if (sql.startsWith('SELECT id,lead_id,customer_id,subsidy_applicable FROM projects')) return [[{...state.project,lead_id:10,customer_id:state.customer?.id,subsidy_applicable:1}]];
+    if (sql.startsWith('SELECT solar_requirement')) return [[{solar_requirement:'Residential'}]];
+    if (sql.startsWith('SELECT COUNT(*) AS n FROM projects')) return [[{n:1}]];
+    if (sql.startsWith('SELECT id,project_id FROM subsidy_applications')) return [[...(state.tracker?[state.tracker]:[])]];
+    if (sql.startsWith('INSERT INTO subsidy_applications')) {state.tracker={id:70,project_id:state.project.id};return [{insertId:70}];}
     if (sql.startsWith('SELECT lead_id')) return [[{ lead_id: 10 }]];
     if (sql.startsWith('SELECT * FROM leads')) return [[{ id: 10, customer_name: 'Test Customer', mobile_number: '9000000000', required_kw: capacity, customer_id: state.customer?.id }]];
     if (sql.startsWith('SELECT * FROM site_surveys')) return [[{ id: 7, lead_id: 10, status, feasibility_verdict: verdict, proposed_capacity_kw: capacity, assigned_engineer_id: 4 }]];
@@ -27,6 +32,8 @@ test('Feasible creates customer and assigned project with linked records', async
   assert.ok(state.calls.find(c => c.sql.includes('FROM leads') && c.sql.includes('FOR UPDATE')));
   assert.ok(state.calls.find(c => c.sql.includes('approved_by=NULL')));
   assert.ok(!state.calls.some(c => c.sql.includes("status='Won'")));
+  assert.equal(state.tracker.project_id,30);
+  assert(!state.calls.some(c => /^(ALTER|CREATE) /.test(c.sql)), 'Survey transaction must not execute schema DDL');
 });
 test('retry reuses customer and project without duplicate creation', async () => {
   const { db, state } = database();

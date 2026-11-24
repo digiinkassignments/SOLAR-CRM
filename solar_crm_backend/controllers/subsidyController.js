@@ -2,6 +2,24 @@ const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 const subsidyModel = require("../models/subsidyModel");
+const sync = require('../services/subsidySync');
+const { protect, canReadKey } = require('../middleware/subsidyAccess');
+async function trackerDetails(db, key) {
+  if (!/^project-\d+$/.test(String(key))) return subsidyModel.getSubsidyByLeadId(key, db);
+  const projectId = Number(String(key).slice(8));
+  const [[application]] = await db.query(`SELECT s.*,p.customer_name,p.customer_phone AS mobile_number,
+    p.customer_address AS address,p.city,p.state,p.pincode,p.project_number,p.stage AS project_stage,
+    p.system_capacity_kw,p.total_cost AS deal_amount,p.subsidy_pending_handover
+    FROM subsidy_applications s JOIN projects p ON p.id=s.project_id
+    WHERE p.id=? AND p.is_deleted=0 LIMIT 1`, [projectId]);
+  const [documents] = await db.query('SELECT * FROM customer_documents WHERE project_id=? ORDER BY id DESC', [projectId]);
+  const [rejections] = application ? await db.query('SELECT * FROM subsidy_rejection_logs WHERE subsidy_id=? ORDER BY id DESC', [application.id]) : [[]];
+  const [logs] = await db.query(`SELECT id,CASE WHEN status='tracker_saved' THEN 'Subsidy Tracker updated'
+    WHEN status='synced' THEN 'Automatic project sync' ELSE 'Subsidy sync requires review' END AS action_type,
+    to_stage AS new_value,created_at FROM subsidy_sync_logs
+    WHERE project_id=? ORDER BY id DESC LIMIT 20`, [projectId]);
+  return { application, documents, rejections, logs };
+}
 
 // Configure Multer for Customer KYC Documents
 const docUploadDir = path.join(__dirname, "../uploads/documents");
@@ -22,6 +40,14 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
+  fileFilter: (req,file,cb) => {
+    const accepted = {
+      'application/pdf':['.pdf'], 'image/jpeg':['.jpg','.jpeg'],
+      'image/png':['.png'], 'image/webp':['.webp'],
+    };
+    cb(accepted[file.mimetype]?.includes(path.extname(file.originalname).toLowerCase())
+      ? null : new Error('Upload a PDF, JPG, PNG or WebP document.'),true);
+  },
   limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
 }).single("document");
 
@@ -40,7 +66,10 @@ const applySubsidyHandler = async (req, res) => {
     if (capacity !== undefined && capacity !== null && capacity !== "" && (typeof capacity === "boolean" || !/^\d+(\.\d{1,3})?$/.test(String(capacity)) || Number(capacity) <= 0 || Number(capacity) > 9999999.999)) {
       return res.status(400).json({ success: false, message: "Sanctioned capacity must be a positive kW value with up to 3 decimal places." });
     }
-    const result = await subsidyModel.applySubsidy(req.body, req.db);
+    const saved = await sync.save(req.db, req.body, req.user.id, req.subsidyAccess);
+    const result = await trackerDetails(req.db, lead_id);
+    result.warnings = saved.warnings;
+    result.can_edit = true;
     return res.status(200).json({
       success: true,
       message: "PM Surya Ghar subsidy portal application details saved successfully.",
@@ -48,9 +77,9 @@ const applySubsidyHandler = async (req, res) => {
     });
   } catch (error) {
     console.error("applySubsidyHandler error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
-      message: "Failed to save subsidy application.",
+      message: error.status ? error.message : "Failed to save subsidy application.",
       error: error.message,
     });
   }
@@ -60,6 +89,8 @@ const applySubsidyHandler = async (req, res) => {
 const getSubsidyByLeadHandler = async (req, res) => {
   try {
     const { leadId } = req.params;
+    if (!await canReadKey(req.db, leadId, req.subsidyAccess))
+      return res.status(404).json({ success: false, message: 'Application not found.' });
     if (!leadId) {
       return res.status(400).json({
         success: false,
@@ -67,14 +98,15 @@ const getSubsidyByLeadHandler = async (req, res) => {
       });
     }
 
-    const data = await subsidyModel.getSubsidyByLeadId(leadId, req.db);
+    await sync.prepare(req.db);
+    const data = await trackerDetails(req.db, leadId);
     return res.status(200).json({
       success: true,
-      data,
+      data: protect(data, req.subsidyAccess),
     });
   } catch (error) {
     console.error("getSubsidyByLeadHandler error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: "Failed to fetch subsidy details.",
       error: error.message,
@@ -98,14 +130,19 @@ const uploadDocHandler = async (req, res) => {
       const { lead_id, document_type } = req.body;
       if(Number(req.user.role_id)===2 && !await require('../services/salesWorkflow').scopedLead(req.db,lead_id,req.user))return res.status(404).json({success:false,message:'Lead not found in your sales team.'});
       if (!lead_id || !document_type) {
-        return res.status(400).json({
-          success: false,
-          message: "lead_id and document_type are required.",
-        });
+        throw Object.assign(new Error('lead_id and document_type are required.'),{status:400});
       }
 
       const fileUrl = `/uploads/documents/${req.file.filename}`;
-      const docsList = await subsidyModel.saveCustomerDoc(
+      let docsList;
+      if (/^project-\d+$/.test(String(lead_id))) {
+        const projectId = Number(String(lead_id).slice(8));
+        const [[project]] = await req.db.query('SELECT id,lead_id FROM projects WHERE id=? AND is_deleted=0', [projectId]);
+        if (!project) throw Object.assign(new Error('Project not found.'), {status:404});
+        await req.db.query('INSERT INTO customer_documents(lead_id,project_id,document_type,file_name,file_url) VALUES (?,?,?,?,?)',
+          [project.lead_id,project.id,document_type,req.file.originalname,fileUrl]);
+        [docsList] = await req.db.query('SELECT * FROM customer_documents WHERE project_id=? ORDER BY id DESC',[projectId]);
+      } else docsList = await subsidyModel.saveCustomerDoc(
         {
           lead_id,
           document_type,
@@ -121,8 +158,9 @@ const uploadDocHandler = async (req, res) => {
         data: docsList,
       });
     } catch (error) {
+      await fs.promises.unlink(req.file.path).catch(() => {});
       console.error("uploadDocHandler error:", error);
-      return res.status(500).json({
+      return res.status(error.status || 500).json({
         success: false,
         message: "Failed to process document upload.",
         error: error.message,
@@ -136,6 +174,8 @@ const verifyDocHandler = async (req, res) => {
   try {
     const { docId } = req.params;
     const { verification_status, rejection_reason } = req.body;
+    if (!['pending','verified','rejected'].includes(verification_status))
+      return res.status(422).json({success:false,message:'Invalid document verification status.'});
 
     if (!docId || !verification_status) {
       return res.status(400).json({
@@ -158,7 +198,7 @@ const verifyDocHandler = async (req, res) => {
     });
   } catch (error) {
     console.error("verifyDocHandler error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: "Failed to update document status.",
       error: error.message,
@@ -177,7 +217,8 @@ const logRejectionHandler = async (req, res) => {
       });
     }
 
-    const result = await subsidyModel.logSubsidyRejection(req.body, req.db);
+    await sync.save(req.db, { ...req.body, portal_status: 'rejected' }, req.user.id, req.subsidyAccess);
+    const result = await trackerDetails(req.db, lead_id);
     return res.status(200).json({
       success: true,
       message: "Subsidy rejection logged and actionable fix task assigned.",
@@ -185,9 +226,9 @@ const logRejectionHandler = async (req, res) => {
     });
   } catch (error) {
     console.error("logRejectionHandler error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
-      message: "Failed to log subsidy rejection.",
+      message: error.status ? error.message : "Failed to log subsidy rejection.",
       error: error.message,
     });
   }
@@ -209,7 +250,7 @@ const resolveFixTaskHandler = async (req, res) => {
     });
   } catch (error) {
     console.error("resolveFixTaskHandler error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: "Failed to resolve rejection task.",
       error: error.message,
@@ -221,14 +262,16 @@ const resolveFixTaskHandler = async (req, res) => {
 const getAllSubsidiesHandler = async (req, res) => {
   try {
     const { page, limit, search, status } = req.query;
-    const data = await subsidyModel.getAllSubsidies({ page, limit, search, status }, req.db);
+    await sync.prepare(req.db);
+    const data = await subsidyModel.getAllSubsidies({ page, limit, search, status,
+      readerRole: req.subsidyAccess.role_id, readerId: req.subsidyAccess.user_id }, req.db);
     return res.status(200).json({
       success: true,
-      data,
+      data: protect(data, req.subsidyAccess),
     });
   } catch (error) {
     console.error("getAllSubsidiesHandler error:", error);
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: "Failed to fetch subsidy projects list.",
       error: error.message,

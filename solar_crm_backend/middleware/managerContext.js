@@ -22,6 +22,7 @@ module.exports = async (req, res, next) => {
   const module = parts[1],
     key = parts[2],
     body = req.body || {};
+  if (module === 'subsidy') return next(); // Fresh-role tracker guard owns read scope and denied-write auditing.
   const allowedLead = async (leadId) => {
     const [rows] = await req.db.query(
       `SELECT l.id FROM leads l WHERE l.id=? AND ${scope.leadFor(id)}`,

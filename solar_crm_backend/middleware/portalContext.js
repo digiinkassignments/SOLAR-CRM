@@ -12,6 +12,12 @@ module.exports=async(req,res,next)=>{
   try{
     const [[current]]=await req.db.query('SELECT u.role_id,u.status,u.is_deleted,r.role_name FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1',[decoded.id]);
     const role=policy.portalRole(current?.role_name);
+    // Subsidy routes resolve the live role, mask reads, and audit denied writes themselves.
+    if (/^\/api\/subsidy(?:\/|$)/.test(req.path)) {
+      if ((decoded.client_id && !req.clientInfo?.id) || (req.clientInfo?.id && Number(req.clientInfo.id)!==Number(decoded.client_id)))
+        return res.status(403).json({success:false,message:'Sign in to this company again.'});
+      return next();
+    }
     if(!role && !decoded.portal_role)return next();
     if(!current || current.is_deleted || current.status!=='Active' || Number(current.role_id)!==Number(decoded.role_id) || !role)return res.status(401).json({success:false,message:'Your access changed. Sign in again.'});
     if((decoded.client_id && !req.clientInfo?.id) || (req.clientInfo?.id && Number(req.clientInfo.id)!==Number(decoded.client_id)))return res.status(403).json({success:false,message:'Sign in to this company again.'});

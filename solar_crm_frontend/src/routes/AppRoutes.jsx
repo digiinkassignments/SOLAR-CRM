@@ -49,6 +49,7 @@ import StockAlerts from "../pages/Stock/StockAlerts";
 import ProjectsList from "../pages/Admin/Projects/ProjectsList";
 import ProjectDetail from "../pages/Admin/Projects/ProjectDetail";
 import SubsidyDetail from "../pages/Admin/Subsidy/SubsidyDetail";
+import SubsidyTracker from "../pages/Admin/Subsidy/SubsidyTracker";
 import CustomersList from "../pages/Customers/CustomersList";
 import CustomerDetail from "../pages/Customers/CustomerDetail";
 import FinancingHub from "../pages/Finance/FinancingHub";
@@ -218,6 +219,8 @@ const AppRoutes = () => {
             <Route path="/sales/quotations" element={<QuotationList />} />
             <Route path="/sales/invoices"   element={<InvoiceList />} />
             <Route path="/sales/profile"    element={<SalesProfile />} />
+            <Route path="/sales/subsidies" element={<SubsidyTracker />} />
+            <Route path="/sales/subsidies/:leadId" element={<SubsidyDetail />} />
           </Route>
         </Route>
 
@@ -233,6 +236,8 @@ const AppRoutes = () => {
             <Route path="/engineer/projects/:id/field" element={<RedirectToEngineerProject />} />
             <Route path="/engineer/calculator" element={<SolarCalculator technicalOnly />} />
             <Route path="/engineer/profile"    element={<Profile />} />
+            <Route path="/engineer/subsidies" element={<SubsidyTracker />} />
+            <Route path="/engineer/subsidies/:leadId" element={<SubsidyDetail />} />
           </Route>
         </Route>
 
@@ -249,6 +254,8 @@ const AppRoutes = () => {
 <Route path="/finance/customers" element={<CustomersList/>}/>
 <Route path="/finance/customers/:id" element={<CustomerDetail/>}/>
 <Route path="/finance/profile" element={<Profile/>}/>
+<Route path="/finance/subsidies" element={<SubsidyTracker/>}/>
+<Route path="/finance/subsidies/:leadId" element={<SubsidyDetail/>}/>
 </Route></Route>
 <Route element={<PrivateRoute allowedRoles={["Application Manager"]} />}>
 <Route element={<SubscriptionGuard><AdminLayout /></SubscriptionGuard>}>

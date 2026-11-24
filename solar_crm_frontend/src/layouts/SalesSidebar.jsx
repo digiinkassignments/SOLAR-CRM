@@ -68,6 +68,7 @@ const navigationSections = [
     subheader: "WORKSPACE",
     items: [
       { title: "Solar Calculator", icon: <CalculateOutlinedIcon />, path: "/sales/calculator" },
+      { title: 'Subsidy Tracker', icon: <ReceiptLongOutlinedIcon />, path:'/sales/subsidies' },
       { title: "Quotations", icon: <DescriptionOutlinedIcon />, path: "/sales/quotations" },
       { title: "Invoices & Billing", icon: <ReceiptLongOutlinedIcon />, path: "/sales/invoices" },
     ],

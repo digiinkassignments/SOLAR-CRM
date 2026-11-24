@@ -118,6 +118,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle, collapsed = false, sidebarWid
     baseNavigationMenuItems[0],
     {isSection:true,title:'FINANCE OPERATIONS'},
     ...['/customers','/quotations','/invoices','/calculator','/stock'].map(path=>baseNavigationMenuItems.find(item=>item.path===path)),
+    { title: 'Subsidy Tracker', icon: <AccountBalanceIcon />, path: '/subsidies' },
   ] : [baseNavigationMenuItems[0],{isSection:true,title:'APPLICATION OPERATIONS'},baseNavigationMenuItems.find(item=>item.path==='/subsidies')];
   const navigationMenuItems = portal ? portalMenu : isManager ? [...baseNavigationMenuItems.filter(item => item.path !== "/users"),
     { isSection: true, title: "TEAM OPERATIONS" },

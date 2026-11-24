@@ -51,6 +51,7 @@ async function convertFeasibleSurvey(db, surveyId, actorId) {
   // Retain legacy fields for older screens; this is automatic acceptance,
   // not a manager approval or a claim that the sales deal has been won.
   await db.query('UPDATE site_surveys SET project_id=?,is_approved=1,approved_by=NULL,approved_at=NOW() WHERE id=?', [project.id, surveyId]);
+  await require('./subsidySync').initializeProject(db, project.id);
   return { customer_id: customerId, project_id: project.id, project_number: project.project_number };
 }
 module.exports = { convertFeasibleSurvey };

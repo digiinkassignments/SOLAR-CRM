@@ -271,7 +271,7 @@ const REQUIRED_DOC_TYPES = [
 export default function SubsidyDetail() {
   const { leadId } = useParams();
   const navigate = useNavigate();
-  const hubPath = window.location.pathname.startsWith("/applications/") ? "/applications/subsidies" : window.location.pathname.startsWith("/manager/") ? "/manager/subsidies" : "/subsidies";
+  const hubPath = (window.location.pathname.match(/^\/(applications|manager|finance|sales|engineer)(?=\/)/)?.[0] || '') + '/subsidies';
   const dashboardPath = hubPath.startsWith("/applications/") ? "/applications/dashboard" : hubPath.startsWith("/manager/") ? "/manager/dashboard" : "/dashboard";
 
   // Data states
@@ -311,6 +311,8 @@ export default function SubsidyDetail() {
   const [blockerModalOpen, setBlockerModalOpen] = useState(false);
   const [blockerData, setBlockerData] = useState({ targetStage: null, missingDocs: [] });
 
+  const [canEdit, setCanEdit] = useState(false);
+
   // Main Form Data State
   const [formData, setFormData] = useState({
     consumer_number: "",
@@ -333,6 +335,8 @@ export default function SubsidyDetail() {
     amount_received: "",
     credit_date: "",
     utr_number: "",
+    shortfall_remark: "",
+    correction_reason: "",
     customer_total_cost: "",
     customer_amount_paid: "",
     customer_balance: "",
@@ -369,7 +373,9 @@ export default function SubsidyDetail() {
       // 2. Fetch Subsidy Details & Documents
       const subRes = await getSubsidyByLead(leadId);
       if (subRes.success && subRes.data) {
+        setCanEdit(subRes.data.can_edit === true);
         const app = subRes.data.application;
+        if (!leadObj && app && String(leadId).startsWith("project-")) setLead({ ...app, id: leadId });
         setDocuments(subRes.data.documents || []);
         setPortalLogs(subRes.data.logs || []);
         setRejections(subRes.data.rejections || []);
@@ -405,6 +411,8 @@ export default function SubsidyDetail() {
             amount_received: app.amount_received !== undefined && app.amount_received !== null ? String(app.amount_received) : "",
             credit_date: app.credit_date ? String(app.credit_date).slice(0, 10) : "",
             utr_number: app.utr_number || "",
+            shortfall_remark: app.shortfall_remark || "",
+            correction_reason: "",
             customer_total_cost: app.customer_total_cost !== undefined && app.customer_total_cost !== null ? String(app.customer_total_cost) : (app.deal_amount ? String(app.deal_amount) : ""),
             customer_amount_paid: app.customer_amount_paid !== undefined && app.customer_amount_paid !== null ? String(app.customer_amount_paid) : "",
             customer_balance: app.customer_balance !== undefined && app.customer_balance !== null ? String(app.customer_balance) : "",
@@ -444,6 +452,7 @@ export default function SubsidyDetail() {
 
   // Copy Full Portal Data Pack
   const handleCopyAllPortalData = async () => {
+    if (!canEdit) return;
     const custName = formData.bank_account_holder || lead?.customer_name || lead?.name || "N/A";
     const fullAddr = [lead?.address, lead?.city, lead?.state, lead?.pincode].filter(Boolean).join(", ") || "N/A";
     const cap = projectInfo?.capacity || lead?.system_capacity || "Not recorded";
@@ -522,7 +531,14 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "Not assessed"}
 
   // Step click handler with Document Checklist Rule
   const handleStageClick = (stage) => {
+    if (!canEdit) return;
     if (saveInFlight.current || stage.id === formData.portal_status) return;
+    const currentIndex = PORTAL_STAGES.findIndex(item => item.id === formData.portal_status);
+    const targetIndex = PORTAL_STAGES.findIndex(item => item.id === stage.id);
+    if (currentIndex >= 0 && targetIndex > currentIndex + 1) {
+      toast.error('Complete the previous tracker stages first.');
+      return;
+    }
 
     // Check mandatory documents rule
     const validation = validateStageDocuments(stage.id);
@@ -605,7 +621,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "Not assessed"}
 
   // Save Portal Application Details
   const handleSaveApplication = async (data = formData, successMessage = "PM Surya Ghar Portal details saved successfully!") => {
-    if (saveInFlight.current) return;
+    if (!canEdit || saveInFlight.current) return;
     if (data.sanctioned_capacity_kw !== "" && (!/^\d+(\.\d{1,3})?$/.test(String(data.sanctioned_capacity_kw)) || Number(data.sanctioned_capacity_kw) <= 0 || Number(data.sanctioned_capacity_kw) > 9999999.999)) {
       toast.error("Enter a positive sanctioned capacity in kW (up to 3 decimal places).");
       return;
@@ -616,7 +632,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "Not assessed"}
       return;
     }
 
-    if (saveInFlight.current) return;
+    if (!canEdit || saveInFlight.current) return;
     if (data.expected_subsidy === "" || !Number.isFinite(Number(data.expected_subsidy)) || Number(data.expected_subsidy) < 0 || Number(data.amount_received) < 0) {
       toast.error("Enter the assessed subsidy amount (zero if not applicable) and a non-negative credit amount."); return;
     }
@@ -636,6 +652,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "Not assessed"}
         setFormData(data);
         await fetchData();
         toast.success(successMessage);
+        for (const warning of res.data?.warnings || []) toast(warning, { icon: "??" });
       } else {
         toast.error(res.message || "Failed to save subsidy details.");
       }
@@ -717,8 +734,8 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "Not assessed"}
         });
         fetchData();
       }
-    } catch {
-      toast.error("Failed to log portal rejection.");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to log portal rejection.");
     }
   };
 
@@ -760,6 +777,10 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "Not assessed"}
 
   return (
     <FinanceWorkspace>
+      <Button onClick={() => navigate(hubPath)} sx={{ mb: 1 }}>Back to Subsidy Tracker</Button>
+      {formData.portal_status === "subsidy_credited" && Number(formData.amount_received) < Number(formData.expected_subsidy) && <Alert severity="warning" sx={{ mb: 2 }}>Credit shortfall: ?{(Number(formData.expected_subsidy) - Number(formData.amount_received)).toLocaleString("en-IN")}. {formData.shortfall_remark}</Alert>}
+      {!canEdit && <Alert severity="info" sx={{ mb: 2 }}>Read-only Subsidy Tracker. Only Application Manager and Super Admin can update this application. Sensitive details are hidden.</Alert>}
+      <Box component="fieldset" disabled={!canEdit} sx={{ border: 0, padding: 0, margin: 0, minWidth: 0, '&:disabled .MuiButton-root, &:disabled .MuiIconButton-root':{ opacity:0.45,cursor:'default' } }}>
       <Box sx={{ width: "100%", maxWidth: 1400, mx: "auto" }}>
         {/* HEADER & BREADCRUMBS */}
         <Stack
@@ -1047,7 +1068,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "Not assessed"}
                   letterSpacing: "0.06em",
                 }}
               >
-                National Solar Portal Mirror Statuses (Click to advance stage)
+                National Solar Portal Mirror Statuses {canEdit ? '(Click to advance stage)' : '(View only)'}
               </Typography>
               <Typography sx={{ fontSize: "0.78rem", color: COLORS.textSecondary, mt: 0.2 }}>
                 Mandatory document rules apply before advancing to gated milestones.
@@ -1071,15 +1092,15 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "Not assessed"}
                 <Grid size={{xs: 12, sm: 6, md: 4}}     key={stage.id}>
                   <Box
                     role="button"
-                    tabIndex={saving ? -1 : 0}
-                    aria-disabled={saving}
+                    tabIndex={saving || !canEdit ? -1 : 0}
+                    aria-disabled={saving || !canEdit}
                     aria-pressed={isCurrent}
                     onKeyDown={(event) => { if (!saving && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); handleStageClick(stage); } }}
                     onClick={() => handleStageClick(stage)}
                     sx={{
                       p: 1.2,
                       borderRadius: "10px",
-                      cursor: saving ? "wait" : "pointer",
+                      cursor: !canEdit ? "default" : saving ? "wait" : "pointer",
                       opacity: saving ? 0.65 : 1,
                       border: `1.5px solid ${
                         isCurrent
@@ -1930,6 +1951,14 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "Not assessed"}
                       sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: "0.85rem", fontFamily: "monospace" } }}
                     />
                   </Grid>
+                  <Grid size={{ xs: 12 }}>
+                    <TextField fullWidth multiline minRows={2} label="Shortfall remark (required for a lower credit)"
+                      value={formData.shortfall_remark} onChange={e => setFormData(p => ({ ...p, shortfall_remark: e.target.value }))} />
+                  </Grid>
+                  <Grid size={{ xs: 12 }}>
+                    <TextField fullWidth multiline minRows={2} label="Super Admin correction reason (required to reopen credited subsidy)"
+                      value={formData.correction_reason} onChange={e => setFormData(p => ({ ...p, correction_reason: e.target.value }))} />
+                  </Grid>
 
                   <Grid size={{xs: 12, sm: 4}}   >
                     <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: COLORS.textPrimary, mb: 0.5 }}>
@@ -2555,6 +2584,7 @@ Expected Central DBT Subsidy: ₹${formData.expected_subsidy || "Not assessed"}
         documentLabel={captureDocLabel}
         onCaptureSuccess={handleCaptureSuccess}
       />
+      </Box>
     </FinanceWorkspace>
   );
 }

@@ -41,6 +41,11 @@ exports.createOrUpdate = async (req, res) => {
     const pid = await resolveNumericProjectId(req.db, req.params.id);
     const existing = await getWarrantyAndVisits(req.db, pid);
     const payload = await warrantySelection(req.db, req.body, existing.warranty);
+    const [[handover]] = await req.db.query(`SELECT handover_date,handover_status FROM project_handover
+      WHERE project_id=? AND is_deleted=0 LIMIT 1`, [pid]);
+    if (handover?.handover_status !== 'Completed' || !handover.handover_date)
+      throw Object.assign(new Error('Complete customer handover before activating warranty.'), { status: 422 });
+    payload.warranty_start_date = require('../services/subsidyRules').dateOnly(handover.handover_date);
     if (existing.warranty) {
       await updateWarranty(req.db, pid, payload);
     } else {

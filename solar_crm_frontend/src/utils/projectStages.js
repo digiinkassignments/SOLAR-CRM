@@ -10,9 +10,9 @@ export const STAGES = [
   "Procurement",
   "Installation In Progress",
   "Commissioning",
+  "Handover Done",
   "Subsidy Applied",
   "Subsidy Received",
-  "Handover Done",
   "Warranty Period",
 ];
 
@@ -80,27 +80,27 @@ export const STAGE_CONFIG = {
   "Subsidy Applied": {
     label: "Subsidy Applied",
     shortLabel: "Subsidy Filed",
-    step: 7,
+    step: 8,
     color: "#0891B2",
     bg: "#ECFEFF",
     border: "#A5F3FC",
     dot: "#06B6D4",
-    description: "Commissioning certificate uploaded to PM Surya Ghar National Portal",
+    description: "Claim submitted on PM Surya Ghar Portal; updated automatically from the Subsidy Tracker",
   },
   "Subsidy Received": {
     label: "Subsidy Received",
     shortLabel: "Subsidy Credited",
-    step: 8,
+    step: 9,
     color: "#16A34A",
     bg: "#F0FDF4",
     border: "#BBF7D0",
     dot: "#22C55E",
-    description: "Direct DBT subsidy successfully credited into customer bank account",
+    description: "DBT credit verified and automatically synced from the Subsidy Tracker",
   },
   "Handover Done": {
     label: "Handover Done",
     shortLabel: "Handover Done",
-    step: 9,
+    step: 7,
     color: "#059669",
     bg: "#ECFDF5",
     border: "#A7F3D0",
@@ -115,7 +115,7 @@ export const STAGE_CONFIG = {
     bg: "#F0FDFA",
     border: "#99F6E4",
     dot: "#14B8A6",
-    description: "25-year panel performance warranty & routine AMC health visits",
+    description: "Warranty coverage starts at handover; AMC and scheduled service continue independently of subsidy",
   },
 };
 
@@ -141,4 +141,3 @@ export const getStageConfig = (stageName) => {
     description: "Project execution stage",
   };
 };
-

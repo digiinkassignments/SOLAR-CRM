@@ -79,6 +79,7 @@ function allowed(role, method, pathname) {
   if (method === 'PUT' && p === '/api/users/fcm-token') return true;
   if (read && (p === '/api/settings' || /^\/api\/leads(?:\/\d+)?$/.test(p))) return true;
   if (role === 'finance') {
+    if (read && /^\/api\/subsidy(?:\/|$)/.test(p)) return true;
     if (/^\/api\/(stock|quotations|invoices|customers|calculator)(?:\/|$)/.test(p)) return true;
     if (read && /^\/api\/quotation-governance\/(pending|\d+\/revisions)$/.test(p)) return true;
   }

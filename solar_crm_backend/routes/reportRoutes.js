@@ -14,7 +14,7 @@ router.get("/projects", verifyToken, async (req, res) => {
 
     // Get all projects with user name and customer info
     const [projects] = await db.query(`
-      SELECT 
+      SELECT
         p.id,
         p.project_number,
         p.customer_name,
@@ -24,6 +24,7 @@ router.get("/projects", verifyToken, async (req, res) => {
         p.created_at,
         p.updated_at,
         p.completion_date,
+        EXISTS(SELECT 1 FROM project_handover h WHERE h.project_id=p.id AND h.is_deleted=0 AND h.handover_status='Completed') AS handover_completed,
         u.full_name AS assigned_to_name
       FROM projects p
       LEFT JOIN users u ON p.assigned_to = u.id
@@ -32,18 +33,7 @@ router.get("/projects", verifyToken, async (req, res) => {
     `);
 
     // Funnel stage distribution counts (10 Real-world Solar EPC stages)
-    const funnelStages = [
-      "Order Closed",
-      "DISCOM Application",
-      "Pre-Install Inspection",
-      "Procurement",
-      "Installation In Progress",
-      "Commissioning",
-      "Subsidy Applied",
-      "Subsidy Received",
-      "Handover Done",
-      "Warranty Period"
-    ];
+    const funnelStages = require('../services/subsidyRules').PROJECT_STAGES;
 
     const funnelCounts = {};
     funnelStages.forEach((stg) => { funnelCounts[stg] = 0; });
@@ -59,7 +49,7 @@ router.get("/projects", verifyToken, async (req, res) => {
         funnelCounts[p.stage]++;
       }
 
-      if (p.stage === "Handover Done" || p.stage === "Warranty Period") {
+      if (p.handover_completed) {
         completedCount++;
       } else {
         inProgressCount++;
@@ -95,7 +85,7 @@ router.get("/financials", verifyToken, async (req, res) => {
     const db = req.db || defaultDb;
 
     let [invoices] = await db.query(`
-      SELECT 
+      SELECT
         id,
         invoice_number,
         customer_name,
@@ -205,7 +195,7 @@ router.get("/field-operations", verifyToken, async (req, res) => {
 
     // Check project operations with left joins to modules if tables exist
     const [projects] = await db.query(`
-      SELECT 
+      SELECT
         p.id,
         p.project_number,
         p.customer_name,
@@ -232,9 +222,9 @@ router.get("/field-operations", verifyToken, async (req, res) => {
 
     try {
       const [rows] = await db.query(`
-        SELECT project_id, phase, progress_percent 
-        FROM installation_logs 
-        WHERE is_deleted = 0 
+        SELECT project_id, phase, progress_percent
+        FROM installation_logs
+        WHERE is_deleted = 0
         ORDER BY id DESC
       `);
       rows.forEach(r => {
@@ -244,8 +234,8 @@ router.get("/field-operations", verifyToken, async (req, res) => {
 
     try {
       const [rows] = await db.query(`
-        SELECT project_id, overall_status 
-        FROM project_commissioning 
+        SELECT project_id, overall_result AS overall_status
+        FROM project_commissioning
         WHERE is_deleted = 0
       `);
       rows.forEach(r => { commissioningMap[r.project_id] = r.overall_status || "Pass"; });
@@ -253,8 +243,8 @@ router.get("/field-operations", verifyToken, async (req, res) => {
 
     try {
       const [rows] = await db.query(`
-        SELECT project_id, punch_list_cleared, customer_satisfaction 
-        FROM project_final_inspections 
+        SELECT project_id, inspection_status='Approved' AS punch_list_cleared
+        FROM project_final_inspection
         WHERE is_deleted = 0
       `);
       rows.forEach(r => { finalInspectionMap[r.project_id] = r.punch_list_cleared ? "Cleared" : "In Review"; });
@@ -262,8 +252,8 @@ router.get("/field-operations", verifyToken, async (req, res) => {
 
     try {
       const [rows] = await db.query(`
-        SELECT project_id, is_signed 
-        FROM project_customer_handovers 
+        SELECT project_id, handover_status='Completed' AS is_signed
+        FROM project_handover
         WHERE is_deleted = 0
       `);
       rows.forEach(r => { handoverMap[r.project_id] = r.is_signed ? "Signed" : "Draft"; });
@@ -307,7 +297,7 @@ router.get("/field-operations", verifyToken, async (req, res) => {
       const finalInsp = finalInspectionMap[p.id] || (p.stage === "Final Inspection" ? "In Review" : (p.stage === "Customer Handover" || p.stage === "Handover Done" || p.stage === "Warranty Period") ? "Cleared" : "Pending");
 
       const hoStatus = handoverMap[p.id] || (p.stage === "Handover Done" || p.stage === "Warranty Period" ? "Signed" : p.stage === "Customer Handover" ? "In Progress" : "Pending");
-      if (hoStatus === "Signed" || p.stage === "Handover Done" || p.stage === "Warranty Period") {
+      if (hoStatus === "Signed") {
         handoversComplete++;
       }
 
@@ -348,7 +338,7 @@ router.get("/warranty-amc", verifyToken, async (req, res) => {
     const db = req.db || defaultDb;
 
     const [projects] = await db.query(`
-      SELECT 
+      SELECT
         p.id,
         p.project_number,
         p.customer_name,
@@ -369,9 +359,9 @@ router.get("/warranty-amc", verifyToken, async (req, res) => {
 
     try {
       const [vRows] = await db.query(`
-        SELECT project_id, visit_date, status 
-        FROM project_service_visits 
-        WHERE is_deleted = 0 
+        SELECT project_id, visit_date, status
+        FROM project_service_visits
+        WHERE is_deleted = 0
         ORDER BY visit_date DESC
       `);
       vRows.forEach(v => {

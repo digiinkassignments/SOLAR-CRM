@@ -35,6 +35,7 @@ const API_BASE_URL =
 
 // Sales Dynamic Breadcrumbs and Page Title Mapping
 const getSalesPageMetadata = (pathname) => {
+  if (pathname.includes('/sales/subsidies')) return { title:'Subsidy Tracker',breadcrumb:'Subsidy Tracker' };
   if (pathname.includes("/sales/leads/today-followups")) return { title: "Today's Follow-up", breadcrumb: "Follow-ups" };
   if (pathname.includes("/sales/leads/birthdays")) return { title: "Birthdays / Events", breadcrumb: "Birthdays / Events" };
   if (pathname.includes("/sales/leads"))

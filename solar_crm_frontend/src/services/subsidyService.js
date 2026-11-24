@@ -1,4 +1,5 @@
 import api from "../api/axios";
+export const getSubsidySyncReport = async () => (await api.get('/subsidy/sync-report')).data;
 
 // Fetch all subsidies list with stage, owner, and SLA metadata
 export const getSubsidiesList = async (params = {}) => {

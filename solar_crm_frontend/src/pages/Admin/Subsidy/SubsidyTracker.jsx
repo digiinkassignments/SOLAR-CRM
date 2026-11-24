@@ -33,7 +33,7 @@ import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import CheckIcon from "@mui/icons-material/Check";
 
 import toast from "react-hot-toast";
-import { getSubsidiesList } from "../../../services/subsidyService";
+import { getSubsidiesList, getSubsidySyncReport } from "../../../services/subsidyService";
 
 // 9 Real Portal Stages Configuration
 const PORTAL_STAGE_CONFIG = {
@@ -139,8 +139,17 @@ const PORTAL_STAGE_CONFIG = {
 };
 
 export default function SubsidyTracker() {
+  const [canEdit,setCanEdit] = useState(false);
+  const [syncReport,setSyncReport] = useState(null);
+  const [reportLoading,setReportLoading] = useState(false);
+  const loadSyncReport = async () => {
+    setReportLoading(true);
+    try { const response = await getSubsidySyncReport();setSyncReport(response.data); }
+    catch (error) { toast.error(error.response?.data?.message || 'Unable to load sync report.'); }
+    finally { setReportLoading(false); }
+  };
   const navigate = useNavigate();
-  const base = window.location.pathname.startsWith("/applications/") ? "/applications/subsidies" : window.location.pathname.startsWith("/manager/") ? "/manager/subsidies" : "/subsidies";
+  const base = (window.location.pathname.match(/^\/(applications|manager|finance|sales|engineer)(?=\/)/)?.[0] || '') + '/subsidies';
   const sequenceRef = useRef(0);
   const [loadError, setLoadError] = useState("");
 
@@ -191,12 +200,14 @@ export default function SubsidyTracker() {
       if (sequence !== sequenceRef.current) return;
       if (!res?.success || !res.data) throw new Error(res?.message || "Unable to load subsidy records");
       if (res?.success && res.data) {
+        setCanEdit(res.data.can_edit === true);
         const list = res.data.subsidies || [];
         setSubsidies(list);
         setTotalCount(res.data.total ?? list.length);
 
         const bStats = res.data.stats || {};
         setStats({
+          stuckByStage: res.data.stuck_by_stage || [],
           totalProjects: Number(bStats.total_projects ?? list.length),
           registered: Number(bStats.count_registered || 0),
           feasibility: Number(bStats.count_feasibility || 0),
@@ -206,6 +217,8 @@ export default function SubsidyTracker() {
           rejected: Number(bStats.count_rejected || 0),
           totalExpected: Number(bStats.total_expected_subsidy || 0),
           totalDisbursed: Number(bStats.total_disbursed_subsidy || 0),
+          pendingAmount: Number(bStats.pending_subsidy_amount || 0), pendingProjects: Number(bStats.pending_projects || 0),
+          stuck: Number(bStats.stuck_applications || 0), creditedMonth: Number(bStats.credited_this_month || 0),
         });
       } else {
         setSubsidies([]);
@@ -286,6 +299,18 @@ Current Portal Stage: ${row.portal_status}
           {(search || selectedStatus!=="All") && <Button onClick={handleClearFilters}>Clear filters</Button>}
           <ToggleButtonGroup value={viewMode} exclusive size="small" onChange={(_,value)=>value&&setViewMode(value)} aria-label="Subsidy view"><ToggleButton value="box" aria-label="Subsidy card view"><ViewListOutlinedIcon fontSize="small" /></ToggleButton><ToggleButton value="table" aria-label="Subsidy table view"><TableChartOutlinedIcon fontSize="small" /></ToggleButton></ToggleButtonGroup>
         </Box>
+      </Paper>
+      {!!stats.stuckByStage?.length && <Stack direction="row" sx={{ gap:1,mb:2,flexWrap:'wrap' }}>{stats.stuckByStage.map(row=><Chip key={row.label} color="warning" variant="outlined" label={`${PORTAL_STAGE_CONFIG[row.label]?.label || row.label}: ${row.count} past target`} />)}</Stack>}
+      {canEdit && <Button variant="outlined" onClick={loadSyncReport} disabled={reportLoading} sx={{ mb: 2 }}>Sync &amp; legacy report</Button>}
+      {syncReport && <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Stack direction="row" sx={{ justifyContent:'space-between',mb:1 }}><Typography fontWeight={700}>Subsidy synchronization review</Typography><Button onClick={()=>setSyncReport(null)}>Close</Button></Stack>
+        <Typography variant="body2">Legacy manual credits to review: {syncReport.legacy_manual?.length || 0} · Ambiguous links: {syncReport.ambiguous_links?.length || 0} · Recent failed attempts: {syncReport.recent_failures?.length || 0}</Typography>
+        <TableContainer sx={{ maxHeight:280,mt:1 }}><Table size="small"><TableHead><TableRow><TableCell>Project</TableCell><TableCell>Previous stage</TableCell><TableCell>Current stage</TableCell><TableCell>Tracker status</TableCell></TableRow></TableHead><TableBody>{(syncReport.legacy_manual || []).map(row=><TableRow key={row.project_id}><TableCell>{row.project_number || row.project_id}</TableCell><TableCell>{row.legacy_stage}</TableCell><TableCell>{row.current_stage}</TableCell><TableCell>{row.portal_status || 'Tracker not created'}</TableCell></TableRow>)}</TableBody></Table></TableContainer>
+      </Paper>}
+      <Paper variant="outlined" sx={{ p: 2, mb: 2.5, display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+        <Typography>Pending subsidy: <strong>{money(stats.pendingAmount || 0)}</strong> ? {stats.pendingProjects || 0} projects</Typography>
+        <Typography>Past follow-up target: <strong>{stats.stuck || 0}</strong></Typography>
+        <Typography>Credited this month: <strong>{money(stats.creditedMonth || 0)}</strong></Typography>
       </Paper>
       <Alert severity="info" sx={{ mb: 2.5 }}>Portal milestones are recorded by your team. Follow-up targets are internal reminders, not guaranteed government processing times. Loan disbursement and subsidy credit are separate receipts.</Alert>
       <Typography variant="body2" color="text.secondary" role="status" sx={{ mb: 2 }}>{loading ? "Loading applications..." : `${totalCount} applications`}</Typography>

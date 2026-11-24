@@ -60,11 +60,9 @@ const COLORS = {
 };
 
 const PORTAL_STEPS = [
-  { id: "docs_pending", label: "Docs Pending" },
-  { id: "submitted", label: "Portal Submitted" },
-  { id: "feasibility_approved", label: "Feasibility Approved" },
-  { id: "subsidy_approved", label: "Subsidy Approved" },
-  { id: "disbursed", label: "Subsidy Disbursed" },
+  ...['registered', 'feasibility_approved', 'vendor_selected', 'agreement_uploaded',
+    'installed_docs_uploaded', 'net_meter_applied', 'commissioning_issued',
+    'bank_details_submitted', 'subsidy_credited'].map(id => ({ id, label: id.replaceAll('_', ' ') })),
 ];
 
 const REQUIRED_DOC_TYPES = [
@@ -106,6 +104,7 @@ const REQUIRED_DOC_TYPES = [
 ];
 
 export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar }) {
+  const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingType, setUploadingType] = useState(null);
@@ -122,7 +121,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
     consumer_number: "",
     application_number: "",
     scheme_name: "",
-    portal_status: "docs_pending",
+    portal_status: "registered",
     submission_date: "",
     approval_date: "",
     subsidy_amount: "",
@@ -140,6 +139,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
     try {
       const res = await getSubsidyByLead(lead.id);
       if (res.success && res.data) {
+        setCanEdit(res.data.can_edit === true);
         const app = res.data.application;
         setSubsidyApp(app);
         setDocuments(res.data.documents || []);
@@ -149,7 +149,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
             consumer_number: app.consumer_number || "",
             application_number: app.application_number || "",
             scheme_name: app.scheme_name || "",
-            portal_status: app.portal_status || "docs_pending",
+            portal_status: app.portal_status || "registered",
             submission_date: app.submission_date ? String(app.submission_date).slice(0, 10) : "",
             approval_date: app.approval_date ? String(app.approval_date).slice(0, 10) : "",
             subsidy_amount: app.subsidy_amount ? String(app.subsidy_amount) : "",
@@ -165,6 +165,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
   };
 
   const handleSaveApplication = async () => {
+    if (!canEdit) return;
     if (!lead?.id) return;
     if (!formData.consumer_number) {
       showSnackbar && showSnackbar("Consumer Number is required for PM Surya Ghar portal tracking.", "warning");
@@ -331,6 +332,8 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
         </IconButton>
       </Box>
 
+      <Box component="fieldset" disabled={!canEdit} sx={{ border: 0, p: 0, m: 0, minWidth: 0, '&:disabled .MuiButton-root, &:disabled .MuiIconButton-root':{opacity:0.45,cursor:'default'} }}>
+      {!canEdit && <Typography sx={{ p: 2 }}>Read-only. Tracker updates are restricted to Application Manager and Super Admin.</Typography>}
       {/* BODY */}
       <Box sx={{ p: 2.5, overflowY: "auto", flexGrow: 1 }}>
         {loading ? (
@@ -671,6 +674,7 @@ export default function SubsidyTrackerDrawer({ open, onClose, lead, showSnackbar
         documentType={captureDocType}
         documentLabel={captureDocLabel}
       />
+      </Box>
     </Drawer>
   );
 }
