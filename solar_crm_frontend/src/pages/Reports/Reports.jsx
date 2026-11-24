@@ -57,6 +57,7 @@ import CheckCircleOutlineRoundedIcon from "@mui/icons-material/CheckCircleOutlin
 import PendingOutlinedIcon from "@mui/icons-material/PendingOutlined";
 import PauseCircleFilledIcon from "@mui/icons-material/PauseCircleFilled";
 import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
+import ReplayOutlinedIcon from "@mui/icons-material/ReplayOutlined";
 
 
 // ═══════════════════════════════════════════════════════════
@@ -329,7 +330,7 @@ const Reports = () => {
   const [projectRowsPerPage, setProjectRowsPerPage] = useState(10);
 
   // Tab 3 Data States (Financials)
-  const [financialsData, setFinancialsData] = useState({ totalInvoiced: 0, totalCollected: 0, totalOutstanding: 0, totalOverdue: 0, statusCounts: {}, monthlyRevenue: [], invoices: [] });
+  const [financialsData, setFinancialsData] = useState({ totalInvoiced: 0, totalCollected: 0, totalOutstanding: 0, totalOverdue: 0, statusCounts: {}, monthlyRevenue: [], invoices: [], ledgerSummary: {} });
   const [invoicePage, setInvoicePage] = useState(0);
   const [invoiceRowsPerPage, setInvoiceRowsPerPage] = useState(10);
 
@@ -545,6 +546,7 @@ const Reports = () => {
     let collected = 0;
     let outstanding = 0;
     let overdue = 0;
+    let refundDue = 0, refundsPaid = 0;
     const now = new Date();
 
     const statusMap = { Paid: 0, "Partially Paid": 0, Unpaid: 0 };
@@ -557,9 +559,11 @@ const Reports = () => {
       invoiced += tot;
       collected += pd;
       outstanding += bal;
+      refundDue += Number(inv.refund_due) || 0;
+      refundsPaid += Number(inv.refunds_paid) || 0;
 
       const dueDate = inv.due_date ? new Date(inv.due_date) : null;
-      if (dueDate && dueDate < now && bal > 0) overdue += bal;
+      if ((inv.days_overdue !== undefined ? inv.days_overdue > 0 : dueDate && dueDate < now) && bal > 0) overdue += bal;
 
       const st = inv.payment_status || (bal <= 0 ? "Paid" : pd > 0 ? "Partially Paid" : "Unpaid");
       if (st === "Paid") statusMap.Paid++;
@@ -567,7 +571,7 @@ const Reports = () => {
       else statusMap.Unpaid++;
     });
 
-    return { invoiced, collected, outstanding, overdue, statusMap };
+    return { invoiced, collected, outstanding, overdue, statusMap, refundDue, refundsPaid };
   }, [filteredInvoices]);
 
   const paymentDonutSegments = useMemo(() => [
@@ -712,13 +716,15 @@ const Reports = () => {
       exportCsv(h, d, "Solar_CRM_Project_Execution_Report");
     } else if (mainTab === 2) {
       // Financials
-      const h = ["Invoice #", "Customer", "Total Amount", "Paid Amount", "Balance", "Status", "Due Date"];
+      const h = ["Invoice #", "Customer", "Total Amount", "Paid Amount", "Balance", "Refund Due", "Refunds Paid", "Status", "Due Date"];
       const d = filteredInvoices.map((inv) => [
         `"${inv.invoice_number}"`,
         `"${inv.customer_name}"`,
         inv.total_amount,
         inv.paid_amount || 0,
         inv.balance_amount || 0,
+        inv.refund_due || 0,
+        inv.refunds_paid || 0,
         `"${inv.payment_status}"`,
         `"${formatDate(inv.due_date)}"`,
       ]);
@@ -1204,10 +1210,12 @@ const Reports = () => {
             <Box>
               {/* Stat Cards */}
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 2.5 }}>
-                <StatCard label="Total Invoiced" value={formatINR(financialStats.invoiced)} caption="All raised invoices" icon={<AccountBalanceWalletOutlinedIcon sx={{ fontSize: 18 }} />} color={C.primary} softColor={C.primarySoft} />
-                <StatCard label="Total Collected" value={formatINR(financialStats.collected)} caption="Confirmed cash receipts" icon={<AttachMoneyIcon sx={{ fontSize: 18 }} />} color={C.success} softColor={C.successSoft} />
+                <StatCard label="Total Invoiced" value={formatINR(financialStats.invoiced)} caption="Invoices and opening financial records" icon={<AccountBalanceWalletOutlinedIcon sx={{ fontSize: 18 }} />} color={C.primary} softColor={C.primarySoft} />
+                <StatCard label="Total Collected" value={formatINR(financialStats.collected)} caption="Customer payments and disbursed loans" icon={<AttachMoneyIcon sx={{ fontSize: 18 }} />} color={C.success} softColor={C.successSoft} />
                 <StatCard label="Outstanding Balance" value={formatINR(financialStats.outstanding)} caption="Remaining unpaid balance" icon={<PendingOutlinedIcon sx={{ fontSize: 18 }} />} color={C.warning} softColor={C.warningSoft} />
                 <StatCard label="Overdue Amount" value={formatINR(financialStats.overdue)} caption="Past payment due date" icon={<WarningAmberOutlinedIcon sx={{ fontSize: 18 }} />} color={C.danger} softColor={C.dangerSoft} />
+                <StatCard label="Refunds Paid" value={formatINR(financialStats.refundsPaid)} caption="Outgoing customer refunds" icon={<ReplayOutlinedIcon sx={{ fontSize: 18 }} />} color={C.info} softColor={C.infoSoft} />
+                <StatCard label="Refund Due" value={formatINR(financialStats.refundDue)} caption="Overpayment pending return" icon={<WarningAmberOutlinedIcon sx={{ fontSize: 18 }} />} color={C.danger} softColor={C.dangerSoft} />
               </Box>
 
               {/* Charts Row */}

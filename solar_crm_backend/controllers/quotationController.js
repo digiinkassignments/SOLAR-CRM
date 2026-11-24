@@ -77,6 +77,7 @@ const createQuotation = async (req, res) => {
     const db = req.db || defaultDb;
     await ensureTaxColumns(db, "quotations");
     const userId = req.user?.id || null;
+    const paymentSchedule = req.body.payment_schedule === undefined ? [] : require('../services/quotationPaymentSchedule').validate(req.body.payment_schedule);
 
     const {
       lead_id,
@@ -158,8 +159,8 @@ const createQuotation = async (req, res) => {
         base_price, structure_installation_cost, gst_rate, gst_amount, discount_amount,
         total_amount, subsidy_amount, net_payable_amount,
         annual_generation_kwh, annual_savings, payback_years, twenty_five_year_savings,
-        status, valid_until, terms_and_conditions, notes, created_by, gst_mode, gst_summary_json${quotationItems ? ", line_items_json" : ""}
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sent', ?, ?, ?, ?, ?, ?${quotationItems ? ", ?" : ""})
+        status, valid_until, terms_and_conditions, notes, created_by, gst_mode, gst_summary_json, payment_schedule_json${quotationItems ? ", line_items_json" : ""}
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sent', ?, ?, ?, ?, ?, ?, ?${quotationItems ? ", ?" : ""})
     `;
 
     const values = [
@@ -200,7 +201,7 @@ const createQuotation = async (req, res) => {
       notes || null,
       userId,
     ];
-    values.push(gstMode, JSON.stringify({ ...tax, gst: gstAmount, total: totalAmount }));
+    values.push(gstMode, JSON.stringify({ ...tax, gst: gstAmount, total: totalAmount }), JSON.stringify(paymentSchedule));
     if (quotationItems) values.push(JSON.stringify(quotationItems.items));
 
     const [result] = await db.query(sql, values);
@@ -232,9 +233,9 @@ const createQuotation = async (req, res) => {
     });
   } catch (err) {
     console.error("createQuotation error:", err);
-    return res.status(500).json({
+    return res.status(err.status || 500).json({
       success: false,
-      message: "Failed to generate quotation",
+      message: err.status ? err.message : "Failed to generate quotation",
       error: err.message,
     });
   }
@@ -495,6 +496,7 @@ const acceptPublicQuotation = async (req, res) => {
 const updateQuotation = async (req, res) => {
   try {
     const db = req.db || defaultDb;
+    const paymentSchedule = req.body.payment_schedule === undefined ? undefined : require('../services/quotationPaymentSchedule').validate(req.body.payment_schedule);
     await ensureTaxColumns(db, "quotations");
     const { id } = req.params;
 
@@ -568,7 +570,7 @@ const updateQuotation = async (req, res) => {
         structure_installation_cost = ?, gst_rate = ?, gst_amount = ?,
         discount_amount = ?, total_amount = ?, subsidy_amount = ?,
         net_payable_amount = ?, status = ?, valid_until = ?,
-        terms_and_conditions = ?, notes = ?, gst_mode = ?, gst_summary_json = ?${quotationItems || clearStoredItems ? ", line_items_json = ?" : ""}, updated_at = CURRENT_TIMESTAMP
+        terms_and_conditions = ?, notes = ?, gst_mode = ?, gst_summary_json = ?, payment_schedule_json = ?${quotationItems || clearStoredItems ? ", line_items_json = ?" : ""}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `;
 
@@ -580,7 +582,7 @@ const updateQuotation = async (req, res) => {
       persistedStructureCost, effectiveGstRate, gstAmount,
       persistedDiscount, totalAmount, numSubsidy,
       netPayableAmount, status, valid_until,
-      terms_and_conditions, notes, gstMode, JSON.stringify({ ...tax, gst: gstAmount, total: totalAmount }), ...(quotationItems ? [JSON.stringify(quotationItems.items)] : clearStoredItems ? [null] : []), id
+      terms_and_conditions, notes, gstMode, JSON.stringify({ ...tax, gst: gstAmount, total: totalAmount }), paymentSchedule === undefined ? current.payment_schedule_json || null : JSON.stringify(paymentSchedule), ...(quotationItems ? [JSON.stringify(quotationItems.items)] : clearStoredItems ? [null] : []), id
     ];
 
     await db.query(sql, values);
@@ -592,9 +594,9 @@ const updateQuotation = async (req, res) => {
     });
   } catch (err) {
     console.error("updateQuotation error:", err);
-    return res.status(500).json({
+    return res.status(err.status || 500).json({
       success: false,
-      message: "Failed to update quotation",
+      message: err.status ? err.message : "Failed to update quotation",
       error: err.message,
     });
   }

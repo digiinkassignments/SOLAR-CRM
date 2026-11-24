@@ -1,5 +1,5 @@
-const managerScope=require("../utils/managerScope");
-const { db: defaultDb } = require("../config/db");
+const managerScope = require('../utils/managerScope');
+const { db: defaultDb } = require('../config/db');
 
 // Auto-ensure customers table exists in any client database
 const ensureCustomerTables = async (db = defaultDb) => {
@@ -49,17 +49,17 @@ const ensureCustomerTables = async (db = defaultDb) => {
       }
     };
 
-    await addColIfMissing("leads", "customer_id", "INT DEFAULT NULL");
-    await addColIfMissing("projects", "customer_id", "INT DEFAULT NULL");
-    await addColIfMissing("quotations", "customer_id", "INT DEFAULT NULL");
-    await addColIfMissing("invoices", "customer_id", "INT DEFAULT NULL");
+    await addColIfMissing('leads', 'customer_id', 'INT DEFAULT NULL');
+    await addColIfMissing('projects', 'customer_id', 'INT DEFAULT NULL');
+    await addColIfMissing('quotations', 'customer_id', 'INT DEFAULT NULL');
+    await addColIfMissing('invoices', 'customer_id', 'INT DEFAULT NULL');
 
     await require('../services/customerWorkspace').ensure(db);
 
     // Automatically sync any past Won leads that don't have customer records yet
     await autoSyncWonLeads(db);
   } catch (err) {
-    console.error("ensureCustomerTables error:", err.message);
+    console.error('ensureCustomerTables error:', err.message);
   }
 };
 
@@ -76,8 +76,8 @@ const autoSyncWonLeads = async (db = defaultDb) => {
     );
 
     for (const lead of wonLeads) {
-      const rawPhone = (lead.mobile_number || "").trim();
-      const cleanDigits = rawPhone.replace(/\D/g, "");
+      const rawPhone = (lead.mobile_number || '').trim();
+      const cleanDigits = rawPhone.replace(/\D/g, '');
       const phone = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : rawPhone;
 
       // 1. Check if customer already exists for this lead or phone
@@ -97,7 +97,10 @@ const autoSyncWonLeads = async (db = defaultDb) => {
       if (existing.length > 0) {
         customerId = existing[0].id;
         customerCode = existing[0].customer_code;
-        await db.query(`UPDATE leads SET customer_id = ? WHERE id = ? AND (customer_id IS NULL OR customer_id != ?)`, [customerId, lead.id, customerId]);
+        await db.query(
+          `UPDATE leads SET customer_id = ? WHERE id = ? AND (customer_id IS NULL OR customer_id != ?)`,
+          [customerId, lead.id, customerId]
+        );
       } else {
         customerCode = await generateCustomerCode(db);
         const [ins] = await db.query(
@@ -109,15 +112,15 @@ const autoSyncWonLeads = async (db = defaultDb) => {
           [
             customerCode,
             lead.id,
-            lead.customer_name || "Existing Customer",
-            rawPhone || phone || "0000000000",
+            lead.customer_name || 'Existing Customer',
+            rawPhone || phone || '0000000000',
             lead.alternate_number || null,
             lead.email || null,
             lead.address || null,
             lead.city || null,
             lead.state || null,
             lead.pincode || null,
-            lead.solar_requirement || "Residential",
+            lead.solar_requirement || 'Residential',
             lead.assigned_to || null,
             lead.created_by || null,
             `Auto-migrated from existing Won Lead (${lead.lead_code || lead.id})`,
@@ -129,15 +132,24 @@ const autoSyncWonLeads = async (db = defaultDb) => {
 
       // Backlink projects, quotations, invoices
       try {
-        await db.query(`UPDATE projects SET customer_id = ? WHERE lead_id = ? AND (customer_id IS NULL OR customer_id != ?)`, [customerId, lead.id, customerId]);
-        await db.query(`UPDATE quotations SET customer_id = ? WHERE lead_id = ? AND (customer_id IS NULL OR customer_id != ?)`, [customerId, lead.id, customerId]);
-        await db.query(`UPDATE invoices SET customer_id = ? WHERE lead_id = ? AND (customer_id IS NULL OR customer_id != ?)`, [customerId, lead.id, customerId]);
+        await db.query(
+          `UPDATE projects SET customer_id = ? WHERE lead_id = ? AND (customer_id IS NULL OR customer_id != ?)`,
+          [customerId, lead.id, customerId]
+        );
+        await db.query(
+          `UPDATE quotations SET customer_id = ? WHERE lead_id = ? AND (customer_id IS NULL OR customer_id != ?)`,
+          [customerId, lead.id, customerId]
+        );
+        await db.query(
+          `UPDATE invoices SET customer_id = ? WHERE lead_id = ? AND (customer_id IS NULL OR customer_id != ?)`,
+          [customerId, lead.id, customerId]
+        );
       } catch (backlinkErr) {
         // silent
       }
     }
   } catch (syncErr) {
-    console.error("autoSyncWonLeads error:", syncErr.message);
+    console.error('autoSyncWonLeads error:', syncErr.message);
   }
 };
 
@@ -149,10 +161,14 @@ const generateCustomerCode = async (db = defaultDb) => {
   );
   let nextSeq = 1001;
   if (rows.length > 0 && rows[0].customer_code) {
-    const parts = rows[0].customer_code.split("-");
+    const parts = rows[0].customer_code.split('-');
     const lastNum = parseInt(parts[parts.length - 1], 10);
     if (!isNaN(lastNum)) nextSeq = lastNum + 1;
   }
+  nextSeq = Math.max(
+    nextSeq,
+    1 + (await require('../services/customerDeletion').reservedCodeNumber(db, year))
+  );
   return `CUST-${year}-${nextSeq}`;
 };
 
@@ -164,13 +180,15 @@ const createOrLinkCustomerFromLead = async (leadId, performedBy = null, db = def
     if (leadRows.length === 0) return null;
     const lead = leadRows[0];
 
-    const rawPhone = (lead.mobile_number || "").trim();
+    const rawPhone = (lead.mobile_number || '').trim();
     // Normalize phone (strip non-digits, keep last 10 digits for Indian numbers)
-    const cleanDigits = rawPhone.replace(/\D/g, "");
+    const cleanDigits = rawPhone.replace(/\D/g, '');
     const phone = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : rawPhone;
 
     if (!phone && !lead.customer_name) {
-      console.warn(`[CustomerModel] Cannot create customer for lead ${leadId}: Missing phone and name`);
+      console.warn(
+        `[CustomerModel] Cannot create customer for lead ${leadId}: Missing phone and name`
+      );
       return null;
     }
 
@@ -226,15 +244,15 @@ const createOrLinkCustomerFromLead = async (leadId, performedBy = null, db = def
         [
           customerCode,
           leadId,
-          lead.customer_name || "Unknown Customer",
-          rawPhone || phone || "0000000000",
+          lead.customer_name || 'Unknown Customer',
+          rawPhone || phone || '0000000000',
           lead.alternate_number || null,
           lead.email || null,
           lead.address || null,
           lead.city || null,
           lead.state || null,
           lead.pincode || null,
-          lead.solar_requirement || "Residential",
+          lead.solar_requirement || 'Residential',
           lead.assigned_to || null,
           performedBy || lead.created_by || null,
           `Auto-created from Won Lead (${lead.lead_code || leadId})`,
@@ -264,58 +282,86 @@ const createOrLinkCustomerFromLead = async (leadId, performedBy = null, db = def
     // Also bind any projects, quotations, and invoices of this lead
     try {
       await db.query(`UPDATE projects SET customer_id = ? WHERE lead_id = ?`, [customerId, leadId]);
-      await db.query(`UPDATE quotations SET customer_id = ? WHERE lead_id = ?`, [customerId, leadId]);
+      await db.query(`UPDATE quotations SET customer_id = ? WHERE lead_id = ?`, [
+        customerId,
+        leadId,
+      ]);
       await db.query(`UPDATE invoices SET customer_id = ? WHERE lead_id = ?`, [customerId, leadId]);
     } catch (linkErr) {
-      console.warn("Could not backlink customer items:", linkErr.message);
+      console.warn('Could not backlink customer items:', linkErr.message);
     }
 
-    console.log(`[CustomerModel] Successfully linked/created customer ${customerCode} (ID: ${customerId}) for lead ${leadId}`);
+    console.log(
+      `[CustomerModel] Successfully linked/created customer ${customerCode} (ID: ${customerId}) for lead ${leadId}`
+    );
     return { customerId, customerCode };
   } catch (err) {
-    console.error("[CustomerModel] createOrLinkCustomerFromLead error:", err);
+    console.error('[CustomerModel] createOrLinkCustomerFromLead error:', err);
     throw err;
   }
 };
 
 // Create Customer Manually
-const createCustomer = async (data, userId, db = defaultDb) => {
+const createCustomer = async (data, userId, db = defaultDb, afterSave = null) => {
   await ensureCustomerTables(db);
   const customerCode = await generateCustomerCode(db);
 
   const insert = async (connection) => {
-  const [res] = await connection.query(
-    `INSERT INTO customers (
+    const [res] = await connection.query(
+      `INSERT INTO customers (
       customer_code, customer_name, mobile_number, alternate_number, email,
       address, city, state, pincode, electricity_consumer_number, discom_name,
       sanctioned_load_kw, customer_gstin, solar_requirement, notes, assigned_to, created_by, lead_source
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      customerCode,
-      data.customer_name,
-      data.mobile_number,
-      data.alternate_number || null,
-      data.email || null,
-      data.address || null,
-      data.city || null,
-      data.state || null,
-      data.pincode || null,
-      data.electricity_consumer_number || null,
-      data.discom_name || null,
-      data.sanctioned_load_kw || null,
-      data.customer_gstin || null,
-      data.solar_requirement || "Residential",
-      data.notes || null,
-      data.assigned_to || null,
-      userId || null,
-      data.lead_source?.trim() || null,
-    ]
-  );
+      [
+        customerCode,
+        data.customer_name,
+        data.mobile_number,
+        data.alternate_number || null,
+        data.email || null,
+        data.address || null,
+        data.city || null,
+        data.state || null,
+        data.pincode || null,
+        data.electricity_consumer_number || null,
+        data.discom_name || null,
+        data.sanctioned_load_kw || null,
+        data.customer_gstin || null,
+        data.solar_requirement || 'Residential',
+        data.notes || null,
+        data.assigned_to || null,
+        userId || null,
+        data.lead_source?.trim() || null,
+      ]
+    );
 
-  return { id: res.insertId, customer_code: customerCode };
+    const created = { id: res.insertId, customer_code: customerCode };
+    if (afterSave) await afterSave(connection, created);
+    return created;
   };
-  if (data.request_key || data.invoice_amount || data.payment_amount || data.plant_size_kw) return require("../services/customerOpening").create(db,data,userId,insert);
-  return insert(db);
+  if (
+    data.request_key ||
+    data.invoice_amount ||
+    data.payment_amount ||
+    data.plant_size_kw ||
+    data.loan_sanctioned_amount ||
+    data.loan_disbursed_amount ||
+    data.refund_paid_amount
+  )
+    return require('../services/customerOpening').create(db, data, userId, insert);
+  if (!afterSave) return insert(db);
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const result = await insert(connection);
+    await connection.commit();
+    return result;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
 
 // Get Customers List with Aggregated Financials & Projects Count
@@ -360,17 +406,19 @@ const getCustomers = async (filters = {}, db = defaultDb) => {
     FROM customers c
     LEFT JOIN users u ON c.assigned_to = u.id
     LEFT JOIN leads l ON c.lead_id = l.id
-    WHERE 1=1
+    WHERE LOWER(COALESCE(c.status,'')) NOT IN ('archived','deleted')
   `;
   const params = [];
 
   const roleIdNum = Number(role_id);
-  if (roleIdNum === 3) { // Sales sees assigned
+  if (roleIdNum === 3) {
+    // Sales sees assigned
     sql += ` AND (c.assigned_to = ? OR c.created_by = ?)`;
     params.push(user_id, user_id);
-  } else if (roleIdNum === 2) { // Manager sees team
+  } else if (roleIdNum === 2) {
+    // Manager sees team
     sql += ` AND ((l.is_deleted=0 AND l.assigned_to IN (SELECT id FROM users WHERE manager_id=? AND role_id=3 AND is_deleted=0)) OR (c.lead_id IS NULL AND c.assigned_to IN (SELECT id FROM users WHERE manager_id=? AND role_id=3 AND is_deleted=0)))`;
-    params.push(user_id,user_id);
+    params.push(user_id, user_id);
   }
 
   if (city) {
@@ -388,11 +436,28 @@ const getCustomers = async (filters = {}, db = defaultDb) => {
     params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
   }
 
-  sql += ` ORDER BY c.id DESC LIMIT 150`;
+  sql += ` ORDER BY c.id DESC${filters.directory ? '' : ' LIMIT 150'}`;
 
   const [rows] = await db.query(sql, params);
-  const opening = await require("../services/customerOpening").records(db, rows.map(row=>row.id));
-  return rows.map(row=>{const record=opening.find(item=>Number(item.customer_id)===Number(row.id));return {...row,plant_size_kw:record?.plant_size_kw ?? null,total_billed_amount:Number(row.total_billed_amount)+Number(record?.invoice_amount||0),total_paid_amount:Number(row.total_paid_amount)+Number(record?.amount_paid||0),total_balance_amount:Number(row.total_balance_amount)+Number(record?.invoice_amount||0)-Number(record?.amount_paid||0)};});
+  const opening = await require('../services/customerOpening').records(
+    db,
+    rows.map((row) => row.id)
+  );
+  const ledgers = await require('../services/customerLedger').getMany(db, rows, opening);
+  return rows.map((row) => {
+    const record = opening.find((item) => Number(item.customer_id) === Number(row.id));
+    const ledger = ledgers.get(Number(row.id));
+    return {
+      ...row,
+      plant_size_kw: record?.plant_size_kw ?? null,
+      ledger,
+      total_billed_amount: ledger.contract_total,
+      total_paid_amount: ledger.total_received,
+      total_balance_amount: ledger.balance,
+      total_refunds_paid: ledger.refunds_paid,
+      refund_due: ledger.refund_due,
+    };
+  });
 };
 
 // Get Full 360° Customer Profile By ID
@@ -419,7 +484,7 @@ const getCustomerById = async (id, db = defaultDb) => {
     `SELECT p.*, u.full_name AS assigned_to_name 
      FROM projects p 
      LEFT JOIN users u ON p.assigned_to = u.id 
-     WHERE (p.customer_id = ? OR (p.lead_id = ? AND ? IS NOT NULL)) AND p.is_deleted = 0${managerScope.linked(db,"p.lead_id")}
+     WHERE (p.customer_id = ? OR (p.lead_id = ? AND ? IS NOT NULL)) AND p.is_deleted = 0${managerScope.linked(db, 'p.lead_id')}
      ORDER BY p.id DESC`,
     [id, leadId, leadId]
   );
@@ -429,7 +494,7 @@ const getCustomerById = async (id, db = defaultDb) => {
     `SELECT q.*, u.full_name AS created_by_name 
      FROM quotations q 
      LEFT JOIN users u ON q.created_by = u.id 
-     WHERE (q.customer_id = ? OR (q.lead_id = ? AND ? IS NOT NULL))${managerScope.linked(db,"q.lead_id")}
+     WHERE (q.customer_id = ? OR (q.lead_id = ? AND ? IS NOT NULL))${managerScope.linked(db, 'q.lead_id')}
      ORDER BY q.id DESC`,
     [id, leadId, leadId]
   );
@@ -439,7 +504,7 @@ const getCustomerById = async (id, db = defaultDb) => {
     `SELECT inv.*, u.full_name AS created_by_name 
      FROM invoices inv 
      LEFT JOIN users u ON inv.created_by = u.id 
-     WHERE (inv.customer_id = ? OR (inv.lead_id = ? AND ? IS NOT NULL))${managerScope.linked(db,"inv.lead_id")}
+     WHERE (inv.customer_id = ? OR (inv.lead_id = ? AND ? IS NOT NULL))${managerScope.linked(db, 'inv.lead_id')}
      ORDER BY inv.id DESC`,
     [id, leadId, leadId]
   );
@@ -449,32 +514,47 @@ const getCustomerById = async (id, db = defaultDb) => {
     `SELECT l.*, u.full_name AS assigned_to_name 
      FROM leads l 
      LEFT JOIN users u ON l.assigned_to = u.id 
-     WHERE (l.customer_id = ? OR l.id = ?) AND l.is_deleted = 0${managerScope.lead(db,"l")}
+     WHERE (l.customer_id = ? OR l.id = ?) AND l.is_deleted = 0${managerScope.lead(db, 'l')}
      ORDER BY l.id DESC`,
     [id, leadId]
   );
 
-  const openingRecord = (await require("../services/customerOpening").records(db,[customer.id]))[0] || null;
+  const openingRecord =
+    (await require('../services/customerOpening').records(db, [customer.id]))[0] || null;
   const openingInvoice = Number(openingRecord?.invoice_amount) || 0;
   const openingPaid = Number(openingRecord?.amount_paid) || 0;
-  const openingDue = Math.max(0, openingInvoice - openingPaid);
+  const openingDue = openingInvoice - openingPaid;
 
-  const invoiceBilled = (invoices || []).reduce((sum, row) => sum + (Number(row.gross_total) || 0), 0);
-  const invoicePaid = (invoices || []).reduce((sum, row) => sum + (Number(row.amount_paid) || 0), 0);
+  const invoiceBilled = (invoices || []).reduce(
+    (sum, row) => sum + (Number(row.gross_total) || 0),
+    0
+  );
+  const invoicePaid = (invoices || []).reduce(
+    (sum, row) => sum + (Number(row.amount_paid) || 0),
+    0
+  );
   const invoiceDue = (invoices || []).reduce((sum, row) => sum + (Number(row.balance_due) || 0), 0);
 
   const totalBilled = openingInvoice + invoiceBilled;
   const totalPaid = openingPaid + invoicePaid;
   const totalDue = openingDue + invoiceDue;
-  const totalSystemKw = (projects || []).reduce((sum, row) => sum + (Number(row.system_capacity_kw) || 0), 0) || Number(openingRecord?.plant_size_kw) || Number(customer.plant_size_kw) || 0;
+  const ledger = await require('../services/customerLedger').get(db, customer, openingRecord);
+  const totalSystemKw =
+    (projects || []).reduce((sum, row) => sum + (Number(row.system_capacity_kw) || 0), 0) ||
+    Number(openingRecord?.plant_size_kw) ||
+    Number(customer.plant_size_kw) ||
+    0;
 
   return {
     ...customer,
     total_projects: (projects || []).length,
     total_system_kw: totalSystemKw,
-    total_billed_amount: totalBilled,
-    total_paid_amount: totalPaid,
-    total_balance_amount: totalDue,
+    ledger,
+    total_billed_amount: ledger.contract_total,
+    total_paid_amount: ledger.total_received,
+    total_balance_amount: ledger.balance,
+    total_refunds_paid: ledger.refunds_paid,
+    refund_due: ledger.refund_due,
     opening_record: openingRecord,
     projects,
     quotations,
@@ -484,11 +564,11 @@ const getCustomerById = async (id, db = defaultDb) => {
 };
 
 // Update Customer Profile
-const updateCustomer = async (id, data, db = defaultDb) => {
+const updateCustomer = async (id, data, db = defaultDb, afterSave = null) => {
   await ensureCustomerTables(db);
-  return require('../services/customerOpening').update(db,id,data,async connection=>{
-  const [result] = await connection.query(
-    `UPDATE customers SET
+  return require('../services/customerOpening').update(db, id, data, async (connection) => {
+    const [result] = await connection.query(
+      `UPDATE customers SET
       customer_name = ?,
       mobile_number = ?,
       alternate_number = ?,
@@ -507,37 +587,31 @@ const updateCustomer = async (id, data, db = defaultDb) => {
       assigned_to = ?,
       lead_source = IF(?, ?, lead_source)
      WHERE id = ?`,
-    [
-      data.customer_name,
-      data.mobile_number,
-      data.alternate_number || null,
-      data.email || null,
-      data.address || null,
-      data.city || null,
-      data.state || null,
-      data.pincode || null,
-      data.electricity_consumer_number || null,
-      data.discom_name || null,
-      data.sanctioned_load_kw || null,
-      data.customer_gstin || null,
-      data.solar_requirement || "Residential",
-      data.status || "Active",
-      data.notes || null,
-      data.assigned_to || null,
-      Object.hasOwn(data, "lead_source"),
-      data.lead_source?.trim() || null,
-      id,
-    ]
-  );
-  return result;
+      [
+        data.customer_name,
+        data.mobile_number,
+        data.alternate_number || null,
+        data.email || null,
+        data.address || null,
+        data.city || null,
+        data.state || null,
+        data.pincode || null,
+        data.electricity_consumer_number || null,
+        data.discom_name || null,
+        data.sanctioned_load_kw || null,
+        data.customer_gstin || null,
+        data.solar_requirement || 'Residential',
+        data.status || 'Active',
+        data.notes || null,
+        data.assigned_to || null,
+        Object.hasOwn(data, 'lead_source'),
+        data.lead_source?.trim() || null,
+        id,
+      ]
+    );
+    if (afterSave) await afterSave(connection);
+    return result;
   });
-};
-
-// Delete Customer (Super Admin only)
-const deleteCustomer = async (id, db = defaultDb) => {
-  await ensureCustomerTables(db);
-  const [result] = await db.query(`DELETE FROM customers WHERE id = ?`, [id]);
-  return result;
 };
 
 module.exports = {
@@ -549,5 +623,4 @@ module.exports = {
   getCustomers,
   getCustomerById,
   updateCustomer,
-  deleteCustomer,
 };

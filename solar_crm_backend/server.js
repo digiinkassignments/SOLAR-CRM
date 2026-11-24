@@ -6,14 +6,14 @@
 // 3. Baaki sab same
 // ============================================================
 
-require("dotenv").config();
+require('dotenv').config();
 
-const app = require("./app");
-const { connectDB }               = require("./config/db");            // existing
-const { connectMasterDB }         = require("./config/masterDb");      // NEW
-const { startScheduledNotifications } = require("./services/scheduledNotifications"); // existing
-const { startSubscriptionCrons }  = require("./services/subscriptionCron"); // NEW
-const { autoMigrateAllTenants }   = require("./Database/autoMigrate"); // Auto Sync All Clients
+const app = require('./app');
+const { connectDB } = require('./config/db'); // existing
+const { connectMasterDB } = require('./config/masterDb'); // NEW
+const { startScheduledNotifications } = require('./services/scheduledNotifications'); // existing
+const { startSubscriptionCrons } = require('./services/subscriptionCron'); // NEW
+const { autoMigrateAllTenants } = require('./Database/autoMigrate'); // Auto Sync All Clients
 
 const PORT = process.env.PORT || 5000;
 
@@ -28,7 +28,7 @@ const startServer = async () => {
   try {
     await autoMigrateAllTenants();
   } catch (migErr) {
-    console.error("Auto-migration non-fatal error on startup:", migErr.message);
+    console.error('Auto-migration non-fatal error on startup:', migErr.message);
   }
 
   // 4. Start server
@@ -41,6 +41,7 @@ const startServer = async () => {
 
   // 6. NEW — Subscription cron jobs
   startSubscriptionCrons();
+  require('./services/customerRecycleCron').start();
 };
 
 startServer();

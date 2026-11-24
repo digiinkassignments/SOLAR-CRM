@@ -1,88 +1,828 @@
-import {portalRole,workspacePrefix} from "../../utils/portalRoles";
-import CustomerPaymentPlans from "./CustomerPaymentPlans";
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Box, Paper, Typography, Button, Chip, Stack, Tabs, Tab, Skeleton, Avatar, Alert, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, MenuItem, LinearProgress } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import ContentCopyOutlinedIcon from "@mui/icons-material/ContentCopyOutlined";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-import PersonOutlineIcon from "@mui/icons-material/PersonOutlined";
-import EngineeringOutlinedIcon from "@mui/icons-material/EngineeringOutlined";
-import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
-import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
-import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
-import { useAuth } from "../../context/AuthContext";
-import { getCustomerById } from "../../services/customerService";
-import AddCustomerModal from "./AddCustomerModal";
-import CustomerWorkspace from "./CustomerWorkspace";
-import { money, dateLabel, initials, copyValue } from "./customerHelpers";
-import { ContactActions, Metric, Field, ViewToggle } from "./customerUi";
+import DuplicateLinks from '../../components/DuplicateLinks';
+import CustomerDeleteDialog from './CustomerDeleteDialog';
+import CustomerRefundDialog from './CustomerRefundDialog';
+import { portalRole, workspacePrefix } from '../../utils/portalRoles';
+import CustomerPaymentPlans from './CustomerPaymentPlans';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Paper,
+  Typography,
+  Button,
+  Chip,
+  Stack,
+  Tabs,
+  Tab,
+  Skeleton,
+  Avatar,
+  Alert,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  MenuItem,
+  LinearProgress,
+} from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutlined';
+import EngineeringOutlinedIcon from '@mui/icons-material/EngineeringOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
+import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
+import { useAuth } from '../../context/AuthContext';
+import { getCustomerById } from '../../services/customerService';
+import AddCustomerModal from './AddCustomerModal';
+import CustomerWorkspace from './CustomerWorkspace';
+import { money, dateLabel, initials, copyValue } from './customerHelpers';
+import { ContactActions, Metric, Field, ViewToggle } from './customerUi';
 
-const number=value=>Number(value)||0;
+const number = (value) => Number(value) || 0;
 
 export default function CustomerDetail() {
-  const {id}=useParams(); const navigate=useNavigate(); const {user}=useAuth();
-  const canEdit=[1,2].includes(Number(user?.role_id)) || portalRole(user)==='finance';
-  const base=workspacePrefix(user);
-  const [customer,setCustomer]=useState(null); const [loading,setLoading]=useState(true); const [error,setError]=useState("");
-  const [activeTab,setActiveTab]=useState(new URLSearchParams(window.location.search).get("tab")==="payments"?5:0); const [view,setView]=useState("cards"); const [invoiceFilter,setInvoiceFilter]=useState("all");
-  const [editing,setEditing]=useState(false);
-  const sequence=useRef(0);
-  const fetchProfile=useCallback(async()=>{
-    const request=++sequence.current;setLoading(true);setError("");
-    try { const res=await getCustomerById(id); if(request!==sequence.current)return; if(!res?.success || !res.data)throw new Error(res?.message || "Customer not found.");setCustomer(res.data); }
-    catch(err){if(request===sequence.current){setCustomer(null);setError(err.response?.data?.message || err.message || "Could not load the customer.");}}
-    finally{if(request===sequence.current)setLoading(false);}
-  },[id]);
-  useEffect(()=>{const requests=sequence;const timer=setTimeout(fetchProfile,0);return()=>{clearTimeout(timer);requests.current++;};},[fetchProfile]);
-  const openEdit=()=>setEditing(true);
-  const projects=customer?.projects || [];const quotations=customer?.quotations || [];const invoices=customer?.invoices || [];const leads=customer?.leads || [];
-  const opening=customer?.opening_record;
-  const billed=number(opening?.invoice_amount)+invoices.reduce((sum,row)=>sum+number(row.gross_total),0); const paid=number(opening?.amount_paid)+invoices.reduce((sum,row)=>sum+number(row.amount_paid),0); const due=number(opening?.invoice_amount)-number(opening?.amount_paid)+invoices.reduce((sum,row)=>sum+number(row.balance_due),0);
-  const capacity=projects.reduce((sum,row)=>sum+number(row.system_capacity_kw),0); const payable=number(opening?.invoice_amount)+invoices.reduce((sum,row)=>sum+number(row.net_payable_amount ?? row.gross_total),0); const collection=payable>0?Math.min(100,Math.max(0,paid/payable*100)):0;
-  const rows=activeTab===1?projects:activeTab===2?quotations:activeTab===3?invoices.filter(row=>invoiceFilter!=="due" || number(row.balance_due)>0):leads;
-  const recordInfo=row=>activeTab===1?{title:row.project_number || `Project ${row.id}`,status:row.stage,fields:[['Capacity',row.system_capacity_kw==null?'Not recorded':`${row.system_capacity_kw} kW`],['Assigned engineer',row.assigned_to_name || 'Unassigned']],action:'Open project',onOpen:portalRole(user)==='finance'?null:()=>navigate(`${base}/projects/${row.id}`)}
-    :activeTab===2?{title:row.quotation_number || `Quotation ${row.id}`,status:row.status,fields:[['System',`${row.system_capacity_kw ?? '--'} kW / ${row.system_type || 'Not recorded'}`],['Proposal amount',money(row.net_payable_amount)]],action:'Open proposal',publicPath:row.public_token?`/quote/${encodeURIComponent(row.public_token)}`:null}
-    :activeTab===3?{title:row.invoice_number || `Invoice ${row.id}`,status:row.payment_status,fields:[['Invoice date',dateLabel(row.invoice_date)],['Gross total',money(row.gross_total)],['Recorded paid',money(row.amount_paid)],['Balance due',money(row.balance_due)]],action:'View invoice',publicPath:row.public_token?`/invoice/${encodeURIComponent(row.public_token)}`:null}
-    :{title:row.lead_code || `Lead ${row.id}`,status:row.status,fields:[['Assigned to',row.assigned_to_name || 'Unassigned'],['Created',dateLabel(row.created_at)]]};
-  const recordAction=info=>info.onOpen?<Button variant="outlined" size="small" onClick={info.onOpen} endIcon={<OpenInNewIcon fontSize="small"/>}>{info.action}</Button>:info.action?<Button variant="outlined" size="small" component={info.publicPath?'a':'button'} href={info.publicPath || undefined} target={info.publicPath?'_blank':undefined} rel="noopener noreferrer" disabled={!info.publicPath} endIcon={<OpenInNewIcon fontSize="small"/>}>{info.publicPath?info.action:'Public link unavailable'}</Button>:null;
-  return <CustomerWorkspace><Box sx={{pb:4}}>
-    <Button size="small" startIcon={<ArrowBackIcon/>} onClick={()=>navigate(`${base}/customers`)} sx={{mb:2}}>Back to customers</Button>
-    {loading?<><Skeleton variant="rounded" height={230}/><Skeleton variant="rounded" height={330} sx={{mt:3}}/></>:error?<Alert severity="error" action={<Button onClick={fetchProfile}>Retry</Button>}>{error}</Alert>:customer&&<>
-    <Paper variant="outlined" sx={{p:{xs:2.5,md:3},borderRadius:3,boxShadow:"none",mb:3}}>
-      <Box sx={{display:"flex",justifyContent:"space-between",gap:2,flexWrap:"wrap"}}>
-        <Stack direction="row" sx={{gap:2,alignItems:"flex-start",flex:"1 1 320px",flexWrap:"nowrap !important"}}><Avatar sx={{width:56,height:56,bgcolor:"#F1F5F9",color:"#0F172A",fontWeight:700}}>{initials(customer.customer_name)}</Avatar><Box sx={{minWidth:0}}><Typography variant="overline" color="text.secondary">CUSTOMER PROFILE</Typography><Typography component="h1" variant="h4" sx={{fontWeight:700}}>{customer.customer_name}</Typography><Stack direction="row" sx={{gap:1,alignItems:"center",mt:1}}><Chip size="small" variant="outlined" label={customer.customer_code || 'Code not recorded'}/><Chip size="small" label={customer.solar_requirement || 'Type not recorded'}/>{customer.status&&<Chip size="small" variant="outlined" label={customer.status}/>}</Stack><Typography variant="body2" color="text.secondary" sx={{mt:1}}>{[customer.city,customer.state].filter(Boolean).join(', ') || 'Location not recorded'} / Customer since {dateLabel(customer.created_at)}</Typography></Box></Stack>
-        <Stack direction="row" sx={{gap:1,alignItems:"flex-start"}}><Button variant="outlined" startIcon={<RefreshIcon/>} onClick={fetchProfile}>Refresh</Button><Button variant="outlined" startIcon={<DescriptionOutlinedIcon/>} onClick={()=>navigate(`${base}/quotations`)}>Quotations</Button>{canEdit&&<Button variant="contained" startIcon={<EditOutlinedIcon/>} onClick={openEdit}>Edit profile</Button>}</Stack>
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const canEdit = [1, 2].includes(Number(user?.role_id)) || portalRole(user) === 'finance';
+  const canRecord = Number(user?.role_id) === 1 || portalRole(user) === 'finance';
+  const base = workspacePrefix(user);
+  const [customer, setCustomer] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState(
+    new URLSearchParams(window.location.search).get('tab') === 'payments' ? 5 : 0
+  );
+  const [view, setView] = useState('cards');
+  const [invoiceFilter, setInvoiceFilter] = useState('all');
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false),
+    [refunding, setRefunding] = useState(false);
+  const sequence = useRef(0);
+  const fetchProfile = useCallback(async () => {
+    const request = ++sequence.current;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await getCustomerById(id);
+      if (request !== sequence.current) return;
+      if (!res?.success || !res.data) throw new Error(res?.message || 'Customer not found.');
+      setCustomer(res.data);
+    } catch (err) {
+      if (request === sequence.current) {
+        setCustomer(null);
+        setError(err.response?.data?.message || err.message || 'Could not load the customer.');
+      }
+    } finally {
+      if (request === sequence.current) setLoading(false);
+    }
+  }, [id]);
+  useEffect(() => {
+    const requests = sequence;
+    const timer = setTimeout(fetchProfile, 0);
+    return () => {
+      clearTimeout(timer);
+      requests.current++;
+    };
+  }, [fetchProfile]);
+  const openEdit = () => setEditing(true);
+  const projects = customer?.projects || [];
+  const quotations = customer?.quotations || [];
+  const invoices = customer?.invoices || [];
+  const leads = customer?.leads || [];
+  const opening = customer?.opening_record;
+  const ledger = customer?.ledger;
+  const billed = number(ledger?.contract_total ?? customer?.total_billed_amount);
+  const paid = number(ledger?.total_received ?? customer?.total_paid_amount);
+  const due = number(ledger?.balance ?? customer?.total_balance_amount);
+  const refunds = number(ledger?.refunds_paid);
+  const capacity = projects.reduce((sum, row) => sum + number(row.system_capacity_kw), 0);
+  const payable = billed;
+  const collection =
+    payable > 0 ? Math.min(100, Math.max(0, ((paid - refunds) / payable) * 100)) : 0;
+  const rows =
+    activeTab === 1
+      ? projects
+      : activeTab === 2
+        ? quotations
+        : activeTab === 3
+          ? invoices.filter((row) => invoiceFilter !== 'due' || number(row.balance_due) > 0)
+          : leads;
+  const recordInfo = (row) =>
+    activeTab === 1
+      ? {
+          title: row.project_number || `Project ${row.id}`,
+          status: row.stage,
+          fields: [
+            [
+              'Capacity',
+              row.system_capacity_kw == null ? 'Not recorded' : `${row.system_capacity_kw} kW`,
+            ],
+            ['Assigned engineer', row.assigned_to_name || 'Unassigned'],
+          ],
+          action: 'Open project',
+          onOpen:
+            portalRole(user) === 'finance' ? null : () => navigate(`${base}/projects/${row.id}`),
+        }
+      : activeTab === 2
+        ? {
+            title: row.quotation_number || `Quotation ${row.id}`,
+            status: row.status,
+            fields: [
+              [
+                'System',
+                `${row.system_capacity_kw ?? '--'} kW / ${row.system_type || 'Not recorded'}`,
+              ],
+              ['Proposal amount', money(row.net_payable_amount)],
+            ],
+            action: 'Open proposal',
+            publicPath: row.public_token ? `/quote/${encodeURIComponent(row.public_token)}` : null,
+          }
+        : activeTab === 3
+          ? {
+              title: row.invoice_number || `Invoice ${row.id}`,
+              status: row.payment_status,
+              fields: [
+                ['Invoice date', dateLabel(row.invoice_date)],
+                ['Gross total', money(row.gross_total)],
+                ['Recorded paid', money(row.amount_paid)],
+                ['Balance due', money(row.balance_due)],
+              ],
+              action: 'View invoice',
+              publicPath: row.public_token
+                ? `/invoice/${encodeURIComponent(row.public_token)}`
+                : null,
+            }
+          : {
+              title: row.lead_code || `Lead ${row.id}`,
+              status: row.status,
+              fields: [
+                ['Assigned to', row.assigned_to_name || 'Unassigned'],
+                ['Created', dateLabel(row.created_at)],
+              ],
+            };
+  const recordAction = (info) =>
+    info.onOpen ? (
+      <Button
+        variant="outlined"
+        size="small"
+        onClick={info.onOpen}
+        endIcon={<OpenInNewIcon fontSize="small" />}
+      >
+        {info.action}
+      </Button>
+    ) : info.action ? (
+      <Button
+        variant="outlined"
+        size="small"
+        component={info.publicPath ? 'a' : 'button'}
+        href={info.publicPath || undefined}
+        target={info.publicPath ? '_blank' : undefined}
+        rel="noopener noreferrer"
+        disabled={!info.publicPath}
+        endIcon={<OpenInNewIcon fontSize="small" />}
+      >
+        {info.publicPath ? info.action : 'Public link unavailable'}
+      </Button>
+    ) : null;
+  return (
+    <CustomerWorkspace>
+      <Box sx={{ pb: 4 }}>
+        {deleting && customer && (
+          <CustomerDeleteDialog
+            customer={customer}
+            onClose={() => setDeleting(false)}
+            onDeleted={() => navigate(`${base}/customers`)}
+          />
+        )}
+        {refunding && customer && (
+          <CustomerRefundDialog
+            customerId={customer.id}
+            due={number(ledger?.refund_due)}
+            onClose={() => setRefunding(false)}
+            onSaved={() => {
+              setRefunding(false);
+              fetchProfile();
+            }}
+          />
+        )}
+        <Stack direction="row" sx={{ justifyContent: 'space-between', mb: 2, gap: 1 }}>
+          {[1, 2].includes(Number(user?.role_id)) && customer && (
+            <Button color="error" variant="outlined" onClick={() => setDeleting(true)}>
+              Delete customer
+            </Button>
+          )}
+          {canRecord && number(ledger?.refund_due) > 0 && (
+            <Button variant="contained" color="error" onClick={() => setRefunding(true)}>
+              Record refund
+            </Button>
+          )}
+        </Stack>
+        <DuplicateLinks record={customer} />
+        <Button
+          size="small"
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate(`${base}/customers`)}
+          sx={{ mb: 2 }}
+        >
+          Back to customers
+        </Button>
+        {loading ? (
+          <>
+            <Skeleton variant="rounded" height={230} />
+            <Skeleton variant="rounded" height={330} sx={{ mt: 3 }} />
+          </>
+        ) : error ? (
+          <Alert severity="error" action={<Button onClick={fetchProfile}>Retry</Button>}>
+            {error}
+          </Alert>
+        ) : (
+          customer && (
+            <>
+              <Paper
+                variant="outlined"
+                sx={{ p: { xs: 2.5, md: 3 }, borderRadius: 3, boxShadow: 'none', mb: 3 }}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 2,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    sx={{
+                      gap: 2,
+                      alignItems: 'flex-start',
+                      flex: '1 1 320px',
+                      flexWrap: 'nowrap !important',
+                    }}
+                  >
+                    <Avatar
+                      sx={{
+                        width: 56,
+                        height: 56,
+                        bgcolor: '#F1F5F9',
+                        color: '#0F172A',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {initials(customer.customer_name)}
+                    </Avatar>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="overline" color="text.secondary">
+                        CUSTOMER PROFILE
+                      </Typography>
+                      <Typography component="h1" variant="h4" sx={{ fontWeight: 700 }}>
+                        {customer.customer_name}
+                      </Typography>
+                      <Stack direction="row" sx={{ gap: 1, alignItems: 'center', mt: 1 }}>
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={customer.customer_code || 'Code not recorded'}
+                        />
+                        <Chip
+                          size="small"
+                          label={customer.solar_requirement || 'Type not recorded'}
+                        />
+                        {customer.status && (
+                          <Chip size="small" variant="outlined" label={customer.status} />
+                        )}
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        {[customer.city, customer.state].filter(Boolean).join(', ') ||
+                          'Location not recorded'}{' '}
+                        / Customer since {dateLabel(customer.created_at)}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                  <Stack direction="row" sx={{ gap: 1, alignItems: 'flex-start' }}>
+                    <Button variant="outlined" startIcon={<RefreshIcon />} onClick={fetchProfile}>
+                      Refresh
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<DescriptionOutlinedIcon />}
+                      onClick={() => navigate(`${base}/quotations`)}
+                    >
+                      Quotations
+                    </Button>
+                    {canEdit && (
+                      <Button
+                        variant="contained"
+                        startIcon={<EditOutlinedIcon />}
+                        onClick={openEdit}
+                      >
+                        Edit profile
+                      </Button>
+                    )}
+                  </Stack>
+                </Box>
+                <Box
+                  sx={{
+                    mt: 2.5,
+                    pt: 2,
+                    borderTop: '1px solid',
+                    borderColor: 'divider',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 1,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <ContactActions customer={customer} />
+                  <Button
+                    size="small"
+                    disabled={!customer.customer_code}
+                    startIcon={<ContentCopyOutlinedIcon />}
+                    onClick={() => copyValue(customer.customer_code, 'Customer code')}
+                  >
+                    Copy customer code
+                  </Button>
+                </Box>
+              </Paper>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: 'repeat(2,minmax(0,1fr))',
+                    xl: 'repeat(4,minmax(0,1fr))',
+                  },
+                  gap: 2,
+                  mb: 3,
+                }}
+              >
+                <Metric
+                  label="Contract total"
+                  value={money(billed)}
+                  hint={`${projects.length} projects / ${capacity.toFixed(1)} kW`}
+                />
+                <Metric
+                  label="Total received"
+                  value={money(paid)}
+                  hint="Includes loan disbursements; excludes subsidy"
+                />
+                <Metric
+                  label="Refunds paid"
+                  value={money(refunds)}
+                  hint="Money returned to customer"
+                />
+                <Metric
+                  label="Outstanding to receive"
+                  value={money(number(ledger?.balance_due ?? Math.max(0,due)))}
+                  color="warning.main"
+                  hint="Calculated per invoice"
+                />
+                <Metric label="Refund due" value={money(number(ledger?.refund_due))} color="secondary.main" hint="Payable to customer; not offset against other invoices" />
+              </Box>
+              <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+                <Typography variant="body2">
+                  Subsidy is excluded from this ledger. Loan sanctioned:{' '}
+                  {money(ledger?.loan_sanctioned)} / disbursed: {money(ledger?.loan_disbursed)}
+                </Typography>
+                {number(opening?.refund_paid_amount) > 0 && (
+                  <Typography variant="body2">
+                    Imported refund: {money(opening.refund_paid_amount)} /{' '}
+                    {dateLabel(opening.refund_date)} / {opening.refund_mode} /{' '}
+                    {opening.refund_reference || 'No reference'}
+                  </Typography>
+                )}
+                {(ledger?.refunds || []).map((r) => (
+                  <Typography key={r.id} variant="body2">
+                    Refund {money(r.amount)} / {dateLabel(r.refund_date)} / {r.refund_mode} /{' '}
+                    {r.refund_reference || 'No reference'}
+                  </Typography>
+                ))}
+              </Paper>
+              <Paper
+                variant="outlined"
+                sx={{ borderRadius: 3, boxShadow: 'none', overflow: 'hidden' }}
+              >
+                {(number(opening?.invoice_amount) > 0 || number(opening?.plant_size_kw) > 0) && (
+                  <Box sx={{ p: 2.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Typography fontWeight={700} sx={{ mb: 1 }}>
+                      Opening invoice & payment record
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Plant size and opening amounts entered manually or imported with this
+                      customer. This is an opening record, not a generated tax invoice.
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', sm: 'repeat(3,minmax(0,1fr))' },
+                        gap: 2,
+                      }}
+                    >
+                      <Field
+                        label="Plant size"
+                        value={
+                          opening.plant_size_kw
+                            ? `${Number(opening.plant_size_kw)} kW`
+                            : 'Not recorded'
+                        }
+                      />
+                      <Field
+                        label="Invoice reference"
+                        value={opening.invoice_reference || 'Not recorded'}
+                      />
+                      <Field label="Invoice amount" value={money(opening.invoice_amount)} />
+                      <Field label="Payment received" value={money(opening.amount_paid)} />
+                      {number(opening.amount_paid) > 0 && (
+                        <>
+                          <Field label="Payment date" value={dateLabel(opening.payment_date)} />
+                          <Field
+                            label="Payment mode"
+                            value={opening.payment_mode || 'Not recorded'}
+                          />
+                          <Field
+                            label="Payment reference"
+                            value={opening.payment_reference || 'Not recorded'}
+                          />
+                        </>
+                      )}
+                    </Box>
+                  </Box>
+                )}
+                <Tabs
+                  value={activeTab}
+                  onChange={(_, next) => setActiveTab(next)}
+                  variant="scrollable"
+                  scrollButtons="auto"
+                  allowScrollButtonsMobile
+                  aria-label="Customer profile sections"
+                  sx={{ borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#F8FAFC' }}
+                >
+                  <Tab
+                    icon={<PersonOutlineIcon />}
+                    iconPosition="start"
+                    label="Overview"
+                    id="customer-tab-0"
+                    aria-controls="customer-panel-0"
+                  />
+                  <Tab
+                    icon={<EngineeringOutlinedIcon />}
+                    iconPosition="start"
+                    label={`Projects (${projects.length})`}
+                    id="customer-tab-1"
+                    aria-controls="customer-panel-1"
+                  />
+                  <Tab
+                    icon={<DescriptionOutlinedIcon />}
+                    iconPosition="start"
+                    label={`Quotations (${quotations.length})`}
+                    id="customer-tab-2"
+                    aria-controls="customer-panel-2"
+                  />
+                  <Tab
+                    icon={<ReceiptLongOutlinedIcon />}
+                    iconPosition="start"
+                    label={`Invoices (${invoices.length})`}
+                    id="customer-tab-3"
+                    aria-controls="customer-panel-3"
+                  />
+                  <Tab
+                    icon={<HistoryOutlinedIcon />}
+                    iconPosition="start"
+                    label={`Leads (${leads.length})`}
+                    id="customer-tab-4"
+                    aria-controls="customer-panel-4"
+                  />
+                  <Tab
+                    icon={<ReceiptLongOutlinedIcon />}
+                    iconPosition="start"
+                    label="Milestone payments"
+                    id="customer-tab-5"
+                    aria-controls="customer-panel-5"
+                  />
+                </Tabs>
+                <Box
+                  role="tabpanel"
+                  id={`customer-panel-${activeTab}`}
+                  aria-labelledby={`customer-tab-${activeTab}`}
+                  sx={{ p: { xs: 2, md: 3 } }}
+                >
+                  {activeTab === 5 ? (
+                    <CustomerPaymentPlans
+                      customerId={customer.id}
+                      canEdit={canEdit}
+                      onChanged={fetchProfile}
+                    />
+                  ) : activeTab === 0 ? (
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', lg: 'repeat(2,minmax(0,1fr))' },
+                        gap: 3,
+                      }}
+                    >
+                      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, boxShadow: 'none' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                          Contact & site
+                        </Typography>
+                        <Box
+                          sx={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(2,minmax(0,1fr))',
+                            gap: 2.5,
+                          }}
+                        >
+                          <Field label="Mobile" value={customer.mobile_number || 'Not recorded'} />
+                          <Field
+                            label="Alternate phone"
+                            value={customer.alternate_number || 'Not recorded'}
+                          />
+                          <Box sx={{ gridColumn: '1 / -1' }}>
+                            <Field label="Email" value={customer.email || 'Not recorded'} />
+                          </Box>
+                          <Box sx={{ gridColumn: '1 / -1' }}>
+                            <Field
+                              label="Site address"
+                              value={
+                                [customer.address, customer.city, customer.state, customer.pincode]
+                                  .filter(Boolean)
+                                  .join(', ') || 'Not recorded'
+                              }
+                            />
+                          </Box>
+                          <Field
+                            label="Assigned representative"
+                            value={customer.assigned_to_name || 'Unassigned'}
+                          />
+                          <Field label="Source lead" value={customer.lead_code || 'Not linked'} />
+                          <Field
+                            label="Lead source"
+                            value={
+                              customer.effective_lead_source ||
+                              customer.lead_source ||
+                              'Not recorded'
+                            }
+                          />
+                        </Box>
+                        <Stack direction="row" sx={{ gap: 1, mt: 2 }}>
+                          <Button
+                            size="small"
+                            disabled={!customer.mobile_number}
+                            startIcon={<ContentCopyOutlinedIcon />}
+                            onClick={() => copyValue(customer.mobile_number, 'Phone')}
+                          >
+                            Copy phone
+                          </Button>
+                          <Button
+                            size="small"
+                            disabled={!customer.email}
+                            onClick={() => copyValue(customer.email, 'Email')}
+                          >
+                            Copy email
+                          </Button>
+                        </Stack>
+                      </Paper>
+                      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, boxShadow: 'none' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                          Electricity & tax details
+                        </Typography>
+                        <Box
+                          sx={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(2,minmax(0,1fr))',
+                            gap: 2.5,
+                          }}
+                        >
+                          <Field
+                            label="CA / consumer number"
+                            value={customer.electricity_consumer_number || 'Not recorded'}
+                          />
+                          <Field label="DISCOM" value={customer.discom_name || 'Not recorded'} />
+                          <Field
+                            label="Sanctioned load"
+                            value={
+                              customer.sanctioned_load_kw == null
+                                ? 'Not recorded'
+                                : `${customer.sanctioned_load_kw} kW`
+                            }
+                          />
+                          <Field label="GSTIN" value={customer.customer_gstin || 'Not recorded'} />
+                        </Box>
+                      </Paper>
+                      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, boxShadow: 'none' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                          Invoice collection summary
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Based on linked invoices and the opening record.
+                        </Typography>
+                        <LinearProgress
+                          variant="determinate"
+                          value={collection}
+                          aria-label="Recorded invoice collection percentage"
+                          sx={{ mt: 2, height: 8, borderRadius: 2 }}
+                        />
+                        <Typography variant="body2" sx={{ mt: 1.5 }}>
+                          {money(paid)} recorded against {money(payable)} net payable
+                        </Typography>
+                        <Button
+                          size="small"
+                          onClick={() => {
+                            setInvoiceFilter(due > 0 ? 'due' : 'all');
+                            setActiveTab(3);
+                          }}
+                          sx={{ mt: 1 }}
+                        >
+                          Review {due > 0 ? 'unpaid ' : ''}invoices
+                        </Button>
+                      </Paper>
+                      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, boxShadow: 'none' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                          Customer notes
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ whiteSpace: 'pre-wrap' }}
+                        >
+                          {customer.notes ||
+                            'No notes recorded. Add site instructions or customer preferences from Edit profile.'}
+                        </Typography>
+                        {canEdit && (
+                          <Button size="small" onClick={openEdit} sx={{ mt: 1.5 }}>
+                            Edit notes
+                          </Button>
+                        )}
+                      </Paper>
+                    </Box>
+                  ) : (
+                    <>
+                      <Stack
+                        direction="row"
+                        sx={{
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: 2,
+                          mb: 2.5,
+                        }}
+                      >
+                        <Box>
+                          <Typography component="h2" variant="h6" sx={{ fontWeight: 700 }}>
+                            {
+                              [
+                                '',
+                                'Solar projects',
+                                'Quotations',
+                                'Invoice records',
+                                'Lead history',
+                              ][activeTab]
+                            }
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {rows.length} linked record{rows.length === 1 ? '' : 's'}
+                          </Typography>
+                        </Box>
+                        <Stack direction="row" sx={{ gap: 1.5, alignItems: 'center' }}>
+                          {activeTab === 3 && (
+                            <TextField
+                              select
+                              size="small"
+                              label="Show invoices"
+                              value={invoiceFilter}
+                              onChange={(e) => setInvoiceFilter(e.target.value)}
+                              sx={{ minWidth: 160 }}
+                            >
+                              <MenuItem value="all">All invoices</MenuItem>
+                              <MenuItem value="due">Balance due</MenuItem>
+                            </TextField>
+                          )}
+                          <ViewToggle value={view} onChange={setView} label="Linked record view" />
+                        </Stack>
+                      </Stack>
+                      {!rows.length ? (
+                        <Box sx={{ textAlign: 'center', py: 5 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                            No {['', 'projects', 'quotations', 'invoices', 'leads'][activeTab]} to
+                            show
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            Linked records will appear here when available.
+                          </Typography>
+                          {activeTab === 3 && invoiceFilter === 'due' && (
+                            <Button onClick={() => setInvoiceFilter('all')} sx={{ mt: 2 }}>
+                              Show all invoices
+                            </Button>
+                          )}
+                        </Box>
+                      ) : view === 'cards' ? (
+                        <Box
+                          sx={{
+                            display: 'grid',
+                            gridTemplateColumns: { xs: '1fr', lg: 'repeat(2,minmax(0,1fr))' },
+                            gap: 2,
+                          }}
+                        >
+                          {rows.map((row) => {
+                            const info = recordInfo(row);
+                            return (
+                              <Paper
+                                variant="outlined"
+                                key={row.id}
+                                sx={{ p: 2.5, borderRadius: 2, boxShadow: 'none' }}
+                              >
+                                <Stack
+                                  direction="row"
+                                  sx={{
+                                    gap: 1,
+                                    justifyContent: 'space-between',
+                                    alignItems: 'flex-start',
+                                    mb: 2,
+                                  }}
+                                >
+                                  <Typography
+                                    component="h3"
+                                    variant="subtitle1"
+                                    sx={{ fontWeight: 700 }}
+                                  >
+                                    {info.title}
+                                  </Typography>
+                                  {info.status && (
+                                    <Chip size="small" variant="outlined" label={info.status} />
+                                  )}
+                                </Stack>
+                                <Box
+                                  sx={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(2,minmax(0,1fr))',
+                                    gap: 2,
+                                    mb: 2,
+                                  }}
+                                >
+                                  {info.fields.map(([label, value]) => (
+                                    <Field key={label} label={label} value={value} />
+                                  ))}
+                                </Box>
+                                {recordAction(info)}
+                              </Paper>
+                            );
+                          })}
+                        </Box>
+                      ) : (
+                        <TableContainer>
+                          <Table
+                            size="small"
+                            sx={{ minWidth: 650 }}
+                            aria-label="Linked customer records"
+                          >
+                            <TableHead sx={{ bgcolor: '#F8FAFC' }}>
+                              <TableRow>
+                                <TableCell>Record</TableCell>
+                                <TableCell>Status</TableCell>
+                                <TableCell>Details</TableCell>
+                                <TableCell>Action</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {rows.map((row) => {
+                                const info = recordInfo(row);
+                                return (
+                                  <TableRow key={row.id} hover>
+                                    <TableCell sx={{ fontWeight: 600 }}>{info.title}</TableCell>
+                                    <TableCell>{info.status || 'Not recorded'}</TableCell>
+                                    <TableCell>
+                                      {info.fields.map(([label, value]) => (
+                                        <Typography key={label} variant="body2" sx={{ mb: 0.5 }}>
+                                          {label}: {value}
+                                        </Typography>
+                                      ))}
+                                    </TableCell>
+                                    <TableCell>{recordAction(info)}</TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      )}
+                    </>
+                  )}
+                </Box>
+              </Paper>
+            </>
+          )
+        )}
+        <AddCustomerModal
+          open={editing}
+          customer={customer}
+          onClose={() => setEditing(false)}
+          onCustomerCreated={fetchProfile}
+        />
       </Box>
-      <Box sx={{mt:2.5,pt:2,borderTop:'1px solid',borderColor:'divider',display:'flex',justifyContent:'space-between',gap:1,flexWrap:'wrap'}}><ContactActions customer={customer}/><Button size="small" disabled={!customer.customer_code} startIcon={<ContentCopyOutlinedIcon/>} onClick={()=>copyValue(customer.customer_code,'Customer code')}>Copy customer code</Button></Box>
-    </Paper>
-    <Box sx={{display:'grid',gridTemplateColumns:{xs:'1fr',sm:'repeat(2,minmax(0,1fr))',xl:'repeat(4,minmax(0,1fr))'},gap:2,mb:3}}><Metric label="Linked projects" value={projects.length} hint={`${capacity.toFixed(1)} kW combined capacity`}/><Metric label="Invoice amount" value={money(billed)} hint={`${invoices.length} linked invoices`}/><Metric label="Recorded payments" value={money(paid)} hint="Invoice receipts and opening payment"/><Metric label="Outstanding balance" value={money(due)} color={due>0?'error.main':'text.primary'} hint={due>0?'Review unpaid invoices':'No outstanding invoice balance'}/></Box>
-    <Paper variant="outlined" sx={{borderRadius:3,boxShadow:'none',overflow:'hidden'}}>
-      {(number(opening?.invoice_amount)>0||number(opening?.plant_size_kw)>0)&&<Box sx={{p:2.5,borderBottom:'1px solid',borderColor:'divider'}}><Typography fontWeight={700} sx={{mb:1}}>Opening invoice & payment record</Typography><Typography variant="body2" color="text.secondary" sx={{mb:2}}>Plant size and opening amounts entered manually or imported with this customer. This is an opening record, not a generated tax invoice.</Typography><Box sx={{display:'grid',gridTemplateColumns:{xs:'1fr',sm:'repeat(3,minmax(0,1fr))'},gap:2}}><Field label="Plant size" value={opening.plant_size_kw?`${Number(opening.plant_size_kw)} kW`:"Not recorded"}/><Field label="Invoice reference" value={opening.invoice_reference||'Not recorded'}/><Field label="Invoice amount" value={money(opening.invoice_amount)}/><Field label="Payment received" value={money(opening.amount_paid)}/>{number(opening.amount_paid)>0&&<><Field label="Payment date" value={dateLabel(opening.payment_date)}/><Field label="Payment mode" value={opening.payment_mode || 'Not recorded'}/><Field label="Payment reference" value={opening.payment_reference||'Not recorded'}/></>}</Box></Box>}
-<Tabs value={activeTab} onChange={(_,next)=>setActiveTab(next)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile aria-label="Customer profile sections" sx={{borderBottom:'1px solid',borderColor:'divider',bgcolor:'#F8FAFC'}}>
-        <Tab icon={<PersonOutlineIcon/>} iconPosition="start" label="Overview" id="customer-tab-0" aria-controls="customer-panel-0"/>
-        <Tab icon={<EngineeringOutlinedIcon/>} iconPosition="start" label={`Projects (${projects.length})`} id="customer-tab-1" aria-controls="customer-panel-1"/>
-        <Tab icon={<DescriptionOutlinedIcon/>} iconPosition="start" label={`Quotations (${quotations.length})`} id="customer-tab-2" aria-controls="customer-panel-2"/>
-        <Tab icon={<ReceiptLongOutlinedIcon/>} iconPosition="start" label={`Invoices (${invoices.length})`} id="customer-tab-3" aria-controls="customer-panel-3"/>
-        <Tab icon={<HistoryOutlinedIcon/>} iconPosition="start" label={`Leads (${leads.length})`} id="customer-tab-4" aria-controls="customer-panel-4"/>
-        <Tab icon={<ReceiptLongOutlinedIcon/>} iconPosition="start" label="Milestone payments" id="customer-tab-5" aria-controls="customer-panel-5"/>
-      </Tabs>
-      <Box role="tabpanel" id={`customer-panel-${activeTab}`} aria-labelledby={`customer-tab-${activeTab}`} sx={{p:{xs:2,md:3}}}>
-      {activeTab===5?<CustomerPaymentPlans customerId={customer.id} canEdit={canEdit} onChanged={fetchProfile}/>:activeTab===0?<Box sx={{display:'grid',gridTemplateColumns:{xs:'1fr',lg:'repeat(2,minmax(0,1fr))'},gap:3}}>
-        <Paper variant="outlined" sx={{p:2.5,borderRadius:2,boxShadow:'none'}}><Typography variant="h6" sx={{fontWeight:700,mb:2}}>Contact & site</Typography><Box sx={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:2.5}}><Field label="Mobile" value={customer.mobile_number || 'Not recorded'}/><Field label="Alternate phone" value={customer.alternate_number || 'Not recorded'}/><Box sx={{gridColumn:'1 / -1'}}><Field label="Email" value={customer.email || 'Not recorded'}/></Box><Box sx={{gridColumn:'1 / -1'}}><Field label="Site address" value={[customer.address,customer.city,customer.state,customer.pincode].filter(Boolean).join(', ') || 'Not recorded'}/></Box><Field label="Assigned representative" value={customer.assigned_to_name || 'Unassigned'}/><Field label="Source lead" value={customer.lead_code || 'Not linked'}/><Field label="Lead source" value={customer.effective_lead_source || customer.lead_source || 'Not recorded'}/></Box><Stack direction="row" sx={{gap:1,mt:2}}><Button size="small" disabled={!customer.mobile_number} startIcon={<ContentCopyOutlinedIcon/>} onClick={()=>copyValue(customer.mobile_number,'Phone')}>Copy phone</Button><Button size="small" disabled={!customer.email} onClick={()=>copyValue(customer.email,'Email')}>Copy email</Button></Stack></Paper>
-        <Paper variant="outlined" sx={{p:2.5,borderRadius:2,boxShadow:'none'}}><Typography variant="h6" sx={{fontWeight:700,mb:2}}>Electricity & tax details</Typography><Box sx={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:2.5}}><Field label="CA / consumer number" value={customer.electricity_consumer_number || 'Not recorded'}/><Field label="DISCOM" value={customer.discom_name || 'Not recorded'}/><Field label="Sanctioned load" value={customer.sanctioned_load_kw==null?'Not recorded':`${customer.sanctioned_load_kw} kW`}/><Field label="GSTIN" value={customer.customer_gstin || 'Not recorded'}/></Box></Paper>
-        <Paper variant="outlined" sx={{p:2.5,borderRadius:2,boxShadow:'none'}}><Typography variant="h6" sx={{fontWeight:700,mb:1}}>Invoice collection summary</Typography><Typography variant="body2" color="text.secondary">Based on linked invoices and the opening record.</Typography><LinearProgress variant="determinate" value={collection} aria-label="Recorded invoice collection percentage" sx={{mt:2,height:8,borderRadius:2}}/><Typography variant="body2" sx={{mt:1.5}}>{money(paid)} recorded against {money(payable)} net payable</Typography><Button size="small" onClick={()=>{setInvoiceFilter(due>0?'due':'all');setActiveTab(3);}} sx={{mt:1}}>Review {due>0?'unpaid ':''}invoices</Button></Paper>
-        <Paper variant="outlined" sx={{p:2.5,borderRadius:2,boxShadow:'none'}}><Typography variant="h6" sx={{fontWeight:700,mb:1}}>Customer notes</Typography><Typography variant="body2" color="text.secondary" sx={{whiteSpace:'pre-wrap'}}>{customer.notes || 'No notes recorded. Add site instructions or customer preferences from Edit profile.'}</Typography>{canEdit&&<Button size="small" onClick={openEdit} sx={{mt:1.5}}>Edit notes</Button>}</Paper>
-      </Box>:<>
-        <Stack direction="row" sx={{justifyContent:'space-between',alignItems:'center',gap:2,mb:2.5}}><Box><Typography component="h2" variant="h6" sx={{fontWeight:700}}>{['','Solar projects','Quotations','Invoice records','Lead history'][activeTab]}</Typography><Typography variant="body2" color="text.secondary">{rows.length} linked record{rows.length===1?'':'s'}</Typography></Box><Stack direction="row" sx={{gap:1.5,alignItems:'center'}}>{activeTab===3&&<TextField select size="small" label="Show invoices" value={invoiceFilter} onChange={e=>setInvoiceFilter(e.target.value)} sx={{minWidth:160}}><MenuItem value="all">All invoices</MenuItem><MenuItem value="due">Balance due</MenuItem></TextField>}<ViewToggle value={view} onChange={setView} label="Linked record view"/></Stack></Stack>
-        {!rows.length?<Box sx={{textAlign:'center',py:5}}><Typography variant="subtitle1" sx={{fontWeight:700}}>No {['','projects','quotations','invoices','leads'][activeTab]} to show</Typography><Typography variant="body2" color="text.secondary" sx={{mt:1}}>Linked records will appear here when available.</Typography>{activeTab===3&&invoiceFilter==='due'&&<Button onClick={()=>setInvoiceFilter('all')} sx={{mt:2}}>Show all invoices</Button>}</Box>:view==='cards'?<Box sx={{display:'grid',gridTemplateColumns:{xs:'1fr',lg:'repeat(2,minmax(0,1fr))'},gap:2}}>{rows.map(row=>{const info=recordInfo(row);return <Paper variant="outlined" key={row.id} sx={{p:2.5,borderRadius:2,boxShadow:'none'}}><Stack direction="row" sx={{gap:1,justifyContent:'space-between',alignItems:'flex-start',mb:2}}><Typography component="h3" variant="subtitle1" sx={{fontWeight:700}}>{info.title}</Typography>{info.status&&<Chip size="small" variant="outlined" label={info.status}/>}</Stack><Box sx={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:2,mb:2}}>{info.fields.map(([label,value])=><Field key={label} label={label} value={value}/>)}</Box>{recordAction(info)}</Paper>;})}</Box>:<TableContainer><Table size="small" sx={{minWidth:650}} aria-label="Linked customer records"><TableHead sx={{bgcolor:'#F8FAFC'}}><TableRow><TableCell>Record</TableCell><TableCell>Status</TableCell><TableCell>Details</TableCell><TableCell>Action</TableCell></TableRow></TableHead><TableBody>{rows.map(row=>{const info=recordInfo(row);return <TableRow key={row.id} hover><TableCell sx={{fontWeight:600}}>{info.title}</TableCell><TableCell>{info.status || 'Not recorded'}</TableCell><TableCell>{info.fields.map(([label,value])=><Typography key={label} variant="body2" sx={{mb:0.5}}>{label}: {value}</Typography>)}</TableCell><TableCell>{recordAction(info)}</TableCell></TableRow>;})}</TableBody></Table></TableContainer>}
-      </>}
-      </Box>
-    </Paper>
-    </>}
-    <AddCustomerModal open={editing} customer={customer} onClose={()=>setEditing(false)} onCustomerCreated={fetchProfile}/>
-
-  </Box></CustomerWorkspace>;
+    </CustomerWorkspace>
+  );
 }

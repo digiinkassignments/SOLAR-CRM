@@ -1,3 +1,4 @@
+import QuotationPaymentSchedule from './QuotationPaymentSchedule';
 import { solarTax } from "../../utils/solarTax";
 import { useState, useEffect, useMemo } from "react";
 import {
@@ -136,6 +137,7 @@ const QuotationDialog = ({
   });
   const [quotationNotes, setQuotationNotes] = useState("");
   const [terms, setTerms] = useState("");
+  const [paymentSchedule, setPaymentSchedule] = useState([]);
 
   // Post-creation State
   const [createdQuotation, setCreatedQuotation] = useState(null);
@@ -374,6 +376,7 @@ const QuotationDialog = ({
         ),
         valid_until: validUntil || null,
         terms_and_conditions: terms.trim(),
+        payment_schedule: paymentSchedule,
         notes: quotationNotes.trim(),
         subsidy_amount: Number(subsidyAmount || 0),
         annual_generation_kwh:
@@ -1742,7 +1745,8 @@ const QuotationDialog = ({
                             Insert Standard Solar Terms
                           </Button>
                         </Box>
-                        <TextField
+                        <QuotationPaymentSchedule value={paymentSchedule} onChange={setPaymentSchedule} />
+                          <TextField
                           fullWidth
                           size="small"
                           multiline

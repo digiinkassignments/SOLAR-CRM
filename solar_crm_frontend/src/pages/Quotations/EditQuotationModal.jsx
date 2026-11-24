@@ -1,3 +1,4 @@
+import QuotationPaymentSchedule, { readPaymentSchedule } from './QuotationPaymentSchedule';
 import { solarTax } from "../../utils/solarTax";
 import SolarTaxSummary from "../../components/SolarTaxSummary";
 import { useState, useEffect } from "react";
@@ -56,6 +57,7 @@ const EditQuotationModal = ({ open, onClose, quotation, onUpdated }) => {
     status: "Sent",
     valid_until: "",
     terms_and_conditions: "",
+    payment_schedule: [],
     notes: "",
   });
 
@@ -98,6 +100,7 @@ const EditQuotationModal = ({ open, onClose, quotation, onUpdated }) => {
           ? quotation.valid_until.split("T")[0]
           : "",
         terms_and_conditions: quotation.terms_and_conditions || "",
+        payment_schedule: readPaymentSchedule(quotation.payment_schedule_json),
         notes: quotation.notes || "",
       });
     }
@@ -633,6 +636,7 @@ const EditQuotationModal = ({ open, onClose, quotation, onUpdated }) => {
             </Grid>
           </Paper>
         </Stack>
+<QuotationPaymentSchedule value={formData.payment_schedule || []} onChange={(rows) => setFormData((old) => ({ ...old, payment_schedule: rows }))} />
       </DialogContent>
 
       <DialogActions

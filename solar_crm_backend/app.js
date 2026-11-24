@@ -1,145 +1,149 @@
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
 
 const app = express();
 
 // ── Middlewares ──────────────────────────────────────────────
 app.use(cors());
-app.use(express.json({ verify: (req, res, buffer) => { if (req.originalUrl.startsWith("/api/integrations/webhooks/")) req.integrationRawBody = Buffer.from(buffer); } }));
+app.use(
+  express.json({
+    verify: (req, res, buffer) => {
+      if (req.originalUrl.startsWith('/api/integrations/webhooks/'))
+        req.integrationRawBody = Buffer.from(buffer);
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true }));
 
 // Public registration must run before tenant resolution (apex website has no tenant DB).
 app.use('/api/public/trial', require('./routes/publicTrialRoutes'));
 
 // ── Static Uploads ───────────────────────────────────────────
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Dynamic Client DB Middleware ─────────────────────────────
-const { clientDbMiddleware } = require("./config/clientDb");
+const { clientDbMiddleware } = require('./config/clientDb');
 app.use(clientDbMiddleware);
 app.use(require('./middleware/publicTrialAccess'));
 
 // ── Fallback — req.db na ho to default db use karo ──────────
-const { db: defaultDb } = require("./config/db");
+const { db: defaultDb } = require('./config/db');
 app.use((req, res, next) => {
   if (!req.db) req.db = defaultDb;
   next();
 });
 
 // ── Route Imports (existing) ─────────────────────────────────
-app.use(require("./middleware/portalContext"));
-app.use("/api/portals", require("./routes/portalRoutes"));
-app.use(require("./middleware/managerContext"));
-app.use(require("./middleware/engineerContext"));
+app.use(require('./middleware/portalContext'));
+app.use('/api/portals', require('./routes/portalRoutes'));
+app.use(require('./middleware/managerContext'));
+app.use(require('./middleware/engineerContext'));
 
-const authRoutes = require("./routes/authRoutes");
-const userRoutes = require("./routes/userRoutes");
-const profileRoutes = require("./routes/profileRoutes");
-const settingsRoutes = require("./routes/settingsRoutes");
-const leadRoutes = require("./routes/leadRoutes");
-const dashboardRoutes = require("./routes/dashboardRoutes");
-const notificationRoutes = require("./routes/notificationRoutes");
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const profileRoutes = require('./routes/profileRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
+const leadRoutes = require('./routes/leadRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 // ── NEW: Route Imports ───────────────────────────────────────
-const superAdminRoutes = require("./routes/superAdminRoutes");
-const subscriptionRoutes = require("./routes/subscriptionRoutes");
-const calculatorRoutes = require("./routes/calculatorRoutes");
-const quotationRoutes = require("./routes/quotationRoutes");
-const surveyRoutes = require("./routes/surveyRoutes");
-const dealRoutes = require("./routes/dealRoutes");
-const subsidyRoutes = require("./routes/subsidyRoutes");
-const stockRoutes = require("./routes/stockRoutes");
-const invoiceRoutes = require("./routes/invoiceRoutes");
-const projectRoutes = require("./routes/projectRoutes");
-const procurementRoutes = require("./routes/procurementRoutes");
-const inspectionRoutes = require("./routes/inspectionRoutes");
-const installationLogRoutes = require("./routes/installationLogRoutes");
-const commissioningRoutes = require("./routes/commissioningRoutes");
-const finalInspectionRoutes = require("./routes/finalInspectionRoutes");
-const handoverRoutes = require("./routes/handoverRoutes");
-const warrantyRoutes = require("./routes/warrantyRoutes");
+const superAdminRoutes = require('./routes/superAdminRoutes');
+const subscriptionRoutes = require('./routes/subscriptionRoutes');
+const calculatorRoutes = require('./routes/calculatorRoutes');
+const quotationRoutes = require('./routes/quotationRoutes');
+const surveyRoutes = require('./routes/surveyRoutes');
+const dealRoutes = require('./routes/dealRoutes');
+const subsidyRoutes = require('./routes/subsidyRoutes');
+const stockRoutes = require('./routes/stockRoutes');
+const invoiceRoutes = require('./routes/invoiceRoutes');
+const projectRoutes = require('./routes/projectRoutes');
+const procurementRoutes = require('./routes/procurementRoutes');
+const inspectionRoutes = require('./routes/inspectionRoutes');
+const installationLogRoutes = require('./routes/installationLogRoutes');
+const commissioningRoutes = require('./routes/commissioningRoutes');
+const finalInspectionRoutes = require('./routes/finalInspectionRoutes');
+const handoverRoutes = require('./routes/handoverRoutes');
+const warrantyRoutes = require('./routes/warrantyRoutes');
 
 // ── Existing API Routes ──────────────────────────────────────
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/profile", profileRoutes);
-app.use("/api/settings", settingsRoutes);
-app.use("/api/integrations", require("./routes/integrationRoutes"));
-app.use("/api/leads", leadRoutes);
-app.use("/api/amc-plans", require("./routes/amcPlanRoutes"));
-app.use("/api/field-work", require("./routes/fieldWorkRoutes"));
-app.use("/api/sales-workflow", require("./routes/salesWorkflowRoutes"));
-app.use("/api/quotation-governance", require("./routes/quotationGovernanceRoutes"));
-app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/custom-fields", require("./routes/customFieldRoutes"));
-app.use("/api/lead-config", require("./routes/leadConfigRoutes"));
-app.use("/api/roles", require("./routes/roleRoutes"));
-app.use("/api/notifications", notificationRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/integrations', require('./routes/integrationRoutes'));
+app.use('/api/leads', leadRoutes);
+app.use('/api/duplicates', require('./routes/duplicateRoutes'));
+app.use('/api/amc-plans', require('./routes/amcPlanRoutes'));
+app.use('/api/field-work', require('./routes/fieldWorkRoutes'));
+app.use('/api/sales-workflow', require('./routes/salesWorkflowRoutes'));
+app.use('/api/quotation-governance', require('./routes/quotationGovernanceRoutes'));
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/custom-fields', require('./routes/customFieldRoutes'));
+app.use('/api/lead-config', require('./routes/leadConfigRoutes'));
+app.use('/api/roles', require('./routes/roleRoutes'));
+app.use('/api/notifications', notificationRoutes);
 
 // ── NEW: API Routes ──────────────────────────────────────────
-app.use("/api/superadmin", superAdminRoutes);
-app.use("/api/subscription", subscriptionRoutes);
-app.use("/api/calculator", calculatorRoutes);
-app.use("/api/quotations", quotationRoutes);
-app.use("/api/invoices", invoiceRoutes);
-app.use("/api/surveys", surveyRoutes);
-app.use("/api/deals", dealRoutes);
-app.use("/api/subsidy", subsidyRoutes);
-const loanRoutes = require("./routes/loanRoutes");
-app.use("/api/loans", loanRoutes);
-app.use("/api/stock", stockRoutes);
-app.use("/api/projects", projectRoutes);
-app.use("/api/projects/:id/inspection", inspectionRoutes);
-app.use("/api/projects/:id/installation-logs", installationLogRoutes);
-app.use("/api/projects/:id/commissioning", commissioningRoutes);
-app.use("/api/projects/:id/final-inspection", finalInspectionRoutes);
-app.use("/api/projects/:id/handover", handoverRoutes);
-app.use("/api/projects/:id/warranty", warrantyRoutes);
-const reportRoutes = require("./routes/reportRoutes");
-app.use("/api/reports", reportRoutes);
-app.use("/api/procurement", procurementRoutes);
-const customerRoutes = require("./routes/customerRoutes");
-app.use("/api/customers", customerRoutes);
-const aiRoutes = require("./routes/aiRoutes");
-app.use("/api/ai", aiRoutes);
-const reviewRoutes = require("./routes/reviewRoutes");
-app.use("/api/public/review", reviewRoutes);
-
-
-
-
+app.use('/api/superadmin', superAdminRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/calculator', calculatorRoutes);
+app.use('/api/quotations', quotationRoutes);
+app.use('/api/invoices', invoiceRoutes);
+app.use('/api/surveys', surveyRoutes);
+app.use('/api/deals', dealRoutes);
+app.use('/api/subsidy', subsidyRoutes);
+const loanRoutes = require('./routes/loanRoutes');
+app.use('/api/loans', loanRoutes);
+app.use('/api/stock', stockRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/projects/:id/inspection', inspectionRoutes);
+app.use('/api/projects/:id/installation-logs', installationLogRoutes);
+app.use('/api/projects/:id/commissioning', commissioningRoutes);
+app.use('/api/projects/:id/final-inspection', finalInspectionRoutes);
+app.use('/api/projects/:id/handover', handoverRoutes);
+app.use('/api/projects/:id/warranty', warrantyRoutes);
+const reportRoutes = require('./routes/reportRoutes');
+app.use('/api/reports', reportRoutes);
+app.use('/api/procurement', procurementRoutes);
+const customerRoutes = require('./routes/customerRoutes');
+app.use('/api/customers', customerRoutes);
+const aiRoutes = require('./routes/aiRoutes');
+app.use('/api/ai', aiRoutes);
+const reviewRoutes = require('./routes/reviewRoutes');
+app.use('/api/public/review', reviewRoutes);
 
 // ── Base Route ───────────────────────────────────────────────
-app.get("/", (req, res) => {
-  res.json({ success: true, message: "Solar CRM API Running" });
+app.get('/', (req, res) => {
+  res.json({ success: true, message: 'Solar CRM API Running' });
 });
 
 // ── Global Error Handler (File size limits & Multer) ───────────
 app.use((err, req, res, next) => {
-  if (err.code === "LIMIT_FILE_SIZE") {
+  if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({
       success: false,
-      message: "File size too large! Maximum allowed upload size is 5MB.",
+      message: 'File size too large! Maximum allowed upload size is 5MB.',
     });
   }
-  if (err.name === "MulterError") {
+  if (err.name === 'MulterError') {
     return res.status(400).json({
       success: false,
       message: `File upload error: ${err.message}`,
     });
   }
-  if (err.message && err.message.includes("Only JPG, JPEG, PNG and WEBP")) {
+  if (err.message && err.message.includes('Only JPG, JPEG, PNG and WEBP')) {
     return res.status(400).json({
       success: false,
       message: err.message,
     });
   }
-  console.error("Server error:", err);
+  console.error('Server error:', err);
   res.status(500).json({
     success: false,
-    message: err.message || "Internal server error.",
+    message: err.message || 'Internal server error.',
   });
 });
 

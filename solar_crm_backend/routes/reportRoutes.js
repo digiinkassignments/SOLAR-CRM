@@ -94,12 +94,12 @@ router.get("/financials", verifyToken, async (req, res) => {
   try {
     const db = req.db || defaultDb;
 
-    const [invoices] = await db.query(`
+    let [invoices] = await db.query(`
       SELECT 
         id,
         invoice_number,
         customer_name,
-        COALESCE(net_payable_amount, gross_total, 0) AS total_amount,
+        COALESCE(gross_total, 0) AS total_amount,
         COALESCE(amount_paid, 0) AS paid_amount,
         COALESCE(balance_due, 0) AS balance_amount,
         payment_status,
@@ -108,6 +108,24 @@ router.get("/financials", verifyToken, async (req, res) => {
       FROM invoices WHERE 1=1${managerScope.linked(db,"invoices.lead_id")}
       ORDER BY id DESC
     `);
+    const collections = require('../services/customerCollections');
+    const collectionRows = await collections.all(db, req.user);
+    const collectionTotals = collections.totals(collectionRows);
+    const linked = collectionRows.flatMap((c) => c.ledger.invoices.map((i) => ({
+      id: i.invoice_id || `customer-${c.id}-${i.key}`, invoice_number: i.invoice_number,
+      customer_name: c.customer_name, total_amount: i.final_amount,
+      paid_amount: i.total_received, balance_amount: i.balance_due, refund_due: i.refund_due,
+      refunds_paid: i.refunds_paid, payment_status: i.balance_due === 0 ? 'Paid' : i.total_received > 0 ? 'Partially Paid' : 'Unpaid',
+      due_date: i.next_due_date, created_at: i.invoice_date, days_overdue: i.days_overdue,
+    })));
+    const linkedIds = new Set(linked.filter((r) => typeof r.id === 'number').map((r) => r.id));
+    invoices = [...linked, ...invoices.filter((r) => !linkedIds.has(Number(r.id)))];
+
+    const ledgerSummary = {
+      contractTotal: collectionTotals.contract_total, received: collectionTotals.received,
+      refundsPaid: collectionTotals.refunds_paid, refundDue: collectionTotals.refund_due,
+      outstanding: collectionTotals.outstanding,
+    };
 
     let totalInvoiced = 0;
     let totalCollected = 0;
@@ -161,16 +179,17 @@ router.get("/financials", verifyToken, async (req, res) => {
     return res.json({
       success: true,
       data: {
-        totalInvoiced,
-        totalCollected,
-        totalOutstanding,
-        totalOverdue,
+        totalInvoiced: collectionTotals.contract_total,
+        totalCollected: collectionTotals.received,
+        totalOutstanding: collectionTotals.outstanding,
+        totalOverdue: collectionRows.reduce((sum, r) => sum + r.ledger.invoices.filter((i) => i.days_overdue > 0).reduce((s, i) => s + i.balance_due, 0), 0),
         statusCounts,
         monthlyRevenue: Object.entries(monthlyRevenue).map(([month, amount]) => ({
           month,
           amount,
         })),
         invoices,
+        ledgerSummary,
       },
     });
   } catch (error) {
