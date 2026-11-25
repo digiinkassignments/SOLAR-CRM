@@ -1,8 +1,8 @@
-import api from "../api/axios";
+import api from '../api/axios';
 
 // Get leads with search, pagination & filters
 export const getLeads = async (params) => {
-  const response = await api.get("/leads", { params });
+  const response = await api.get('/leads', { params });
   return response.data;
 };
 
@@ -14,13 +14,13 @@ export const getLeadById = async (id) => {
 
 // NEW — Team-wide follow-ups list (Manager)
 export const getTeamFollowupsList = async () => {
-  const response = await api.get("/leads/team/followups");
+  const response = await api.get('/leads/team/followups');
   return response.data;
 };
 
 // Create new lead
 export const createLead = async (leadData) => {
-  const response = await api.post("/leads", leadData);
+  const response = await api.post('/leads', leadData);
   return response.data;
 };
 
@@ -46,14 +46,14 @@ export const assignLead = async (id, assignData) => {
 // payload shape: { from_user_id, to_user_id }
 // Won/Lost/Not Interested leads are NOT moved — they stay with original owner
 export const bulkReassignLeads = async (payload) => {
-  const response = await api.patch("/leads/bulk-reassign", payload);
+  const response = await api.patch('/leads/bulk-reassign', payload);
   return response.data;
 };
 
 // NEW — Bulk import leads from CSV/Excel (Admin + Manager)
 // payload shape: { leads: [{ customer_name, mobile_number, ... }, ...] }
-export const bulkImportLeads = async (rows) => {
-  const response = await api.post("/leads/bulk-import", { leads: rows });
+export const bulkImportLeads = async (rows, options = {}) => {
+  const response = await api.post('/leads/bulk-import', { leads: rows, ...options });
   return response.data;
 };
 
@@ -70,8 +70,8 @@ export const getFollowups = async (id) => {
 };
 
 // Fetch activity audit logs
-export const getActivityLogs = async (id) => {
-  const response = await api.get(`/leads/${id}/logs`);
+export const getActivityLogs = async (id, params = {}) => {
+  const response = await api.get(`/leads/${id}/logs`, { params });
   return response.data;
 };
 
@@ -85,7 +85,7 @@ export const deleteLead = async (id) => {
 export const bulkDeleteLeads = async (ids) => {
   if (!Array.isArray(ids) || ids.length === 0) return { success: true };
   try {
-    const response = await api.post("/leads/bulk-delete", { ids });
+    const response = await api.post('/leads/bulk-delete', { ids });
     return response.data;
   } catch (err) {
     if (err.response?.status === 404) {
@@ -100,11 +100,11 @@ export const bulkDeleteLeads = async (ids) => {
 // Download Quotation PDF
 export const downloadQuotationPDF = async (leadId, leadCode) => {
   const response = await api.get(`/leads/${leadId}/quotation-pdf`, {
-    responseType: "blob",
+    responseType: 'blob',
   });
-  const blob = new Blob([response.data], { type: "application/pdf" });
+  const blob = new Blob([response.data], { type: 'application/pdf' });
   const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  const link = document.createElement('a');
   link.href = url;
   link.download = `Quotation-${leadCode || leadId}.pdf`;
   document.body.appendChild(link);
@@ -116,11 +116,11 @@ export const downloadQuotationPDF = async (leadId, leadCode) => {
 // Download Invoice PDF
 export const downloadInvoicePDF = async (leadId, leadCode) => {
   const response = await api.get(`/leads/${leadId}/invoice-pdf`, {
-    responseType: "blob",
+    responseType: 'blob',
   });
-  const blob = new Blob([response.data], { type: "application/pdf" });
+  const blob = new Blob([response.data], { type: 'application/pdf' });
   const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  const link = document.createElement('a');
   link.href = url;
   link.download = `Tax-Invoice-${leadCode || leadId}.pdf`;
   document.body.appendChild(link);
@@ -131,18 +131,18 @@ export const downloadInvoicePDF = async (leadId, leadCode) => {
 
 // Date-wise Follow-ups (Today, Overdue, Custom Date Filter)
 export const getDateWiseFollowups = async (params) => {
-  const response = await api.get("/leads/followups/calendar", { params });
+  const response = await api.get('/leads/followups/calendar', { params });
   return response.data;
 };
 
 // Birthday & Anniversary Events
 export const getBirthdayEvents = async (params) => {
-  const response = await api.get("/leads/events/birthdays", { params });
+  const response = await api.get('/leads/events/birthdays', { params });
   return response.data;
 };
 
 // Send Client Wish (WhatsApp Link or Email)
 export const sendClientWish = async (payload) => {
-  const response = await api.post("/leads/events/send-wish", payload);
+  const response = await api.post('/leads/events/send-wish', payload);
   return response.data;
 };

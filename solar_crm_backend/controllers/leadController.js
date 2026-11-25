@@ -1,4 +1,5 @@
-const salesWorkflow = require("../services/salesWorkflow");
+const duplicates = require('../services/duplicateRecords');
+const salesWorkflow = require('../services/salesWorkflow');
 const {
   createLead,
   getLeads,
@@ -17,10 +18,10 @@ const {
   bulkImportLeads,
   getDateWiseFollowups,
   getBirthdayEvents,
-} = require("../models/leadModel");
-const nodemailer = require("nodemailer");
+} = require('../models/leadModel');
+const nodemailer = require('nodemailer');
 
-const { isUserInManagerTeam } = require("../models/userModel");
+const { isUserInManagerTeam } = require('../models/userModel');
 
 const {
   notifyLeadAssigned,
@@ -30,7 +31,7 @@ const {
   notifyBulkImport,
   notifyFollowupAdded,
   notifyLeadCreated,
-} = require("../services/notificationService");
+} = require('../services/notificationService');
 
 const ROLE_SUPER_ADMIN = 1;
 const ROLE_MANAGER = 2;
@@ -39,14 +40,15 @@ const ROLE_SALES = 3;
 // Sales sirf ye fields touch kar sakta hai apni lead pe — customer ka
 // naam/number/email/address wagera nahi (data integrity ke liye Admin/Manager tak limited)
 const SALES_EDITABLE_FIELDS = [
-  "next_action", "next_follow_up_time",
-  "interest_status",
-  "required_kw",
-  "remark",
-  "priority",
-  "next_follow_up_date",
-  "site_visit_date",
-  "quotation_amount",
+  'next_action',
+  'next_follow_up_time',
+  'interest_status',
+  'required_kw',
+  'remark',
+  'priority',
+  'next_follow_up_date',
+  'site_visit_date',
+  'quotation_amount',
 ];
 
 // ======================================
@@ -57,17 +59,29 @@ const createLeadController = async (req, res) => {
     const { customer_name, mobile_number, interest_status, required_kw, remark } = req.body;
 
     if (!customer_name || !mobile_number) {
-      return res.status(400).json({ success: false, message: "Customer Name and Mobile Number are required." });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Customer Name and Mobile Number are required.' });
     }
-    if (interest_status === "Interested" && (!required_kw || Number(required_kw) <= 0)) {
-      return res.status(400).json({ success: false, message: "Required Solar Capacity in kW is mandatory when status is 'Interested'." });
+    if (interest_status === 'Interested' && (!required_kw || Number(required_kw) <= 0)) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Required Solar Capacity in kW is mandatory when status is 'Interested'.",
+        });
     }
-    if (interest_status === "Not Interested" && (!remark || !remark.trim())) {
-      return res.status(400).json({ success: false, message: "Remark is mandatory when status is 'Not Interested'." });
+    if (interest_status === 'Not Interested' && (!remark || !remark.trim())) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Remark is mandatory when status is 'Not Interested'." });
     }
 
     await salesWorkflow.ensure(req.db);
-    const taskError = salesWorkflow.validTask(req.body, Number(req.user.role_id) === 3 ? "New Lead" : req.body.status || "New Lead");
+    const taskError = salesWorkflow.validTask(
+      req.body,
+      Number(req.user.role_id) === 3 ? 'New Lead' : req.body.status || 'New Lead'
+    );
     if (taskError) return res.status(400).json({ success: false, message: taskError });
     const payload = { ...req.body };
     const roleId = Number(req.user.role_id);
@@ -80,35 +94,69 @@ const createLeadController = async (req, res) => {
       //     hi gayab ho jayegi (uski query assigned_to = uski id pe chalti hai)
       payload.assigned_to = req.user.id;
       payload.assigned_by = req.user.id;
-      payload.status = "New Lead";   // Sales pipeline-status khud set na kare
+      payload.status = 'New Lead'; // Sales pipeline-status khud set na kare
     } else if (roleId === ROLE_MANAGER) {
-      if (!payload.assigned_to) return res.status(400).json({success:false,message:"Assign this lead to a salesperson in your team."});
+      if (!payload.assigned_to)
+        return res
+          .status(400)
+          .json({ success: false, message: 'Assign this lead to a salesperson in your team.' });
       // Manager sirf apni team ko hi assign kar sake (ye check create-time pe
       // pehle missing tha — sirf /assign endpoint aur edit-form pe tha)
       const inTeam = await isUserInManagerTeam(payload.assigned_to, req.user.id, req.db);
       if (!inTeam) {
         return res.status(403).json({
           success: false,
-          message: "You can only assign leads to your own team members.",
+          message: 'You can only assign leads to your own team members.',
         });
       }
     }
 
-    const newLead = await createLead(payload, req.user.id, req.db);
+    await require('../models/leadModel').ensureLeadEventColumns(req.db);
+    const newLead = await duplicates.locked(req.db, payload, async (connection) =>
+      duplicates.transaction(connection, async () => {
+        const matches = await duplicates.check(connection, payload, req.user, 'lead');
+        const created = await createLead(payload, req.user.id, connection);
+        await duplicates.record(connection, 'lead', created.id, matches, payload, req.user);
+        return created;
+      })
+    );
 
+    if (String(payload.status).toLowerCase() === 'won')
+      await require('../models/customerModel').createOrLinkCustomerFromLead(
+        newLead.id,
+        req.user.id,
+        req.db
+      );
     // Admin ko notify karo
     try {
-      const [creatorRows] = await req.db.query("SELECT full_name FROM users WHERE id = ?", [req.user.id]);
-      const creatorName = creatorRows?.[0]?.full_name || "Someone";
-      await notifyLeadCreated(newLead.id, newLead.lead_code, payload.customer_name, creatorName);
+      const [creatorRows] = await req.db.query('SELECT full_name FROM users WHERE id = ?', [
+        req.user.id,
+      ]);
+      const creatorName = creatorRows?.[0]?.full_name || 'Someone';
+      await notifyLeadCreated(
+        newLead.id,
+        newLead.lead_code,
+        payload.customer_name,
+        creatorName,
+        req.db
+      );
     } catch (notifErr) {
-      console.error("Notification trigger error in createLead:", notifErr.message);
+      console.error('Notification trigger error in createLead:', notifErr.message);
     }
 
-    return res.status(201).json({ success: true, message: "Lead created successfully.", data: newLead });
+    return res
+      .status(201)
+      .json({ success: true, message: 'Lead created successfully.', data: newLead });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    if (!error.status) console.error('Lead operation failed:', error.code || error.name);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -120,10 +168,20 @@ const getLeadsController = async (req, res) => {
     const roleId = req.user ? req.user.role_id : null;
     const userId = req.user ? req.user.id : null;
     const result = await getLeads(req.query, roleId, userId, req.db);
-    return res.status(200).json({ success: true, message: "Leads fetched successfully.", ...result });
+    await duplicates.decorate(req.db, 'lead', result.data);
+    return res
+      .status(200)
+      .json({ success: true, message: 'Leads fetched successfully.', ...result });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    if (!error.status) console.error('Lead operation failed:', error.code || error.name);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -138,16 +196,30 @@ const getLeadByIdController = async (req, res) => {
 
     if (Number(roleId) !== ROLE_SUPER_ADMIN) {
       const allowed = await isLeadAccessibleByUser(id, roleId, userId, req.db);
-      if (!allowed) return res.status(403).json({ success: false, message: "You do not have access to this lead." });
+      if (!allowed)
+        return res
+          .status(403)
+          .json({ success: false, message: 'You do not have access to this lead.' });
     }
 
     const rows = await getLeadById(id, req.db);
-    if (rows.length === 0) return res.status(404).json({ success: false, message: "Lead not found." });
+    if (rows.length === 0)
+      return res.status(404).json({ success: false, message: 'Lead not found.' });
 
-    return res.status(200).json({ success: true, message: "Lead details fetched successfully.", data: rows[0] });
+    await duplicates.decorate(req.db, 'lead', rows);
+    return res
+      .status(200)
+      .json({ success: true, message: 'Lead details fetched successfully.', data: rows[0] });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    if (!error.status) console.error('Lead operation failed:', error.code || error.name);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -158,10 +230,19 @@ const getTeamFollowupsListController = async (req, res) => {
   try {
     const userId = req.user.id;
     const data = await getTeamFollowupsList(userId, req.db);
-    return res.status(200).json({ success: true, message: "Team follow-ups fetched successfully.", data });
+    return res
+      .status(200)
+      .json({ success: true, message: 'Team follow-ups fetched successfully.', data });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    if (!error.status) console.error('Lead operation failed:', error.code || error.name);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -176,14 +257,18 @@ const updateLeadController = async (req, res) => {
 
     if (Number(roleId) !== ROLE_SUPER_ADMIN) {
       const allowed = await isLeadAccessibleByUser(id, roleId, userId, req.db);
-      if (!allowed) return res.status(403).json({ success: false, message: "You do not have access to this lead." });
+      if (!allowed)
+        return res
+          .status(403)
+          .json({ success: false, message: 'You do not have access to this lead.' });
     }
 
     let payload = req.body;
 
     if (Number(roleId) === ROLE_SALES) {
       const existingRows = await getLeadById(id, req.db);
-      if (existingRows.length === 0) return res.status(404).json({ success: false, message: "Lead not found." });
+      if (existingRows.length === 0)
+        return res.status(404).json({ success: false, message: 'Lead not found.' });
 
       const existing = existingRows[0];
       payload = { ...existing }; // baseline DB se
@@ -197,11 +282,18 @@ const updateLeadController = async (req, res) => {
 
     const { interest_status, required_kw, remark } = payload;
 
-    if (interest_status === "Interested" && (!required_kw || Number(required_kw) <= 0)) {
-      return res.status(400).json({ success: false, message: "Required Solar Capacity in kW is mandatory when status is 'Interested'." });
+    if (interest_status === 'Interested' && (!required_kw || Number(required_kw) <= 0)) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Required Solar Capacity in kW is mandatory when status is 'Interested'.",
+        });
     }
-    if (interest_status === "Not Interested" && (!remark || !remark.trim())) {
-      return res.status(400).json({ success: false, message: "Remark is mandatory when status is 'Not Interested'." });
+    if (interest_status === 'Not Interested' && (!remark || !remark.trim())) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Remark is mandatory when status is 'Not Interested'." });
     }
 
     // NEW: Manager sirf apni team ko hi assign kar sake, generic edit-form se bhi
@@ -212,21 +304,49 @@ const updateLeadController = async (req, res) => {
       if (!inTeam) {
         return res.status(403).json({
           success: false,
-          message: "You can only assign leads to your own team members.",
+          message: 'You can only assign leads to your own team members.',
         });
       }
     }
 
     await salesWorkflow.ensure(req.db);
     if (req.body.next_action !== undefined || req.body.next_follow_up_time !== undefined) {
-      const taskError = salesWorkflow.validTask(payload, payload.status || "New Lead");
+      const taskError = salesWorkflow.validTask(payload, payload.status || 'New Lead');
       if (taskError) return res.status(400).json({ success: false, message: taskError });
     }
-    await updateLead(id, payload, userId, req.db);
-    return res.status(200).json({ success: true, message: "Lead updated successfully." });
+    const [existingRows] = await req.db.query('SELECT * FROM leads WHERE id=? AND is_deleted=0', [
+      id,
+    ]);
+    if (!existingRows[0])
+      return res.status(404).json({ success: false, message: 'Lead not found.' });
+    const phonesChanged = ['mobile_number', 'alternate_number'].some(
+      (key) =>
+        payload[key] !== undefined &&
+        String(payload[key] || '') !== String(existingRows[0][key] || '')
+    );
+    payload = { ...existingRows[0], ...payload };
+    if (phonesChanged) {
+      await duplicates.locked(req.db, payload, async (connection) =>
+        duplicates.transaction(connection, async () => {
+          const matches = await duplicates.check(connection, payload, req.user, 'lead', id);
+          await updateLead(id, payload, userId, connection);
+          await duplicates.record(connection, 'lead', Number(id), matches, payload, req.user);
+        })
+      );
+    } else await updateLead(id, payload, userId, req.db);
+    if (phonesChanged && String(payload.status).toLowerCase() === 'won')
+      await require('../models/customerModel').createOrLinkCustomerFromLead(id, userId, req.db);
+    return res.status(200).json({ success: true, message: 'Lead updated successfully.' });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    if (!error.status) console.error('Lead operation failed:', error.code || error.name);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -240,35 +360,54 @@ const updateLeadStatusController = async (req, res) => {
     const roleId = req.user.role_id;
     const userId = req.user.id;
 
-    if (!status) return res.status(400).json({ success: false, message: "Status is required." });
+    if (!status) return res.status(400).json({ success: false, message: 'Status is required.' });
 
     if (Number(roleId) !== ROLE_SUPER_ADMIN) {
       const allowed = await isLeadAccessibleByUser(id, roleId, userId, req.db);
-      if (!allowed) return res.status(403).json({ success: false, message: "You do not have access to this lead." });
+      if (!allowed)
+        return res
+          .status(403)
+          .json({ success: false, message: 'You do not have access to this lead.' });
     }
 
     const existingRows = await getLeadById(id, req.db);
-    if (existingRows.length === 0) return res.status(404).json({ success: false, message: "Lead not found." });
+    if (existingRows.length === 0)
+      return res.status(404).json({ success: false, message: 'Lead not found.' });
     const existing = existingRows[0];
 
-    if (status === "Not Interested") {
+    if (status === 'Not Interested') {
       const effectiveRemark = remark || existing.remark;
       if (!effectiveRemark || !effectiveRemark.trim()) {
-        return res.status(400).json({ success: false, message: "Remark is mandatory when marking a lead as 'Not Interested'." });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Remark is mandatory when marking a lead as 'Not Interested'.",
+          });
       }
     }
 
-    if (status === "Quotation Sent") {
+    if (status === 'Quotation Sent') {
       const effectiveAmount = quotation_amount ?? existing.quotation_amount;
       if (!effectiveAmount || Number(effectiveAmount) <= 0) {
-        return res.status(400).json({ success: false, message: "Quotation amount is mandatory when status is 'Quotation Sent'." });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Quotation amount is mandatory when status is 'Quotation Sent'.",
+          });
       }
     }
 
-    if (status === "Site Visit Scheduled") {
+    if (status === 'Site Visit Scheduled') {
       const effectiveDate = site_visit_date || existing.site_visit_date;
       if (!effectiveDate) {
-        return res.status(400).json({ success: false, message: "Site visit date is mandatory when status is 'Site Visit Scheduled'." });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Site visit date is mandatory when status is 'Site Visit Scheduled'.",
+          });
       }
     }
 
@@ -279,22 +418,35 @@ const updateLeadStatusController = async (req, res) => {
       const leadRows = await getLeadById(id, req.db);
       const lead = leadRows[0];
       if (lead) {
-        if (status === "Won") {
+        if (status === 'Won') {
           await notifyLeadWon(id, lead.lead_code, lead.customer_name, lead.manager_id);
-        } else if (status === "Lost" || status === "Not Interested") {
+        } else if (status === 'Lost' || status === 'Not Interested') {
           await notifyLeadLost(id, lead.lead_code, lead.customer_name, lead.manager_id);
         } else {
-          await notifyStatusChanged(id, lead.lead_code, lead.customer_name, status, lead.manager_id);
+          await notifyStatusChanged(
+            id,
+            lead.lead_code,
+            lead.customer_name,
+            status,
+            lead.manager_id
+          );
         }
       }
     } catch (notifErr) {
-      console.error("Notification trigger error in updateLeadStatus:", notifErr.message);
+      console.error('Notification trigger error in updateLeadStatus:', notifErr.message);
     }
 
-    return res.status(200).json({ success: true, message: "Lead status updated successfully." });
+    return res.status(200).json({ success: true, message: 'Lead status updated successfully.' });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    if (!error.status) console.error('Lead operation failed:', error.code || error.name);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -308,12 +460,18 @@ const assignLeadController = async (req, res) => {
     const roleId = req.user.role_id;
     const userId = req.user.id;
 
-    if (!assigned_to) return res.status(400).json({ success: false, message: "assigned_to user ID is required." });
+    if (!assigned_to)
+      return res.status(400).json({ success: false, message: 'assigned_to user ID is required.' });
 
     if (Number(roleId) === ROLE_MANAGER) {
       const inTeam = await isUserInManagerTeam(assigned_to, userId, req.db);
       if (!inTeam) {
-        return res.status(403).json({ success: false, message: "Unauthorized: You can only assign leads to your own team members." });
+        return res
+          .status(403)
+          .json({
+            success: false,
+            message: 'Unauthorized: You can only assign leads to your own team members.',
+          });
       }
     }
 
@@ -327,13 +485,20 @@ const assignLeadController = async (req, res) => {
         await notifyLeadAssigned(id, assigned_to, lead.lead_code, lead.customer_name);
       }
     } catch (notifErr) {
-      console.error("Notification trigger error in assignLead:", notifErr.message);
+      console.error('Notification trigger error in assignLead:', notifErr.message);
     }
 
-    return res.status(200).json({ success: true, message: "Lead assigned successfully." });
+    return res.status(200).json({ success: true, message: 'Lead assigned successfully.' });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    if (!error.status) console.error('Lead operation failed:', error.code || error.name);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -347,10 +512,14 @@ const bulkReassignController = async (req, res) => {
     const userId = req.user.id;
 
     if (!from_user_id || !to_user_id) {
-      return res.status(400).json({ success: false, message: "from_user_id and to_user_id are required." });
+      return res
+        .status(400)
+        .json({ success: false, message: 'from_user_id and to_user_id are required.' });
     }
     if (String(from_user_id) === String(to_user_id)) {
-      return res.status(400).json({ success: false, message: "Source and destination user cannot be the same." });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Source and destination user cannot be the same.' });
     }
 
     if (Number(roleId) === ROLE_MANAGER) {
@@ -359,7 +528,9 @@ const bulkReassignController = async (req, res) => {
         isUserInManagerTeam(to_user_id, userId, req.db),
       ]);
       if (!fromInTeam || !toInTeam) {
-        return res.status(403).json({ success: false, message: "Both users must be in your team." });
+        return res
+          .status(403)
+          .json({ success: false, message: 'Both users must be in your team.' });
       }
     }
 
@@ -370,8 +541,15 @@ const bulkReassignController = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    if (!error.status) console.error('Lead operation failed:', error.code || error.name);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -382,16 +560,21 @@ const bulkImportLeadsController = async (req, res) => {
   try {
     const { leads: rows } = req.body;
     if (!Array.isArray(rows) || rows.length === 0) {
-      return res.status(400).json({ success: false, message: "No leads provided for import." });
+      return res.status(400).json({ success: false, message: 'No leads provided for import.' });
     }
 
-    const result = await bulkImportLeads(rows, req.user.id, req.db);
+    const result = await require('../services/duplicateImport').run(
+      req.db,
+      rows,
+      req.user,
+      req.body
+    );
 
     // Admin ko notify karo
     try {
       await notifyBulkImport(req.user.id, result.imported, result.failed);
     } catch (notifErr) {
-      console.error("Notification trigger error in bulkImportLeads:", notifErr.message);
+      console.error('Notification trigger error in bulkImportLeads:', notifErr.message);
     }
 
     return res.status(200).json({
@@ -400,8 +583,15 @@ const bulkImportLeadsController = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    if (!error.status) console.error('Lead operation failed:', error.code || error.name);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -415,18 +605,39 @@ const addFollowupController = async (req, res) => {
     const roleId = req.user.role_id;
     const userId = req.user.id;
 
-    if (!note || !note.trim()) return res.status(400).json({ success: false, message: "Follow-up note is required." });
+    if (!note || !note.trim())
+      return res.status(400).json({ success: false, message: 'Follow-up note is required.' });
 
     if (Number(roleId) !== ROLE_SUPER_ADMIN) {
       const allowed = await isLeadAccessibleByUser(id, roleId, userId, req.db);
-      if (!allowed) return res.status(403).json({ success: false, message: "You do not have access to this lead." });
+      if (!allowed)
+        return res
+          .status(403)
+          .json({ success: false, message: 'You do not have access to this lead.' });
     }
 
     if (req.body.follow_up_date || req.body.next_follow_up_date || req.body.status_after_followup) {
       await salesWorkflow.ensure(req.db);
-      const rows = await getLeadById(id, req.db); const existing = rows[0] || {};
-      const taskError = salesWorkflow.validTask({ ...existing, ...req.body, next_follow_up_date: req.body.follow_up_date || req.body.next_follow_up_date || String(existing.next_follow_up_date || "").slice(0,10) }, req.body.status_after_followup || existing.status);
-      if (taskError) return res.status(400).json({ success:false, message:taskError + " Open Log outcome / reschedule to complete the schedule." });
+      const rows = await getLeadById(id, req.db);
+      const existing = rows[0] || {};
+      const taskError = salesWorkflow.validTask(
+        {
+          ...existing,
+          ...req.body,
+          next_follow_up_date:
+            req.body.follow_up_date ||
+            req.body.next_follow_up_date ||
+            String(existing.next_follow_up_date || '').slice(0, 10),
+        },
+        req.body.status_after_followup || existing.status
+      );
+      if (taskError)
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: taskError + ' Open Log outcome / reschedule to complete the schedule.',
+          });
     }
     await addFollowup(id, req.body, userId, req.db);
 
@@ -438,13 +649,20 @@ const addFollowupController = async (req, res) => {
         await notifyFollowupAdded(id, lead.lead_code, lead.customer_name, lead.manager_id);
       }
     } catch (notifErr) {
-      console.error("Notification trigger error in addFollowup:", notifErr.message);
+      console.error('Notification trigger error in addFollowup:', notifErr.message);
     }
 
-    return res.status(201).json({ success: true, message: "Follow-up added successfully." });
+    return res.status(201).json({ success: true, message: 'Follow-up added successfully.' });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    if (!error.status) console.error('Lead operation failed:', error.code || error.name);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -459,14 +677,26 @@ const getFollowupsController = async (req, res) => {
 
     if (Number(roleId) !== ROLE_SUPER_ADMIN) {
       const allowed = await isLeadAccessibleByUser(id, roleId, userId, req.db);
-      if (!allowed) return res.status(403).json({ success: false, message: "You do not have access to this lead." });
+      if (!allowed)
+        return res
+          .status(403)
+          .json({ success: false, message: 'You do not have access to this lead.' });
     }
 
     const data = await getFollowups(id, req.db);
-    return res.status(200).json({ success: true, message: "Follow-ups fetched successfully.", data });
+    return res
+      .status(200)
+      .json({ success: true, message: 'Follow-ups fetched successfully.', data });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    if (!error.status) console.error('Lead operation failed:', error.code || error.name);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -481,14 +711,31 @@ const getActivityLogsController = async (req, res) => {
 
     if (Number(roleId) !== ROLE_SUPER_ADMIN) {
       const allowed = await isLeadAccessibleByUser(id, roleId, userId, req.db);
-      if (!allowed) return res.status(403).json({ success: false, message: "You do not have access to this lead." });
+      if (!allowed)
+        return res
+          .status(403)
+          .json({ success: false, message: 'You do not have access to this lead.' });
     }
 
-    const data = await getActivityLogs(id, req.db);
-    return res.status(200).json({ success: true, message: "Activity logs fetched successfully.", data });
+    const data = await require('../services/leadActivityTimeline').timeline(req.db, id, {
+      roleId,
+      page: req.query.page,
+      limit: req.query.limit,
+      filter: String(req.query.filter || 'all').toLowerCase(),
+    });
+    return res
+      .status(200)
+      .json({ success: true, message: 'Activity logs fetched successfully.', data });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    if (!error.status) console.error('Lead operation failed:', error.code || error.name);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -499,10 +746,17 @@ const deleteLeadController = async (req, res) => {
   try {
     const { id } = req.params;
     await deleteLead(id, req.user.id, req.db);
-    return res.status(200).json({ success: true, message: "Lead deleted successfully." });
+    return res.status(200).json({ success: true, message: 'Lead deleted successfully.' });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    if (!error.status) console.error('Lead operation failed:', error.code || error.name);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -513,13 +767,24 @@ const bulkDeleteLeadsController = async (req, res) => {
   try {
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ success: false, message: "Please provide an array of lead IDs to delete." });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Please provide an array of lead IDs to delete.' });
     }
     await bulkDeleteLeads(ids, req.user.id, req.db);
-    return res.status(200).json({ success: true, message: `${ids.length} leads deleted successfully.` });
+    return res
+      .status(200)
+      .json({ success: true, message: `${ids.length} leads deleted successfully.` });
   } catch (error) {
-    console.error("bulkDeleteLeadsController error:", error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    console.error('bulkDeleteLeadsController error:', error);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -533,12 +798,19 @@ const getDateWiseFollowupsController = async (req, res) => {
     const result = await getDateWiseFollowups(req.query, roleId, userId, req.db);
     return res.status(200).json({
       success: true,
-      message: "Date-wise followups fetched successfully.",
+      message: 'Date-wise followups fetched successfully.',
       ...result,
     });
   } catch (error) {
-    console.error("getDateWiseFollowupsController error:", error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    console.error('getDateWiseFollowupsController error:', error);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -552,12 +824,19 @@ const getBirthdayEventsController = async (req, res) => {
     const result = await getBirthdayEvents(req.query, roleId, userId, req.db);
     return res.status(200).json({
       success: true,
-      message: "Birthday & anniversary events fetched successfully.",
+      message: 'Birthday & anniversary events fetched successfully.',
       ...result,
     });
   } catch (error) {
-    console.error("getBirthdayEventsController error:", error);
-    return res.status(500).json({ success: false, message: "Internal Server Error." });
+    console.error('getBirthdayEventsController error:', error);
+    return res
+      .status(error.status || 500)
+      .json({
+        success: false,
+        message: error.status ? error.message : 'Internal Server Error.',
+        code: error.code === 'DUPLICATE_RECORD' ? error.code : undefined,
+        duplicates: error.duplicates,
+      });
   }
 };
 
@@ -566,22 +845,24 @@ const getBirthdayEventsController = async (req, res) => {
 // ======================================
 const sendClientWishController = async (req, res) => {
   try {
-    const { lead_id, wish_type = "birthday", channel = "whatsapp", custom_message } = req.body;
+    const { lead_id, wish_type = 'birthday', channel = 'whatsapp', custom_message } = req.body;
     if (!lead_id) {
-      return res.status(400).json({ success: false, message: "lead_id is required." });
+      return res.status(400).json({ success: false, message: 'lead_id is required.' });
     }
 
     const leadRows = await getLeadById(lead_id, req.db);
     if (!leadRows || leadRows.length === 0) {
-      return res.status(404).json({ success: false, message: "Lead not found." });
+      return res.status(404).json({ success: false, message: 'Lead not found.' });
     }
     const lead = leadRows[0];
 
-    const eventName = wish_type === "anniversary" ? "Anniversary" : "Birthday";
-    const defaultText = custom_message || `☀️ Dear ${lead.customer_name},\n\nWishing you a very joyful and blessed Happy ${eventName}! 🎉\n\nMay your year ahead be full of prosperity, good health, and bright green energy! ⚡\n\nWarm regards,\nSolar CRM Team`;
+    const eventName = wish_type === 'anniversary' ? 'Anniversary' : 'Birthday';
+    const defaultText =
+      custom_message ||
+      `☀️ Dear ${lead.customer_name},\n\nWishing you a very joyful and blessed Happy ${eventName}! 🎉\n\nMay your year ahead be full of prosperity, good health, and bright green energy! ⚡\n\nWarm regards,\nSolar CRM Team`;
 
-    if (channel === "whatsapp") {
-      const cleanPhone = String(lead.mobile_number || "").replace(/\D/g, "");
+    if (channel === 'whatsapp') {
+      const cleanPhone = String(lead.mobile_number || '').replace(/\D/g, '');
       const fullPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
       const encodedMsg = encodeURIComponent(defaultText);
       const whatsappUrl = `https://wa.me/${fullPhone}?text=${encodedMsg}`;
@@ -600,9 +881,11 @@ const sendClientWishController = async (req, res) => {
       });
     }
 
-    if (channel === "email") {
+    if (channel === 'email') {
       if (!lead.email) {
-        return res.status(400).json({ success: false, message: "Lead does not have an email address." });
+        return res
+          .status(400)
+          .json({ success: false, message: 'Lead does not have an email address.' });
       }
 
       if (process.env.MAIL_HOST && process.env.MAIL_USER && process.env.MAIL_PASS) {
@@ -625,7 +908,7 @@ const sendClientWishController = async (req, res) => {
               </div>
               <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; color: #334155; line-height: 1.6; font-size: 15px;">
                 <p>Dear <strong>${lead.customer_name}</strong>,</p>
-                <p>${defaultText.replace(/\n/g, "<br/>")}</p>
+                <p>${defaultText.replace(/\n/g, '<br/>')}</p>
               </div>
               <div style="text-align: center; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px; font-size: 12px; color: #94a3b8;">
                 Solar CRM Platform · Automated Customer Relationship Management
@@ -647,10 +930,14 @@ const sendClientWishController = async (req, res) => {
       });
     }
 
-    return res.status(400).json({ success: false, message: "Invalid channel specified. Use 'email' or 'whatsapp'." });
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid channel specified. Use 'email' or 'whatsapp'." });
   } catch (error) {
-    console.error("sendClientWishController error:", error);
-    return res.status(500).json({ success: false, message: "Failed to send greeting wish: " + error.message });
+    console.error('sendClientWishController error:', error);
+    return res
+      .status(500)
+      .json({ success: false, message: 'Failed to send greeting wish: ' + error.message });
   }
 };
 

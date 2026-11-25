@@ -1,4 +1,4 @@
-const { db: defaultDb } = require("../config/db");
+const { db: defaultDb } = require('../config/db');
 
 const ROLE_SUPER_ADMIN = 1;
 const ROLE_MANAGER = 2;
@@ -14,9 +14,9 @@ const ensureLeadEventColumns = async (db = defaultDb) => {
   try {
     const [cols] = await db.query("SHOW COLUMNS FROM leads LIKE 'dob'");
     if (cols.length === 0) {
-      await db.query("ALTER TABLE leads ADD COLUMN dob DATE DEFAULT NULL AFTER email");
-      await db.query("ALTER TABLE leads ADD COLUMN anniversary_date DATE DEFAULT NULL AFTER dob");
-      await db.query("ALTER TABLE leads ADD KEY idx_leads_dob (dob)");
+      await db.query('ALTER TABLE leads ADD COLUMN dob DATE DEFAULT NULL AFTER email');
+      await db.query('ALTER TABLE leads ADD COLUMN anniversary_date DATE DEFAULT NULL AFTER dob');
+      await db.query('ALTER TABLE leads ADD KEY idx_leads_dob (dob)');
     }
     columnsChecked = true;
   } catch (err) {
@@ -65,7 +65,7 @@ const createLead = async (data, createdBy, db = defaultDb) => {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
-      "",
+      'TMP' + require('crypto').randomBytes(8).toString('hex'),
       customer_name,
       mobile_number,
       alternate_number || null,
@@ -76,24 +76,26 @@ const createLead = async (data, createdBy, db = defaultDb) => {
       city || null,
       state || null,
       pincode || null,
-      solar_requirement || "Residential",
-      interest_status || "Pending",
+      solar_requirement || 'Residential',
+      interest_status || 'Pending',
       required_kw || null,
       remark || null,
-      lead_source || "Other",
-      priority || "Medium",
-      status || "New Lead",
+      lead_source || 'Other',
+      priority || 'Medium',
+      status || 'New Lead',
       assigned_to || null,
       assigned_by || (assigned_to ? createdBy : null),
       createdBy,
       next_follow_up_date || null,
       site_visit_date || null,
-      quotation_amount || null, data.next_action || null, data.next_follow_up_time || null,
+      quotation_amount || null,
+      data.next_action || null,
+      data.next_follow_up_time || null,
     ]
   );
 
   const leadId = result.insertId;
-  const leadCode = `LD${String(leadId).padStart(6, "0")}`;
+  const leadCode = `LD${String(leadId).padStart(6, '0')}`;
 
   await db.query(`UPDATE leads SET lead_code=? WHERE id=?`, [leadCode, leadId]);
 
@@ -110,26 +112,26 @@ const createLead = async (data, createdBy, db = defaultDb) => {
     [leadId, leadCode, createdBy]
   );
 
-  if (String(status).toLowerCase() === "won") {
+  if (!db.deferCustomerLink && String(status).toLowerCase() === 'won') {
     try {
-      const customerModel = require("./customerModel");
+      const customerModel = require('./customerModel');
       await customerModel.createOrLinkCustomerFromLead(leadId, createdBy, db);
     } catch (custErr) {
-      console.error("[createLead] Auto customer creation on Won error:", custErr);
+      console.error('[createLead] Auto customer creation on Won error:', custErr);
     }
   }
 
   // 🎯 SAVE DYNAMIC CUSTOM FIELDS
-  if (data.custom_fields && typeof data.custom_fields === "object") {
+  if (data.custom_fields && typeof data.custom_fields === 'object') {
     for (const [fieldId, val] of Object.entries(data.custom_fields)) {
-      if (val !== null && val !== undefined && String(val).trim() !== "") {
+      if (val !== null && val !== undefined && String(val).trim() !== '') {
         try {
           await db.query(
             `INSERT INTO lead_custom_values (lead_id, field_id, value) VALUES (?, ?, ?)`,
             [leadId, Number(fieldId), String(val).trim()]
           );
         } catch (cfErr) {
-          console.error("[createLead] Error saving custom field:", cfErr.message);
+          console.error('[createLead] Error saving custom field:', cfErr.message);
         }
       }
     }
@@ -142,22 +144,35 @@ const createLead = async (data, createdBy, db = defaultDb) => {
 // 2. Get All Leads (Paginated + Filtered) — FIXED: role_id based, fail-closed
 // ======================================
 const getLeads = async (params, roleId, userId, db = defaultDb) => {
-  if (params.followup_filter === "missing") await require("../services/salesWorkflow").ensure(db);
+  if (params.followup_filter === 'missing') await require('../services/salesWorkflow').ensure(db);
   const {
-    page = 1, limit = 10, search = "", status = "", priority = "",
-    lead_source = "", assigned_to = "", manager_id = "", solar_requirement = "", capacity_range = "", date_from = "", date_to = "", sort_by = "newest", visit_filter = "", followup_filter = "",
+    page = 1,
+    limit = 10,
+    search = '',
+    status = '',
+    priority = '',
+    lead_source = '',
+    assigned_to = '',
+    manager_id = '',
+    solar_requirement = '',
+    capacity_range = '',
+    date_from = '',
+    date_to = '',
+    sort_by = 'newest',
+    visit_filter = '',
+    followup_filter = '',
   } = params;
 
   const safePage = Math.max(1, Math.floor(Number(page) || 1));
   const safeLimit = Math.min(200, Math.max(1, Math.floor(Number(limit) || 10)));
   const offset = (safePage - 1) * safeLimit;
   const role = Number(roleId);
-  let whereConditions = ["l.is_deleted = 0"];
+  let whereConditions = ['l.is_deleted = 0'];
   let queryParams = [];
 
   // Role-based Scoping — role_id based now, not role_name string
   if (role === ROLE_SALES) {
-    whereConditions.push("(l.assigned_to = ? OR l.created_by = ?)");
+    whereConditions.push('(l.assigned_to = ? OR l.created_by = ?)');
     queryParams.push(userId, userId);
   } else if (role === ROLE_MANAGER) {
     whereConditions.push(
@@ -166,31 +181,77 @@ const getLeads = async (params, roleId, userId, db = defaultDb) => {
     queryParams.push(userId);
   } else if (role !== ROLE_SUPER_ADMIN) {
     // Unrecognized role -> show NOTHING (fail-closed, not fail-open)
-    whereConditions.push("1 = 0");
+    whereConditions.push('1 = 0');
   }
 
   if (search) {
-    whereConditions.push(`(l.lead_code LIKE ? OR l.customer_name LIKE ? OR l.mobile_number LIKE ? OR l.city LIKE ? OR l.email LIKE ?)`);
+    whereConditions.push(
+      `(l.lead_code LIKE ? OR l.customer_name LIKE ? OR l.mobile_number LIKE ? OR l.city LIKE ? OR l.email LIKE ?)`
+    );
     const term = `%${search}%`;
     queryParams.push(term, term, term, term, term);
   }
-  if (status) { whereConditions.push("l.status = ?"); queryParams.push(status); }
-  if (priority) { whereConditions.push("l.priority = ?"); queryParams.push(priority); }
-  if (lead_source) { whereConditions.push("l.lead_source = ?"); queryParams.push(lead_source); }
-  if (assigned_to) { whereConditions.push("l.assigned_to = ?"); queryParams.push(assigned_to); }
-  if (manager_id) { whereConditions.push("u_assignee.manager_id = ?"); queryParams.push(manager_id); }
+  if (status) {
+    whereConditions.push('l.status = ?');
+    queryParams.push(status);
+  }
+  if (priority) {
+    whereConditions.push('l.priority = ?');
+    queryParams.push(priority);
+  }
+  if (lead_source) {
+    whereConditions.push('l.lead_source = ?');
+    queryParams.push(lead_source);
+  }
+  if (assigned_to) {
+    whereConditions.push('l.assigned_to = ?');
+    queryParams.push(assigned_to);
+  }
+  if (manager_id) {
+    whereConditions.push('u_assignee.manager_id = ?');
+    queryParams.push(manager_id);
+  }
 
-  if (visit_filter === "upcoming") whereConditions.push("(l.site_visit_date >= CURDATE() OR l.status = 'Site Survey Scheduled') AND l.status NOT IN ('Won','Lost','Invalid','Not Interested')");
-  if (followup_filter === "missing") whereConditions.push("l.status NOT IN ('Won','Lost','Invalid','Not Interested') AND (l.next_follow_up_date IS NULL OR l.next_action IS NULL OR l.next_action='' OR l.next_follow_up_time IS NULL)");
-  if (solar_requirement) { whereConditions.push("l.solar_requirement = ?"); queryParams.push(solar_requirement); }
-  const capacityConditions = { "1-3": "l.required_kw >= 1 AND l.required_kw <= 3", "3-5": "l.required_kw > 3 AND l.required_kw <= 5", "5-10": "l.required_kw > 5 AND l.required_kw <= 10", "10+": "l.required_kw > 10" };
-  if (Object.prototype.hasOwnProperty.call(capacityConditions, capacity_range)) whereConditions.push(`(${capacityConditions[capacity_range]})`);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(date_from)) { whereConditions.push("l.created_at >= ?"); queryParams.push(date_from); }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(date_to)) { whereConditions.push("l.created_at < DATE_ADD(?, INTERVAL 1 DAY)"); queryParams.push(date_to); }
-  const ordering = { newest: "l.created_at DESC, l.id DESC", oldest: "l.created_at ASC, l.id ASC", name_asc: "l.customer_name ASC, l.id ASC", name_desc: "l.customer_name DESC, l.id DESC", kw_high: "l.required_kw DESC, l.id DESC" };
-  const orderBy = Object.prototype.hasOwnProperty.call(ordering, sort_by) ? ordering[sort_by] : ordering.newest;
+  if (visit_filter === 'upcoming')
+    whereConditions.push(
+      "(l.site_visit_date >= CURDATE() OR l.status = 'Site Survey Scheduled') AND l.status NOT IN ('Won','Lost','Invalid','Not Interested')"
+    );
+  if (followup_filter === 'missing')
+    whereConditions.push(
+      "l.status NOT IN ('Won','Lost','Invalid','Not Interested') AND (l.next_follow_up_date IS NULL OR l.next_action IS NULL OR l.next_action='' OR l.next_follow_up_time IS NULL)"
+    );
+  if (solar_requirement) {
+    whereConditions.push('l.solar_requirement = ?');
+    queryParams.push(solar_requirement);
+  }
+  const capacityConditions = {
+    '1-3': 'l.required_kw >= 1 AND l.required_kw <= 3',
+    '3-5': 'l.required_kw > 3 AND l.required_kw <= 5',
+    '5-10': 'l.required_kw > 5 AND l.required_kw <= 10',
+    '10+': 'l.required_kw > 10',
+  };
+  if (Object.prototype.hasOwnProperty.call(capacityConditions, capacity_range))
+    whereConditions.push(`(${capacityConditions[capacity_range]})`);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date_from)) {
+    whereConditions.push('l.created_at >= ?');
+    queryParams.push(date_from);
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date_to)) {
+    whereConditions.push('l.created_at < DATE_ADD(?, INTERVAL 1 DAY)');
+    queryParams.push(date_to);
+  }
+  const ordering = {
+    newest: 'l.created_at DESC, l.id DESC',
+    oldest: 'l.created_at ASC, l.id ASC',
+    name_asc: 'l.customer_name ASC, l.id ASC',
+    name_desc: 'l.customer_name DESC, l.id DESC',
+    kw_high: 'l.required_kw DESC, l.id DESC',
+  };
+  const orderBy = Object.prototype.hasOwnProperty.call(ordering, sort_by)
+    ? ordering[sort_by]
+    : ordering.newest;
 
-  const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
+  const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
 
   const [countRows] = await db.query(
     `SELECT COUNT(*) AS total FROM leads l
@@ -382,14 +443,14 @@ const getTeamFollowupsList = async (managerId, db = defaultDb) => {
   today.setHours(0, 0, 0, 0);
 
   return rows.map((r) => {
-    const closed = ["Won", "Lost", "Invalid", "Not Interested"].includes(r.lead_status);
+    const closed = ['Won', 'Lost', 'Invalid', 'Not Interested'].includes(r.lead_status);
     const dueDate = new Date(r.next_follow_up_date);
     dueDate.setHours(0, 0, 0, 0);
 
     let status;
-    if (closed) status = "COMPLETED";
-    else if (dueDate < today) status = "OVERDUE";
-    else status = "PENDING";
+    if (closed) status = 'COMPLETED';
+    else if (dueDate < today) status = 'OVERDUE';
+    else status = 'PENDING';
 
     return {
       id: r.id,
@@ -399,7 +460,7 @@ const getTeamFollowupsList = async (managerId, db = defaultDb) => {
       next_follow_up_date: r.next_follow_up_date,
       lead_status: r.lead_status,
       assigned_to: r.assigned_to,
-      assigned_to_name: r.assigned_to_name || "Unassigned",
+      assigned_to_name: r.assigned_to_name || 'Unassigned',
       latest_remark: r.latest_remark || null,
       latest_type: r.latest_type || null,
       latest_followup_at: r.latest_followup_at || null,
@@ -414,10 +475,27 @@ const getTeamFollowupsList = async (managerId, db = defaultDb) => {
 const updateLead = async (id, data, updatedBy, db = defaultDb) => {
   await ensureLeadEventColumns(db);
   const {
-    customer_name, mobile_number, alternate_number, email, dob, anniversary_date, address, city,
-    state, pincode, solar_requirement, interest_status, required_kw,
-    remark, lead_source, priority, next_follow_up_date, site_visit_date,
-    quotation_amount, assigned_to, status: newStatus,
+    customer_name,
+    mobile_number,
+    alternate_number,
+    email,
+    dob,
+    anniversary_date,
+    address,
+    city,
+    state,
+    pincode,
+    solar_requirement,
+    interest_status,
+    required_kw,
+    remark,
+    lead_source,
+    priority,
+    next_follow_up_date,
+    site_visit_date,
+    quotation_amount,
+    assigned_to,
+    status: newStatus,
   } = data;
 
   // Current lead details nikal lo (assignment + current status)
@@ -427,15 +505,19 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
   );
   const previousAssignedTo = currentRows[0]?.assigned_to ?? null;
   const previousAssignedBy = currentRows[0]?.assigned_by ?? null;
-  const oldStatus = currentRows[0]?.status || "New Lead";
+  const oldStatus = currentRows[0]?.status || 'New Lead';
   const effectiveStatus = newStatus || oldStatus;
 
   const newAssignedTo = assigned_to || null;
-  const assignmentChanged = String(previousAssignedTo || "") !== String(newAssignedTo || "");
+  const assignmentChanged = String(previousAssignedTo || '') !== String(newAssignedTo || '');
   const newAssignedBy = assignmentChanged && newAssignedTo ? updatedBy : previousAssignedBy;
 
   let closedAt = null;
-  if (["Won", "Lost", "Invalid", "Not Interested"].map(s => s.toLowerCase()).includes(String(effectiveStatus).toLowerCase())) {
+  if (
+    ['Won', 'Lost', 'Invalid', 'Not Interested']
+      .map((s) => s.toLowerCase())
+      .includes(String(effectiveStatus).toLowerCase())
+  ) {
     closedAt = new Date();
   }
 
@@ -451,13 +533,36 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
     WHERE id=? AND is_deleted=0
     `,
     [
-      customer_name, mobile_number, alternate_number || null, email || null,
-      dob || null, anniversary_date || null,
-      address || null, city || null, state || null, pincode || null,
-      solar_requirement, interest_status, required_kw || null, remark || null,
-      lead_source, priority, next_follow_up_date || null, data.next_action === undefined ? currentRows[0]?.next_action || null : data.next_action || null, data.next_follow_up_time === undefined ? currentRows[0]?.next_follow_up_time || null : data.next_follow_up_time || null, site_visit_date || null,
-      quotation_amount || null, newAssignedTo, newAssignedBy,
-      newStatus || null, closedAt, id,
+      customer_name,
+      mobile_number,
+      alternate_number || null,
+      email || null,
+      dob || null,
+      anniversary_date || null,
+      address || null,
+      city || null,
+      state || null,
+      pincode || null,
+      solar_requirement,
+      interest_status,
+      required_kw || null,
+      remark || null,
+      lead_source,
+      priority,
+      next_follow_up_date || null,
+      data.next_action === undefined
+        ? currentRows[0]?.next_action || null
+        : data.next_action || null,
+      data.next_follow_up_time === undefined
+        ? currentRows[0]?.next_follow_up_time || null
+        : data.next_follow_up_time || null,
+      site_visit_date || null,
+      quotation_amount || null,
+      newAssignedTo,
+      newAssignedBy,
+      newStatus || null,
+      closedAt,
+      id,
     ]
   );
 
@@ -473,7 +578,7 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
        VALUES (?, ?, ?, ?, ?)`,
       [
         id,
-        previousAssignedTo ? "Lead Reassigned" : "Lead Assigned",
+        previousAssignedTo ? 'Lead Reassigned' : 'Lead Assigned',
         previousAssignedTo ? String(previousAssignedTo) : null,
         String(newAssignedTo),
         updatedBy,
@@ -483,8 +588,9 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
 
   // Status badla ho to log karo
   if (newStatus && String(newStatus).toLowerCase() !== String(oldStatus).toLowerCase()) {
-    const isWon = String(newStatus).toLowerCase() === "won";
-    const actionType = (isWon || String(newStatus).toLowerCase() === "lost") ? "Lead Closed" : "Status Changed";
+    const isWon = String(newStatus).toLowerCase() === 'won';
+    const actionType =
+      isWon || String(newStatus).toLowerCase() === 'lost' ? 'Lead Closed' : 'Status Changed';
     await db.query(
       `INSERT INTO lead_activity_logs (lead_id, action_type, old_value, new_value, remark, performed_by)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -499,31 +605,31 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
   );
 
   // 🎯 AUTO-CREATE CUSTOMER IF STATUS IS WON:
-  if (String(effectiveStatus).toLowerCase() === "won") {
+  if (!db.deferCustomerLink && String(effectiveStatus).toLowerCase() === 'won') {
     try {
-      const customerModel = require("./customerModel");
+      const customerModel = require('./customerModel');
       await customerModel.createOrLinkCustomerFromLead(id, updatedBy, db);
     } catch (custErr) {
-      console.error("[updateLead] Auto customer creation on Won error:", custErr);
+      console.error('[updateLead] Auto customer creation on Won error:', custErr);
     }
   }
 
   // 🎯 SAVE/UPDATE DYNAMIC CUSTOM FIELDS
-  if (data.custom_fields && typeof data.custom_fields === "object") {
+  if (data.custom_fields && typeof data.custom_fields === 'object') {
     for (const [fieldId, val] of Object.entries(data.custom_fields)) {
       try {
-        await db.query(
-          `DELETE FROM lead_custom_values WHERE lead_id = ? AND field_id = ?`,
-          [id, Number(fieldId)]
-        );
-        if (val !== null && val !== undefined && String(val).trim() !== "") {
+        await db.query(`DELETE FROM lead_custom_values WHERE lead_id = ? AND field_id = ?`, [
+          id,
+          Number(fieldId),
+        ]);
+        if (val !== null && val !== undefined && String(val).trim() !== '') {
           await db.query(
             `INSERT INTO lead_custom_values (lead_id, field_id, value) VALUES (?, ?, ?)`,
             [id, Number(fieldId), String(val).trim()]
           );
         }
       } catch (cfErr) {
-        console.error("[updateLead] Error updating custom field:", cfErr.message);
+        console.error('[updateLead] Error updating custom field:', cfErr.message);
       }
     }
   }
@@ -537,14 +643,15 @@ const updateLead = async (id, data, updatedBy, db = defaultDb) => {
 const updateLeadStatus = async (id, payload, performedBy, db = defaultDb) => {
   const { status: newStatus, remark, quotation_amount, site_visit_date } = payload;
 
-  const [leadRows] = await db.query(
-    `SELECT status FROM leads WHERE id=? AND is_deleted=0`,
-    [id]
-  );
-  const oldStatus = leadRows[0]?.status || "Unknown";
+  const [leadRows] = await db.query(`SELECT status FROM leads WHERE id=? AND is_deleted=0`, [id]);
+  const oldStatus = leadRows[0]?.status || 'Unknown';
 
   let closedAt = null;
-  if (["Won", "Lost", "Invalid", "Not Interested"].map(s => s.toLowerCase()).includes(String(newStatus).toLowerCase())) {
+  if (
+    ['Won', 'Lost', 'Invalid', 'Not Interested']
+      .map((s) => s.toLowerCase())
+      .includes(String(newStatus).toLowerCase())
+  ) {
     closedAt = new Date();
   }
 
@@ -560,25 +667,34 @@ const updateLeadStatus = async (id, payload, performedBy, db = defaultDb) => {
     [newStatus, closedAt, quotation_amount ?? null, site_visit_date ?? null, id]
   );
 
-  const isWon = String(newStatus).toLowerCase() === "won";
-  let actionType = "Status Changed";
-  if (isWon || String(newStatus).toLowerCase() === "lost") actionType = "Lead Closed";
-  else if (String(newStatus).toLowerCase() === "quotation sent" && quotation_amount) actionType = "Quotation Sent";
-  else if (String(newStatus).toLowerCase() === "site visit scheduled" && site_visit_date) actionType = "Site Visit Scheduled";
+  const isWon = String(newStatus).toLowerCase() === 'won';
+  let actionType = 'Status Changed';
+  if (isWon || String(newStatus).toLowerCase() === 'lost') actionType = 'Lead Closed';
+  else if (String(newStatus).toLowerCase() === 'quotation sent' && quotation_amount)
+    actionType = 'Quotation Sent';
+  else if (String(newStatus).toLowerCase() === 'site visit scheduled' && site_visit_date)
+    actionType = 'Site Visit Scheduled';
 
   await db.query(
     `INSERT INTO lead_activity_logs (lead_id, action_type, old_value, new_value, remark, performed_by)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, actionType, oldStatus, newStatus, remark || `Status changed from ${oldStatus} to ${newStatus}`, performedBy]
+    [
+      id,
+      actionType,
+      oldStatus,
+      newStatus,
+      remark || `Status changed from ${oldStatus} to ${newStatus}`,
+      performedBy,
+    ]
   );
 
   // 🎯 AUTO-CREATE CUSTOMER ON WON:
   if (isWon) {
     try {
-      const customerModel = require("./customerModel");
+      const customerModel = require('./customerModel');
       await customerModel.createOrLinkCustomerFromLead(id, performedBy, db);
     } catch (custErr) {
-      console.error("[updateLeadStatus] Auto customer creation on Won error:", custErr);
+      console.error('[updateLeadStatus] Auto customer creation on Won error:', custErr);
     }
   }
 
@@ -610,8 +726,11 @@ const assignLead = async (id, assignedTo, assignedBy, db = defaultDb) => {
     `INSERT INTO lead_activity_logs (lead_id, action_type, old_value, new_value, performed_by)
      VALUES (?, ?, ?, ?, ?)`,
     [
-      id, isReassignment ? "Lead Reassigned" : "Lead Assigned",
-      previousAssignedTo ? String(previousAssignedTo) : null, String(assignedTo), assignedBy,
+      id,
+      isReassignment ? 'Lead Reassigned' : 'Lead Assigned',
+      previousAssignedTo ? String(previousAssignedTo) : null,
+      String(assignedTo),
+      assignedBy,
     ]
   );
 
@@ -624,24 +743,40 @@ const assignLead = async (id, assignedTo, assignedBy, db = defaultDb) => {
 const addFollowup = async (leadId, data, createdBy, db = defaultDb) => {
   const { note, followup_type, status_after_followup, follow_up_date, next_follow_up_date } = data;
   const effectiveFollowupDate = follow_up_date || next_follow_up_date || null;
+  const activityTimeline = require('../services/leadActivityTimeline');
+  await activityTimeline.ensure(db);
 
   const [result] = await db.query(
     `INSERT INTO lead_followups (lead_id, note, followup_type, status_after_followup, follow_up_date, created_by)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [leadId, note, followup_type || "Call", status_after_followup || null, effectiveFollowupDate, createdBy]
+    [
+      leadId,
+      note,
+      followup_type || 'Call',
+      status_after_followup || null,
+      effectiveFollowupDate,
+      createdBy,
+    ]
   );
 
-  let updates = ["remark=?"];
+  let updates = ['remark=?'];
   let queryParams = [note];
-  if (status_after_followup) { updates.push("status=?"); queryParams.push(status_after_followup); }
-  if (effectiveFollowupDate) { updates.push("next_follow_up_date=?"); queryParams.push(effectiveFollowupDate); }
+  if (status_after_followup) {
+    updates.push('status=?');
+    queryParams.push(status_after_followup);
+  }
+  if (effectiveFollowupDate) {
+    updates.push('next_follow_up_date=?');
+    queryParams.push(effectiveFollowupDate);
+  }
   queryParams.push(leadId);
-  await db.query(`UPDATE leads SET ${updates.join(", ")} WHERE id=?`, queryParams);
+  await db.query(`UPDATE leads SET ${updates.join(', ')} WHERE id=?`, queryParams);
 
   await db.query(
-    `INSERT INTO lead_activity_logs (lead_id, action_type, remark, performed_by)
-     VALUES (?, 'Follow-up Added', ?, ?)`,
-    [leadId, note.substring(0, 200), createdBy]
+    `INSERT INTO lead_activity_logs (lead_id, action_type, new_value, remark, performed_by, visibility, metadata, editable_until)
+     VALUES (?, 'Follow-up Added', ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))`,
+    [leadId, followup_type || 'Call', note.substring(0, 200), createdBy,
+      data.visibility === 'internal' ? 'internal' : 'all', JSON.stringify({ followup_type: followup_type || 'Call', next_follow_up_date: effectiveFollowupDate })]
   );
 
   return result;
@@ -722,10 +857,11 @@ const bulkReassignLeads = async (fromUserId, toUserId, performedBy, db = default
     );
 
     for (const lead of openLeads) {
-      await connection.query(
-        `UPDATE leads SET assigned_to=?, assigned_by=? WHERE id=?`,
-        [toUserId, performedBy, lead.id]
-      );
+      await connection.query(`UPDATE leads SET assigned_to=?, assigned_by=? WHERE id=?`, [
+        toUserId,
+        performedBy,
+        lead.id,
+      ]);
       await connection.query(
         `INSERT INTO lead_assignments (lead_id, assigned_to, assigned_by) VALUES (?, ?, ?)`,
         [lead.id, toUserId, performedBy]
@@ -759,17 +895,28 @@ const bulkImportLeads = async (rows, createdBy, db = defaultDb) => {
     const row = rows[i];
     try {
       const {
-        customer_name, mobile_number, alternate_number, email, address,
-        city, state, pincode, solar_requirement, interest_status,
-        required_kw, lead_source, priority, remark,
+        customer_name,
+        mobile_number,
+        alternate_number,
+        email,
+        address,
+        city,
+        state,
+        pincode,
+        solar_requirement,
+        interest_status,
+        required_kw,
+        lead_source,
+        priority,
+        remark,
       } = row;
 
       // Basic validation (defense-in-depth, frontend bhi check karega)
       if (!customer_name || !String(customer_name).trim()) {
-        throw new Error("Customer name is required");
+        throw new Error('Customer name is required');
       }
       if (!mobile_number || !/^\d{10}$/.test(String(mobile_number).trim())) {
-        throw new Error("Invalid or missing 10-digit mobile number");
+        throw new Error('Invalid or missing 10-digit mobile number');
       }
 
       const [result] = await db.query(
@@ -781,7 +928,7 @@ const bulkImportLeads = async (rows, createdBy, db = defaultDb) => {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New Lead', ?, ?, ?)
         `,
         [
-          "",
+          '',
           String(customer_name).trim(),
           String(mobile_number).trim(),
           alternate_number || null,
@@ -790,18 +937,20 @@ const bulkImportLeads = async (rows, createdBy, db = defaultDb) => {
           city || null,
           state || null,
           pincode || null,
-          solar_requirement || "Residential",
-          interest_status || "Pending",
+          solar_requirement || 'Residential',
+          interest_status || 'Pending',
           required_kw || null,
           remark || null,
-          lead_source || "Other",
-          priority || "Medium",
-          createdBy, row.assigned_to || null, row.assigned_to ? createdBy : null,
+          lead_source || 'Other',
+          priority || 'Medium',
+          createdBy,
+          row.assigned_to || null,
+          row.assigned_to ? createdBy : null,
         ]
       );
 
       const leadId = result.insertId;
-      const leadCode = `LD${String(leadId).padStart(6, "0")}`;
+      const leadCode = `LD${String(leadId).padStart(6, '0')}`;
       await db.query(`UPDATE leads SET lead_code=? WHERE id=?`, [leadCode, leadId]);
 
       await db.query(
@@ -813,7 +962,7 @@ const bulkImportLeads = async (rows, createdBy, db = defaultDb) => {
       results.imported += 1;
     } catch (err) {
       results.failed += 1;
-      results.errors.push({ row: i + 1, reason: err.message || "Unknown error" });
+      results.errors.push({ row: i + 1, reason: err.message || 'Unknown error' });
     }
   }
 
@@ -825,15 +974,25 @@ const bulkImportLeads = async (rows, createdBy, db = defaultDb) => {
 // ======================================
 const getDateWiseFollowups = async (params, roleId, userId, db = defaultDb) => {
   await ensureLeadEventColumns(db);
-  const { filter = "today", date, search, status, priority, assigned_to, lead_source, page = 1, limit = 50 } = params;
+  const {
+    filter = 'today',
+    date,
+    search,
+    status,
+    priority,
+    assigned_to,
+    lead_source,
+    page = 1,
+    limit = 50,
+  } = params;
   const offset = (Number(page) - 1) * Number(limit);
 
-  let whereConditions = ["l.is_deleted = 0"];
+  let whereConditions = ['l.is_deleted = 0'];
   let queryParams = [];
 
   const role = Number(roleId);
   if (role === ROLE_SALES) {
-    whereConditions.push("l.assigned_to = ?");
+    whereConditions.push('l.assigned_to = ?');
     queryParams.push(userId);
   } else if (role === ROLE_MANAGER) {
     whereConditions.push(
@@ -841,59 +1000,61 @@ const getDateWiseFollowups = async (params, roleId, userId, db = defaultDb) => {
     );
     queryParams.push(userId);
   } else if (role !== ROLE_SUPER_ADMIN) {
-    whereConditions.push("1 = 0");
+    whereConditions.push('1 = 0');
   }
 
   const targetDate = date || new Date().toISOString().slice(0, 10);
 
-  if (filter === "today") {
+  if (filter === 'today') {
     whereConditions.push(
       `(DATE(l.next_follow_up_date) = ? OR DATE(l.next_follow_up_date) = CURDATE())`
     );
     queryParams.push(targetDate);
-  } else if (filter === "overdue") {
+  } else if (filter === 'overdue') {
     whereConditions.push(
       `l.next_follow_up_date IS NOT NULL AND DATE(l.next_follow_up_date) < ? AND l.status NOT IN ('Won', 'Lost', 'Invalid', 'Not Interested')`
     );
     queryParams.push(targetDate);
-  } else if (filter === "upcoming") {
-    whereConditions.push(
-      `l.next_follow_up_date IS NOT NULL AND DATE(l.next_follow_up_date) > ?`
-    );
+  } else if (filter === 'upcoming') {
+    whereConditions.push(`l.next_follow_up_date IS NOT NULL AND DATE(l.next_follow_up_date) > ?`);
     queryParams.push(targetDate);
-  } else if (filter === "date" && date) {
+  } else if (filter === 'date' && date) {
     whereConditions.push(`DATE(l.next_follow_up_date) = ?`);
     queryParams.push(date);
-  } else if (filter === "not_set") {
-    whereConditions.push(`l.next_follow_up_date IS NULL AND l.status NOT IN ('Won', 'Lost', 'Invalid', 'Not Interested')`);
-  } else if (filter === "all") {
+  } else if (filter === 'not_set') {
+    whereConditions.push(
+      `l.next_follow_up_date IS NULL AND l.status NOT IN ('Won', 'Lost', 'Invalid', 'Not Interested')`
+    );
+  } else if (filter === 'all') {
     whereConditions.push("l.status NOT IN ('Won', 'Lost', 'Invalid', 'Not Interested')");
   }
 
   if (status) {
-    whereConditions.push("l.status = ?");
+    whereConditions.push('l.status = ?');
     queryParams.push(status);
   }
   if (priority) {
-    whereConditions.push("l.priority = ?");
+    whereConditions.push('l.priority = ?');
     queryParams.push(priority);
   }
   if (assigned_to) {
-    whereConditions.push("l.assigned_to = ?");
+    whereConditions.push('l.assigned_to = ?');
     queryParams.push(assigned_to);
   }
   if (lead_source) {
-    whereConditions.push("l.lead_source = ?");
+    whereConditions.push('l.lead_source = ?');
     queryParams.push(lead_source);
   }
 
   if (search && search.trim()) {
-    whereConditions.push("(l.customer_name LIKE ? OR l.mobile_number LIKE ? OR l.email LIKE ? OR l.lead_code LIKE ? OR l.city LIKE ?)");
+    whereConditions.push(
+      '(l.customer_name LIKE ? OR l.mobile_number LIKE ? OR l.email LIKE ? OR l.lead_code LIKE ? OR l.city LIKE ?)'
+    );
     const searchTerm = `%${search.trim()}%`;
     queryParams.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
   }
 
-  const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
+  const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
 
   const [countRows] = await db.query(
     `SELECT COUNT(*) AS total
@@ -965,40 +1126,45 @@ const getDateWiseFollowups = async (params, roleId, userId, db = defaultDb) => {
 // ======================================
 const getBirthdayEvents = async (params, roleId, userId, db = defaultDb) => {
   await ensureLeadEventColumns(db);
-  const { filter = "today", month, search, page = 1, limit = 50 } = params;
+  const { filter = 'today', month, search, page = 1, limit = 50 } = params;
   const offset = (Number(page) - 1) * Number(limit);
 
-  let whereConditions = ["l.is_deleted = 0", "(l.dob IS NOT NULL OR l.anniversary_date IS NOT NULL)"];
+  let whereConditions = [
+    'l.is_deleted = 0',
+    '(l.dob IS NOT NULL OR l.anniversary_date IS NOT NULL)',
+  ];
   let queryParams = [];
 
   const role = Number(roleId);
   if (role === ROLE_SALES) {
-    whereConditions.push("l.assigned_to = ?");
+    whereConditions.push('l.assigned_to = ?');
     queryParams.push(userId);
   } else if (role === ROLE_MANAGER) {
-    whereConditions.push("(u_assignee.manager_id = ? AND u_assignee.role_id=3 AND u_assignee.is_deleted=0)");
+    whereConditions.push(
+      '(u_assignee.manager_id = ? AND u_assignee.role_id=3 AND u_assignee.is_deleted=0)'
+    );
     queryParams.push(userId);
   }
 
-  if (filter === "today") {
+  if (filter === 'today') {
     whereConditions.push(`(
       (MONTH(l.dob) = MONTH(CURDATE()) AND DAY(l.dob) = DAY(CURDATE()))
       OR
       (MONTH(l.anniversary_date) = MONTH(CURDATE()) AND DAY(l.anniversary_date) = DAY(CURDATE()))
     )`);
-  } else if (filter === "this_week") {
+  } else if (filter === 'this_week') {
     whereConditions.push(`(
       (WEEK(l.dob, 1) = WEEK(CURDATE(), 1))
       OR
       (WEEK(l.anniversary_date, 1) = WEEK(CURDATE(), 1))
     )`);
-  } else if (filter === "this_month") {
+  } else if (filter === 'this_month') {
     whereConditions.push(`(
       (MONTH(l.dob) = MONTH(CURDATE()))
       OR
       (MONTH(l.anniversary_date) = MONTH(CURDATE()))
     )`);
-  } else if (filter === "month" && month) {
+  } else if (filter === 'month' && month) {
     whereConditions.push(`(
       (MONTH(l.dob) = ?) OR (MONTH(l.anniversary_date) = ?)
     )`);
@@ -1006,12 +1172,14 @@ const getBirthdayEvents = async (params, roleId, userId, db = defaultDb) => {
   }
 
   if (search && search.trim()) {
-    whereConditions.push("(l.customer_name LIKE ? OR l.mobile_number LIKE ? OR l.email LIKE ? OR l.lead_code LIKE ?)");
+    whereConditions.push(
+      '(l.customer_name LIKE ? OR l.mobile_number LIKE ? OR l.email LIKE ? OR l.lead_code LIKE ?)'
+    );
     const searchTerm = `%${search.trim()}%`;
     queryParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
   }
 
-  const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
+  const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
 
   const [countRows] = await db.query(
     `SELECT COUNT(*) AS total
@@ -1049,8 +1217,23 @@ const getBirthdayEvents = async (params, roleId, userId, db = defaultDb) => {
 };
 
 module.exports = {
-  createLead, getLeads, getLeadById, isLeadAccessibleByUser, getTeamFollowupsList,
-  updateLead, updateLeadStatus, assignLead, addFollowup, getFollowups, getActivityLogs,
-  deleteLead, bulkDeleteLeads, bulkReassignLeads, bulkImportLeads, getDateWiseFollowups, getBirthdayEvents,
+  ensureLeadEventColumns,
+  createLead,
+  getLeads,
+  getLeadById,
+  isLeadAccessibleByUser,
+  getTeamFollowupsList,
+  updateLead,
+  updateLeadStatus,
+  assignLead,
+  addFollowup,
+  getFollowups,
+  getActivityLogs,
+  deleteLead,
+  bulkDeleteLeads,
+  bulkReassignLeads,
+  bulkImportLeads,
+  getDateWiseFollowups,
+  getBirthdayEvents,
   ensureLeadEventColumns,
 };

@@ -28,6 +28,15 @@ const scheduleSurveyHandler = async (req, res) => {
       createdBy,
       req.db
     );
+    try {
+      const [[engineerName]] = await req.db.query('SELECT full_name FROM users WHERE id=?', [assigned_engineer_id]);
+      await require('../services/leadActivityTimeline').record(req.db, {
+        leadId: lead_id, eventType: 'Site Survey Scheduled', actorId: createdBy,
+        text: `Site survey scheduled with ${engineerName?.full_name || 'site engineer'} on ${scheduled_date} at ${exactTime}.`,
+        relatedType: 'survey', relatedId: survey.id,
+        metadata: { engineer_id: assigned_engineer_id, date: scheduled_date, time: exactTime, instructions: site_notes || null },
+      });
+    } catch (activityError) { console.error('Survey activity log error:', activityError.message); }
 
     return res.status(201).json({
       success: true,
@@ -123,6 +132,14 @@ const completeSurveyHandler = async (req, res) => {
       if (Number(existing.assigned_engineer_id) !== Number(req.user.id)) return res.sendStatus(404);
     } else if (!await require('../models/leadModel').isLeadAccessibleByUser(existing.lead_id, req.user.role_id, req.user.id, req.db)) return res.sendStatus(404);
     const updatedSurvey = await surveyModel.completeSurvey(id, req.body, req.db, req.user.id);
+    try {
+      await require('../services/leadActivityTimeline').record(req.db, {
+        leadId: existing.lead_id, eventType: 'Survey Completed', actorId: req.user.id,
+        text: `Site survey completed by ${req.user.full_name || 'site engineer'}.`,
+        relatedType: 'survey', relatedId: id,
+        metadata: { verdict: req.body?.verdict || req.body?.feasibility || null, photos: req.body?.photos?.length || 0 },
+      });
+    } catch (activityError) { console.error('Survey completion activity log error:', activityError.message); }
 
     return res.status(200).json({
       success: true,
