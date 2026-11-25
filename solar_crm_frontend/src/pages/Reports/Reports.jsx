@@ -317,6 +317,7 @@ const Reports = () => {
   const [period, setPeriod] = useState("all");
   const [loading, setLoading] = useState(true);
   const [overviewData, setOverviewData] = useState(null);
+  const [analyticsData, setAnalyticsData] = useState(null);
 
   // Tab 1 Data States
   const [leads, setLeads] = useState([]);
@@ -351,7 +352,7 @@ const Reports = () => {
     setLoading(true);
     setEngineerRefresh(value => value + 1);
     try {
-      const [leadsRes, usersRes, projRes, finRes, opsRes, warRes, overviewRes] = await Promise.allSettled([
+      const [leadsRes, usersRes, projRes, finRes, opsRes, warRes, overviewRes, analyticsRes] = await Promise.allSettled([
         loadReportLeads(),
         getUsers({ limit: 200 }),
         api.get("/reports/projects"),
@@ -359,6 +360,7 @@ const Reports = () => {
         api.get("/reports/field-operations"),
         api.get("/reports/warranty-amc"),
         api.get("/reports/overview", { params: { period } }),
+        api.get("/reports/analytics", { params: { period } }),
       ]);
 
       if (request !== requestSequence.current) return;
@@ -396,6 +398,9 @@ const Reports = () => {
       }
       if (overviewRes.status === "fulfilled" && overviewRes.value?.data?.success) {
         setOverviewData(overviewRes.value.data.data);
+      }
+      if (analyticsRes.status === "fulfilled" && analyticsRes.value?.data?.success) {
+        setAnalyticsData(analyticsRes.value.data.data);
       }
     } catch (err) {
       console.error("Error fetching report data:", err);
@@ -881,6 +886,28 @@ const Reports = () => {
       {overviewData?.dataHealth && Object.values(overviewData.dataHealth).some(Number) && <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 2.5 }}>
         Data health needs attention: {Object.entries(overviewData.dataHealth).filter(([, value]) => Number(value) > 0).map(([key, value]) => `${key.replaceAll('_', ' ')} (${value})`).join(' · ')}
       </Alert>}
+      {analyticsData?.insights?.length > 0 && <Paper variant="outlined" sx={{ p: 2, mb: 2.5, borderRadius: 2.5, borderColor: C.border, boxShadow: 'none' }}>
+        <Typography sx={{ fontWeight: 800, mb: 1 }}>What needs attention</Typography>
+        <Stack spacing={0.7}>{analyticsData.insights.map((insight, index) => <Typography key={index} variant="body2" color="text.secondary">• {insight}</Typography>)}</Stack>
+      </Paper>}
+      {analyticsData && <Paper variant="outlined" sx={{ p: 2, mb: 2.5, borderRadius: 2.5, borderColor: C.border, boxShadow: 'none' }}>
+        <Typography sx={{ fontWeight: 800, mb: 1.5 }}>Phase 2 analysis snapshot</Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2,minmax(0,1fr))' }, gap: 2 }}>
+          <Box><Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.7 }}>Sales funnel</Typography>
+            {Object.entries(analyticsData.funnel || {}).slice(0, 8).map(([stage, count]) => <Box key={stage} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.35, borderBottom: `1px solid ${C.borderLight}` }}><Typography variant="body2" color="text.secondary">{stage}</Typography><Typography variant="body2" sx={{ fontWeight: 700 }}>{count}</Typography></Box>)}
+          </Box>
+          <Box><Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.7 }}>Projects needing attention</Typography>
+            {(analyticsData.delayed_projects || []).slice(0, 5).map((project) => <Box key={project.id} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.35, borderBottom: `1px solid ${C.borderLight}` }}><Typography variant="body2" noWrap color="text.secondary">{project.customer_name || project.project_number}</Typography><Chip size="small" color="warning" label={`${project.age_days}d`} /></Box>)}
+            {!analyticsData.delayed_projects?.length && <Typography variant="body2" color="text.secondary">No delayed projects found.</Typography>}
+          </Box>
+          <Box><Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.7 }}>Engineer workload</Typography>
+            {(analyticsData.engineer_scorecard || []).slice(0, 5).map((engineer) => <Box key={engineer.id} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.35, borderBottom: `1px solid ${C.borderLight}` }}><Typography variant="body2" color="text.secondary">{engineer.full_name}</Typography><Typography variant="body2" sx={{ fontWeight: 700 }}>{engineer.active_projects} active · {Number(engineer.capacity_kw || 0).toLocaleString('en-IN')} kW</Typography></Box>)}
+          </Box>
+          <Box><Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.7 }}>Lead source performance</Typography>
+            {(analyticsData.source_performance || []).slice(0, 5).map((source) => <Box key={source.source} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.35, borderBottom: `1px solid ${C.borderLight}` }}><Typography variant="body2" color="text.secondary">{source.source}</Typography><Typography variant="body2" sx={{ fontWeight: 700 }}>{source.won} won / {source.leads}</Typography></Box>)}
+          </Box>
+        </Box>
+      </Paper>}
 
       {/* ── 5 MAIN TABS NAVIGATION BAR ── */}
       <Paper

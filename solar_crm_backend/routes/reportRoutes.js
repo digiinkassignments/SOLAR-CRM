@@ -19,6 +19,16 @@ router.get('/overview', verifyToken, async (req, res) => {
   }
 });
 
+router.get('/analytics', verifyToken, async (req, res) => {
+  try {
+    const data = await require('../services/reportAnalytics').build(req.db || defaultDb, req.query);
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Report analytics error:', error);
+    res.status(500).json({ success: false, message: 'Report analytics unavailable.' });
+  }
+});
+
 // 1. Projects Execution Summary & Funnel
 router.get("/projects", verifyToken, async (req, res) => {
   try {
