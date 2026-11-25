@@ -39,6 +39,29 @@ router.get('/analytics/predictive', verifyToken, async (req, res) => {
   }
 });
 
+// Filtered drill-down used by report packs. It returns only the fields needed
+// for review/export and keeps tenant scoping on req.db.
+router.get('/drilldown', verifyToken, async (req, res) => {
+  const db = req.db || defaultDb;
+  const type = String(req.query.type || 'leads').toLowerCase();
+  const search = `%${String(req.query.search || '').slice(0, 80)}%`;
+  const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+  try {
+    let rows;
+    if (type === 'projects') {
+      [rows] = await db.query(`SELECT id,project_number,customer_name,stage,system_capacity_kw,updated_at FROM projects WHERE is_deleted=0 AND COALESCE(is_test,0)=0 AND (customer_name LIKE ? OR project_number LIKE ?) ORDER BY updated_at DESC LIMIT ?`, [search, search, limit]);
+    } else if (type === 'invoices') {
+      [rows] = await db.query(`SELECT id,invoice_number,customer_name,total_amount,paid_amount,due_date,status FROM invoices WHERE is_deleted=0 AND COALESCE(is_test,0)=0 AND (customer_name LIKE ? OR invoice_number LIKE ?) ORDER BY due_date ASC LIMIT ?`, [search, search, limit]);
+    } else {
+      [rows] = await db.query(`SELECT id,lead_code,name,phone,status,lead_source,required_kw,created_at FROM leads WHERE is_deleted=0 AND COALESCE(is_test,0)=0 AND (name LIKE ? OR phone LIKE ? OR lead_code LIKE ?) ORDER BY created_at DESC LIMIT ?`, [search, search, search, limit]);
+    }
+    res.json({ success: true, data: { type, count: rows.length, rows } });
+  } catch (error) {
+    console.error('Report drilldown error:', error);
+    res.status(500).json({ success: false, message: 'Report drill-down unavailable.' });
+  }
+});
+
 // 1. Projects Execution Summary & Funnel
 router.get("/projects", verifyToken, async (req, res) => {
   try {
