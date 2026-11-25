@@ -33,12 +33,18 @@ async function build(db, params = {}) {
   const byEngineer = Object.fromEntries(logs.map(l => [l.created_by, l]));
   const engineerScorecard = engineers.map(e => ({ ...e, logs_count:Number(byEngineer[e.id]?.logs_count||0), hours_logged:Number(byEngineer[e.id]?.hours_logged||0), last_log_date:byEngineer[e.id]?.last_log_date||null, idle:Number(e.active_projects)>0 && !byEngineer[e.id] }));
   const subsidy = await safe(db, `SELECT portal_status,COUNT(*) count,COALESCE(SUM(expected_subsidy),0) pending_amount FROM subsidy_applications s JOIN projects p ON p.id=s.project_id AND p.is_deleted=0 WHERE COALESCE(p.subsidy_applicable,1)=1 GROUP BY portal_status`, []);
+  const invoices = await safe(db, `SELECT id,invoice_number,customer_name,total_amount,paid_amount,due_date FROM invoices WHERE is_deleted=0 AND COALESCE(is_test,0)=0`, []);
+  const overdueInvoices = invoices.filter(i => Number(i.total_amount || 0) > Number(i.paid_amount || 0) && i.due_date && new Date(i.due_date).getTime() < now.getTime());
   const delayed = stageAgeing.filter(p => p.delayed).sort((a,b)=>b.age_days-a.age_days).slice(0,10);
   const insights = [];
   if (delayed.length) insights.push(`${delayed.length} project${delayed.length===1?' is':'s are'} beyond its stage target. Oldest is ${delayed[0].age_days} days (${delayed[0].owner_name || 'unassigned'}).`);
   const idle = engineerScorecard.filter(e => e.idle); if (idle.length) insights.push(`${idle.length} engineer${idle.length===1?' has':'s have'} active projects but no work log.`);
   const topSource = Object.values(sourceMap).sort((a,b)=>(b.won/(b.leads||1))-(a.won/(a.leads||1)))[0]; if (topSource) insights.push(`${topSource.source} currently has the strongest lead conversion at ${Math.round((topSource.won/(topSource.leads||1))*100)}%.`);
-  return { generated_at: now.toISOString(), funnel, source_performance:Object.values(sourceMap).sort((a,b)=>b.leads-a.leads), stage_ageing:stageAgeing, delayed_projects:delayed, engineer_scorecard:engineerScorecard, subsidy_by_stage:subsidy, insights:insights.slice(0,5) };
+  const alerts = delayed.slice(0,5).map(p => ({ type:'project_delay', severity:p.age_days > p.target_days * 2 ? 'high' : 'medium', title:`Project delayed: ${p.customer_name || p.project_number}`, detail:`${p.age_days} days in ${p.stage || 'current stage'}`, action:'Review stage owner and schedule the next milestone.' }));
+  overdueInvoices.slice(0,5).forEach(i => alerts.push({ type:'collection_risk', severity:'high', title:`Overdue invoice: ${i.invoice_number || i.id}`, detail:`Outstanding ₹${Math.max(0,Number(i.total_amount||0)-Number(i.paid_amount||0)).toLocaleString('en-IN')}`, action:'Assign a collection follow-up and record the next commitment date.' }));
+  if (subsidy.some(s => !['Subsidy Credited','Completed','Closed'].includes(s.portal_status))) alerts.push({ type:'subsidy_risk', severity:'medium', title:'Subsidy applications need follow-up', detail:'Open applications remain in an unfinished portal stage.', action:'Review missing documents and update the portal milestone.' });
+  engineerScorecard.filter(e=>e.idle).slice(0,5).forEach(e=>alerts.push({ type:'capacity_risk', severity:'medium', title:`No recent work log: ${e.full_name}`, detail:`${e.active_projects} active project${e.active_projects===1?'':'s'}`, action:'Confirm assignment and ask for the next field update.' }));
+  return { generated_at: now.toISOString(), funnel, source_performance:Object.values(sourceMap).sort((a,b)=>b.leads-a.leads), stage_ageing:stageAgeing, delayed_projects:delayed, engineer_scorecard:engineerScorecard, subsidy_by_stage:subsidy, insights:insights.slice(0,5), predictive:{ alerts:alerts.slice(0,12), overdue_invoices:overdueInvoices.length } };
 }
 
 module.exports = { build };

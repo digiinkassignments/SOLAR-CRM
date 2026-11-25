@@ -908,6 +908,16 @@ const Reports = () => {
           </Box>
         </Box>
       </Paper>}
+      {analyticsData?.predictive?.alerts?.length > 0 && <Paper variant="outlined" sx={{ p: 2, mb: 2.5, borderRadius: 2.5, borderColor: C.border, boxShadow: 'none' }}>
+        <Typography sx={{ fontWeight: 800, mb: 1.5 }}>Predictive alerts & recommended actions</Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2,minmax(0,1fr))' }, gap: 1.2 }}>
+          {analyticsData.predictive.alerts.slice(0, 8).map((alert, index) => <Box key={`${alert.type}-${index}`} sx={{ p: 1.2, border: `1px solid ${C.borderLight}`, borderRadius: 1.5, bgcolor: alert.severity === 'high' ? '#FFF7ED' : '#F8FAFC' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}><Typography variant="body2" sx={{ fontWeight: 800 }}>{alert.title}</Typography><Chip size="small" label={alert.severity} color={alert.severity === 'high' ? 'error' : 'warning'} /></Box>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.35 }}>{alert.detail}</Typography>
+            <Typography variant="caption" sx={{ mt: 0.6, display: 'block', color: C.primary }}>{alert.action}</Typography>
+          </Box>)}
+        </Box>
+      </Paper>}
 
       {/* ── 5 MAIN TABS NAVIGATION BAR ── */}
       <Paper

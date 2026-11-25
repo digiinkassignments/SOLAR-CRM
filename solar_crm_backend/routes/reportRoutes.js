@@ -29,6 +29,16 @@ router.get('/analytics', verifyToken, async (req, res) => {
   }
 });
 
+router.get('/analytics/predictive', verifyToken, async (req, res) => {
+  try {
+    const data = await require('../services/reportAnalytics').build(req.db || defaultDb, req.query);
+    res.json({ success: true, data: data.predictive || { alerts: [], overdue_invoices: 0 } });
+  } catch (error) {
+    console.error('Predictive reports error:', error);
+    res.status(500).json({ success: false, message: 'Predictive reports unavailable.' });
+  }
+});
+
 // 1. Projects Execution Summary & Funnel
 router.get("/projects", verifyToken, async (req, res) => {
   try {
