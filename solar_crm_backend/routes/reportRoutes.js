@@ -62,6 +62,26 @@ router.get('/drilldown', verifyToken, async (req, res) => {
   }
 });
 
+router.get('/pack', verifyToken, async (req, res) => {
+  const db = req.db || defaultDb;
+  const type = String(req.query.type || 'executive').toLowerCase();
+  const ranges = { executive: ['Leads','Projects','Invoices'], sales: ['Leads'], projects: ['Projects'], financial: ['Invoices'] };
+  try {
+    const available = ranges[type] || ranges.executive;
+    const results = {};
+    for (const resource of available) {
+      const key = resource.toLowerCase();
+      const table = resource === 'Leads' ? 'leads' : resource === 'Projects' ? 'projects' : 'invoices';
+      const [rows] = await db.query(`SELECT * FROM ${table} WHERE is_deleted=0 AND COALESCE(is_test,0)=0 ORDER BY created_at DESC LIMIT 500`);
+      results[key] = rows;
+    }
+    res.json({ success: true, data: { pack: type, generated_at: new Date().toISOString(), sections: results } });
+  } catch (error) {
+    console.error('Report pack error:', error);
+    res.status(500).json({ success: false, message: 'Report pack unavailable.' });
+  }
+});
+
 // 1. Projects Execution Summary & Funnel
 router.get("/projects", verifyToken, async (req, res) => {
   try {
