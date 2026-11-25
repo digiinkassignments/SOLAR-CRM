@@ -316,6 +316,7 @@ const Reports = () => {
   // Global Date Filter applied across all tabs
   const [period, setPeriod] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [overviewData, setOverviewData] = useState(null);
 
   // Tab 1 Data States
   const [leads, setLeads] = useState([]);
@@ -350,13 +351,14 @@ const Reports = () => {
     setLoading(true);
     setEngineerRefresh(value => value + 1);
     try {
-      const [leadsRes, usersRes, projRes, finRes, opsRes, warRes] = await Promise.allSettled([
+      const [leadsRes, usersRes, projRes, finRes, opsRes, warRes, overviewRes] = await Promise.allSettled([
         loadReportLeads(),
         getUsers({ limit: 200 }),
         api.get("/reports/projects"),
         api.get("/reports/financials"),
         api.get("/reports/field-operations"),
         api.get("/reports/warranty-amc"),
+        api.get("/reports/overview", { params: { period } }),
       ]);
 
       if (request !== requestSequence.current) return;
@@ -391,6 +393,9 @@ const Reports = () => {
 
       if (warRes.status === "fulfilled" && warRes.value?.data?.success) {
         setWarrantyData(warRes.value.data.data);
+      }
+      if (overviewRes.status === "fulfilled" && overviewRes.value?.data?.success) {
+        setOverviewData(overviewRes.value.data.data);
       }
     } catch (err) {
       console.error("Error fetching report data:", err);
@@ -861,6 +866,21 @@ const Reports = () => {
           Export CSV
         </Button>
       </Paper>
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2,minmax(0,1fr))', md: 'repeat(4,minmax(0,1fr))' }, gap: 1.5, mb: 2.5 }}>
+        {[
+          ['Leads created', overviewData?.kpis?.leads, '#2563EB'],
+          ['Won revenue', overviewData?.kpis?.revenueWon, '#047857'],
+          ['Active projects', overviewData?.kpis?.activeProjects, '#7C3AED'],
+          ['Outstanding', overviewData?.kpis?.outstanding, '#C2410C'],
+        ].map(([label, value, color]) => <Paper key={label} variant="outlined" sx={{ p: 1.8, borderRadius: 2.5, borderColor: C.border, boxShadow: 'none' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>{label}</Typography>
+          <Typography sx={{ mt: .5, fontSize: '1.35rem', fontWeight: 800, color, fontVariantNumeric: 'tabular-nums' }}>{typeof value === 'number' && label !== 'Leads created' && label !== 'Active projects' ? `₹${value.toLocaleString('en-IN')}` : (value ?? '—')}</Typography>
+        </Paper>)}
+      </Box>
+      {overviewData?.dataHealth && Object.values(overviewData.dataHealth).some(Number) && <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 2.5 }}>
+        Data health needs attention: {Object.entries(overviewData.dataHealth).filter(([, value]) => Number(value) > 0).map(([key, value]) => `${key.replaceAll('_', ' ')} (${value})`).join(' · ')}
+      </Alert>}
 
       {/* ── 5 MAIN TABS NAVIGATION BAR ── */}
       <Paper

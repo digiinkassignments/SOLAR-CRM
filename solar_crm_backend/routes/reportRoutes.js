@@ -7,6 +7,18 @@ const { db: defaultDb } = require("../config/db");
 const { engineerReport } = require("../controllers/engineerReportController");
 router.get("/engineers", verifyToken, engineerReport);
 
+// Shared executive snapshot used by every report pack. Keeping the metric
+// calculation server-side prevents cards, tables and exports drifting apart.
+router.get('/overview', verifyToken, async (req, res) => {
+  try {
+    const data = await require('../services/reportingService').overview(req.db || defaultDb, req.query);
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Report overview error:', error);
+    res.status(500).json({ success: false, message: 'Report overview unavailable.' });
+  }
+});
+
 // 1. Projects Execution Summary & Funnel
 router.get("/projects", verifyToken, async (req, res) => {
   try {
