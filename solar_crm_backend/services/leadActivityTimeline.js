@@ -46,16 +46,17 @@ async function timeline(db, leadId, { roleId = 1, page = 1, limit = 20, filter =
     where.push("(l.action_type LIKE '%Survey%' OR l.action_type LIKE '%Follow-up%' OR l.action_type IN ('Lead Assigned','Lead Reassigned','Status Changed','Lead Created'))");
   }
   const filterMap = {
-    calls: "(l.action_type LIKE '%Call%' OR l.action_type='Follow-up Added')",
+    calls: "(l.action_type LIKE '%Call%' OR (l.action_type='Follow-up Added' AND JSON_UNQUOTE(JSON_EXTRACT(l.metadata,'$.followup_type')) IN ('Call','Phone Call','WhatsApp','Meeting')))",
     survey: "l.action_type LIKE '%Survey%' OR l.action_type LIKE '%Site Visit%'",
     status: "l.action_type LIKE '%Status%' OR l.action_type='Lead Closed'",
     quotation: "l.action_type LIKE '%Quotation%'",
-    notes: "l.action_type IN ('Manual Remark','Follow-up Added')",
+    notes: "(l.action_type='Manual Remark' OR (l.action_type='Follow-up Added' AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(l.metadata,'$.followup_type')),'Note')='Note'))",
   };
   if (filterMap[filter]) where.push(`(${filterMap[filter]})`);
   const base = `FROM lead_activity_logs l LEFT JOIN users u ON u.id=l.performed_by WHERE ${where.join(' AND ')}`;
   const [[count]] = await db.query(`SELECT COUNT(*) AS total ${base}`, args);
-  const [rows] = await db.query(`SELECT l.id, l.lead_id, l.action_type AS event_type,
+  const [rows] = await db.query(`SELECT l.id, l.lead_id,
+    CASE WHEN l.action_type='Follow-up Added' THEN COALESCE(JSON_UNQUOTE(JSON_EXTRACT(l.metadata,'$.followup_type')),l.action_type) ELSE l.action_type END AS event_type,
     l.old_value, l.new_value, l.remark AS text, l.performed_by AS actor_id,
     COALESCE(u.full_name,'System') AS actor_name, l.visibility, l.related_type,
     l.related_id, l.metadata, l.editable_until, l.created_at

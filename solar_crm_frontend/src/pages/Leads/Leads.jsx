@@ -1015,8 +1015,6 @@ export default function Leads() {
     if (!newRemarkText.trim() || !remarksModalLead || newRemarkSaving) return;
     setNewRemarkSaving(true);
     const formattedNote = formatQuickRemark(newRemarkText.trim());
-    const todayDateStr = new Date().toISOString().slice(0, 10);
-
     try {
       await addFollowup(remarksModalLead.id, {
         note: formattedNote,
@@ -1025,8 +1023,10 @@ export default function Leads() {
       });
       showSnackbar('New remark added successfully.', 'success');
       setNewRemarkText('');
-      const res = await getFollowups(remarksModalLead.id);
-      if (res?.data) setRemarksList(res.data);
+      const res = await getActivityLogs(remarksModalLead.id, { filter: activityFilter, limit: 100 });
+      setRemarksList((res?.data?.data || []).map((item) => ({
+        ...item, followup_type: item.event_type, created_by_name: item.actor_name, note: item.text,
+      })));
       fetchLeadsList();
     } catch (err) {
       console.error('Failed to add remark:', err);
@@ -1040,6 +1040,7 @@ export default function Leads() {
     newRemarkSaving,
     newRemarkType,
     internalActivity,
+    activityFilter,
     showSnackbar,
     fetchLeadsList,
   ]);

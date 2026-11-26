@@ -120,25 +120,6 @@ const scheduleSurvey = async (data, createdBy, db = defaultDb) => {
     await c.commit();
   } catch (e) { await c.rollback(); throw e; } finally { c.release(); }
 
-  // Log activity
-  try {
-    let engineerName = "Unassigned";
-    if (assigned_engineer_id) {
-      const [u] = await db.query(`SELECT full_name FROM users WHERE id = ? LIMIT 1`, [assigned_engineer_id]);
-      if (u.length > 0) engineerName = u[0].full_name || "Assigned Engineer";
-    }
-    await db.query(
-      `INSERT INTO lead_activity_logs (lead_id, action_type, new_value, remark) VALUES (?, 'Site Visit Scheduled', ?, ?)`,
-      [
-        lead_id,
-        `Scheduled for ${scheduled_date} ${scheduled_time}`,
-        `Assigned to: ${engineerName}. Notes: ${site_notes || "N/A"}`,
-      ]
-    );
-  } catch (err) {
-    console.error("Failed to log survey activity:", err);
-  }
-
   return getSurveyById(surveyId, db);
 };
 
