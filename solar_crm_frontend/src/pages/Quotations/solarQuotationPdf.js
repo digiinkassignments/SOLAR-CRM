@@ -1,177 +1,98 @@
 import { jsPDF } from 'jspdf';
 import { readTaxSummary } from '../../utils/solarTax';
 
-const money = value => 'Rs. ' + Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const date = value => {
-  if (!value) return 'Not specified';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? 'Not specified' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-};
-const plain = value => String(value ?? '').replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/[\u2013\u2014]/g, '-').replace(/[\u2022\u00b7]/g, ' / ').replace(/\u20b9/g, 'Rs. ').replace(/\u00a0/g, ' ');
+const money = value => `Rs. ${Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const clean = value => String(value ?? '').replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/[\u2013\u2014]/g, '-').replace(/[\u2022\u00b7]/g, ' - ').replace(/\u20b9/g, 'Rs. ').replace(/\u00a0/g, ' ');
+const date = value => { const parsed = new Date(value); return value && !Number.isNaN(parsed.getTime()) ? parsed.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : 'To be confirmed'; };
 
-// A dedicated document renderer: fixed A4 geometry, searchable text and real page boundaries.
-// It never changes the quotation's persisted prices, GST, scope or acceptance state.
-export function createSolarQuotationPdf({ quotation: q, company = {}, logoSrc, lineItems = [], totals: t, isAccepted, aiInsights }) {
+// Formal, print-ready techno-commercial offer. Company header, footer and payment data are always read from Settings.
+export function createSolarQuotationPdf({ quotation: q, company = {}, logoSrc, lineItems = [], totals: input = {}, isAccepted, aiInsights }) {
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
-  const left = 16, right = 194, width = right - left, bottom = 278;
-  const companyName = company?.company_name?.trim() || 'Solar Power Solutions';
-  const reference = q.quotation_number || 'Solar quotation';
-  const composite = q.gst_mode === 'solar_composite';
+  const L = 15, R = 195, W = R - L, BOTTOM = 276, FOOT = 285;
+  const companyName = company.company_name?.trim() || 'Solar Power Solutions';
+  const ref = q.quotation_number || 'Quotation';
+  const capacity = q.system_capacity_kw ? `${q.system_capacity_kw} kW` : 'Solar';
+  const totals = { base: Number(input.base || 0), structure: Number(input.structure || 0), discount: Number(input.discount || 0), taxable: Number(input.taxable || 0), gst: Number(input.gst || 0), gstRate: Number(input.gstRate || 0), total: Number(input.total || q.total_amount || 0), subsidy: Number(input.subsidy || q.subsidy_amount || 0), net: Number(input.net || q.net_payable_amount || 0) };
   let y = 16;
-  pdf.setProperties({ title: `Quotation ${reference}`, subject: 'Solar system supply and installation proposal', author: companyName, creator: companyName });
+  pdf.setProperties({ title: `Techno-commercial offer ${ref}`, subject: `${capacity} rooftop solar proposal`, author: companyName, creator: companyName });
 
-  function font(size = 10, bold = false, grey = 35) {
-    pdf.setFont('helvetica', bold ? 'bold' : 'normal'); pdf.setFontSize(size); pdf.setTextColor(grey, grey, grey);
-  }
-  function text(value, x, top, { size = 10, bold = false, grey = 35, align = 'left' } = {}) {
-    const str = plain(value); font(size, bold, grey);
-    if (!/[^\x20-\x7e\n\r\t\u00a0-\u00ff]/.test(str)) { pdf.text(str, x, top, { baseline: 'top', align }); return; }
-    // Preserve names/addresses in Indian scripts without replacing unsupported glyphs.
-    const canvas = document.createElement('canvas'), context = canvas.getContext('2d'), scale = 3;
-    const px = size * 96 / 72; context.font = `${bold ? '700' : '400'} ${px}px Arial, sans-serif`;
-    canvas.width = Math.max(1, Math.ceil(context.measureText(str).width * scale + 8)); canvas.height = Math.ceil(px * 1.7 * scale);
-    context.scale(scale, scale); context.font = `${bold ? '700' : '400'} ${px}px Arial, sans-serif`; context.fillStyle = `rgb(${grey},${grey},${grey})`; context.textBaseline = 'top'; context.fillText(str, 0, px * .12);
-    const w = canvas.width / scale * 25.4 / 96, h = canvas.height / scale * 25.4 / 96;
-    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', align === 'right' ? x - w : x, top, w, h);
-  }
-  function wrap(value, maxWidth, size = 10, bold = false) {
-    const str=plain(value);
-    if(/[^\x20-\x7e\n\r\t\u00a0-\u00ff]/.test(str)){
-      const context=document.createElement('canvas').getContext('2d');context.font=`${bold?'700':'400'} ${size*96/72}px Arial, sans-serif`;
-      const limit=maxWidth*96/25.4,out=[];let line='';
-      for(const word of str.split(/\s+/)){const next=line?line+' '+word:word;if(line&&context.measureText(next).width>limit){out.push(line);line=word;}else line=next;}
-      if(line)out.push(line);return out.length?out:[''];
-    }
-    font(size, bold); return pdf.splitTextToSize(str, maxWidth);
-  }
-  function lines(value, x, top, maxWidth, options = {}) {
-    const leading = options.leading || 4.6;
-    wrap(value, maxWidth, options.size || 10, options.bold).forEach((line, i) => text(line, x, top + i * leading, options));
-    return top + wrap(value, maxWidth, options.size || 10, options.bold).length * leading;
-  }
-  function rule(top, dark = false) { pdf.setDrawColor(dark ? 25 : 215); pdf.setLineWidth(dark ? .5 : .2); pdf.line(left, top, right, top); }
-  function newPage() {
-    pdf.addPage();
-    const label = wrap(companyName, 102, 9, true)[0];
-    text(label, left, 12, {size:9,bold:true}); text(`${reference}  |  Continued`, right, 12, {size:8.5,align:'right',grey:95});
-    rule(20); y = 27;
-  }
-  function ensure(height) { if (y + height > bottom) newPage(); }
-  function section(title) { ensure(18); y += 3; text(title, left, y, {size:11,bold:true,grey:20}); y += 7; rule(y); y += 5; }
-  function paragraph(value, options = {}) {
-    const size = options.size || 9.5, leading = options.leading || 4.8;
-    for (const raw of plain(value).split('\n')) {
-      if (!raw.trim()) { y += 2.5; continue; }
-      const parts = wrap(raw, width, size);
-      for (const line of parts) { ensure(leading); text(line, left, y, {size,grey:options.grey || 55}); y += leading; }
-    }
-  }
+  const font = (size = 9, bold = false, grey = 24) => { pdf.setFont('helvetica', bold ? 'bold' : 'normal'); pdf.setFontSize(size); pdf.setTextColor(grey, grey, grey); };
+  const text = (value, x, top, { size = 9, bold = false, grey = 24, align = 'left' } = {}) => { font(size, bold, grey); pdf.text(clean(value), x, top, { baseline: 'top', align }); };
+  const wrap = (value, width, size = 9, bold = false) => { font(size, bold); return pdf.splitTextToSize(clean(value || ''), width); };
+  const lines = (value, x, top, width, options = {}) => { const { size = 9, bold = false, grey = 24, leading = 4.3, align = 'left' } = options; const result = wrap(value, width, size, bold); result.forEach((line, index) => text(line, x, top + index * leading, { size, bold, grey, align })); return top + result.length * leading; };
+  const rule = (top, dark = false) => { pdf.setDrawColor(dark ? 30 : 180); pdf.setLineWidth(dark ? .45 : .18); pdf.line(L, top, R, top); };
+  const footer = () => { rule(FOOT - 4); text(companyName, L, FOOT, { size: 7.5, grey: 100 }); text(`${ref}  |  Page ${pdf.internal.getCurrentPageInfo().pageNumber}`, R, FOOT, { size: 7.5, grey: 100, align: 'right' }); };
+  const page = () => { footer(); pdf.addPage(); y = 16; };
+  const ensure = height => { if (y + height > BOTTOM) page(); };
+  const heading = label => { ensure(17); text(label, L, y, { size: 12, bold: true }); y += 6.5; rule(y, true); y += 5; };
+  const paragraph = (value, options = {}) => { const { size = 9, leading = 4.5, grey = 35 } = options; clean(value).split('\n').forEach(raw => { if (!raw.trim()) { y += 2; return; } wrap(raw, W, size).forEach(line => { ensure(leading); text(line, L, y, { size, grey }); y += leading; }); }); };
+  const table = (columns, rows, minimum = 10) => {
+    const head = () => { pdf.setFillColor(238, 242, 247); pdf.rect(L, y, W, 8, 'F'); let x = L; columns.forEach(col => { text(col.label, x + (col.right ? col.width - 2 : 2), y + 2.2, { size: 8, bold: true, align: col.right ? 'right' : 'left' }); x += col.width; }); y += 8; rule(y, true); };
+    head(); rows.forEach(row => { const cells = columns.map((col, index) => wrap(row[index] ?? '', col.width - 4, row.size || 8.6, row.bold)); let height = Math.max(minimum, Math.max(...cells.map(cell => cell.length)) * (row.leading || 4.1) + 5); if (y + height > BOTTOM) { page(); head(); height = Math.max(minimum, Math.max(...cells.map(cell => cell.length)) * (row.leading || 4.1) + 5); } let x = L; columns.forEach((col, index) => { cells[index].forEach((line, lineIndex) => text(line, x + (col.right ? col.width - 2 : 2), y + 2.5 + lineIndex * (row.leading || 4.1), { size: row.size || 8.6, bold: row.bold, grey: row.grey ?? 25, align: col.right ? 'right' : 'left' })); pdf.setDrawColor(190); pdf.setLineWidth(.15); pdf.line(x, y, x, y + height); x += col.width; }); pdf.line(R, y, R, y + height); y += height; rule(y); });
+  };
+  const companyAddress = [company.address || company.company_address, company.city, company.state, company.pincode].filter(Boolean).join(', ');
+  const customerAddress = [q.customer_address, q.city, q.state, q.pincode].filter(Boolean).join(', ');
 
-  // Company identity and document metadata share a clear, consistent top baseline.
   let companyY = y;
-  if (logoSrc) {
-    const image = pdf.getImageProperties(logoSrc);
-    const scale = Math.min(38 / image.width, 16 / image.height);
-    const w = image.width * scale, h = image.height * scale;
-    pdf.addImage(logoSrc, image.fileType, left, companyY, w, h);
-    companyY += h + 4;
+  if (logoSrc) { try { const image = pdf.getImageProperties(logoSrc); const scale = Math.min(37 / image.width, 16 / image.height); pdf.addImage(logoSrc, image.fileType, L, companyY, image.width * scale, image.height * scale); companyY += image.height * scale + 3; } catch { /* text identity remains available */ } }
+  companyY = lines(companyName, L, companyY, 108, { size: 16, bold: true, leading: 6.2 }) + 1;
+  [companyAddress, company.company_phone ? `Phone: ${company.company_phone}` : '', company.company_email, company.website, company.gst_number ? `GSTIN: ${company.gst_number}` : ''].filter(Boolean).forEach(item => { companyY = lines(item, L, companyY, 106, { size: 8.5, grey: 80, leading: 4.1 }); });
+  text('CAPEX OFFER', R, 17, { size: 19, bold: true, align: 'right' }); text(`Offer No: ${ref}`, R, 28, { size: 9, bold: true, align: 'right' }); text(`Dated: ${date(q.created_at)}`, R, 34, { size: 9, grey: 75, align: 'right' }); text(`Valid until: ${date(q.valid_until)}`, R, 40, { size: 9, grey: 75, align: 'right' });
+  y = Math.max(companyY, 48) + 4; rule(y, true); y += 8; text('FOR', L, y, { size: 8, bold: true, grey: 95 }); y += 5; y = lines(q.customer_name || 'Customer', L, y, W, { size: 15, bold: true, leading: 6 }); if (customerAddress) y = lines(customerAddress, L, y + 1, W, { size: 9.5, grey: 75, leading: 4.4 }); if (q.customer_phone || q.customer_email) y = lines([q.customer_phone, q.customer_email].filter(Boolean).join('  |  '), L, y + 1, W, { size: 9, grey: 75 }); y += 7;
+  text('SUBJECT', L, y, { size: 9, bold: true, grey: 85 }); y += 5; y = lines(`TECHNO-COMMERCIAL OFFER FOR ${capacity.toUpperCase()} ${String(q.system_type || 'GRID-CONNECTED').toUpperCase()} ROOFTOP SOLAR PV PLANT`, L, y, W, { size: 11, bold: true, leading: 5.2 }); y += 6;
+  paragraph(`Dear ${q.customer_name || 'Sir / Madam'},`, { size: 9.5 }); y += 2; paragraph(`Thank you for the opportunity to submit our techno-commercial offer for your rooftop solar project. Based on the discussion and available site information, this proposal covers the design, supply, installation, testing and commissioning of a ${capacity} ${q.system_type || 'grid-connected'} solar PV system.`, { size: 9.5, leading: 4.7 }); y += 5;
+  heading('1. Scope of Work');
+  ['Detailed technical review and final engineering documentation for the proposed rooftop solar system.', 'Supply, installation, testing and commissioning of the solar PV plant and balance-of-system equipment.', 'System health checks, safety checks and handover documentation before commissioning.', 'Support for applicable DISCOM, net-metering and approval documentation within the agreed scope.'].forEach((item, index) => { ensure(7); text(`${index + 1}.`, L + 2, y, { size: 9, bold: true }); y = lines(item, L + 10, y, W - 12, { size: 9, leading: 4.35 }) + 2.2; });
+  if (q.notes) { y += 2; text('Project-specific note', L, y, { size: 9.5, bold: true }); y += 5; paragraph(q.notes, { size: 9, leading: 4.4 }); } y += 3; paragraph('The final design is subject to the site survey, available roof area, statutory approvals and the electrical conditions at site.', { size: 8.6, grey: 85, leading: 4.2 });
+
+  page(); heading('2. Description of System and Specifications');
+  const equipment = [
+    ['2.1', 'Solar structure', `Fixed-tilt mounting structure designed for the approved layout and site conditions.\nStructure type: ${q.structure_type || 'To be confirmed'}`, 'LS', capacity, 'As per final approved design'],
+    ['2.2', 'Solar modules', [q.panel_type, q.panel_count ? `${q.panel_count} solar modules` : '', 'High-efficiency solar PV modules compliant with applicable IEC / IS standards.'].filter(Boolean).join('\n'), 'Wp', q.panel_count || 'As required', q.panel_brand || 'Approved equivalent'],
+    ['2.3', 'Solar PV inverter', [`${q.system_type || 'Grid interactive'} inverter`, q.inverter_capacity_kw ? `Inverter capacity: ${q.inverter_capacity_kw} kW` : '', 'Built-in protection, anti-islanding and grid synchronisation as applicable.'].filter(Boolean).join('\n'), 'Nos', '1', q.inverter_brand || 'Approved equivalent'],
+    ['2.4', 'DC & AC cables', 'Solar DC cable, AC cable, conduits and connectors sized as per final design and applicable safety standards.', 'Mtr', 'LS', 'Reputed make'],
+    ['2.5', 'ACDB / DCDB boxes', 'Protective devices including MCB / MCCB / SPD as required by the final system design.', 'Nos', '1 set', 'Reputed make'],
+    ['2.6', 'Earthing & lightning protection', 'Earthing arrangement and lightning protection as required for safe operation.', 'Nos', 'As required', 'Reputed make'],
+    ['2.7', 'Meters & signage', 'Solar / net-metering interface support, caution signage and commissioning documentation where applicable.', 'Nos', 'As required', 'As per DISCOM norms'],
+  ];
+  table([{ label: 'S.No.', width: 13 }, { label: 'Equipment', width: 35 }, { label: 'Brief specification', width: 73 }, { label: 'Unit', width: 12 }, { label: 'Qty', width: 16 }, { label: 'Make', width: 31 }], equipment, 16); y += 4; paragraph('Note: Equipment quantities and makes may change only where the approved design, availability or site conditions require an equivalent or better specification. The final drawings are shared after work order confirmation.', { size: 8.3, grey: 85, leading: 4 });
+
+  // The editable bill of quantities is kept in the PDF as well. This makes every item entered
+  // in the quotation form visible to the customer and avoids replacing commercial detail with defaults.
+  if (lineItems.length) {
+    page(); heading('3. Detailed Commercial Schedule');
+    table(
+      [{ label: '#', width: 12 }, { label: 'Item / service', width: 84 }, { label: 'Qty', width: 17, right: true }, { label: 'Unit rate', width: 32, right: true }, { label: 'GST', width: 14, right: true }, { label: 'Amount', width: 21, right: true }],
+      lineItems.map((item, index) => {
+        const quantity = Number(item.quantity || 0);
+        const rate = Number(item.unit_price || 0);
+        const taxable = Number(item.taxable_after_discount ?? quantity * rate);
+        const amount = Number(item.total_amount ?? taxable + Number(item.gst_amount || 0));
+        return [String(index + 1), [item.name || 'Item / service', item.description || '', item.hsn_code ? `HSN/SAC: ${item.hsn_code}` : ''].filter(Boolean).join('\n'), quantity.toLocaleString('en-IN'), money(rate), `${Number(item.gst_rate || 0)}%`, money(amount)];
+      }),
+      12,
+    );
+    y += 4; paragraph('The detailed schedule above reflects the items and quantities saved in this quotation. Any final site-dependent change requires written approval.', { size: 8.3, grey: 85, leading: 4 });
   }
-  companyY = lines(companyName, left, companyY, 103, {size:16,bold:true,leading:6.5}) + 2;
-  const address = [company?.address || company?.company_address, company?.city, company?.state, company?.pincode, company?.country].filter(Boolean).join(', ');
-  for (const value of [address, company?.company_phone ? `Tel: ${company.company_phone}` : '', company?.company_email, company?.website, company?.gst_number ? `GSTIN: ${company.gst_number}` : '', company?.pan_number ? `PAN: ${company.pan_number}` : ''].filter(Boolean)) companyY = lines(value,left,companyY,103,{size:9,leading:4.3,grey:75});
-  text('QUOTATION',right,16,{size:23,bold:true,align:'right',grey:15});
-  let metaY = 31;
-  for (const [label,value] of [['Quotation no.',reference],['Revision',`R${q.revision_number || 1}`],['Issue date',date(q.created_at)],['Valid until',date(q.valid_until)],['Status',q.status || 'Sent']]) {
-    text(label,127,metaY,{size:8.5,grey:100});
-    const valueLines = wrap(value, 43, 9, true);
-    valueLines.forEach((line,i)=>text(line,right,metaY+i*4.3,{size:9,bold:true,align:'right'})); metaY += Math.max(6,valueLines.length*4.3+1.5);
-  }
-  y = Math.max(companyY,metaY)+6; rule(y,true); y += 7;
-  const customerAddress = [q.customer_address,q.city,q.state,q.pincode].filter(Boolean).join(', ');
-  text('PREPARED FOR',left,y,{size:8,bold:true,grey:100});text('PROJECT / INSTALLATION',110,y,{size:8,bold:true,grey:100});y+=6;
-  let customerY=lines(q.customer_name || 'Customer',left,y,85,{size:12,bold:true,leading:5});
-  for(const value of [customerAddress,q.customer_phone?`Phone: ${q.customer_phone}`:'',q.customer_email].filter(Boolean))customerY=lines(value,left,customerY+1,85,{size:9.5,leading:4.5,grey:65});
-  let projectY=lines(`${q.system_capacity_kw || '-'} kW rooftop solar system`,110,y,84,{size:12,bold:true,leading:5});
-  projectY=lines(`System type: ${q.system_type || 'To be confirmed'}`,110,projectY+2,84,{size:9.5,grey:65});
-  projectY=lines(`Installation site: ${customerAddress || 'To be confirmed'}`,110,projectY+1,84,{size:9.5,grey:65});
-  y=Math.max(customerY,projectY)+6;
 
-  section('01  Supply & commercial offer');
-  const rows=lineItems.length?lineItems:[{name:`Solar ${q.system_type || ''} system`,description:q.system_capacity_kw?`${q.system_capacity_kw} kW supply as specified below`:'Supply as specified below',quantity:1,unit:'System',unit_price:t.base},...(t.structure>0?[{name:'Structure & installation',quantity:1,unit:'Service',unit_price:t.structure}]:[])];
-  const edges=[left,24,91,108,137,154,right];
-  function tableHeader(continued=false) {
-    if(continued){text('SUPPLY & COMMERCIAL OFFER - CONTINUED',left,y,{size:8,bold:true,grey:95});y+=6;}
-    pdf.setFillColor(240,240,240);pdf.rect(left,y,width,9,'F');
-    ['#','Description','Qty','Unit rate',composite?'GST*':'GST',composite || !lineItems.length?'Taxable value':'Amount'].forEach((label,i)=>text(label,i<2?edges[i]+2:edges[i+1]-2,y+2.5,{size:8,bold:true,align:i<2?'left':'right'}));y+=9;
-  }
-  tableHeader();
-  rows.forEach((item,index)=>{
-    const desc=[...wrap(item.name || 'Item / service',63,9.5,true).map(value=>({value,bold:true,size:9.5})),...(item.description?wrap(item.description,63,9).map(value=>({value,size:9,grey:80})):[]),...(item.hsn_code?[{value:`HSN/SAC: ${item.hsn_code}`,size:8,grey:100}]:[])];
-    const minimum=16,height=Math.max(minimum,desc.length*4.3+6);
-    if((height<=215 && y+height>bottom) || bottom-y<16){newPage();tableHeader(true);}
-    let offset=0;
-    do {
-      let capacity=Math.floor((bottom-y-6)/4.3);
-      if(capacity<1){newPage();tableHeader(true);capacity=Math.floor((bottom-y-6)/4.3);}
-      const part=desc.slice(offset,offset+capacity),h=Math.max(minimum,part.length*4.3+6),first=offset===0;
-      text(first?index+1:'cont.',left+2,y+3,{size:8.5,grey:80});
-      part.forEach((line,i)=>text(line.value,edges[1]+2,y+3+i*4.3,{size:line.size,bold:line.bold,grey:line.grey||35}));
-      if(first){
-        text(Number(item.quantity || 0).toLocaleString('en-IN'),edges[3]-2,y+3,{size:9,align:'right'});
-        wrap(item.unit || '',13,7.5).forEach((unit,i)=>text(unit,edges[3]-2,y+8+i*3.5,{size:7.5,grey:100,align:'right'}));
-        text(money(item.unit_price),edges[4]-2,y+3,{size:8.5,align:'right'});
-        text(composite?'Split*':`${Number(lineItems.length ? item.gst_rate || 0 : t.gstRate)}%`,edges[5]-2,y+3,{size:8.5,align:'right'});
-        const taxable=Number(item.taxable_after_discount ?? (Number(item.quantity || 0)*Number(item.unit_price || 0)));
-        const value=composite || !lineItems.length?taxable:Number(item.total_amount ?? (taxable+Number(item.gst_amount || 0)));
-        text(money(value),right-2,y+3,{size:9,bold:true,align:'right'});
-      }
-      y+=h;rule(y);offset+=part.length;
-      if(offset<desc.length){newPage();tableHeader(true);}
-    }while(offset<desc.length);
-  });
-  y+=3;paragraph(composite?'* GST is calculated on the complete system using the 70:30 goods/services split shown below.':lineItems.length?'Item amounts include their recorded GST after any allocated discount.':'Item values exclude GST. The recorded discount and GST are shown in the commercial summary.',{size:8,leading:4,grey:100});
+  page(); heading(`${lineItems.length ? '4' : '3'}. Techno-Commercial Aspects for ${capacity} Rooftop System`); paragraph(`Project price for design, supply, installation, testing and commissioning of the ${capacity} ${q.system_type || 'solar'} rooftop plant as described in this offer.`, { size: 9.5, leading: 4.6 }); y += 4;
+  const commercial = [['1.', 'Approved project cost as per the site survey and discussion with the customer', money(totals.total)], ['2.', `Grand Total${totals.gst ? ' (inclusive of applicable GST)' : ''}`, money(totals.total)], ...(totals.subsidy > 0 ? [['3.', 'Estimated customer cost after estimated eligible subsidy*', money(totals.net)]] : [])].map(row => Object.assign(row, { bold: true, size: 9 }));
+  table([{ label: 'Sr. No.', width: 22 }, { label: 'Parameters', width: 105 }, { label: 'Description', width: 53, right: true }], commercial, 14); y += 5;
+  const tax = readTaxSummary(q); if (q.gst_mode === 'solar_composite' && tax) paragraph(`Applicable GST follows the recorded solar composite split: goods ${money(tax.goodsValue)} with GST ${money(tax.goodsTax)}, and services ${money(tax.serviceValue)} with GST ${money(tax.serviceTax)}. Effective GST: ${tax.effectiveRate ?? totals.gstRate}%.`, { size: 8.5, grey: 70, leading: 4.2 }); else if (totals.gst) paragraph(`GST included in the quotation: ${money(totals.gst)}${totals.gstRate ? ` at the recorded rate of ${totals.gstRate}%` : ''}.`, { size: 8.5, grey: 70, leading: 4.2 }); if (totals.subsidy > 0) { y += 2; paragraph('* Subsidy is subject to customer eligibility and government approval. It is an estimate and not an installer discount or confirmed payment.', { size: 8.3, grey: 90, leading: 4 }); }
+  y += 5; text('Offer validity & warranty', L, y, { size: 10, bold: true }); y += 6; [`This offer is valid until ${date(q.valid_until)}. Module and equipment pricing may be revised after the validity date if supplier pricing changes.`, 'Module performance, inverter and other equipment warranties are provided as per the respective OEM terms and product selection recorded in the final order.', 'Project completion timeline begins after receipt of the agreed advance, site readiness and required approvals.'].forEach((item, index) => { ensure(7); text(`${index + 1}.`, L + 2, y, { size: 8.8, bold: true }); y = lines(item, L + 10, y, W - 12, { size: 8.8, leading: 4.2 }) + 2; });
+  if (q.terms_and_conditions) { y += 3; text('Additional commercial terms', L, y, { size: 10, bold: true }); y += 6; paragraph(q.terms_and_conditions, { size: 8.8, leading: 4.25 }); }
+  let schedule = []; try { const parsed = typeof q.payment_schedule_json === 'string' ? JSON.parse(q.payment_schedule_json) : q.payment_schedule_json; schedule = Array.isArray(parsed) ? parsed : []; } catch { schedule = []; } y += 4; ensure(20); text('Payment Terms', L, y, { size: 10, bold: true }); y += 6;
+  if (schedule.length) table([{ label: '#', width: 13 }, { label: 'Milestone', width: 82 }, { label: 'Due date', width: 34 }, { label: 'Amount / share', width: 51, right: true }], schedule.map((item, index) => [String(index + 1), item.title || 'Payment milestone', date(item.due_date), `${Number(item.percent || 0)}%  |  ${money((totals.total * Number(item.percent || 0)) / 100)}`]), 10); else ['20% advance with signed purchase order.', '50% before panel installation at site.', '25% before inverter installation.', '5% after completion / net-metering.'].forEach((item, index) => { text(`${index + 1}.`, L + 2, y, { size: 8.8, bold: true }); y = lines(item, L + 10, y, W - 12, { size: 8.8, leading: 4.2 }) + 2; });
+  const bank = [['Account name', company.account_name], ['Bank', company.bank_name], ['Account number', company.account_number], ['IFSC code', company.ifsc_code], ['Branch', company.branch_name], ['UPI ID', company.upi_id]].filter(([, value]) => value); if (bank.length) { y += 4; ensure(18); text('Account Details', L, y, { size: 10, bold: true }); y += 6; table([{ label: 'Account details', width: 65 }, { label: 'Particulars', width: 115 }], bank.map(([key, value], index) => [`${index + 1}. ${key}`, value]), 9); }
 
-  // Tax explanation and totals use separate columns, rather than nested UI cards.
-  ensure(t.subsidy>0?88:65);y+=5;const summaryTop=y;
-  text('TAX SUMMARY',left,y,{size:8.5,bold:true,grey:90});let taxY=y+6;
-  const tax=readTaxSummary(q);
-  if(composite&&tax){
-    taxY=lines(`Goods (70%): ${money(tax.goodsValue)}`,left,taxY,82,{size:9,leading:4.5});taxY=lines(`GST at 5%: ${money(tax.goodsTax)}`,left,taxY+1,82,{size:9,leading:4.5});
-    taxY=lines(`Services (30%): ${money(tax.serviceValue)}`,left,taxY+3,82,{size:9,leading:4.5});taxY=lines(`GST at 18%: ${money(tax.serviceTax)}`,left,taxY+1,82,{size:9,leading:4.5});
-    taxY=lines(`Effective GST: ${tax.effectiveRate ?? 8.9}%`,left,taxY+3,82,{size:9,bold:true,leading:4.5});
-  }else taxY=lines(composite?'Complete-system composite GST. Refer to the recorded total tax.':lineItems.length?'Item-wise GST is included in the recorded line amounts.':`GST rate: ${t.gstRate}%`,left,taxY,80,{size:9,leading:4.5,grey:80});
-  let totalY=summaryTop;
-  for(const [label,value]of [['Subtotal',t.base+t.structure],...(t.discount>0?[['Discount',-t.discount]]:[]),['Taxable value',t.taxable],['Total GST',t.gst]]){text(label,110,totalY,{size:9.5,grey:65});text(money(value),right,totalY,{size:9.5,align:'right'});totalY+=6;}
-  pdf.setDrawColor(30);pdf.setLineWidth(.35);pdf.line(110,totalY,right,totalY);totalY+=4;
-  text('QUOTATION TOTAL',110,totalY,{size:9,bold:true});text(money(t.total),right,totalY+6,{size:16,bold:true,align:'right',grey:15});totalY+=16;
-  if(t.subsidy>0){text('Estimated eligible subsidy',110,totalY,{size:8.5,grey:85});text(money(t.subsidy),right,totalY+5,{size:10,align:'right'});totalY+=12;text('Estimated cost after subsidy',110,totalY,{size:8.5,grey:85});text(money(t.net),right,totalY+5,{size:11,bold:true,align:'right'});totalY+=12;}
-  y=Math.max(taxY,totalY)+4;
-  if(t.subsidy>0)paragraph('Subsidy is subject to scheme eligibility and government approval. It is an estimate, not a confirmed receipt or installer discount.',{size:8.5,leading:4.2,grey:95});
-
-  section('02  Proposed system specifications');
-  for(const [label,value]of [['Solar modules',[q.panel_brand,q.panel_type,q.panel_count?`${q.panel_count} panels`:''].filter(Boolean).join(' / ')],['Inverter',[q.inverter_brand,q.inverter_capacity_kw?`${q.inverter_capacity_kw} kW`:''].filter(Boolean).join(' / ')],['Mounting structure',q.structure_type],...(q.battery_capacity_ah?[['Battery capacity',`${q.battery_capacity_ah} Ah`]]:[])]){
-    const parts=wrap(value || 'To be confirmed',125,9.5),height=parts.length*4.7+5;ensure(height);text(label,left,y,{size:9.5,bold:true});parts.forEach((line,i)=>text(line,65,y+i*4.7,{size:9.5,grey:65}));y+=height;rule(y-2);
-  }
-  section('03  Terms, scope & validity');
-  paragraph(q.terms_and_conditions || 'Payment schedule, delivery timeline and scope exclusions are to be confirmed in writing before order acceptance.');
-  if(q.notes){ensure(15);y+=4;text('Additional notes / scope',left,y,{size:9.5,bold:true});y+=6;paragraph(q.notes);}
-  y+=3;ensure(7);text(`Offer valid until: ${date(q.valid_until)}`,left,y,{size:9.5,bold:true});y+=8;
-
-  const bank=[['Bank',company?.bank_name],['Account name',company?.account_name],['Account number',company?.account_number],['IFSC',company?.ifsc_code],['Branch',company?.branch_name],['UPI ID',company?.upi_id]].filter(([,value])=>value);
-  if(bank.length){section('04  Payment details');for(let i=0;i<bank.length;i+=2){const pair=bank.slice(i,i+2),height=Math.max(...pair.map(([,value])=>wrap(value,82,9.5).length))*4.6+8;ensure(height);pair.forEach(([label,value],j)=>{const x=j?110:left;text(label.toUpperCase(),x,y,{size:8,grey:100});lines(value,x,y+5,82,{size:9.5,bold:true,leading:4.6});});y+=height;}paragraph(`Please mention quotation ${reference} in your payment reference.`,{size:8.5,grey:90});}
-
-  const estimates=[['Annual generation',aiInsights?.financial_highlights?.annual_units_generated],['Annual savings',aiInsights?.financial_highlights?.annual_savings],['Estimated payback',aiInsights?.financial_highlights?.estimated_payback_years],['Estimated savings over 25 years',aiInsights?.financial_highlights?.lifetime_savings_25yr]].filter(([,v])=>v!==undefined&&v!==null&&v!=='');
-  if(estimates.length){section('Indicative performance estimates');for(const[label,value]of estimates)paragraph(`${label}: ${value}`);paragraph('Estimates depend on site conditions, irradiation, shading and usage. These are not guaranteed generation or financial returns.',{size:8.5,grey:95});}
-  const acceptance=isAccepted?`Accepted by ${q.customer_signature_name || q.customer_name}\nAccepted on ${date(q.accepted_at)}`:'';
-  ensure(Math.max(38,wrap(acceptance,84,9).length*4.5+20));y+=5;rule(y);y+=6;
-  const labelEnd=lines(`FOR ${companyName}`,left,y,84,{size:8,bold:true,grey:85,leading:4});text('CUSTOMER ACCEPTANCE',110,y,{size:8,bold:true,grey:85});y=Math.max(y+11,labelEnd+5);
-  let acceptedEnd=y;if(acceptance)acceptedEnd=lines(acceptance,110,y,84,{size:9,leading:4.5});
-  y=Math.max(y+8,acceptedEnd+3);text('Authorized signatory',left,y,{size:9.5,bold:true});if(!isAccepted)text('Signature / name / date',110,y,{size:9.5,grey:85});
-  const pages=pdf.internal.getNumberOfPages();for(let page=1;page<=pages;page++){pdf.setPage(page);rule(284);text(wrap(companyName,94,7.5)[0],left,287,{size:7.5,grey:105});text(`${reference}  |  Page ${page} of ${pages}`,right,287,{size:7.5,align:'right',grey:105});}
+  page(); heading(`${lineItems.length ? '5' : '4'}. Contact Details and Proposal Acceptance`); paragraph(`For any clarification on this proposal, please contact ${companyName}${company.company_phone ? ` on ${company.company_phone}` : ''}${company.company_email ? ` or write to ${company.company_email}` : ''}.`, { size: 9.5, leading: 4.7 });
+  const financial = aiInsights?.financial_highlights; if (financial) { const estimates = [['Indicative annual generation', financial.annual_units_generated], ['Indicative annual savings', financial.annual_savings], ['Estimated payback period', financial.estimated_payback_years], ['Estimated 25-year savings', financial.lifetime_savings_25yr]].filter(([, value]) => value !== null && value !== undefined && value !== ''); if (estimates.length) { y += 7; text('Indicative performance estimates', L, y, { size: 10, bold: true }); y += 6; table([{ label: 'Parameter', width: 85 }, { label: 'Estimate', width: 95 }], estimates, 10); y += 2; paragraph('These are indicative estimates based on the recorded system details and are subject to final site conditions, irradiation, shading, electricity usage and approvals.', { size: 8.2, grey: 85, leading: 4 }); } }
+  y += 15; ensure(56); rule(y, true); y += 10; text(`FOR ${companyName.toUpperCase()}`, L, y, { size: 9, bold: true, grey: 75 }); text('PROPOSAL ACCEPTED BY CUSTOMER', 112, y, { size: 9, bold: true, grey: 75 }); y += 28; text('Authorized signatory', L, y, { size: 9.5, bold: true }); if (isAccepted) { text(q.customer_signature_name || q.customer_name || 'Customer', 112, y - 17, { size: 11, bold: true }); text(`Accepted on ${date(q.accepted_at)}`, 112, y - 10, { size: 8.8, grey: 75 }); text('Customer acceptance recorded digitally', 112, y, { size: 9.5, bold: true }); } else text('Signature, name and date', 112, y, { size: 9.5, grey: 75 });
+  footer(); const pageCount = pdf.internal.getNumberOfPages(); for (let index = 1; index <= pageCount; index += 1) { pdf.setPage(index); rule(FOOT - 4); text(companyName, L, FOOT, { size: 7.5, grey: 100 }); text(`${ref}  |  Page ${index} of ${pageCount}`, R, FOOT, { size: 7.5, grey: 100, align: 'right' }); }
   return pdf;
 }
 
 export async function downloadSolarQuotationPdf(options) {
-  const pdf=createSolarQuotationPdf(options);
-  await pdf.save(`Solar_Quotation_${String(options.quotation.quotation_number || 'Proposal').replace(/[^a-zA-Z0-9_-]/g,'_')}.pdf`,{returnPromise:true});
+  const pdf = createSolarQuotationPdf(options);
+  await pdf.save(`Solar_Quotation_${String(options.quotation.quotation_number || 'Proposal').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`, { returnPromise: true });
 }
