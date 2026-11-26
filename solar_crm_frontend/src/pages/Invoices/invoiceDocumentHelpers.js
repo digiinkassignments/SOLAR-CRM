@@ -82,3 +82,22 @@ export const resolveInvoiceLogo = (company) => {
   if (/^https?:\/\//i.test(logo)) return logo;
   return logo.startsWith("/") ? logo : logo.includes("/") ? `/${logo}` : `/uploads/company/${logo}`;
 };
+
+export const invoiceLogoAsPng = (source) => new Promise((resolve) => {
+  if (!source) { resolve(null); return; }
+  if (source.startsWith("data:")) { resolve(source); return; }
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+  image.onload = () => {
+    try {
+      const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/png"));
+    } catch { resolve(null); }
+  };
+  image.onerror = () => resolve(null);
+  image.src = source;
+});

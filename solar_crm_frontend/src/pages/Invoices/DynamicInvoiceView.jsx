@@ -7,7 +7,7 @@ import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import toast from "react-hot-toast";
 import api from "../../api/axios";
 import SolarInvoiceDocument from "./SolarInvoiceDocument";
-import { getInvoiceTotals, invoiceMoney, resolveInvoiceLogo } from "./invoiceDocumentHelpers";
+import { getInvoiceTotals, invoiceMoney, resolveInvoiceLogo, invoiceLogoAsPng } from "./invoiceDocumentHelpers";
 
 export default function DynamicInvoiceView() {
   const { token } = useParams();
@@ -39,48 +39,39 @@ export default function DynamicInvoiceView() {
     return () => controller.abort();
   }, [token]);
 
-  const downloadPdf = useCallback(async () => {
-    const element = document.getElementById("printable-tax-invoice");
-    if (!invoice || !element || pdfBusy.current) return;
+  const downloadPdf = useCallback(async (mode = "download") => {
+    if (!invoice || pdfBusy.current) return;
+    const preview = mode === "print" ? window.open("about:blank", "_blank") : null;
+    if (mode === "print" && !preview) { toast.error("Allow a new tab to open the print-ready invoice."); return; }
+    if (preview) { preview.opener = null; preview.document.title = "Preparing tax invoice"; }
     pdfBusy.current = true;
     setDownloading(true);
     toast.loading("Preparing invoice PDF…", { id: "invoice-pdf" });
     try {
-      await document.fonts?.ready;
-      await Promise.all(Array.from(element.querySelectorAll("img")).map((image) => typeof image.decode === "function" ? image.decode().catch(() => undefined) : Promise.resolve()));
-      const module = await import("html2pdf.js");
-      const html2pdf = module.default || module;
+      const [{ createSolarInvoicePdf }, logo] = await Promise.all([
+        import("./solarInvoicePdf"),
+        invoiceLogoAsPng(logoSrc),
+      ]);
       const reference = String(invoice.invoice_number || "Invoice");
-      const worker = html2pdf().set({
-        margin: [12, 10, 15, 10], filename: `Tax_Invoice_${reference.replace(/[^a-z0-9_.-]/gi, "_")}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0, scrollX: 0, windowWidth: Math.max(element.scrollWidth, 794) },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        // Capture continuous content; page-break padding can push only the footer onto page two.
-        pagebreak: { mode: [] },
-      }).from(element).toPdf();
-      const pdf = await worker.get("pdf");
-      const canvas = await worker.get("canvas");
-      const naturalHeight = canvas.height * 190 / canvas.width;
-      const height = Math.min(naturalHeight, 277);
-      const width = height * canvas.width / canvas.height;
-      while (pdf.internal.getNumberOfPages() > 0) pdf.deletePage(1);
-      pdf.addPage("a4", "portrait");
-      pdf.addImage(canvas.toDataURL("image/jpeg", 0.98), "JPEG", (210 - width) / 2, 8, width, height);
-      pdf.setFontSize(8);
-      pdf.setTextColor(90, 90, 90);
-      pdf.text(`${reference} - 1 / 1`, 200, 291, { align: "right" });
-      if (pdf.internal.getNumberOfPages() !== 1) throw new Error("Invoice must have exactly one page.");
-      pdf.save(`Tax_Invoice_${reference.replace(/[^a-z0-9_.-]/gi, "_")}.pdf`);
-      toast.success("Invoice PDF downloaded.", { id: "invoice-pdf" });
+      const pdf = createSolarInvoicePdf({ invoice, logoSrc: logo });
+      if (preview) {
+        const url = URL.createObjectURL(pdf.output("blob"));
+        preview.location.replace(url);
+        const closed = setInterval(() => { if (preview.closed) { URL.revokeObjectURL(url); clearInterval(closed); } }, 1000);
+        toast.success("Print-ready invoice opened.", { id: "invoice-pdf" });
+      } else {
+        await pdf.save(`Tax_Invoice_${reference.replace(/[^a-z0-9_.-]/gi, "_")}.pdf`, { returnPromise: true });
+        toast.success("Invoice PDF downloaded.", { id: "invoice-pdf" });
+      }
     } catch (error) {
+      if (preview) preview.close();
       console.error("Invoice PDF export failed:", error);
-      toast.error("PDF could not be generated. Use Print to save a copy.", { id: "invoice-pdf" });
+      toast.error("PDF could not be generated. Please retry.", { id: "invoice-pdf" });
     } finally {
       pdfBusy.current = false;
       setDownloading(false);
     }
-  }, [invoice]);
+  }, [invoice, logoSrc]);
 
   useEffect(() => {
     if (!invoice || !wantsDownload || autoDownloadedToken.current === token) return;
@@ -122,7 +113,7 @@ export default function DynamicInvoiceView() {
         <Stack direction="row" useFlexGap flexWrap="wrap" spacing={1} sx={{ "& .MuiButton-root": { minHeight: 37, borderRadius: "7px", fontSize: "0.74rem", fontWeight: 700, textTransform: "none" } }}>
           <Button variant="outlined" startIcon={<WhatsAppIcon fontSize="small" />} disabled={!invoice.customer_phone} onClick={shareWhatsApp} sx={{ color: "#333333", borderColor: "#CCCCCC" }}>Share</Button>
           <Button variant="outlined" onClick={sendEmail} sx={{ color: "#333333", borderColor: "#CCCCCC" }}>Send email</Button>
-          <Button variant="outlined" startIcon={<PrintIcon fontSize="small" />} onClick={() => window.print()} sx={{ color: "#333333", borderColor: "#CCCCCC" }}>Print</Button>
+          <Button variant="outlined" startIcon={<PrintIcon fontSize="small" />} onClick={() => downloadPdf("print")} sx={{ color: "#333333", borderColor: "#CCCCCC" }}>Print</Button>
           <Button variant="contained" startIcon={<DownloadIcon fontSize="small" />} disabled={downloading} onClick={downloadPdf} sx={{ color: "#FFFFFF", bgcolor: "#111111", boxShadow: "none", "&:hover": { bgcolor: "#333333", boxShadow: "none" } }}>{downloading ? "Preparing PDF…" : "Download PDF"}</Button>
         </Stack>
       </Box>
