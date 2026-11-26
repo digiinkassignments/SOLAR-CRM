@@ -93,19 +93,28 @@ const C = {
 
 const PERIOD_OPTIONS = [
   { value: "all", label: "All Time" },
+  { value: "today", label: "Today" },
+  { value: "7d", label: "Last 7 Days" },
+  { value: "30d", label: "Last 30 Days" },
   { value: "this_month", label: "This Month" },
+  { value: "last_month", label: "Last Month" },
   { value: "this_quarter", label: "This Quarter" },
   { value: "this_year", label: "This Year" },
+  { value: "financial_year", label: "Financial Year" },
 ];
 
 const getPeriodRange = (p) => {
   const n = new Date();
+  if (p === "today") return { start: new Date(n.getFullYear(), n.getMonth(), n.getDate()), end: n };
+  if (p === "7d" || p === "30d") return { start: new Date(n.getFullYear(), n.getMonth(), n.getDate() - (p === "7d" ? 6 : 29)), end: n };
   if (p === "this_month") return { start: new Date(n.getFullYear(), n.getMonth(), 1), end: n };
+  if (p === "last_month") return { start: new Date(n.getFullYear(), n.getMonth() - 1, 1), end: new Date(n.getFullYear(), n.getMonth(), 0, 23, 59, 59) };
   if (p === "this_quarter") {
     const q = Math.floor(n.getMonth() / 3);
     return { start: new Date(n.getFullYear(), q * 3, 1), end: n };
   }
   if (p === "this_year") return { start: new Date(n.getFullYear(), 0, 1), end: n };
+  if (p === "financial_year") return { start: new Date(n.getMonth() >= 3 ? n.getFullYear() : n.getFullYear() - 1, 3, 1), end: n };
   return null;
 };
 
@@ -314,7 +323,7 @@ const Reports = () => {
   const requestSequence = useRef(0);
 
   // Global Date Filter applied across all tabs
-  const [period, setPeriod] = useState("all");
+  const [period, setPeriod] = useState(() => new URLSearchParams(window.location.search).get('period') || "all");
   const [loading, setLoading] = useState(true);
   const [overviewData, setOverviewData] = useState(null);
   const [analyticsData, setAnalyticsData] = useState(null);
@@ -413,6 +422,12 @@ const Reports = () => {
     const requests = requestSequence;
     const timer = setTimeout(fetchAllData, 0);
     return () => { clearTimeout(timer); requests.current++; };
+  }, [period]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (period === 'all') params.delete('period'); else params.set('period', period);
+    window.history.replaceState({}, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`);
   }, [period]);
 
   // ─────────────────────────────────────────────────────────────
@@ -689,7 +704,12 @@ const Reports = () => {
   // ─────────────────────────────────────────────────────────────
   const exportCsv = (headers, rows, filename) => {
     const clean = rows.map(row => row.map(value => typeof value === "string" && value.startsWith('"') && value.endsWith('"') ? value.slice(1,-1) : value));
-    downloadCsv(headers, clean, `${filename}_${new Date().toISOString().slice(0,10)}.csv`);
+    downloadCsv(headers, clean, `${filename}_${new Date().toISOString().slice(0,10)}.csv`, { meta: [
+      ['Report', filename.replaceAll('_', ' ')],
+      ['Filter period', PERIOD_OPTIONS.find((option) => option.value === period)?.label || 'All Time'],
+      ['Generated at', new Date().toLocaleString('en-IN')],
+      ['Total rows', clean.length],
+    ] });
   };
 
   const handleExportCSV = () => {
@@ -874,13 +894,14 @@ const Reports = () => {
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2,minmax(0,1fr))', md: 'repeat(4,minmax(0,1fr))' }, gap: 1.5, mb: 2.5 }}>
         {[
-          ['Leads created', overviewData?.kpis?.leads, '#2563EB'],
-          ['Won revenue', overviewData?.kpis?.revenueWon, '#047857'],
-          ['Active projects', overviewData?.kpis?.activeProjects, '#7C3AED'],
-          ['Outstanding', overviewData?.kpis?.outstanding, '#C2410C'],
-        ].map(([label, value, color]) => <Paper key={label} variant="outlined" sx={{ p: 1.8, borderRadius: 2.5, borderColor: C.border, boxShadow: 'none' }}>
+          ['Leads created', overviewData?.kpis?.leads, '#2563EB', overviewData?.previous?.leads],
+          ['Won revenue', overviewData?.kpis?.revenueWon, '#047857', overviewData?.previous?.revenueWon],
+          ['Active projects', overviewData?.kpis?.activeProjects, '#7C3AED', overviewData?.previous?.activeProjects],
+          ['Outstanding', overviewData?.kpis?.outstanding, '#C2410C', null],
+        ].map(([label, value, color, previous]) => <Paper key={label} variant="outlined" sx={{ p: 1.8, borderRadius: 2.5, borderColor: C.border, boxShadow: 'none' }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>{label}</Typography>
           <Typography sx={{ mt: .5, fontSize: '1.35rem', fontWeight: 800, color, fontVariantNumeric: 'tabular-nums' }}>{typeof value === 'number' && label !== 'Leads created' && label !== 'Active projects' ? `₹${value.toLocaleString('en-IN')}` : (value ?? '—')}</Typography>
+          {typeof previous === 'number' && <Typography variant="caption" sx={{ color: Number(value) >= previous ? C.success : C.danger, fontWeight: 700 }}>{previous ? `${Number(value) >= previous ? '↑' : '↓'} ${Math.abs(Number((((Number(value) - previous) / previous) * 100).toFixed(1)))}%` : Number(value) ? 'New this period' : 'No change'} vs previous</Typography>}
         </Paper>)}
       </Box>
       {overviewData?.dataHealth && Object.values(overviewData.dataHealth).some(Number) && <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 2.5 }}>
@@ -1274,6 +1295,16 @@ const Reports = () => {
                 <StatCard label="Refunds Paid" value={formatINR(financialStats.refundsPaid)} caption="Outgoing customer refunds" icon={<ReplayOutlinedIcon sx={{ fontSize: 18 }} />} color={C.info} softColor={C.infoSoft} />
                 <StatCard label="Refund Due" value={formatINR(financialStats.refundDue)} caption="Overpayment pending return" icon={<WarningAmberOutlinedIcon sx={{ fontSize: 18 }} />} color={C.danger} softColor={C.dangerSoft} />
               </Box>
+
+              <Paper elevation={0} sx={{ p: 2, mb: 2.5, borderRadius: "14px", border: `1px solid ${C.border}`, backgroundColor: C.card }}>
+                <Typography sx={{ fontWeight: 800, fontSize: "0.85rem", color: C.textPrimary, mb: 1.5 }}>Receivables ageing</Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2,minmax(0,1fr))', md: 'repeat(5,minmax(0,1fr))' }, gap: 1 }}>
+                  {Object.entries(financialsData.ageing || {}).map(([bucket, amount]) => <Box key={bucket} sx={{ p: 1.2, borderRadius: 2, bgcolor: '#F8FAFC', border: `1px solid ${C.borderLight}` }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>{bucket}</Typography>
+                    <Typography sx={{ mt: .35, fontWeight: 800, color: Number(amount) > 0 ? C.danger : C.textMuted }}>{formatINR(amount)}</Typography>
+                  </Box>)}
+                </Box>
+              </Paper>
 
               {/* Charts Row */}
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 340px" }, gap: 2.5, mb: 2.5 }}>

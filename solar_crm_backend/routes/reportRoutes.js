@@ -4,6 +4,19 @@ const router = express.Router();
 const { verifyToken } = require("../middleware/authMiddleware");
 const { db: defaultDb } = require("../config/db");
 
+router.use(verifyToken, async (req, res, next) => {
+  if ([1, 2].includes(Number(req.user?.role_id))) return next();
+  let permissions = req.user?.permissions;
+  if (!Array.isArray(permissions)) {
+    try {
+      const [rows] = await (req.db || defaultDb).query('SELECT r.permissions FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? LIMIT 1', [req.user.id]);
+      permissions = typeof rows[0]?.permissions === 'string' ? JSON.parse(rows[0].permissions) : rows[0]?.permissions;
+    } catch (_) { permissions = []; }
+  }
+  if (Array.isArray(permissions) && permissions.includes('reports:view')) return next();
+  return res.status(403).json({ success:false, message:'You do not have permission to view reports.' });
+});
+
 const { engineerReport } = require("../controllers/engineerReportController");
 router.get("/engineers", verifyToken, engineerReport);
 
@@ -49,11 +62,11 @@ router.get('/drilldown', verifyToken, async (req, res) => {
   try {
     let rows;
     if (type === 'projects') {
-      [rows] = await db.query(`SELECT id,project_number,customer_name,stage,system_capacity_kw,updated_at FROM projects WHERE is_deleted=0 AND COALESCE(is_test,0)=0 AND (customer_name LIKE ? OR project_number LIKE ?) ORDER BY updated_at DESC LIMIT ?`, [search, search, limit]);
+      [rows] = await db.query(`SELECT p.id,p.project_number,p.customer_name,p.stage,p.system_capacity_kw,p.updated_at FROM projects p WHERE p.is_deleted=0 AND COALESCE(p.is_test,0)=0${managerScope.linked(db,'p.lead_id')} AND (p.customer_name LIKE ? OR p.project_number LIKE ?) ORDER BY p.updated_at DESC LIMIT ?`, [search, search, limit]);
     } else if (type === 'invoices') {
-      [rows] = await db.query(`SELECT id,invoice_number,customer_name,gross_total AS total_amount,amount_paid AS paid_amount,balance_due,due_date,payment_status AS status FROM invoices WHERE is_deleted=0 AND COALESCE(is_test,0)=0 AND (customer_name LIKE ? OR invoice_number LIKE ?) ORDER BY due_date ASC LIMIT ?`, [search, search, limit]);
+      [rows] = await db.query(`SELECT i.id,i.invoice_number,i.customer_name,i.gross_total AS total_amount,i.amount_paid AS paid_amount,i.balance_due,i.due_date,i.payment_status AS status FROM invoices i WHERE i.is_deleted=0 AND COALESCE(i.is_test,0)=0${managerScope.linked(db,'i.lead_id')} AND (i.customer_name LIKE ? OR i.invoice_number LIKE ?) ORDER BY i.due_date ASC LIMIT ?`, [search, search, limit]);
     } else {
-      [rows] = await db.query(`SELECT id,lead_code,customer_name,mobile_number,status,lead_source,required_kw,created_at FROM leads WHERE is_deleted=0 AND COALESCE(is_test,0)=0 AND (customer_name LIKE ? OR mobile_number LIKE ? OR lead_code LIKE ?) ORDER BY created_at DESC LIMIT ?`, [search, search, search, limit]);
+      [rows] = await db.query(`SELECT l.id,l.lead_code,l.customer_name,l.mobile_number,l.status,l.lead_source,l.required_kw,l.created_at FROM leads l WHERE l.is_deleted=0 AND COALESCE(l.is_test,0)=0${managerScope.lead(db,'l')} AND (l.customer_name LIKE ? OR l.mobile_number LIKE ? OR l.lead_code LIKE ?) ORDER BY l.created_at DESC LIMIT ?`, [search, search, search, limit]);
     }
     res.json({ success: true, data: { type, count: rows.length, rows } });
   } catch (error) {
@@ -77,7 +90,9 @@ router.get('/pack', verifyToken, async (req, res) => {
         : table === 'projects'
           ? 'id,project_number,customer_name,stage,system_capacity_kw,assigned_to,created_at,updated_at'
           : 'id,invoice_number,customer_name,gross_total,amount_paid,balance_due,payment_status,due_date,created_at';
-      const [rows] = await db.query(`SELECT ${fields} FROM ${table} WHERE is_deleted=0 AND COALESCE(is_test,0)=0 ORDER BY created_at DESC LIMIT 500`);
+      const alias = table === 'leads' ? 'l' : table === 'projects' ? 'p' : 'i';
+      const scope = table === 'leads' ? managerScope.lead(db, alias) : managerScope.linked(db, `${alias}.lead_id`);
+      const [rows] = await db.query(`SELECT ${fields.split(',').map(field => field.includes(' AS ') ? field : `${alias}.${field}`).join(',')} FROM ${table} ${alias} WHERE ${alias}.is_deleted=0 AND COALESCE(${alias}.is_test,0)=0${scope} ORDER BY ${alias}.created_at DESC LIMIT 500`);
       results[key] = rows;
     }
     res.json({ success: true, data: { pack: type, generated_at: new Date().toISOString(), sections: results } });
@@ -245,6 +260,17 @@ router.get("/financials", verifyToken, async (req, res) => {
         }
       }
     });
+    const ageing = { '0-15 days': 0, '16-30 days': 0, '31-60 days': 0, '60+ days': 0, 'No due date': 0 };
+    invoices.forEach((inv) => {
+      const balance = Math.max(0, Number(inv.balance_amount) || 0);
+      if (!balance) return;
+      if (!inv.due_date) { ageing['No due date'] += balance; return; }
+      const days = Math.max(0, Math.floor((now - new Date(inv.due_date)) / 86400000));
+      if (days <= 15) ageing['0-15 days'] += balance;
+      else if (days <= 30) ageing['16-30 days'] += balance;
+      else if (days <= 60) ageing['31-60 days'] += balance;
+      else ageing['60+ days'] += balance;
+    });
 
     return res.json({
       success: true,
@@ -260,6 +286,7 @@ router.get("/financials", verifyToken, async (req, res) => {
         })),
         invoices,
         ledgerSummary,
+        ageing,
       },
     });
   } catch (error) {

@@ -1,4 +1,5 @@
 const { PROJECT_STAGES } = require('./subsidyRules');
+const managerScope = require('../utils/managerScope');
 
 const safe = async (db, sql, args = [], fallback = []) => {
   try { const [rows] = await db.query(sql, args); return rows; } catch (error) {
@@ -15,7 +16,7 @@ async function build(db, params = {}) {
   const projects = await safe(db, `SELECT p.id,p.project_number,p.customer_name,p.stage,p.system_capacity_kw,
     p.created_at,p.updated_at,p.installation_start_date,p.completion_date,
     u.full_name AS owner_name FROM projects p LEFT JOIN users u ON u.id=p.assigned_to
-    WHERE p.is_deleted=0 AND COALESCE(p.is_test,0)=0 ORDER BY p.updated_at ASC`, []);
+    WHERE p.is_deleted=0 AND COALESCE(p.is_test,0)=0${managerScope.linked(db,'p.lead_id')} ORDER BY p.updated_at ASC`, []);
   const stageTargets = Object.fromEntries(PROJECT_STAGES.map((stage, index) => [stage, index === 0 ? 3 : index < 4 ? 7 : 14]));
   const stageAgeing = projects.map((p) => {
     const entered = new Date(p.updated_at || p.created_at);
@@ -25,7 +26,7 @@ async function build(db, params = {}) {
   });
   const leads = await safe(db, `SELECT l.id,l.status,l.lead_source,l.required_kw,l.quotation_amount,l.created_at,
     l.assigned_to,u.full_name AS salesperson FROM leads l LEFT JOIN users u ON u.id=l.assigned_to
-    WHERE l.is_deleted=0 AND COALESCE(l.is_test,0)=0${leadRangeSql}`, leadRangeArgs);
+    WHERE l.is_deleted=0 AND COALESCE(l.is_test,0)=0${managerScope.lead(db,'l')}${leadRangeSql}`, leadRangeArgs);
   const sourceMap = {};
   for (const l of leads) { const key = l.lead_source || 'Other'; const row = sourceMap[key] ||= { source:key, leads:0, won:0, lost:0, revenue:0 }; row.leads++; if (l.status === 'Won') { row.won++; row.revenue += Number(l.quotation_amount)||0; } if (['Lost','Invalid'].includes(l.status)) row.lost++; }
   const funnel = {}; for (const stage of ['New Lead','Contacted','Qualified','Site Survey Scheduled','Site Survey Done','Quotation Sent','Negotiation','Won','Lost']) funnel[stage] = leads.filter(l => l.status === stage).length;
@@ -36,7 +37,7 @@ async function build(db, params = {}) {
   const byEngineer = Object.fromEntries(logs.map(l => [l.created_by, l]));
   const engineerScorecard = engineers.map(e => ({ ...e, logs_count:Number(byEngineer[e.id]?.logs_count||0), hours_logged:Number(byEngineer[e.id]?.hours_logged||0), last_log_date:byEngineer[e.id]?.last_log_date||null, idle:Number(e.active_projects)>0 && !byEngineer[e.id] }));
   const subsidy = await safe(db, `SELECT portal_status,COUNT(*) count,COALESCE(SUM(expected_subsidy),0) pending_amount FROM subsidy_applications s JOIN projects p ON p.id=s.project_id AND p.is_deleted=0 WHERE COALESCE(p.subsidy_applicable,1)=1 GROUP BY portal_status`, []);
-  const invoices = await safe(db, `SELECT id,invoice_number,customer_name,gross_total AS total_amount,amount_paid AS paid_amount,due_date FROM invoices WHERE is_deleted=0 AND COALESCE(is_test,0)=0`, []);
+  const invoices = await safe(db, `SELECT i.id,i.invoice_number,i.customer_name,i.gross_total AS total_amount,i.amount_paid AS paid_amount,i.due_date FROM invoices i WHERE i.is_deleted=0 AND COALESCE(i.is_test,0)=0${managerScope.linked(db,'i.lead_id')}`, []);
   const overdueInvoices = invoices.filter(i => Number(i.total_amount || 0) > Number(i.paid_amount || 0) && i.due_date && new Date(i.due_date).getTime() < now.getTime());
   const delayed = stageAgeing.filter(p => p.delayed).sort((a,b)=>b.age_days-a.age_days).slice(0,10);
   const insights = [];
