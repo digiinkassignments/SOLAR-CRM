@@ -25,17 +25,16 @@ function dateRange(period, from, to) {
 async function overview(db, params = {}) {
   await ensure(db);
   const range = dateRange(params.period, params.from, params.to);
-  const args = [];
   const date = (field) => range ? `${field} >= ? AND ${field} < DATE_ADD(?, INTERVAL 1 DAY)` : '1=1';
-  if (range) args.push(range.from, range.to);
+  const args = range ? [range.from, range.to] : [];
   const [leadRows] = await db.query(`SELECT COUNT(*) total,
     SUM(status='Won') won, SUM(status='Lost') lost, COALESCE(SUM(CASE WHEN status='Won' THEN quotation_amount ELSE 0 END),0) revenue
     FROM leads WHERE is_deleted=0 AND COALESCE(is_test,0)=0 AND ${date('created_at')}`, args);
   const [projectRows] = await db.query(`SELECT COUNT(*) total, COALESCE(SUM(system_capacity_kw),0) capacity,
-    SUM(stage='Handover Done') handed_over FROM projects WHERE is_deleted=0 AND COALESCE(is_test,0)=0`);
+    SUM(stage='Handover Done') handed_over FROM projects WHERE is_deleted=0 AND COALESCE(is_test,0)=0 AND ${date('created_at')}`, args);
   const [invoiceRows] = await db.query(`SELECT COALESCE(SUM(gross_total),0) invoiced,
     COALESCE(SUM(amount_paid),0) collected, COALESCE(SUM(GREATEST(COALESCE(balance_due,0),0)),0) outstanding
-    FROM invoices WHERE COALESCE(is_test,0)=0`);
+    FROM invoices WHERE COALESCE(is_test,0)=0 AND ${date('created_at')}`, args);
   const [[health]] = await db.query(`SELECT
     (SELECT COUNT(*) FROM projects WHERE is_deleted=0 AND COALESCE(is_test,0)=0 AND installation_start_date > CURRENT_DATE()) future_project_dates,
     (SELECT COUNT(*) FROM invoices WHERE COALESCE(is_test,0)=0 AND (due_date IS NULL OR due_date='0000-00-00')) invoices_without_due_date,

@@ -9,6 +9,9 @@ const safe = async (db, sql, args = [], fallback = []) => {
 
 async function build(db, params = {}) {
   const now = new Date();
+  const range = require('./reportingService').dateRange(params.period, params.from, params.to);
+  const leadRangeSql = range ? " AND l.created_at >= ? AND l.created_at < DATE_ADD(?, INTERVAL 1 DAY)" : '';
+  const leadRangeArgs = range ? [range.from, range.to] : [];
   const projects = await safe(db, `SELECT p.id,p.project_number,p.customer_name,p.stage,p.system_capacity_kw,
     p.created_at,p.updated_at,p.installation_start_date,p.completion_date,
     u.full_name AS owner_name FROM projects p LEFT JOIN users u ON u.id=p.assigned_to
@@ -22,7 +25,7 @@ async function build(db, params = {}) {
   });
   const leads = await safe(db, `SELECT l.id,l.status,l.lead_source,l.required_kw,l.quotation_amount,l.created_at,
     l.assigned_to,u.full_name AS salesperson FROM leads l LEFT JOIN users u ON u.id=l.assigned_to
-    WHERE l.is_deleted=0 AND COALESCE(l.is_test,0)=0`, []);
+    WHERE l.is_deleted=0 AND COALESCE(l.is_test,0)=0${leadRangeSql}`, leadRangeArgs);
   const sourceMap = {};
   for (const l of leads) { const key = l.lead_source || 'Other'; const row = sourceMap[key] ||= { source:key, leads:0, won:0, lost:0, revenue:0 }; row.leads++; if (l.status === 'Won') { row.won++; row.revenue += Number(l.quotation_amount)||0; } if (['Lost','Invalid'].includes(l.status)) row.lost++; }
   const funnel = {}; for (const stage of ['New Lead','Contacted','Qualified','Site Survey Scheduled','Site Survey Done','Quotation Sent','Negotiation','Won','Lost']) funnel[stage] = leads.filter(l => l.status === stage).length;
@@ -33,7 +36,7 @@ async function build(db, params = {}) {
   const byEngineer = Object.fromEntries(logs.map(l => [l.created_by, l]));
   const engineerScorecard = engineers.map(e => ({ ...e, logs_count:Number(byEngineer[e.id]?.logs_count||0), hours_logged:Number(byEngineer[e.id]?.hours_logged||0), last_log_date:byEngineer[e.id]?.last_log_date||null, idle:Number(e.active_projects)>0 && !byEngineer[e.id] }));
   const subsidy = await safe(db, `SELECT portal_status,COUNT(*) count,COALESCE(SUM(expected_subsidy),0) pending_amount FROM subsidy_applications s JOIN projects p ON p.id=s.project_id AND p.is_deleted=0 WHERE COALESCE(p.subsidy_applicable,1)=1 GROUP BY portal_status`, []);
-  const invoices = await safe(db, `SELECT id,invoice_number,customer_name,total_amount,paid_amount,due_date FROM invoices WHERE is_deleted=0 AND COALESCE(is_test,0)=0`, []);
+  const invoices = await safe(db, `SELECT id,invoice_number,customer_name,gross_total AS total_amount,amount_paid AS paid_amount,due_date FROM invoices WHERE is_deleted=0 AND COALESCE(is_test,0)=0`, []);
   const overdueInvoices = invoices.filter(i => Number(i.total_amount || 0) > Number(i.paid_amount || 0) && i.due_date && new Date(i.due_date).getTime() < now.getTime());
   const delayed = stageAgeing.filter(p => p.delayed).sort((a,b)=>b.age_days-a.age_days).slice(0,10);
   const insights = [];
@@ -44,7 +47,7 @@ async function build(db, params = {}) {
   overdueInvoices.slice(0,5).forEach(i => alerts.push({ type:'collection_risk', severity:'high', title:`Overdue invoice: ${i.invoice_number || i.id}`, detail:`Outstanding ₹${Math.max(0,Number(i.total_amount||0)-Number(i.paid_amount||0)).toLocaleString('en-IN')}`, action:'Assign a collection follow-up and record the next commitment date.' }));
   if (subsidy.some(s => !['Subsidy Credited','Completed','Closed'].includes(s.portal_status))) alerts.push({ type:'subsidy_risk', severity:'medium', title:'Subsidy applications need follow-up', detail:'Open applications remain in an unfinished portal stage.', action:'Review missing documents and update the portal milestone.' });
   engineerScorecard.filter(e=>e.idle).slice(0,5).forEach(e=>alerts.push({ type:'capacity_risk', severity:'medium', title:`No recent work log: ${e.full_name}`, detail:`${e.active_projects} active project${e.active_projects===1?'':'s'}`, action:'Confirm assignment and ask for the next field update.' }));
-  return { generated_at: now.toISOString(), funnel, source_performance:Object.values(sourceMap).sort((a,b)=>b.leads-a.leads), stage_ageing:stageAgeing, delayed_projects:delayed, engineer_scorecard:engineerScorecard, subsidy_by_stage:subsidy, insights:insights.slice(0,5), predictive:{ alerts:alerts.slice(0,12), overdue_invoices:overdueInvoices.length } };
+  return { generated_at: now.toISOString(), range, funnel, source_performance:Object.values(sourceMap).sort((a,b)=>b.leads-a.leads), stage_ageing:stageAgeing, delayed_projects:delayed, engineer_scorecard:engineerScorecard, subsidy_by_stage:subsidy, insights:insights.slice(0,5), predictive:{ alerts:alerts.slice(0,12), overdue_invoices:overdueInvoices.length } };
 }
 
 module.exports = { build };

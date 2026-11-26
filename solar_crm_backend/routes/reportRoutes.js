@@ -51,9 +51,9 @@ router.get('/drilldown', verifyToken, async (req, res) => {
     if (type === 'projects') {
       [rows] = await db.query(`SELECT id,project_number,customer_name,stage,system_capacity_kw,updated_at FROM projects WHERE is_deleted=0 AND COALESCE(is_test,0)=0 AND (customer_name LIKE ? OR project_number LIKE ?) ORDER BY updated_at DESC LIMIT ?`, [search, search, limit]);
     } else if (type === 'invoices') {
-      [rows] = await db.query(`SELECT id,invoice_number,customer_name,total_amount,paid_amount,due_date,status FROM invoices WHERE is_deleted=0 AND COALESCE(is_test,0)=0 AND (customer_name LIKE ? OR invoice_number LIKE ?) ORDER BY due_date ASC LIMIT ?`, [search, search, limit]);
+      [rows] = await db.query(`SELECT id,invoice_number,customer_name,gross_total AS total_amount,amount_paid AS paid_amount,balance_due,due_date,payment_status AS status FROM invoices WHERE is_deleted=0 AND COALESCE(is_test,0)=0 AND (customer_name LIKE ? OR invoice_number LIKE ?) ORDER BY due_date ASC LIMIT ?`, [search, search, limit]);
     } else {
-      [rows] = await db.query(`SELECT id,lead_code,name,phone,status,lead_source,required_kw,created_at FROM leads WHERE is_deleted=0 AND COALESCE(is_test,0)=0 AND (name LIKE ? OR phone LIKE ? OR lead_code LIKE ?) ORDER BY created_at DESC LIMIT ?`, [search, search, search, limit]);
+      [rows] = await db.query(`SELECT id,lead_code,customer_name,mobile_number,status,lead_source,required_kw,created_at FROM leads WHERE is_deleted=0 AND COALESCE(is_test,0)=0 AND (customer_name LIKE ? OR mobile_number LIKE ? OR lead_code LIKE ?) ORDER BY created_at DESC LIMIT ?`, [search, search, search, limit]);
     }
     res.json({ success: true, data: { type, count: rows.length, rows } });
   } catch (error) {
@@ -72,7 +72,12 @@ router.get('/pack', verifyToken, async (req, res) => {
     for (const resource of available) {
       const key = resource.toLowerCase();
       const table = resource === 'Leads' ? 'leads' : resource === 'Projects' ? 'projects' : 'invoices';
-      const [rows] = await db.query(`SELECT * FROM ${table} WHERE is_deleted=0 AND COALESCE(is_test,0)=0 ORDER BY created_at DESC LIMIT 500`);
+      const fields = table === 'leads'
+        ? 'id,lead_code,customer_name,mobile_number,status,lead_source,required_kw,quotation_amount,created_at'
+        : table === 'projects'
+          ? 'id,project_number,customer_name,stage,system_capacity_kw,assigned_to,created_at,updated_at'
+          : 'id,invoice_number,customer_name,gross_total,amount_paid,balance_due,payment_status,due_date,created_at';
+      const [rows] = await db.query(`SELECT ${fields} FROM ${table} WHERE is_deleted=0 AND COALESCE(is_test,0)=0 ORDER BY created_at DESC LIMIT 500`);
       results[key] = rows;
     }
     res.json({ success: true, data: { pack: type, generated_at: new Date().toISOString(), sections: results } });

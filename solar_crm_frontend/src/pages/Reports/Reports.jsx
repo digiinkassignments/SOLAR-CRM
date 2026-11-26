@@ -413,7 +413,7 @@ const Reports = () => {
     const requests = requestSequence;
     const timer = setTimeout(fetchAllData, 0);
     return () => { clearTimeout(timer); requests.current++; };
-  }, []);
+  }, [period]);
 
   // ─────────────────────────────────────────────────────────────
   // TAB 1: SALES & LEADS MEMOIZED ANALYTICS
